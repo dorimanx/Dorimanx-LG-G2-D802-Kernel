@@ -1674,6 +1674,11 @@ asmlinkage int printk(const char *fmt, ...)
 {
 	va_list args;
 	int r;
+#ifdef CONFIG_MSM_RTB
+	void *caller = __builtin_return_address(0);
+
+	uncached_logk_pc(LOGK_LOGBUF, caller, (void *)log_next_idx);
+#endif
 
 #ifdef CONFIG_KGDB_KDB
 	if (unlikely(kdb_trap_printk)) {
