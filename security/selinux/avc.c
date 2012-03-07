@@ -78,14 +78,8 @@ struct avc_cache {
 };
 
 struct avc_callback_node {
-	int (*callback) (u32 event, u32 ssid, u32 tsid,
-			 u16 tclass, u32 perms,
-			 u32 *out_retained);
+	int (*callback) (u32 event);
 	u32 events;
-	u32 ssid;
-	u32 tsid;
-	u16 tclass;
-	u32 perms;
 	struct avc_callback_node *next;
 };
 
@@ -802,22 +796,12 @@ static inline int avc_operation_audit(u32 ssid, u32 tsid, u16 tclass,
  * avc_add_callback - Register a callback for security events.
  * @callback: callback function
  * @events: security events
- * @ssid: source security identifier or %SECSID_WILD
- * @tsid: target security identifier or %SECSID_WILD
- * @tclass: target security class
- * @perms: permissions
  *
- * Register a callback function for events in the set @events
- * related to the SID pair (@ssid, @tsid) 
- * and the permissions @perms, interpreting
- * @perms based on @tclass.  Returns %0 on success or
- * -%ENOMEM if insufficient memory exists to add the callback.
+ * Register a callback function for events in the set @events.
+ * Returns %0 on success or -%ENOMEM if insufficient memory
+ * exists to add the callback.
  */
-int __init avc_add_callback(int (*callback)(u32 event, u32 ssid, u32 tsid,
-				     u16 tclass, u32 perms,
-				     u32 *out_retained),
-		     u32 events, u32 ssid, u32 tsid,
-		     u16 tclass, u32 perms)
+int __init avc_add_callback(int (*callback)(u32 event), u32 events)
 {
 	struct avc_callback_node *c;
 	int rc = 0;
@@ -830,9 +814,6 @@ int __init avc_add_callback(int (*callback)(u32 event, u32 ssid, u32 tsid,
 
 	c->callback = callback;
 	c->events = events;
-	c->ssid = ssid;
-	c->tsid = tsid;
-	c->perms = perms;
 	c->next = avc_callbacks;
 	avc_callbacks = c;
 out:
@@ -988,8 +969,7 @@ int avc_ss_reset(u32 seqno)
 
 	for (c = avc_callbacks; c; c = c->next) {
 		if (c->events & AVC_CALLBACK_RESET) {
-			tmprc = c->callback(AVC_CALLBACK_RESET,
-					    0, 0, 0, 0, NULL);
+			tmprc = c->callback(AVC_CALLBACK_RESET);
 			/* save the first error encountered for the return
 			   value and continue processing the callbacks */
 			if (!rc)
