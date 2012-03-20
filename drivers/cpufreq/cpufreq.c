@@ -1911,10 +1911,14 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 #ifdef CONFIG_UNI_CPU_POLICY_LIMIT
 	struct cpufreq_policy *cpu0_policy = NULL;
 #endif
+	unsigned int qmin, qmax;
 	unsigned int pmin = policy->min;
 	unsigned int pmax = policy->max;
-	unsigned int qmin = pm_qos_request(PM_QOS_CPU_FREQ_MIN);
-	unsigned int qmax = pm_qos_request(PM_QOS_CPU_FREQ_MAX);
+
+	qmin = min((unsigned int)pm_qos_request(PM_QOS_CPU_FREQ_MIN),
+		   data->max);
+	qmax = max((unsigned int)pm_qos_request(PM_QOS_CPU_FREQ_MAX),
+		   data->min);
 
 	pr_debug("setting new policy for CPU %u: %u - %u (%u - %u) kHz\n",
 		policy->cpu, pmin, pmax, qmin, qmax);
