@@ -303,6 +303,37 @@ extern int of_attach_node(struct device_node *);
 extern int of_detach_node(struct device_node *);
 
 #define of_match_ptr(_ptr)	(_ptr)
+
+/*
+ * struct property *prop;
+ * const __be32 *p;
+ * u32 u;
+ *
+ * of_property_for_each_u32(np, "propname", prop, p, u)
+ *         printk("U32 value: %x\n", u);
+ */
+const __be32 *of_prop_next_u32(struct property *prop, const __be32 *cur,
+			       u32 *pu);
+#define of_property_for_each_u32(np, propname, prop, p, u)	\
+	for (prop = of_find_property(np, propname, NULL),	\
+		p = of_prop_next_u32(prop, NULL, &u);		\
+		p;						\
+		p = of_prop_next_u32(prop, p, &u))
+
+/*
+ * struct property *prop;
+ * const char *s;
+ *
+ * of_property_for_each_string(np, "propname", prop, s)
+ *         printk("String value: %s\n", s);
+ */
+const char *of_prop_next_string(struct property *prop, const char *cur);
+#define of_property_for_each_string(np, propname, prop, s)	\
+	for (prop = of_find_property(np, propname, NULL),	\
+		s = of_prop_next_string(prop, NULL);		\
+		s;						\
+		s = of_prop_next_string(prop, s))
+
 #else /* CONFIG_OF */
 
 static inline const char* of_node_full_name(struct device_node *np)
@@ -432,6 +463,10 @@ static inline int of_machine_is_compatible(const char *compat)
 
 #define of_match_ptr(_ptr)	NULL
 #define of_match_node(_matches, _node)	NULL
+#define of_property_for_each_u32(np, propname, prop, p, u) \
+	while (0)
+#define of_property_for_each_string(np, propname, prop, s) \
+	while (0)
 #endif /* CONFIG_OF */
 
 #ifndef of_node_to_nid
