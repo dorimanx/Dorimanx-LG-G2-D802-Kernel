@@ -21,23 +21,13 @@
 #include <asm/mach/map.h>
 #include <plat/padmux.h>
 
-/* spear3xx declarations */
-/*
- * Each GPT has 2 timer channels
- * Following GPT channels will be used as clock source and clockevent
- */
-#define SPEAR_GPT0_BASE		SPEAR3XX_ML1_TMR_BASE
-#define SPEAR_GPT0_CHAN0_IRQ	SPEAR3XX_IRQ_CPU_GPT1_1
-#define SPEAR_GPT0_CHAN1_IRQ	SPEAR3XX_IRQ_CPU_GPT1_2
-
 /* Add spear3xx family device structure declarations here */
 extern struct amba_device spear3xx_gpio_device;
 extern struct amba_device spear3xx_uart_device;
 extern struct sys_timer spear3xx_timer;
 
 /* Add spear3xx family function declarations here */
-void __init spear3xx_clk_init(void);
-void __init spear_setup_timer(void);
+void __init spear_setup_timer(resource_size_t base, int irq);
 void __init spear3xx_map_io(void);
 void __init spear3xx_init_irq(void);
 void __init spear3xx_init(void);
