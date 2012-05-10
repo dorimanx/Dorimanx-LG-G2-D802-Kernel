@@ -78,9 +78,9 @@ struct logger_reader {
 };
 
 /* logger_offset - returns index 'n' into the log via (optimized) modulus */
-size_t logger_offset(struct logger_log *log, size_t n)
+static size_t logger_offset(struct logger_log *log, size_t n)
 {
-	return n & (log->size-1);
+	return n & (log->size - 1);
 }
 
 
@@ -476,7 +476,7 @@ static struct power_suspend log_suspend = {
  * writev(), and aio_write(). Writes are our fast path, and we try to optimize
  * them above all else.
  */
-ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
+static ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 			 unsigned long nr_segs, loff_t ppos)
 {
 	struct logger_log *log = file_get_log(iocb->ki_filp);
