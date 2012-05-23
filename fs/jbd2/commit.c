@@ -688,7 +688,7 @@ void jbd2_journal_commit_transaction(journal_t *journal)
 
 		tag = (journal_block_tag_t *) tagp;
 		write_tag_block(tag_bytes, tag, jh2bh(jh)->b_blocknr);
-		tag->t_flags = cpu_to_be32(tag_flag);
+		tag->t_flags = cpu_to_be16(tag_flag);
 		jbd2_block_tag_csum_set(journal, tag, jh2bh(new_jh),
 					commit_transaction->t_tid);
 		tagp += tag_bytes;
@@ -714,7 +714,7 @@ void jbd2_journal_commit_transaction(journal_t *journal)
                            submitting the IOs.  "tag" still points to
                            the last tag we set up. */
 
-			tag->t_flags |= cpu_to_be32(JBD2_FLAG_LAST_TAG);
+			tag->t_flags |= cpu_to_be16(JBD2_FLAG_LAST_TAG);
 
 			jbd2_descr_block_csum_set(journal, descriptor);
 start_journal_io:
