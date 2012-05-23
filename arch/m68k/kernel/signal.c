@@ -1130,3 +1130,12 @@ asmlinkage void do_signal(struct pt_regs *regs)
 		sigprocmask(SIG_SETMASK, &current->saved_sigmask, NULL);
 	}
 }
+
+void do_notify_resume(struct pt_regs *regs)
+{
+	if (test_thread_flag(TIF_SIGPENDING))
+		do_signal(regs);
+
+	if (test_and_clear_thread_flag(TIF_NOTIFY_RESUME))
+		tracehook_notify_resume(regs);
+}

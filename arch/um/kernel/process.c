@@ -116,6 +116,8 @@ void interrupt_end(void)
 		schedule();
 	if (test_tsk_thread_flag(current, TIF_SIGPENDING))
 		do_signal();
+	if (test_and_clear_thread_flag(TIF_NOTIFY_RESUME))
+		tracehook_notify_resume(&current->thread.regs);
 }
 
 void exit_thread(void)
