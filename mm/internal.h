@@ -172,7 +172,8 @@ static inline void munlock_vma_pages_all(struct vm_area_struct *vma)
  * Called only in fault path, to determine if a new page is being
  * mapped into a LOCKED vma.  If it is, mark page as mlocked.
  */
-static inline int is_mlocked_vma(struct vm_area_struct *vma, struct page *page)
+static inline int mlocked_vma_newpage(struct vm_area_struct *vma,
+				    struct page *page)
 {
 	VM_BUG_ON(PageLRU(page));
 
@@ -230,7 +231,7 @@ extern unsigned long vma_address(struct page *page,
 				 struct vm_area_struct *vma);
 #endif
 #else /* !CONFIG_MMU */
-static inline int is_mlocked_vma(struct vm_area_struct *v, struct page *p)
+static inline int mlocked_vma_newpage(struct vm_area_struct *v, struct page *p)
 {
 	return 0;
 }
