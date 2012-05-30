@@ -1483,7 +1483,6 @@ static unsigned long do_mmap(struct file *file, unsigned long addr,
 		return -EINVAL;
 	return do_mmap_pgoff(file, addr, len, prot, flag, offset >> PAGE_SHIFT);
 }
-EXPORT_SYMBOL(do_mmap);
 
 unsigned long vm_mmap(struct file *file, unsigned long addr,
 	unsigned long len, unsigned long prot,
