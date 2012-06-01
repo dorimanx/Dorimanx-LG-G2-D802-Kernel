@@ -4897,8 +4897,8 @@ int ext4_ext_punch_hole(struct file *file, loff_t offset, loff_t length)
 
 	/* Now release the pages */
 	if (last_page_offset > first_page_offset) {
-		truncate_inode_pages_range(mapping, first_page_offset,
-					   last_page_offset-1);
+		truncate_pagecache_range(inode, first_page_offset,
+					 last_page_offset - 1);
 	}
 
 	/* Wait all existing dio workers, newcomers will block on i_mutex */
