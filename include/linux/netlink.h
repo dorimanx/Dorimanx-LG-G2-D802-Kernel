@@ -181,6 +181,7 @@ struct netlink_kernel_cfg {
 	unsigned int	groups;
 	void		(*input)(struct sk_buff *skb);
 	struct mutex	*cb_mutex;
+	void		(*bind)(int group);
 };
 
 extern struct sock *__netlink_kernel_create(struct net *net, int unit,
