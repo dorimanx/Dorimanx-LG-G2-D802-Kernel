@@ -1324,7 +1324,7 @@ static int __of_parse_phandle_with_args(const struct device_node *np,
 	/* Retrieve the phandle list property */
 	list = of_get_property(np, list_name, &size);
 	if (!list)
-		return -EINVAL;
+		return -ENOENT;
 	list_end = list + size / sizeof(*list);
 
 	/* Loop over the phandles until all the requested entry is found */
