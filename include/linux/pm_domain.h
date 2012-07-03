@@ -14,6 +14,7 @@
 #include <linux/pm.h>
 #include <linux/err.h>
 #include <linux/of.h>
+#include <linux/cpuidle.h>
 
 enum gpd_status {
 	GPD_STATE_ACTIVE = 0,	/* PM domain is active */
@@ -42,6 +43,11 @@ struct gpd_dev_ops {
 	int (*thaw_early)(struct device *dev);
 	int (*thaw)(struct device *dev);
 	bool (*active_wakeup)(struct device *dev);
+};
+
+struct gpd_cpu_data {
+	unsigned int saved_exit_latency;
+	struct cpuidle_state *idle_state;
 };
 
 struct generic_pm_domain {
@@ -74,6 +80,7 @@ struct generic_pm_domain {
 	s64 max_off_time_ns;	/* Maximum allowed "suspended" time. */
 	ktime_t power_off_time;
 	struct device_node *of_node; /* Node in device tree */
+	struct gpd_cpu_data *cpu_data;
 };
 
 static inline struct generic_pm_domain *pd_to_genpd(struct dev_pm_domain *pd)
@@ -149,6 +156,8 @@ extern int pm_genpd_add_callbacks(struct device *dev,
 				  struct gpd_dev_ops *ops,
 				  struct gpd_timing_data *td);
 extern int __pm_genpd_remove_callbacks(struct device *dev, bool clear_td);
+extern int genpd_attach_cpuidle(struct generic_pm_domain *genpd, int state);
+extern int genpd_detach_cpuidle(struct generic_pm_domain *genpd);
 extern void pm_genpd_init(struct generic_pm_domain *genpd,
 			  struct dev_power_governor *gov, bool is_off);
 
@@ -201,6 +210,14 @@ static inline int pm_genpd_add_callbacks(struct device *dev,
 	return -ENOSYS;
 }
 static inline int __pm_genpd_remove_callbacks(struct device *dev, bool clear_td)
+{
+	return -ENOSYS;
+}
+static inline int genpd_attach_cpuidle(struct generic_pm_domain *genpd, int st)
+{
+	return -ENOSYS;
+}
+static inline int genpd_detach_cpuidle(struct generic_pm_domain *genpd)
 {
 	return -ENOSYS;
 }
