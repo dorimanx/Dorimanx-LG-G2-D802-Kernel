@@ -468,7 +468,7 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
 	for (i = 0; i < msg->text_len; i++) {
 		unsigned char c = log_text(msg)[i];
 
-		if (c < ' ' || c >= 128)
+		if (c < ' ' || c >= 127 || c == '\\')
 			len += sprintf(user->buf + len, "\\x%02x", c);
 		else
 			user->buf[len++] = c;
@@ -492,7 +492,7 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
 				continue;
 			}
 
-			if (c < ' ' || c >= 128) {
+			if (c < ' ' || c >= 127 || c == '\\') {
 				len += sprintf(user->buf + len, "\\x%02x", c);
 				continue;
 			}
