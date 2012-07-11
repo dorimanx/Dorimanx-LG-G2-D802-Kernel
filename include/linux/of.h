@@ -262,8 +262,7 @@ extern int of_machine_is_compatible(const char *compat);
 extern int prom_add_property(struct device_node* np, struct property* prop);
 extern int prom_remove_property(struct device_node *np, struct property *prop);
 extern int prom_update_property(struct device_node *np,
-				struct property *newprop,
-				struct property *oldprop);
+				struct property *newprop);
 
 /* For updating the device tree at runtime */
 #define OF_RECONFIG_ATTACH_NODE		0x0001
