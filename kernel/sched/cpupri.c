@@ -67,8 +67,8 @@ static int convert_prio(int prio)
 int cpupri_find(struct cpupri *cp, struct task_struct *p,
 		struct cpumask *lowest_mask)
 {
-	int                  idx      = 0;
-	int                  task_pri = convert_prio(p->prio);
+	int idx = 0;
+	int task_pri = convert_prio(p->prio);
 
 	BUG_ON(task_pri >= CPUPRI_NR_PRIORITIES);
 
@@ -138,9 +138,9 @@ int cpupri_find(struct cpupri *cp, struct task_struct *p,
  */
 void cpupri_set(struct cpupri *cp, int cpu, int newpri)
 {
-	int                 *currpri = &cp->cpu_to_pri[cpu];
-	int                  oldpri  = *currpri;
-	int                  do_mb = 0;
+	int *currpri = &cp->cpu_to_pri[cpu];
+	int oldpri = *currpri;
+	int do_mb = 0;
 
 	newpri = convert_prio(newpri);
 
