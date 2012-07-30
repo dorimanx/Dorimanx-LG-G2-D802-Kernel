@@ -41,7 +41,7 @@
 
 #define MAX_RAILS 5
 
-#define DEFAULT_POLLING_MS	500
+#define DEFAULT_POLLING_MS	250
 
 #ifdef CONFIG_INTELLI_THERMAL_STATS
 /* last 3 minutes based on $DEFAULT_POLLING_MS polling cycle */
@@ -62,8 +62,8 @@ static struct msm_thermal_data msm_thermal_info;
 static struct msm_thermal_data_intelli msm_thermal_info_local = {
 	.sensor_id = 0,
 	.poll_ms = DEFAULT_POLLING_MS,
-	.limit_temp_degC = 76,
-	.temp_hysteresis_degC = 5,
+	.limit_temp_degC = 77,
+	.temp_hysteresis_degC = 10,
 	.freq_step = 2,
 	.freq_control_mask = 0xf,
 	.core_limit_temp_degC = 79,
@@ -89,10 +89,10 @@ static int psm_rails_cnt;
 static int limit_idx;
 
 /*
- * min limit is set to 960000 Mhz!
+ * min limit is set to 1190400 Mhz!
  * check your FREQ Table and set corect limit_idx_low freq number.
  */
-static int limit_idx_low = 5;
+static int limit_idx_low = 7;
 
 static int limit_idx_high;
 static int throttled;
