@@ -613,6 +613,35 @@ void check_panic_on_oom(enum oom_constraint constraint, gfp_t gfp_mask,
 		sysctl_panic_on_oom == 2 ? "compulsory" : "system-wide");
 }
 
+#ifdef CONFIG_MEMCG
+void mem_cgroup_out_of_memory(struct mem_cgroup *memcg, gfp_t gfp_mask,
+			      int order)
+{
+	unsigned long limit;
+	unsigned int points = 0;
+	struct task_struct *p;
+
+	/*
+	 * If current has a pending SIGKILL, then automatically select it.  The
+	 * goal is to allow it to allocate so that it may quickly exit and free
+	 * its memory.
+	 */
+	if (fatal_signal_pending(current)) {
+		set_thread_flag(TIF_MEMDIE);
+		return;
+	}
+
+	check_panic_on_oom(CONSTRAINT_MEMCG, gfp_mask, order, NULL);
+	limit = mem_cgroup_get_limit(memcg) >> PAGE_SHIFT ? : 1;
+	read_lock(&tasklist_lock);
+	p = select_bad_process(&points, limit, memcg, NULL, false);
+	if (p && PTR_ERR(p) != -1UL)
+		oom_kill_process(p, gfp_mask, order, points, limit, memcg, NULL,
+				 "Memory cgroup out of memory");
+	read_unlock(&tasklist_lock);
+}
+#endif
+
 static BLOCKING_NOTIFIER_HEAD(oom_notify_list);
 
 int register_oom_notifier(struct notifier_block *nb)
