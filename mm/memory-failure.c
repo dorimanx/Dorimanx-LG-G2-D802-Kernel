@@ -1424,7 +1424,6 @@ static int soft_offline_huge_page(struct page *page, int flags)
 	int ret;
 	unsigned long pfn = page_to_pfn(page);
 	struct page *hpage = compound_head(page);
-	LIST_HEAD(pagelist);
 
 	ret = get_any_page(page, pfn, flags);
 	if (ret < 0)
@@ -1439,34 +1438,20 @@ static int soft_offline_huge_page(struct page *page, int flags)
 	}
 
 	/* Keep page count to indicate a given hugepage is isolated. */
-
-	list_add(&hpage->lru, &pagelist);
-	ret = migrate_huge_pages(&pagelist, new_page, MPOL_MF_MOVE_ALL, false,
+	ret = migrate_huge_page(hpage, new_page, MPOL_MF_MOVE_ALL, false,
 				MIGRATE_SYNC);
+	put_page(hpage);
 	if (ret) {
-		struct page *page1, *page2;
-		list_for_each_entry_safe(page1, page2, &pagelist, lru)
-			put_page(page1);
-
 		pr_info("soft offline: %#lx: migration failed %d, type %lx\n",
 			pfn, ret, page->flags);
-		if (ret > 0)
-			ret = -EIO;
 		return ret;
 	}
 done:
-	/* overcommit hugetlb page will be freed to buddy */
-	if (PageHuge(hpage)) {
-		if (!PageHWPoison(hpage))
-			atomic_long_add(1 << compound_trans_order(hpage),
-					&mce_bad_pages);
-		set_page_hwpoison_huge_page(hpage);
-		dequeue_hwpoisoned_huge_page(hpage);
-	} else {
-		SetPageHWPoison(page);
-		atomic_long_inc(&mce_bad_pages);
-	}
-
+	if (!PageHWPoison(hpage))
+		atomic_long_add(1 << compound_trans_order(hpage),
+				&mce_bad_pages);
+	set_page_hwpoison_huge_page(hpage);
+	dequeue_hwpoisoned_huge_page(hpage);
 	/* keep elevated page count for bad page */
 	return ret;
 }
