@@ -77,4 +77,8 @@ SUBSYS(net_prio)
 SUBSYS(bfqio)
 #endif
 
+#ifdef CONFIG_CGROUP_HUGETLB
+SUBSYS(hugetlb)
+#endif
+
 /* */
