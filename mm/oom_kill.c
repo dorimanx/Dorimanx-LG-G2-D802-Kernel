@@ -412,7 +412,7 @@ void dump_tasks(const struct mem_cgroup *memcg, const nodemask_t *nodemask)
 	struct task_struct *p;
 	struct task_struct *task;
 
-	pr_info("[ pid ]   uid  tgid total_vm      rss cpu oom_adj oom_score_adj name\n");
+	pr_info("[ pid ]   uid  tgid total_vm      rss nr_ptes swapents oom_score_adj name\n");
 	rcu_read_lock();
 	for_each_process(p) {
 		if (oom_unkillable_task(p, memcg, nodemask))
@@ -428,10 +428,11 @@ void dump_tasks(const struct mem_cgroup *memcg, const nodemask_t *nodemask)
 			continue;
 		}
 
-		pr_info("[%5d] %5d %5d %8lu %8lu %3u     %3d       %5hd %s\n",
-			task->pid, task_uid(task), task->tgid,
-			task->mm->total_vm, get_mm_rss(task->mm),
-			task_cpu(task), task->signal->oom_adj,
+		pr_info("[%5d] %5d %5d %8lu %8lu %7lu %8lu         %5hd %s\n",
+			task->pid, from_kuid(&init_user_ns, task_uid(task)),
+			task->tgid, task->mm->total_vm, get_mm_rss(task->mm),
+			task->mm->nr_ptes,
+			get_mm_counter(task->mm, MM_SWAPENTS),
 			task->signal->oom_score_adj, task->comm);
 		task_unlock(task);
 	}
