@@ -27,6 +27,11 @@ static inline void pm_runtime_early_init(struct device *dev)
 	device_pm_init_common(dev);
 }
 
+static inline void pm_runtime_early_init(struct device *dev)
+{
+	device_pm_init_common(dev);
+}
+
 static inline void pm_runtime_init(struct device *dev) {}
 static inline void pm_runtime_remove(struct device *dev) {}
 
