@@ -128,6 +128,9 @@ int iterate_fd(struct files_struct *, unsigned,
 		int (*)(const void *, struct file *, unsigned),
 		const void *);
 
+extern int __alloc_fd(struct files_struct *files,
+		      unsigned start, unsigned end, unsigned flags);
+
 extern struct kmem_cache *files_cachep;
 
 #endif /* __LINUX_FDTABLE_H */
