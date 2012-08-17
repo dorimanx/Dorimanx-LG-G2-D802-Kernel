@@ -1863,6 +1863,12 @@ static int ext4_mb_good_group(struct ext4_allocation_context *ac,
 
 	BUG_ON(cr < 0 || cr >= 4);
 
+	free = grp->bb_free;
+	if (free == 0)
+		return 0;
+	if (cr <= 2 && free < ac->ac_g_ex.fe_len)
+		return 0;
+
 	/* We only do this if the grp has never been initialized */
 	if (unlikely(EXT4_MB_GRP_NEED_INIT(grp))) {
 		int ret = ext4_mb_init_group(ac->ac_sb, group);
@@ -1870,10 +1876,7 @@ static int ext4_mb_good_group(struct ext4_allocation_context *ac,
 			return 0;
 	}
 
-	free = grp->bb_free;
 	fragments = grp->bb_fragments;
-	if (free == 0)
-		return 0;
 	if (fragments == 0)
 		return 0;
 
