@@ -1330,6 +1330,7 @@ struct input_dev {
 	struct mutex mutex;
 
 	unsigned int users;
+	unsigned int users_private;
 	bool going_away;
 	bool disabled;
 
