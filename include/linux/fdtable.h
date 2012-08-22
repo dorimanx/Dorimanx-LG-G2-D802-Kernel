@@ -122,6 +122,9 @@ int iterate_fd(struct files_struct *, unsigned,
 		int (*)(const void *, struct file *, unsigned),
 		const void *);
 void do_close_on_exec(struct files_struct *);
+int iterate_fd(struct files_struct *, unsigned,
+		int (*)(const void *, struct file *, unsigned),
+		const void *);
 
 extern int __alloc_fd(struct files_struct *files,
 		      unsigned start, unsigned end, unsigned flags);
