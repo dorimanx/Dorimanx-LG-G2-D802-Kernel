@@ -394,6 +394,7 @@ int of_irq_to_resource_table(struct device_node *dev, struct resource *res,
 
 	return i;
 }
+EXPORT_SYMBOL_GPL(of_irq_to_resource_table);
 
 struct intc_desc {
 	struct list_head	list;
