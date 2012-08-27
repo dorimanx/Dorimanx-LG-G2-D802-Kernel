@@ -2327,8 +2327,7 @@ proc_map_files_readdir(struct file *filp, void *dirent, filldir_t filldir)
 				if (++pos <= filp->f_pos)
 					continue;
 
-				get_file(vma->vm_file);
-				info.file = vma->vm_file;
+				info.file = get_file(vma->vm_file);
 				info.len = snprintf(info.name,
 						sizeof(info.name), "%lx-%lx",
 						vma->vm_start, vma->vm_end);
