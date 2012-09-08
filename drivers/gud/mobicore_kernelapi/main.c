@@ -149,7 +149,7 @@ static int __init mcapi_init(void)
 
 	mod_ctx = kzalloc(sizeof(struct mc_kernelapi_ctx), GFP_KERNEL);
 	mod_ctx->sk = netlink_kernel_create(&init_net, MC_DAEMON_NETLINK,
-					    THIS_MODULE, &cfg);
+					    &cfg);
 
 	if (!mod_ctx->sk) {
 		MCDRV_ERROR(mc_kapi, "register of receive handler failed");

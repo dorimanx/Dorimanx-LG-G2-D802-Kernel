@@ -184,7 +184,7 @@ static int __init sock_diag_init(void)
 	};
 
 	sock_diag_nlsk = netlink_kernel_create(&init_net, NETLINK_SOCK_DIAG,
-					       THIS_MODULE, &cfg);
+					       &cfg);
 	return sock_diag_nlsk == NULL ? -ENOMEM : 0;
 }
 

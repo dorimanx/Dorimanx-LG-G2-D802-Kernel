@@ -1503,9 +1503,8 @@ static void netlink_data_ready(struct sock *sk, int len)
  */
 
 struct sock *
-netlink_kernel_create(struct net *net, int unit,
-		      struct module *module,
-		      struct netlink_kernel_cfg *cfg)
+__netlink_kernel_create(struct net *net, int unit, struct module *module,
+			struct netlink_kernel_cfg *cfg)
 {
 	struct socket *sock;
 	struct sock *sk;
@@ -1576,8 +1575,7 @@ out_sock_release_nosk:
 	sock_release(sock);
 	return NULL;
 }
-EXPORT_SYMBOL(netlink_kernel_create);
-
+EXPORT_SYMBOL(__netlink_kernel_create);
 
 void
 netlink_kernel_release(struct sock *sk)
