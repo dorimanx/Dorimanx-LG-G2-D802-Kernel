@@ -916,9 +916,6 @@ struct ext4_inode_info {
 	atomic_t i_ioend_count;	/* Number of outstanding io_end structs */
 	atomic_t i_unwritten; /* Nr. of inflight conversions pending */
 
-	/* current io_end structure for async DIO write*/
-	ext4_io_end_t *cur_aio_dio;
-
 	spinlock_t i_block_reservation_lock;
 
 	/*
@@ -1342,6 +1339,16 @@ static inline void ext4_set_io_unwritten_flag(struct inode *inode,
 		io_end->flag |= EXT4_IO_END_UNWRITTEN;
 		atomic_inc(&EXT4_I(inode)->i_unwritten);
 	}
+}
+
+static inline ext4_io_end_t *ext4_inode_aio(struct inode *inode)
+{
+	return inode->i_private;
+}
+
+static inline void ext4_inode_aio_set(struct inode *inode, ext4_io_end_t *io)
+{
+	inode->i_private = io;
 }
 
 /*
