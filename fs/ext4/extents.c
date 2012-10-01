@@ -2606,7 +2606,7 @@ static int ext4_ext_remove_space(struct inode *inode, ext4_lblk_t start,
 	struct ext4_ext_path *path = NULL;
 	ext4_fsblk_t partial_cluster = 0;
 	handle_t *handle;
-	int i = 0, err;
+	int i = 0, err = 0;
 
 	ext_debug("truncate since %u to %u\n", start, end);
 
@@ -2638,12 +2638,16 @@ again:
 			return PTR_ERR(path);
 		}
 		depth = ext_depth(inode);
+		/* Leaf not may not exist only if inode has no blocks at all */
 		ex = path[depth].p_ext;
 		if (!ex) {
-			ext4_ext_drop_refs(path);
-			kfree(path);
-			path = NULL;
-			goto cont;
+			if (depth) {
+				EXT4_ERROR_INODE(inode,
+						 "path[%d].p_hdr == NULL",
+						 depth);
+				err = -EIO;
+			}
+			goto out;
 		}
 
 		ee_block = le32_to_cpu(ex->ee_block);
@@ -2675,8 +2679,6 @@ again:
 				goto out;
 		}
 	}
-cont:
-
 	/*
 	 * We start scanning from right side, freeing all the blocks
 	 * after i_size and walking into the tree depth-wise.
