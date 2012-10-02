@@ -22,6 +22,7 @@
 #include <linux/mod_devicetable.h>
 #include <linux/spinlock.h>
 #include <linux/topology.h>
+#include <linux/notifier.h>
 
 #include <asm/byteorder.h>
 #include <asm/errno.h>
@@ -264,11 +265,24 @@ extern int prom_update_property(struct device_node *np,
 				struct property *newprop,
 				struct property *oldprop);
 
-#if defined(CONFIG_OF_DYNAMIC)
 /* For updating the device tree at runtime */
-extern void of_attach_node(struct device_node *);
-extern void of_detach_node(struct device_node *);
-#endif
+#define OF_RECONFIG_ATTACH_NODE		0x0001
+#define OF_RECONFIG_DETACH_NODE		0x0002
+#define OF_RECONFIG_ADD_PROPERTY	0x0003
+#define OF_RECONFIG_REMOVE_PROPERTY	0x0004
+#define OF_RECONFIG_UPDATE_PROPERTY	0x0005
+
+struct of_prop_reconfig {
+	struct device_node	*dn;
+	struct property		*prop;
+};
+
+extern int of_reconfig_notifier_register(struct notifier_block *);
+extern int of_reconfig_notifier_unregister(struct notifier_block *);
+extern int of_reconfig_notify(unsigned long, void *);
+
+extern int of_attach_node(struct device_node *);
+extern int of_detach_node(struct device_node *);
 
 #define of_match_ptr(_ptr)	(_ptr)
 #else /* CONFIG_OF */
