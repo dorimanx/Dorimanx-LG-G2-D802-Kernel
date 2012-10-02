@@ -325,7 +325,7 @@ static int do_add_property(char *buf, size_t bufsize)
 	if (!prop)
 		return -ENOMEM;
 
-	prom_add_property(np, prop);
+	of_add_property(np, prop);
 
 	return 0;
 }
@@ -349,7 +349,7 @@ static int do_remove_property(char *buf, size_t bufsize)
 
 	prop = of_find_property(np, buf, NULL);
 
-	return prom_remove_property(np, prop);
+	return of_remove_property(np, prop);
 }
 
 static int do_update_property(char *buf, size_t bufsize)
@@ -379,41 +379,7 @@ static int do_update_property(char *buf, size_t bufsize)
 	if (!strcmp(name, "slb-size") || !strcmp(name, "ibm,slb-size"))
 		slb_set_size(*(int *)value);
 
-	upd_value.node = np;
-	upd_value.property = newprop;
-	pSeries_reconfig_notify(PSERIES_UPDATE_PROPERTY, &upd_value);
-
-	rc = prom_update_property(np, newprop);
-	if (rc)
-		return rc;
-
-	/* For memory under the ibm,dynamic-reconfiguration-memory node
-	 * of the device tree, adding and removing memory is just an update
-	 * to the ibm,dynamic-memory property instead of adding/removing a
-	 * memory node in the device tree.  For these cases we still need to
-	 * involve the notifier chain.
-	 */
-	if (!strcmp(name, "ibm,dynamic-memory")) {
-		int action;
-
-		next_prop = parse_next_property(next_prop, end, &name,
-						&length, &value);
-		if (!next_prop)
-			return -EINVAL;
-
-		if (!strcmp(name, "add"))
-			action = PSERIES_DRCONF_MEM_ADD;
-		else
-			action = PSERIES_DRCONF_MEM_REMOVE;
-
-		rc = pSeries_reconfig_notify(action, value);
-		if (rc) {
-			prom_update_property(np, newprop);
-			return rc;
-		}
-	}
-
-	return 0;
+	return of_update_property(np, newprop);
 }
 
 /**

@@ -574,7 +574,17 @@ static void __init p1022_ds_setup_arch(void)
 					.length = sizeof("disabled"),
 				};
 
-				disable_one_node(np2, &nor_status);
+				/*
+				 * of_update_property() is called before
+				 * kmalloc() is available, so the 'new' object
+				 * should be allocated in the global area.
+				 * The easiest way is to do that is to
+				 * allocate one static local variable for each
+				 * call to this function.
+				 */
+				pr_info("p1022ds: disabling %s node",
+					np2->full_name);
+				of_update_property(np2, &nor_status);
 				of_node_put(np2);
 			}
 
@@ -588,7 +598,9 @@ static void __init p1022_ds_setup_arch(void)
 					.length = sizeof("disabled"),
 				};
 
-				disable_one_node(np2, &nand_status);
+				pr_info("p1022ds: disabling %s node",
+					np2->full_name);
+				of_update_property(np2, &nand_status);
 				of_node_put(np2);
 			}
 
