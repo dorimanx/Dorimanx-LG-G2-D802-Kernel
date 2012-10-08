@@ -491,7 +491,7 @@ static int exynos_drm_gem_mmap_buffer(struct file *filp,
 
 	DRM_DEBUG_KMS("%s\n", __FILE__);
 
-	vma->vm_flags |= (VM_IO | VM_RESERVED);
+	vma->vm_flags |= VM_IO | VM_DONTEXPAND | VM_DONTDUMP;
 
 	/* in case of direct mapping, always having non-cachable attribute */
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
