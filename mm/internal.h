@@ -169,9 +169,8 @@ static inline void munlock_vma_pages_all(struct vm_area_struct *vma)
 }
 
 /*
- * Called only in fault path via page_evictable() for a new page
- * to determine if it's being mapped into a LOCKED vma.
- * If so, mark page as mlocked.
+ * Called only in fault path, to determine if a new page is being
+ * mapped into a LOCKED vma.  If it is, mark page as mlocked.
  */
 static inline int is_mlocked_vma(struct vm_area_struct *vma, struct page *page)
 {
