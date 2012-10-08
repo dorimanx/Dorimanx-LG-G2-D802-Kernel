@@ -665,7 +665,7 @@ int track_pfn_copy(struct vm_area_struct *vma)
 	unsigned long vma_size = vma->vm_end - vma->vm_start;
 	pgprot_t pgprot;
 
-	if (is_linear_pfn_mapping(vma)) {
+	if (vma->vm_flags & VM_PAT) {
 		/*
 		 * reserve the whole chunk covered by vma. We need the
 		 * starting address and protection from pte.
@@ -687,16 +687,27 @@ int track_pfn_copy(struct vm_area_struct *vma)
  * single reserve_pfn_range call.
  */
 int track_pfn_remap(struct vm_area_struct *vma, pgprot_t *prot,
-		    unsigned long pfn, unsigned long size)
+		    unsigned long pfn, unsigned long addr, unsigned long size)
 {
 	unsigned long flags;
 	resource_size_t paddr;
 	unsigned long vma_size = vma->vm_end - vma->vm_start;
 
+<<<<<<< HEAD
 	if (is_linear_pfn_mapping(vma)) {
 		/* reserve the whole chunk starting from vm_pgoff */
 		paddr = (resource_size_t)vma->vm_pgoff << PAGE_SHIFT;
 		return reserve_pfn_range(paddr, vma_size, prot, 0);
+=======
+	/* reserve the whole chunk starting from paddr */
+	if (addr == vma->vm_start && size == (vma->vm_end - vma->vm_start)) {
+		int ret;
+
+		ret = reserve_pfn_range(paddr, size, prot, 0);
+		if (!ret)
+			vma->vm_flags |= VM_PAT;
+		return ret;
+>>>>>>> b3b9c29... mm, x86, pat: rework linear pfn-mmap tracking
 	}
 
 	if (!pat_enabled)
@@ -749,12 +760,21 @@ void untrack_pfn(struct vm_area_struct *vma, unsigned long pfn,
 	resource_size_t paddr;
 	unsigned long vma_size = vma->vm_end - vma->vm_start;
 
+<<<<<<< HEAD
 	if (is_linear_pfn_mapping(vma)) {
 		/* free the whole chunk starting from vm_pgoff */
 		paddr = (resource_size_t)vma->vm_pgoff << PAGE_SHIFT;
 		free_pfn_range(paddr, vma_size);
+=======
+	if (!(vma->vm_flags & VM_PAT))
+>>>>>>> b3b9c29... mm, x86, pat: rework linear pfn-mmap tracking
 		return;
 	}
+<<<<<<< HEAD
+=======
+	free_pfn_range(paddr, size);
+	vma->vm_flags &= ~VM_PAT;
+>>>>>>> b3b9c29... mm, x86, pat: rework linear pfn-mmap tracking
 }
 
 pgprot_t pgprot_writecombine(pgprot_t prot)
