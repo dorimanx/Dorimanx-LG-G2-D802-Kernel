@@ -1,5 +1,5 @@
 #include <linux/module.h>
-#include <linux/interval_tree.h>
+#include <linux/prio_tree.h>
 #include <linux/random.h>
 #include <asm/timex.h>
 
@@ -8,20 +8,20 @@
 #define SEARCHES     100
 #define SEARCH_LOOPS 10000
 
-static struct rb_root root = RB_ROOT;
-static struct interval_tree_node nodes[NODES];
+static struct prio_tree_root root;
+static struct prio_tree_node nodes[NODES];
 static u32 queries[SEARCHES];
 
 static struct rnd_state rnd;
 
 static inline unsigned long
-search(unsigned long query, struct rb_root *root)
+search(unsigned long query, struct prio_tree_root *root)
 {
-	struct interval_tree_node *node;
+	struct prio_tree_iter iter;
 	unsigned long results = 0;
 
-	for (node = interval_tree_iter_first(root, query, query); node;
-	     node = interval_tree_iter_next(node, query, query))
+	prio_tree_iter_init(&iter, root, query, query);
+	while (prio_tree_next(&iter))
 		results++;
 	return results;
 }
@@ -43,24 +43,25 @@ static void init(void)
 		queries[i] = prandom32(&rnd);
 }
 
-static int interval_tree_test_init(void)
+static int prio_tree_test_init(void)
 {
 	int i, j;
 	unsigned long results;
 	cycles_t time1, time2, time;
 
-	printk(KERN_ALERT "interval tree insert/remove");
+	printk(KERN_ALERT "prio tree insert/remove");
 
 	prandom32_seed(&rnd, 3141592653589793238ULL);
+	INIT_PRIO_TREE_ROOT(&root);
 	init();
 
 	time1 = get_cycles();
 
 	for (i = 0; i < PERF_LOOPS; i++) {
 		for (j = 0; j < NODES; j++)
-			interval_tree_insert(nodes + j, &root);
+			prio_tree_insert(&root, nodes + j);
 		for (j = 0; j < NODES; j++)
-			interval_tree_remove(nodes + j, &root);
+			prio_tree_remove(&root, nodes + j);
 	}
 
 	time2 = get_cycles();
@@ -69,10 +70,10 @@ static int interval_tree_test_init(void)
 	time = div_u64(time, PERF_LOOPS);
 	printk(" -> %llu cycles\n", (unsigned long long)time);
 
-	printk(KERN_ALERT "interval tree search");
+	printk(KERN_ALERT "prio tree search");
 
 	for (j = 0; j < NODES; j++)
-		interval_tree_insert(nodes + j, &root);
+		prio_tree_insert(&root, nodes + j);
 
 	time1 = get_cycles();
 
@@ -92,14 +93,14 @@ static int interval_tree_test_init(void)
 	return -EAGAIN; /* Fail will directly unload the module */
 }
 
-static void interval_tree_test_exit(void)
+static void prio_tree_test_exit(void)
 {
 	printk(KERN_ALERT "test exit\n");
 }
 
-module_init(interval_tree_test_init)
-module_exit(interval_tree_test_exit)
+module_init(prio_tree_test_init)
+module_exit(prio_tree_test_exit)
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Michel Lespinasse");
-MODULE_DESCRIPTION("Interval Tree test");
+MODULE_DESCRIPTION("Prio Tree test");
