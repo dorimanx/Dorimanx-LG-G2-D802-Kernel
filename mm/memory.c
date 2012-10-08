@@ -1545,7 +1545,7 @@ struct page *follow_page_mask(struct vm_area_struct *vma,
 				spin_unlock(&mm->page_table_lock);
 				wait_split_huge_page(vma->anon_vma, pmd);
 			} else {
-				page = follow_trans_huge_pmd(mm, address,
+				page = follow_trans_huge_pmd(vma, address,
 							     pmd, flags);
 				spin_unlock(&mm->page_table_lock);
 				*page_mask = HPAGE_PMD_NR - 1;
