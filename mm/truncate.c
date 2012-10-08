@@ -108,7 +108,6 @@ truncate_complete_page(struct address_space *mapping, struct page *page)
 
 	cancel_dirty_page(page, PAGE_CACHE_SIZE);
 
-	clear_page_mlock(page);
 	ClearPageMappedToDisk(page);
 	delete_from_page_cache(page);
 	return 0;
@@ -133,7 +132,6 @@ invalidate_complete_page(struct address_space *mapping, struct page *page)
 	if (page_has_private(page) && !try_to_release_page(page, 0))
 		return 0;
 
-	clear_page_mlock(page);
 	ret = remove_mapping(mapping, page);
 
 	return ret;
@@ -394,8 +392,6 @@ invalidate_complete_page2(struct address_space *mapping, struct page *page)
 
 	if (page_has_private(page) && !try_to_release_page(page, GFP_KERNEL))
 		return 0;
-
-	clear_page_mlock(page);
 
 	spin_lock_irq(&mapping->tree_lock);
 	if (PageDirty(page))
