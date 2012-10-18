@@ -33,16 +33,13 @@
 #include <linux/mm.h>
 #include <linux/mutex.h>
 #include <linux/page-isolation.h>
+#include <linux/sizes.h>
 #include <linux/slab.h>
 #include <linux/swap.h>
 #include <linux/mm_types.h>
 #include <linux/dma-contiguous.h>
 #include <linux/dma-removed.h>
 #include <trace/events/kmem.h>
-
-#ifndef SZ_1M
-#define SZ_1M (1 << 20)
-#endif
 
 struct cma {
 	unsigned long	base_pfn;
