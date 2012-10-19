@@ -23,6 +23,14 @@ typedef struct page *new_page_t(struct page *, unsigned long private, int **);
 #define MIGRATEPAGE_BALLOON_SUCCESS	1 /* special ret code for balloon page
 					   * sucessful migration case.
 					   */
+enum migrate_reason {
+	MR_COMPACTION,
+	MR_MEMORY_FAILURE,
+	MR_MEMORY_HOTPLUG,
+	MR_SYSCALL,		/* also applies to cpusets */
+	MR_MEMPOLICY_MBIND,
+	MR_CMA
+};
 
 #ifdef CONFIG_MIGRATION
 
@@ -32,7 +40,7 @@ extern int migrate_page(struct address_space *,
 			struct page *, struct page *, enum migrate_mode);
 extern int migrate_pages(struct list_head *l, new_page_t x,
 			unsigned long private, bool offlining,
-			enum migrate_mode mode);
+			enum migrate_mode mode, int reason);
 extern int migrate_huge_page(struct page *, new_page_t x,
 			unsigned long private, bool offlining,
 			enum migrate_mode mode);
@@ -54,7 +62,7 @@ static inline void putback_lru_pages(struct list_head *l) {}
 static inline void putback_movable_pages(struct list_head *l) {}
 static inline int migrate_pages(struct list_head *l, new_page_t x,
 		unsigned long private, bool offlining,
-		enum migrate_mode mode) { return -ENOSYS; }
+		enum migrate_mode mode, int reason) { return -ENOSYS; }
 static inline int migrate_huge_page(struct page *page, new_page_t x,
 		unsigned long private, bool offlining,
 		enum migrate_mode mode) { return -ENOSYS; }
