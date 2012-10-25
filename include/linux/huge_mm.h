@@ -145,6 +145,27 @@ static inline int hpage_nr_pages(struct page *page)
 		return HPAGE_PMD_NR;
 	return 1;
 }
+static inline struct page *compound_trans_head(struct page *page)
+{
+	if (PageTail(page)) {
+		struct page *head;
+		head = page->first_page;
+		smp_rmb();
+		/*
+		 * head may be a dangling pointer.
+		 * __split_huge_page_refcount clears PageTail before
+		 * overwriting first_page, so if PageTail is still
+		 * there it means the head pointer isn't dangling.
+		 */
+		if (PageTail(page))
+			return head;
+	}
+	return page;
+}
+
+extern int do_huge_pmd_numa_page(struct mm_struct *mm, unsigned long addr,
+				  pmd_t pmd, pmd_t *pmdp);
+
 #else /* CONFIG_TRANSPARENT_HUGEPAGE */
 #define HPAGE_PMD_SHIFT ({ BUILD_BUG(); 0; })
 #define HPAGE_PMD_MASK ({ BUILD_BUG(); 0; })
@@ -185,6 +206,12 @@ static inline int pmd_trans_huge_lock(pmd_t *pmd,
 {
 	return 0;
 }
+
+static inline int do_huge_pmd_numa_page(struct mm_struct *mm, unsigned long addr,
+					pmd_t pmd, pmd_t *pmdp)
+{
+}
+
 #endif /* CONFIG_TRANSPARENT_HUGEPAGE */
 
 #endif /* _LINUX_HUGE_MM_H */
