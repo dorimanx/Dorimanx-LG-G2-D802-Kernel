@@ -1123,7 +1123,7 @@ extern unsigned long do_mremap(unsigned long addr,
 			       unsigned long flags, unsigned long new_addr);
 extern unsigned long change_protection(struct vm_area_struct *vma, unsigned long start,
 			      unsigned long end, pgprot_t newprot,
-			      int dirty_accountable);
+			      int dirty_accountable, int prot_numa);
 extern int mprotect_fixup(struct vm_area_struct *vma,
 			  struct vm_area_struct **pprev, unsigned long start,
 			  unsigned long end, unsigned long newflags);
@@ -1659,6 +1659,11 @@ static inline pgprot_t vm_get_page_prot(unsigned long vm_flags)
 {
 	return __pgprot(0);
 }
+#endif
+
+#ifdef CONFIG_ARCH_USES_NUMA_PROT_NONE
+unsigned long change_prot_numa(struct vm_area_struct *vma,
+			unsigned long start, unsigned long end);
 #endif
 
 struct vm_area_struct *find_extend_vma(struct mm_struct *, unsigned long addr);
