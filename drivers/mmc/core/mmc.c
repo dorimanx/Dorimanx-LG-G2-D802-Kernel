@@ -1904,7 +1904,8 @@ static int mmc_suspend(struct mmc_host *host)
 	 */
 	mmc_disable_clk_scaling(host);
 
-	mmc_claim_host(host);
+	if (!mmc_try_claim_host(host))
+		return -EBUSY;
 
 	err = mmc_cache_ctrl(host, 0);
 	if (err)
