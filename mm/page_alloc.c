@@ -6187,7 +6187,7 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 				       pfn_max_align_up(end), migratetype,
 				       false);
 	if (ret)
-		goto done;
+		return ret;
 
 	zone->cma_alloc = 1;
 
