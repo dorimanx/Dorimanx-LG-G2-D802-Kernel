@@ -62,3 +62,10 @@ SCHED_FEAT(TTWU_QUEUE, true)
 SCHED_FEAT(FORCE_SD_OVERLAP, false)
 SCHED_FEAT(RT_RUNTIME_SHARE, false)
 SCHED_FEAT(LB_MIN, false)
+
+/*
+ * Apply the automatic NUMA scheduling policy
+ */
+#ifdef CONFIG_NUMA_BALANCING
+SCHED_FEAT(NUMA,	true)
+#endif

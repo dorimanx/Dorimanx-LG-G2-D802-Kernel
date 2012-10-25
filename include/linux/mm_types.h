@@ -421,6 +421,17 @@ struct mm_struct {
 #ifdef CONFIG_CPUMASK_OFFSTACK
 	struct cpumask cpumask_allocation;
 #endif
+#ifdef CONFIG_NUMA_BALANCING
+	/*
+	 * numa_next_scan is the next time when the PTEs will me marked
+	 * pte_numa to gather statistics and migrate pages to new nodes
+	 * if necessary
+	 */
+	unsigned long numa_next_scan;
+
+	/* numa_scan_seq prevents two threads setting pte_numa */
+	int numa_scan_seq;
+#endif
 };
 
 static inline void mm_init_cpumask(struct mm_struct *mm)
