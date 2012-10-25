@@ -560,6 +560,34 @@ static inline int check_pgd_range(struct vm_area_struct *vma,
 	return 0;
 }
 
+#ifdef CONFIG_ARCH_USES_NUMA_PROT_NONE
+/*
+ * This is used to mark a range of virtual addresses to be inaccessible.
+ * These are later cleared by a NUMA hinting fault. Depending on these
+ * faults, pages may be migrated for better NUMA placement.
+ *
+ * This is assuming that NUMA faults are handled using PROT_NONE. If
+ * an architecture makes a different choice, it will need further
+ * changes to the core.
+ */
+unsigned long change_prot_numa(struct vm_area_struct *vma,
+			unsigned long addr, unsigned long end)
+{
+	int nr_updated;
+	BUILD_BUG_ON(_PAGE_NUMA != _PAGE_PROTNONE);
+
+	nr_updated = change_protection(vma, addr, end, vma->vm_page_prot, 0, 1);
+
+	return nr_updated;
+}
+#else
+static unsigned long change_prot_numa(struct vm_area_struct *vma,
+			unsigned long addr, unsigned long end)
+{
+	return 0;
+}
+#endif /* CONFIG_ARCH_USES_NUMA_PROT_NONE */
+
 /*
  * Check if all pages in a range are on a set of nodes.
  * If pagelist != NULL then isolate pages from the LRU and
