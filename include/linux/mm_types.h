@@ -182,6 +182,9 @@ struct page {
 	struct stack_trace trace;
 	unsigned long trace_entries[8];
 #endif
+#ifdef CONFIG_NUMA_BALANCING
+	int _last_nid;
+#endif
 }
 /*
  * The struct page can be forced to be double word aligned so that atomic ops
