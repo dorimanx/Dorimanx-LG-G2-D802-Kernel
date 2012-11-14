@@ -154,10 +154,10 @@ static void * unflatten_dt_node(void *blob,
 	np = unflatten_dt_alloc(&mem, sizeof(struct device_node) + allocl,
 				__alignof__(struct device_node));
 	if (allnextpp) {
+		char *fn;
 		memset(np, 0, sizeof(*np));
-		np->full_name = ((char *)np) + sizeof(struct device_node);
+		np->full_name = fn = ((char *)np) + sizeof(*np);
 		if (new_format) {
-			char *fn = np->full_name;
 			/* rebuild full path for new format */
 			if (dad && dad->parent) {
 				strcpy(fn, dad->full_name);
@@ -171,9 +171,9 @@ static void * unflatten_dt_node(void *blob,
 				fn += strlen(fn);
 			}
 			*(fn++) = '/';
-			memcpy(fn, pathp, l);
-		} else
-			memcpy(np->full_name, pathp, l);
+		}
+		memcpy(fn, pathp, l);
+
 		prev_pp = &np->properties;
 		**allnextpp = np;
 		*allnextpp = &np->allnext;
