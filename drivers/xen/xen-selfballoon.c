@@ -216,8 +216,9 @@ static void selfballoon_process(struct work_struct *work)
 	if (xen_selfballooning_enabled) {
 		cur_pages = totalram_pages;
 		tgt_pages = cur_pages; /* default is no change */
-		goal_pages = percpu_counter_read_positive(&vm_committed_as) +
-				totalreserve_pages;
+		goal_pages = vm_memory_committed() +
+				totalreserve_pages +
+				MB2PAGES(selfballoon_reserved_mb);
 #ifdef CONFIG_FRONTSWAP
 		/* allow space for frontswap pages to be repatriated */
 		if (frontswap_selfshrinking && frontswap_enabled)
