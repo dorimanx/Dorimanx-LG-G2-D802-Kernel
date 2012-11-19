@@ -27,6 +27,7 @@
 #include <linux/profile.h>
 #include <linux/interrupt.h>
 #include <linux/mempolicy.h>
+#include <linux/migrate.h>
 #include <linux/task_work.h>
 
 #include <trace/events/sched.h>
@@ -877,9 +878,40 @@ void task_numa_work(struct callback_head *work)
 	if (cmpxchg(&mm->numa_next_scan, migrate, next_scan) != migrate)
 		return;
 
-	ACCESS_ONCE(mm->numa_scan_seq)++;
-	{
-		struct vm_area_struct *vma;
+	/*
+	 * Do not set pte_numa if the current running node is rate-limited.
+	 * This loses statistics on the fault but if we are unwilling to
+	 * migrate to this node, it is less likely we can do useful work
+	 */
+	if (migrate_ratelimited(numa_node_id()))
+		return;
+
+	start = mm->numa_scan_offset;
+	pages = sysctl_numa_balancing_scan_size;
+	pages <<= 20 - PAGE_SHIFT; /* MB in pages */
+	if (!pages)
+		return;
+
+	down_read(&mm->mmap_sem);
+	vma = find_vma(mm, start);
+	if (!vma) {
+		reset_ptenuma_scan(p);
+		start = 0;
+		vma = mm->mmap;
+	}
+	for (; vma; vma = vma->vm_next) {
+		if (!vma_migratable(vma))
+			continue;
+
+		/* Skip small VMAs. They are not likely to be of relevance */
+		if (((vma->vm_end - vma->vm_start) >> PAGE_SHIFT) < HPAGE_PMD_NR)
+			continue;
+
+		do {
+			start = max(start, vma->vm_start);
+			end = ALIGN(start + (pages << PAGE_SHIFT), HPAGE_SIZE);
+			end = min(end, vma->vm_end);
+			pages -= change_prot_numa(vma, start, end);
 
 		down_read(&mm->mmap_sem);
 		for (vma = mm->mmap; vma; vma = vma->vm_next) {
