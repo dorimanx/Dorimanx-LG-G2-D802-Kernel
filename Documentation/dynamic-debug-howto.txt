@@ -4,10 +4,18 @@ Introduction
 
 This document describes how to use the dynamic debug (ddebug) feature.
 
-Dynamic debug is designed to allow you to dynamically enable/disable kernel
-code to obtain additional kernel information. Currently, if
-CONFIG_DYNAMIC_DEBUG is set, then all pr_debug()/dev_dbg() calls can be
-dynamically enabled per-callsite.
+Dynamic debug is designed to allow you to dynamically enable/disable
+kernel code to obtain additional kernel information.  Currently, if
+CONFIG_DYNAMIC_DEBUG is set, then all pr_debug()/dev_dbg() and
+print_hex_dump_debug()/print_hex_dump_bytes() calls can be dynamically
+enabled per-callsite.
+
+If CONFIG_DYNAMIC_DEBUG is not set, print_hex_dump_debug() is just
+shortcut for print_hex_dump(KERN_DEBUG).
+
+For print_hex_dump_debug()/print_hex_dump_bytes(), format string is
+its 'prefix_str' argument, if it is constant string; or "hexdump"
+in case 'prefix_str' is build dynamically.
 
 Dynamic debug has even more useful features:
 
@@ -197,7 +205,11 @@ of the characters:
 =
     set the flags to the given flags
 
-The flags are:
+For print_hex_dump_debug() and print_hex_dump_bytes(), only 'p' flag
+have meaning, other flags ignored.
+
+For display, the flags are preceded by '='
+(mnemonic: what the flags are currently equal to).
 
 f
     Include the function name in the printed message
