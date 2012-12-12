@@ -3832,11 +3832,21 @@ retry:
 
 		barrier();
 		if (pmd_trans_huge(orig_pmd)) {
-			if (pmd_numa(*pmd))
+			unsigned int dirty = flags & FAULT_FLAG_WRITE;
+
+			/*
+			 * If the pmd is splitting, return and retry the
+			 * the fault.  Alternative: wait until the split
+			 * is done, and goto retry.
+			 */
+			if (pmd_trans_splitting(orig_pmd))
+				return 0;
+
+			if (pmd_numa(orig_pmd))
 				return do_huge_pmd_numa_page(mm, vma, address,
 							     orig_pmd, pmd);
 
-			if ((flags & FAULT_FLAG_WRITE) && !pmd_write(orig_pmd)) {
+			if (dirty && !pmd_write(orig_pmd)) {
 				ret = do_huge_pmd_wp_page(mm, vma, address, pmd,
 							  orig_pmd);
 				/*
@@ -3847,6 +3857,9 @@ retry:
 				if (unlikely(ret & VM_FAULT_OOM))
 					goto retry;
 				return ret;
+			} else {
+				huge_pmd_set_accessed(mm, vma, address, pmd,
+						      orig_pmd, dirty);
 			}
 
 			return 0;
