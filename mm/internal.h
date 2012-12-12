@@ -94,6 +94,11 @@ extern unsigned long zone_reclaimable_pages(struct zone *zone);
 extern bool zone_reclaimable(struct zone *zone);
 
 /*
+ * in mm/rmap.c:
+ */
+extern pmd_t *mm_find_pmd(struct mm_struct *mm, unsigned long address);
+
+/*
  * in mm/page_alloc.c
  */
 extern void __free_pages_bootmem(struct page *page, unsigned int order);
