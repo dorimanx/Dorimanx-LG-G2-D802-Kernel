@@ -145,6 +145,8 @@ SECTIONS
 	}
 #endif
 
+	NOTES
+
 	_etext = .;			/* End of text and rodata section */
 
 #ifndef CONFIG_XIP_KERNEL
@@ -335,8 +337,6 @@ SECTIONS
 		__tcm_end = .;
 	}
 #endif
-
-	NOTES
 
 	BSS_SECTION(0, 0, 0)
 	_end = .;
