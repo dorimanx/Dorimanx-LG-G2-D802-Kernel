@@ -2702,6 +2702,524 @@ static int mem_cgroup_move_account(struct page *page,
 
 	move_lock_mem_cgroup(from, &flags);
 
+	return size;
+}
+
+/*
+ * We should update the current array size iff all caches updates succeed. This
+ * can only be done from the slab side. The slab mutex needs to be held when
+ * calling this.
+ */
+void memcg_update_array_size(int num)
+{
+	if (num > memcg_limited_groups_array_size)
+		memcg_limited_groups_array_size = memcg_caches_array_size(num);
+}
+
+int memcg_update_cache_size(struct kmem_cache *s, int num_groups)
+{
+	struct memcg_cache_params *cur_params = s->memcg_params;
+
+	VM_BUG_ON(s->memcg_params && !s->memcg_params->is_root_cache);
+
+	if (num_groups > memcg_limited_groups_array_size) {
+		int i;
+		ssize_t size = memcg_caches_array_size(num_groups);
+
+		size *= sizeof(void *);
+		size += sizeof(struct memcg_cache_params);
+
+		s->memcg_params = kzalloc(size, GFP_KERNEL);
+		if (!s->memcg_params) {
+			s->memcg_params = cur_params;
+			return -ENOMEM;
+		}
+
+		s->memcg_params->is_root_cache = true;
+
+		/*
+		 * There is the chance it will be bigger than
+		 * memcg_limited_groups_array_size, if we failed an allocation
+		 * in a cache, in which case all caches updated before it, will
+		 * have a bigger array.
+		 *
+		 * But if that is the case, the data after
+		 * memcg_limited_groups_array_size is certainly unused
+		 */
+		for (i = 0; i < memcg_limited_groups_array_size; i++) {
+			if (!cur_params->memcg_caches[i])
+				continue;
+			s->memcg_params->memcg_caches[i] =
+						cur_params->memcg_caches[i];
+		}
+
+		/*
+		 * Ideally, we would wait until all caches succeed, and only
+		 * then free the old one. But this is not worth the extra
+		 * pointer per-cache we'd have to have for this.
+		 *
+		 * It is not a big deal if some caches are left with a size
+		 * bigger than the others. And all updates will reset this
+		 * anyway.
+		 */
+		kfree(cur_params);
+	}
+	return 0;
+}
+
+int memcg_register_cache(struct mem_cgroup *memcg, struct kmem_cache *s)
+{
+	size_t size = sizeof(struct memcg_cache_params);
+
+	if (!memcg_kmem_enabled())
+		return 0;
+
+	if (!memcg)
+		size += memcg_limited_groups_array_size * sizeof(void *);
+
+	s->memcg_params = kzalloc(size, GFP_KERNEL);
+	if (!s->memcg_params)
+		return -ENOMEM;
+
+	if (memcg)
+		s->memcg_params->memcg = memcg;
+	return 0;
+}
+
+void memcg_release_cache(struct kmem_cache *s)
+{
+	struct kmem_cache *root;
+	struct mem_cgroup *memcg;
+	int id;
+
+	/*
+	 * This happens, for instance, when a root cache goes away before we
+	 * add any memcg.
+	 */
+	if (!s->memcg_params)
+		return;
+
+	if (s->memcg_params->is_root_cache)
+		goto out;
+
+	memcg = s->memcg_params->memcg;
+	id  = memcg_cache_id(memcg);
+
+	root = s->memcg_params->root_cache;
+	root->memcg_params->memcg_caches[id] = NULL;
+	mem_cgroup_put(memcg);
+
+	mutex_lock(&memcg->slab_caches_mutex);
+	list_del(&s->memcg_params->list);
+	mutex_unlock(&memcg->slab_caches_mutex);
+
+out:
+	kfree(s->memcg_params);
+}
+
+/*
+ * During the creation a new cache, we need to disable our accounting mechanism
+ * altogether. This is true even if we are not creating, but rather just
+ * enqueing new caches to be created.
+ *
+ * This is because that process will trigger allocations; some visible, like
+ * explicit kmallocs to auxiliary data structures, name strings and internal
+ * cache structures; some well concealed, like INIT_WORK() that can allocate
+ * objects during debug.
+ *
+ * If any allocation happens during memcg_kmem_get_cache, we will recurse back
+ * to it. This may not be a bounded recursion: since the first cache creation
+ * failed to complete (waiting on the allocation), we'll just try to create the
+ * cache again, failing at the same point.
+ *
+ * memcg_kmem_get_cache is prepared to abort after seeing a positive count of
+ * memcg_kmem_skip_account. So we enclose anything that might allocate memory
+ * inside the following two functions.
+ */
+static inline void memcg_stop_kmem_account(void)
+{
+	VM_BUG_ON(!current->mm);
+	current->memcg_kmem_skip_account++;
+}
+
+static inline void memcg_resume_kmem_account(void)
+{
+	VM_BUG_ON(!current->mm);
+	current->memcg_kmem_skip_account--;
+}
+
+static char *memcg_cache_name(struct mem_cgroup *memcg, struct kmem_cache *s)
+{
+	char *name;
+	struct dentry *dentry;
+
+	rcu_read_lock();
+	dentry = rcu_dereference(memcg->css.cgroup->dentry);
+	rcu_read_unlock();
+
+	BUG_ON(dentry == NULL);
+
+	name = kasprintf(GFP_KERNEL, "%s(%d:%s)", s->name,
+			 memcg_cache_id(memcg), dentry->d_name.name);
+
+	return name;
+}
+
+static struct kmem_cache *kmem_cache_dup(struct mem_cgroup *memcg,
+					 struct kmem_cache *s)
+{
+	char *name;
+	struct kmem_cache *new;
+
+	name = memcg_cache_name(memcg, s);
+	if (!name)
+		return NULL;
+
+	new = kmem_cache_create_memcg(memcg, name, s->object_size, s->align,
+				      (s->flags & ~SLAB_PANIC), s->ctor);
+
+	kfree(name);
+	return new;
+}
+
+/*
+ * This lock protects updaters, not readers. We want readers to be as fast as
+ * they can, and they will either see NULL or a valid cache value. Our model
+ * allow them to see NULL, in which case the root memcg will be selected.
+ *
+ * We need this lock because multiple allocations to the same cache from a non
+ * will span more than one worker. Only one of them can create the cache.
+ */
+static DEFINE_MUTEX(memcg_cache_mutex);
+static struct kmem_cache *memcg_create_kmem_cache(struct mem_cgroup *memcg,
+						  struct kmem_cache *cachep)
+{
+	struct kmem_cache *new_cachep;
+	int idx;
+
+	BUG_ON(!memcg_can_account_kmem(memcg));
+
+	idx = memcg_cache_id(memcg);
+
+	mutex_lock(&memcg_cache_mutex);
+	new_cachep = cachep->memcg_params->memcg_caches[idx];
+	if (new_cachep)
+		goto out;
+
+	new_cachep = kmem_cache_dup(memcg, cachep);
+	if (new_cachep == NULL) {
+		new_cachep = cachep;
+		goto out;
+	}
+
+	mem_cgroup_get(memcg);
+	new_cachep->memcg_params->root_cache = cachep;
+
+	cachep->memcg_params->memcg_caches[idx] = new_cachep;
+	/*
+	 * the readers won't lock, make sure everybody sees the updated value,
+	 * so they won't put stuff in the queue again for no reason
+	 */
+	wmb();
+out:
+	mutex_unlock(&memcg_cache_mutex);
+	return new_cachep;
+}
+
+struct create_work {
+	struct mem_cgroup *memcg;
+	struct kmem_cache *cachep;
+	struct work_struct work;
+};
+
+static void memcg_create_cache_work_func(struct work_struct *w)
+{
+	struct create_work *cw;
+
+	cw = container_of(w, struct create_work, work);
+	memcg_create_kmem_cache(cw->memcg, cw->cachep);
+	/* Drop the reference gotten when we enqueued. */
+	css_put(&cw->memcg->css);
+	kfree(cw);
+}
+
+/*
+ * Enqueue the creation of a per-memcg kmem_cache.
+ * Called with rcu_read_lock.
+ */
+static void __memcg_create_cache_enqueue(struct mem_cgroup *memcg,
+					 struct kmem_cache *cachep)
+{
+	struct create_work *cw;
+
+	cw = kmalloc(sizeof(struct create_work), GFP_NOWAIT);
+	if (cw == NULL)
+		return;
+
+	/* The corresponding put will be done in the workqueue. */
+	if (!css_tryget(&memcg->css)) {
+		kfree(cw);
+		return;
+	}
+
+	cw->memcg = memcg;
+	cw->cachep = cachep;
+
+	INIT_WORK(&cw->work, memcg_create_cache_work_func);
+	schedule_work(&cw->work);
+}
+
+static void memcg_create_cache_enqueue(struct mem_cgroup *memcg,
+				       struct kmem_cache *cachep)
+{
+	/*
+	 * We need to stop accounting when we kmalloc, because if the
+	 * corresponding kmalloc cache is not yet created, the first allocation
+	 * in __memcg_create_cache_enqueue will recurse.
+	 *
+	 * However, it is better to enclose the whole function. Depending on
+	 * the debugging options enabled, INIT_WORK(), for instance, can
+	 * trigger an allocation. This too, will make us recurse. Because at
+	 * this point we can't allow ourselves back into memcg_kmem_get_cache,
+	 * the safest choice is to do it like this, wrapping the whole function.
+	 */
+	memcg_stop_kmem_account();
+	__memcg_create_cache_enqueue(memcg, cachep);
+	memcg_resume_kmem_account();
+}
+/*
+ * Return the kmem_cache we're supposed to use for a slab allocation.
+ * We try to use the current memcg's version of the cache.
+ *
+ * If the cache does not exist yet, if we are the first user of it,
+ * we either create it immediately, if possible, or create it asynchronously
+ * in a workqueue.
+ * In the latter case, we will let the current allocation go through with
+ * the original cache.
+ *
+ * Can't be called in interrupt context or from kernel threads.
+ * This function needs to be called with rcu_read_lock() held.
+ */
+struct kmem_cache *__memcg_kmem_get_cache(struct kmem_cache *cachep,
+					  gfp_t gfp)
+{
+	struct mem_cgroup *memcg;
+	int idx;
+
+	VM_BUG_ON(!cachep->memcg_params);
+	VM_BUG_ON(!cachep->memcg_params->is_root_cache);
+
+	if (!current->mm || current->memcg_kmem_skip_account)
+		return cachep;
+
+	rcu_read_lock();
+	memcg = mem_cgroup_from_task(rcu_dereference(current->mm->owner));
+	rcu_read_unlock();
+
+	if (!memcg_can_account_kmem(memcg))
+		return cachep;
+
+	idx = memcg_cache_id(memcg);
+
+	/*
+	 * barrier to mare sure we're always seeing the up to date value.  The
+	 * code updating memcg_caches will issue a write barrier to match this.
+	 */
+	read_barrier_depends();
+	if (unlikely(cachep->memcg_params->memcg_caches[idx] == NULL)) {
+		/*
+		 * If we are in a safe context (can wait, and not in interrupt
+		 * context), we could be be predictable and return right away.
+		 * This would guarantee that the allocation being performed
+		 * already belongs in the new cache.
+		 *
+		 * However, there are some clashes that can arrive from locking.
+		 * For instance, because we acquire the slab_mutex while doing
+		 * kmem_cache_dup, this means no further allocation could happen
+		 * with the slab_mutex held.
+		 *
+		 * Also, because cache creation issue get_online_cpus(), this
+		 * creates a lock chain: memcg_slab_mutex -> cpu_hotplug_mutex,
+		 * that ends up reversed during cpu hotplug. (cpuset allocates
+		 * a bunch of GFP_KERNEL memory during cpuup). Due to all that,
+		 * better to defer everything.
+		 */
+		memcg_create_cache_enqueue(memcg, cachep);
+		return cachep;
+	}
+
+	return cachep->memcg_params->memcg_caches[idx];
+}
+EXPORT_SYMBOL(__memcg_kmem_get_cache);
+
+/*
+ * We need to verify if the allocation against current->mm->owner's memcg is
+ * possible for the given order. But the page is not allocated yet, so we'll
+ * need a further commit step to do the final arrangements.
+ *
+ * It is possible for the task to switch cgroups in this mean time, so at
+ * commit time, we can't rely on task conversion any longer.  We'll then use
+ * the handle argument to return to the caller which cgroup we should commit
+ * against. We could also return the memcg directly and avoid the pointer
+ * passing, but a boolean return value gives better semantics considering
+ * the compiled-out case as well.
+ *
+ * Returning true means the allocation is possible.
+ */
+bool
+__memcg_kmem_newpage_charge(gfp_t gfp, struct mem_cgroup **_memcg, int order)
+{
+	struct mem_cgroup *memcg;
+	int ret;
+
+	*_memcg = NULL;
+	memcg = try_get_mem_cgroup_from_mm(current->mm);
+
+	/*
+	 * very rare case described in mem_cgroup_from_task. Unfortunately there
+	 * isn't much we can do without complicating this too much, and it would
+	 * be gfp-dependent anyway. Just let it go
+	 */
+	if (unlikely(!memcg))
+		return true;
+
+	if (!memcg_can_account_kmem(memcg)) {
+		css_put(&memcg->css);
+		return true;
+	}
+
+	ret = memcg_charge_kmem(memcg, gfp, PAGE_SIZE << order);
+	if (!ret)
+		*_memcg = memcg;
+
+	css_put(&memcg->css);
+	return (ret == 0);
+}
+
+void __memcg_kmem_commit_charge(struct page *page, struct mem_cgroup *memcg,
+			      int order)
+{
+	struct page_cgroup *pc;
+
+	VM_BUG_ON(mem_cgroup_is_root(memcg));
+
+	/* The page allocation failed. Revert */
+	if (!page) {
+		memcg_uncharge_kmem(memcg, PAGE_SIZE << order);
+		return;
+	}
+
+	pc = lookup_page_cgroup(page);
+	lock_page_cgroup(pc);
+	pc->mem_cgroup = memcg;
+	SetPageCgroupUsed(pc);
+	unlock_page_cgroup(pc);
+}
+
+void __memcg_kmem_uncharge_pages(struct page *page, int order)
+{
+	struct mem_cgroup *memcg = NULL;
+	struct page_cgroup *pc;
+
+
+	pc = lookup_page_cgroup(page);
+	/*
+	 * Fast unlocked return. Theoretically might have changed, have to
+	 * check again after locking.
+	 */
+	if (!PageCgroupUsed(pc))
+		return;
+
+	lock_page_cgroup(pc);
+	if (PageCgroupUsed(pc)) {
+		memcg = pc->mem_cgroup;
+		ClearPageCgroupUsed(pc);
+	}
+	unlock_page_cgroup(pc);
+
+	/*
+	 * We trust that only if there is a memcg associated with the page, it
+	 * is a valid allocation
+	 */
+	if (!memcg)
+		return;
+
+	VM_BUG_ON(mem_cgroup_is_root(memcg));
+	memcg_uncharge_kmem(memcg, PAGE_SIZE << order);
+}
+#endif /* CONFIG_MEMCG_KMEM */
+
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
+
+#define PCGF_NOCOPY_AT_SPLIT (1 << PCG_LOCK | 1 << PCG_MIGRATION)
+/*
+ * Because tail pages are not marked as "used", set it. We're under
+ * zone->lru_lock, 'splitting on pmd' and compound_lock.
+ * charge/uncharge will be never happen and move_account() is done under
+ * compound_lock(), so we don't have to take care of races.
+ */
+void mem_cgroup_split_huge_fixup(struct page *head)
+{
+	struct page_cgroup *head_pc = lookup_page_cgroup(head);
+	struct page_cgroup *pc;
+	int i;
+
+	if (mem_cgroup_disabled())
+		return;
+	for (i = 1; i < HPAGE_PMD_NR; i++) {
+		pc = head_pc + i;
+		pc->mem_cgroup = head_pc->mem_cgroup;
+		smp_wmb();/* see __commit_charge() */
+		pc->flags = head_pc->flags & ~PCGF_NOCOPY_AT_SPLIT;
+	}
+}
+#endif /* CONFIG_TRANSPARENT_HUGEPAGE */
+
+/**
+ * mem_cgroup_move_account - move account of the page
+ * @page: the page
+ * @nr_pages: number of regular pages (>1 for huge pages)
+ * @pc:	page_cgroup of the page.
+ * @from: mem_cgroup which the page is moved from.
+ * @to:	mem_cgroup which the page is moved to. @from != @to.
+ *
+ * The caller must confirm following.
+ * - page is not on LRU (isolate_page() is useful.)
+ * - compound_lock is held when nr_pages > 1
+ *
+ * This function doesn't do "charge" to new cgroup and doesn't do "uncharge"
+ * from old cgroup.
+ */
+static int mem_cgroup_move_account(struct page *page,
+				   unsigned int nr_pages,
+				   struct page_cgroup *pc,
+				   struct mem_cgroup *from,
+				   struct mem_cgroup *to)
+{
+	unsigned long flags;
+	int ret;
+	bool anon = PageAnon(page);
+
+	VM_BUG_ON(from == to);
+	VM_BUG_ON(PageLRU(page));
+	/*
+	 * The page is isolated from LRU. So, collapse function
+	 * will not handle this page. But page splitting can happen.
+	 * Do this check under compound_page_lock(). The caller should
+	 * hold it.
+	 */
+	ret = -EBUSY;
+	if (nr_pages > 1 && !PageTransHuge(page))
+		goto out;
+
+	lock_page_cgroup(pc);
+
+	ret = -EINVAL;
+	if (!PageCgroupUsed(pc) || pc->mem_cgroup != from)
+		goto unlock;
+
+	move_lock_mem_cgroup(from, &flags);
+
 	if (!anon && page_mapped(page)) {
 		/* Update mapped_file data for mem_cgroup */
 		preempt_disable();
@@ -2710,9 +3228,6 @@ static int mem_cgroup_move_account(struct page *page,
 		preempt_enable();
 	}
 	mem_cgroup_charge_statistics(from, anon, -nr_pages);
-	if (uncharge)
-		/* This is not "cancel", but cancel_charge does all we need. */
-		__mem_cgroup_cancel_charge(from, nr_pages);
 
 	/* caller should have done css_get */
 	pc->mem_cgroup = to;
