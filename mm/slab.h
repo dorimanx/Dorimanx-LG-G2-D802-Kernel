@@ -147,6 +147,23 @@ static inline bool slab_equal_or_root(struct kmem_cache *s,
 	return (p == s) ||
 		(s->memcg_params && (p == s->memcg_params->root_cache));
 }
+
+/*
+ * We use suffixes to the name in memcg because we can't have caches
+ * created in the system with the same name. But when we print them
+ * locally, better refer to them with the base name
+ */
+static inline const char *cache_name(struct kmem_cache *s)
+{
+	if (!is_root_cache(s))
+		return s->memcg_params->root_cache->name;
+	return s->name;
+}
+
+static inline struct kmem_cache *cache_from_memcg(struct kmem_cache *s, int idx)
+{
+	return s->memcg_params->memcg_caches[idx];
+}
 #else
 static inline bool is_root_cache(struct kmem_cache *s)
 {
@@ -158,7 +175,6 @@ static inline bool cache_match_memcg(struct kmem_cache *cachep,
 {
 	return true;
 }
-#endif
 
 static inline void memcg_bind_pages(struct kmem_cache *s, int order)
 {
@@ -174,12 +190,30 @@ static inline bool slab_equal_or_root(struct kmem_cache *s,
 	return true;
 }
 
+static inline const char *cache_name(struct kmem_cache *s)
+{
+	return s->name;
+}
+
+static inline struct kmem_cache *cache_from_memcg(struct kmem_cache *s, int idx)
+{
+	return NULL;
+}
+#endif
+
 static inline struct kmem_cache *cache_from_obj(struct kmem_cache *s, void *x)
 {
 	struct kmem_cache *cachep;
 	struct page *page;
 
-	if (!unlikely(s->flags & SLAB_DEBUG_FREE))
+	/*
+	 * When kmemcg is not being used, both assignments should return the
+	 * same value. but we don't want to pay the assignment price in that
+	 * case. If it is not compiled in, the compiler should be smart enough
+	 * to not do even the assignment. In that case, slab_equal_or_root
+	 * will also be a constant.
+	 */
+	if (!memcg_kmem_enabled() && !unlikely(s->flags & SLAB_DEBUG_FREE))
 		return s;
 
 	page = virt_to_head_page(x);
