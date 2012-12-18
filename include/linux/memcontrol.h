@@ -561,6 +561,14 @@ memcg_kmem_commit_charge(struct page *page, struct mem_cgroup *memcg, int order)
 }
 
 #else
+#define for_each_memcg_cache_index(_idx)	\
+	for (; NULL; )
+
+static inline bool memcg_kmem_enabled(void)
+{
+	return false;
+}
+
 static inline bool
 memcg_kmem_newpage_charge(gfp_t gfp, struct mem_cgroup **memcg, int order)
 {
