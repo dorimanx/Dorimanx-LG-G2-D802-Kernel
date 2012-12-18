@@ -489,6 +489,7 @@ struct kmem_cache *
 __memcg_kmem_get_cache(struct kmem_cache *cachep, gfp_t gfp);
 
 void mem_cgroup_destroy_cache(struct kmem_cache *cachep);
+void kmem_cache_destroy_memcg_children(struct kmem_cache *s);
 
 /**
  * memcg_kmem_newpage_charge: verify if a new kmem allocation is allowed.
@@ -592,6 +593,16 @@ static inline void memcg_release_cache(struct kmem_cache *cachep)
 
 static inline void memcg_cache_list_add(struct mem_cgroup *memcg,
 					struct kmem_cache *s)
+{
+}
+
+static inline struct kmem_cache *
+memcg_kmem_get_cache(struct kmem_cache *cachep, gfp_t gfp)
+{
+	return cachep;
+}
+
+static inline void kmem_cache_destroy_memcg_children(struct kmem_cache *s)
 {
 }
 #endif /* CONFIG_MEMCG_KMEM */
