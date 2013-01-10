@@ -1628,26 +1628,6 @@ void __init kmem_cache_init(void)
 
 	slab_early_init = 0;
 
-	while (sizes->cs_size != ULONG_MAX) {
-		/*
-		 * For performance, all the general caches are L1 aligned.
-		 * This should be particularly beneficial on SMP boxes, as it
-		 * eliminates "false sharing".
-		 * Note for systems short on memory removing the alignment will
-		 * allow tighter packing of the smaller caches.
-		 */
-		if (!sizes->cs_cachep)
-			sizes->cs_cachep = create_kmalloc_cache(names->name,
-					sizes->cs_size, ARCH_KMALLOC_FLAGS);
-
-#ifdef CONFIG_ZONE_DMA
-		sizes->cs_dmacachep = create_kmalloc_cache(
-			names->name_dma, sizes->cs_size,
-			SLAB_CACHE_DMA|ARCH_KMALLOC_FLAGS);
-#endif
-		sizes++;
-		names++;
-	}
 	/* 4) Replace the bootstrap head arrays */
 	{
 		struct array_cache *ptr;
@@ -1694,7 +1674,7 @@ void __init kmem_cache_init(void)
 		}
 	}
 
-	slab_state = UP;
+	create_kmalloc_caches(ARCH_KMALLOC_FLAGS);
 }
 
 void __init kmem_cache_init_late(void)
