@@ -126,15 +126,8 @@ struct kmem_cache {
 
 #define KMALLOC_SHIFT_LOW ilog2(KMALLOC_MIN_SIZE)
 
-#ifdef CONFIG_ZONE_DMA
-#define SLUB_DMA __GFP_DMA
-#else
-/* Disable DMA functionality */
-#define SLUB_DMA (__force gfp_t)0
-#endif
-
 /*
-/*
+ *
  * Sorry that the following has to be that ugly but some versions of GCC
  * have trouble with constant propagation and loops.
  */
@@ -184,22 +177,6 @@ static __always_inline int kmalloc_index(size_t size)
  *		if (size <= (1 << i))
  *			return i;
  */
-}
-
-/*
- * Find the slab cache for a given combination of allocation flags and size.
- *
- * This ought to end up with a global pointer to the right cache
- * in kmalloc_caches.
- */
-static __always_inline struct kmem_cache *kmalloc_slab(size_t size)
-{
-	int index = kmalloc_index(size);
-
-	if (index == 0)
-		return NULL;
-
-	return kmalloc_caches[index];
 }
 
 void *kmem_cache_alloc(struct kmem_cache *, gfp_t);
@@ -259,13 +236,14 @@ static __always_inline void *kmalloc(size_t size, gfp_t flags)
 		if (size > KMALLOC_MAX_CACHE_SIZE)
 			return kmalloc_large(size, flags);
 
-		if (!(flags & SLUB_DMA)) {
-			struct kmem_cache *s = kmalloc_slab(size);
+		if (!(flags & GFP_DMA)) {
+			int index = kmalloc_index(size);
 
-			if (!s)
+			if (!index)
 				return ZERO_SIZE_PTR;
 
-			return kmem_cache_alloc_trace(s, flags, size);
+			return kmem_cache_alloc_trace(kmalloc_caches[index],
+					flags, size);
 		}
 	}
 	return __kmalloc(size, flags);
@@ -292,13 +270,14 @@ kmem_cache_alloc_node_trace(struct kmem_cache *s,
 static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node)
 {
 	if (__builtin_constant_p(size) &&
-		size <= KMALLOC_MAX_CACHE_SIZE && !(flags & SLUB_DMA)) {
-			struct kmem_cache *s = kmalloc_slab(size);
+		size <= KMALLOC_MAX_CACHE_SIZE && !(flags & GFP_DMA)) {
+		int index = kmalloc_index(size);
 
-		if (!s)
+		if (!index)
 			return ZERO_SIZE_PTR;
 
-		return kmem_cache_alloc_node_trace(s, flags, node, size);
+		return kmem_cache_alloc_node_trace(kmalloc_caches[index],
+			       flags, node, size);
 	}
 	return __kmalloc_node(size, flags, node);
 }
