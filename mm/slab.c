@@ -316,30 +316,6 @@ static void free_block(struct kmem_cache *cachep, void **objpp, int len,
 static int enable_cpucache(struct kmem_cache *cachep, gfp_t gfp);
 static void cache_reap(struct work_struct *unused);
 
-/*
- * This function must be completely optimized away if a constant is passed to
- * it.  Mostly the same as what is in linux/slab.h except it returns an index.
- */
-static __always_inline int index_of(const size_t size)
-{
-	extern void __bad_size(void);
-
-	if (__builtin_constant_p(size)) {
-		int i = 0;
-
-#define CACHE(x) \
-	if (size <=x) \
-		return i; \
-	else \
-		i++;
-#include <linux/kmalloc_sizes.h>
-#undef CACHE
-		__bad_size();
-	} else
-		__bad_size();
-	return 0;
-}
-
 static int slab_early_init = 1;
 
 #define INDEX_AC index_of(sizeof(struct arraycache_init))
