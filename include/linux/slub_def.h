@@ -134,11 +134,6 @@ struct kmem_cache {
 #endif
 
 /*
- * We keep the general caches in an array of slab caches that are used for
- * 2^x bytes of allocations.
- */
-extern struct kmem_cache *kmalloc_caches[KMALLOC_SHIFT_HIGH + 1];
-
 /*
  * Sorry that the following has to be that ugly but some versions of GCC
  * have trouble with constant propagation and loops.
