@@ -162,6 +162,15 @@ static struct sdhci_ops pxav3_sdhci_ops = {
 	.platform_reset_exit = pxav3_set_private_registers,
 	.set_uhs_signaling = pxav3_set_uhs_signaling,
 	.platform_send_init_74_clocks = pxav3_gen_init_74_clocks,
+	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
+};
+
+#ifdef CONFIG_OF
+static const struct of_device_id sdhci_pxav3_of_match[] = {
+	{
+		.compatible = "mrvl,pxav3-mmc",
+	},
+	{},
 };
 
 static int __devinit sdhci_pxav3_probe(struct platform_device *pdev)
