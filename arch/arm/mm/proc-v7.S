@@ -181,12 +181,12 @@ __v7_setup:
 	bic	r10, r10, r6
 	ldr	r6, =0x410fc0f			@ ARM cortex A15
 	teq	r10, r6
+	biceq	r10, r10, r10			@ clear r10 if it's A15
 	beq	4f
 	stmia	r12, {r0-r5, r7, r9, r11, lr}
 	bl      v7_flush_dcache_louis
 	ldmia	r12, {r0-r5, r7, r9, r11, lr}
 
-4:
 	and	r10, r0, #0xff000000		@ ARM?
 	teq	r10, #0x41000000
 	bne	3f
@@ -257,6 +257,7 @@ __v7_setup:
 
 3:	mov	r10, #0
 	mcr	p15, 0, r10, c7, c5, 0		@ I+BTB cache invalidate
+4:
 #ifdef CONFIG_MMU
 	mcr	p15, 0, r10, c8, c7, 0		@ invalidate I + D TLBs
 	v7_ttb_setup r10, r4, r8, r5		@ TTBCR, TTBRx setup
