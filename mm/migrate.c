@@ -164,8 +164,10 @@ static int remove_migration_pte(struct page *new, struct vm_area_struct *vma,
 		pte = maybe_mkwrite(pte, vma);
 
 #ifdef CONFIG_HUGETLB_PAGE
-	if (PageHuge(new))
+	if (PageHuge(new)) {
 		pte = pte_mkhuge(pte);
+		pte = arch_make_huge_pte(pte, vma, new, 0);
+	}
 #endif
 	flush_dcache_page(new);
 	set_pte_at(mm, addr, ptep, pte);
