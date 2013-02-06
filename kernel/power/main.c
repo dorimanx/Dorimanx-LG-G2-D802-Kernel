@@ -360,7 +360,7 @@ static suspend_state_t decode_state(const char *buf, size_t n)
 #ifdef CONFIG_EARLYSUSPEND
 	suspend_state_t state = PM_SUSPEND_ON;
 #else
-	suspend_state_t state = PM_SUSPEND_STANDBY;
+	suspend_state_t state = PM_SUSPEND_MIN;
 #endif
 	const char * const *s;
 #endif
