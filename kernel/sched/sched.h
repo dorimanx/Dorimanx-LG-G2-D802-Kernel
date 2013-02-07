@@ -1,6 +1,7 @@
 
 #include <linux/sched.h>
 #include <linux/sched/sysctl.h>
+#include <linux/sched/rt.h>
 #include <linux/sched/deadline.h>
 #include <linux/mutex.h>
 #include <linux/spinlock.h>

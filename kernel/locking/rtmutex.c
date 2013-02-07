@@ -13,6 +13,7 @@
 #include <linux/spinlock.h>
 #include <linux/export.h>
 #include <linux/sched.h>
+#include <linux/sched/rt.h>
 #include <linux/sched/deadline.h>
 #include <linux/timer.h>
 
