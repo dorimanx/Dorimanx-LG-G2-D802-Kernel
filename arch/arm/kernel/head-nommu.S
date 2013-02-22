@@ -99,7 +99,17 @@ ENTRY(secondary_startup)
 	movs	r10, r5				@ invalid processor (r5=0)?
 	beq	__error_p				@ yes, error 'p'
 
-	adr	lr, BSYM(__after_proc_init)	@ return (PIC) address
+	adr	r4, __secondary_data
+	ldmia	r4, {r7, r12}
+
+#ifdef CONFIG_ARM_MPU
+	/* Use MPU region info supplied by __cpu_up */
+	ldr	r6, [r7]			@ get secondary_data.mpu_szr
+	bl      __setup_mpu			@ Initialize the MPU
+#endif
+
+	adr	lr, BSYM(__after_proc_init)	@ return address
+	mov	r13, r12			@ __secondary_switched address
  ARM(	add	pc, r10, #PROCINFO_INITFUNC	)
  THUMB(	add	r12, r10, #PROCINFO_INITFUNC	)
  THUMB(	mov	pc, r12				)
