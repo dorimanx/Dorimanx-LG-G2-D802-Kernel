@@ -455,13 +455,7 @@ out:
 	gfs2_holder_uninit(&gh);
 	if (ret == 0) {
 		set_page_dirty(page);
-		/* This check must be post dropping of transaction lock */
-		if (inode->i_sb->s_frozen == SB_UNFROZEN) {
-			wait_on_page_writeback(page);
-		} else {
-			ret = -EAGAIN;
-			unlock_page(page);
-		}
+		wait_for_stable_page(page);
 	}
 	return block_page_mkwrite_return(ret);
 }
