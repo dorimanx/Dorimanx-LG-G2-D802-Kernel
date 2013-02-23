@@ -1234,7 +1234,8 @@ unsigned long do_mmap_pgoff(struct file *file,
 			    unsigned long len,
 			    unsigned long prot,
 			    unsigned long flags,
-			    unsigned long pgoff)
+			    unsigned long pgoff,
+			    bool *populate)
 {
 	struct vm_area_struct *vma;
 	struct vm_region *region;
@@ -1243,6 +1244,8 @@ unsigned long do_mmap_pgoff(struct file *file,
 	int ret;
 
 	kenter(",%lx,%lx,%lx,%lx,%lx", addr, len, prot, flags, pgoff);
+
+	*populate = false;
 
 	/* decide whether we should attempt the mapping, and if so what sort of
 	 * mapping */
