@@ -548,6 +548,8 @@ static inline void __free_one_page(struct page *page,
 	struct page *buddy = NULL;
 	int max_order = MAX_ORDER;
 
+	VM_BUG_ON(!zone_is_initialized(zone));
+
 	if (unlikely(PageCompound(page)))
 		if (unlikely(destroy_compound_page(page, order)))
 			return;
