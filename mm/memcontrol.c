@@ -6035,12 +6035,11 @@ static struct page *mc_handle_swap_pte(struct vm_area_struct *vma,
 
 	if (!move_anon() || non_swap_entry(ent))
 		return NULL;
-	usage_count = mem_cgroup_count_swap_user(ent, &page);
-	if (usage_count > 1) { /* we don't move shared anon */
-		if (page)
-			put_page(page);
-		return NULL;
-	}
+	/*
+	 * Because lookup_swap_cache() updates some statistics counter,
+	 * we call find_get_page() with swapper_space directly.
+	 */
+	page = find_get_page(swap_address_space(ent), ent.val);
 	if (do_swap_account)
 		entry->val = ent.val;
 
@@ -6076,7 +6075,7 @@ static struct page *mc_handle_file_pte(struct vm_area_struct *vma,
 		swp_entry_t swap = radix_to_swp_entry(page);
 		if (do_swap_account)
 			*entry = swap;
-		page = find_get_page(&swapper_space, swap.val);
+		page = find_get_page(swap_address_space(swap), swap.val);
 	}
 #endif
 	return page;
