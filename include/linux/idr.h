@@ -32,26 +32,22 @@ struct idr_layer {
 	int			prefix;	/* the ID prefix of this idr_layer */
 	DECLARE_BITMAP(bitmap, IDR_SIZE); /* A zero bit means "space here" */
 	struct idr_layer __rcu	*ary[1<<IDR_BITS];
-	int			 count;	 /* When zero, we can release it */
-	int			 layer;	 /* distance from leaf */
-	struct rcu_head		 rcu_head;
+	int			count;	/* When zero, we can release it */
+	int			layer;	/* distance from leaf */
+	struct rcu_head		rcu_head;
 };
 
 struct idr {
-	struct idr_layer __rcu *top;
-	struct idr_layer *id_free;
-	int		  layers; /* only valid without concurrent changes */
-	int		  id_free_cnt;
-	spinlock_t	  lock;
+	struct idr_layer __rcu	*top;
+	struct idr_layer	*id_free;
+	int			layers;	/* only valid w/o concurrent changes */
+	int			id_free_cnt;
+	spinlock_t		lock;
 };
 
-#define IDR_INIT(name)						\
-{								\
-	.top		= NULL,					\
-	.id_free	= NULL,					\
-	.layers 	= 0,					\
-	.id_free_cnt	= 0,					\
-	.lock		= __SPIN_LOCK_UNLOCKED(name.lock),	\
+#define IDR_INIT(name)							\
+{									\
+	.lock			= __SPIN_LOCK_UNLOCKED(name.lock),	\
 }
 #define DEFINE_IDR(name)	struct idr name = IDR_INIT(name)
 
