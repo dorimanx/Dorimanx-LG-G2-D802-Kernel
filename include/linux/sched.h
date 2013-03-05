@@ -982,9 +982,6 @@ static inline int test_sd_parent(struct sched_domain *sd, int flag)
 	return 0;
 }
 
-unsigned long default_scale_freq_power(struct sched_domain *sd, int cpu);
-unsigned long default_scale_smt_power(struct sched_domain *sd, int cpu);
-
 bool cpus_share_cache(int this_cpu, int that_cpu);
 
 #else /* CONFIG_SMP */
