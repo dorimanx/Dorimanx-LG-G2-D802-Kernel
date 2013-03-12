@@ -3044,19 +3044,21 @@ static void binder_deferred_release(struct binder_proc *proc)
 		int i;
 
 		for (i = 0; i < proc->buffer_size / PAGE_SIZE; i++) {
-			if (proc->pages[i]) {
-				void *page_addr = proc->buffer + i * PAGE_SIZE;
-				binder_debug(BINDER_DEBUG_BUFFER_ALLOC,
-					     "binder_release: %d: page %d at %p not freed\n",
-					     proc->pid, i, page_addr);
-				unmap_kernel_range((unsigned long)page_addr,
-					PAGE_SIZE);
+			void *page_addr;
+
+			if (!proc->pages[i])
+				continue;
+
+			page_addr = proc->buffer + i * PAGE_SIZE;
+			binder_debug(BINDER_DEBUG_BUFFER_ALLOC,
+				     "binder_release: %d: page %d at %p not freed\n",
+				     proc->pid, i, page_addr);
+			unmap_kernel_range((unsigned long)page_addr, PAGE_SIZE);
 #ifdef CONFIG_LGE_MEMORY_INFO
-				__dec_zone_page_state(proc->pages[i], NR_BINDER_PAGES);
+			__dec_zone_page_state(proc->pages[i], NR_BINDER_PAGES);
 #endif
-				__free_page(proc->pages[i]);
-				page_count++;
-			}
+			__free_page(proc->pages[i]);
+			page_count++;
 		}
 		kfree(proc->pages);
 		vfree(proc->buffer);
