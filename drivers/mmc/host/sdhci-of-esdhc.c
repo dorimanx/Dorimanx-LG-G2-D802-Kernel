@@ -143,8 +143,21 @@ static void esdhc_of_resume(struct sdhci_host *host)
 }
 #endif
 
-static struct sdhci_ops sdhci_esdhc_ops = {
-	.read_l = sdhci_be32bs_readl,
+static void esdhc_of_platform_init(struct sdhci_host *host)
+{
+	u32 vvn;
+
+	vvn = in_be32(host->ioaddr + SDHCI_SLOT_INT_STATUS);
+	vvn = (vvn & SDHCI_VENDOR_VER_MASK) >> SDHCI_VENDOR_VER_SHIFT;
+	if (vvn == VENDOR_V_22)
+		host->quirks2 |= SDHCI_QUIRK2_HOST_NO_CMD23;
+
+	if (vvn > VENDOR_V_22)
+		host->quirks &= ~SDHCI_QUIRK_NO_BUSY_IRQ;
+}
+
+static const struct sdhci_ops sdhci_esdhc_ops = {
+	.read_l = esdhc_readl,
 	.read_w = esdhc_readw,
 	.read_b = esdhc_readb,
 	.write_l = sdhci_be32bs_writel,
