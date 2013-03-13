@@ -160,8 +160,11 @@ static struct sdhci_ops sdhci_esdhc_ops = {
 #endif
 };
 
-static struct sdhci_pltfm_data sdhci_esdhc_pdata = {
-	/* card detection could be handled via GPIO */
+static const struct sdhci_pltfm_data sdhci_esdhc_pdata = {
+	/*
+	 * card detection could be handled via GPIO
+	 * eSDHC cannot support End Attribute in NOP ADMA descriptor
+	 */
 	.quirks = ESDHC_DEFAULT_QUIRKS | SDHCI_QUIRK_BROKEN_CARD_DETECTION
 		| SDHCI_QUIRK_NO_CARD_NO_RESET,
 	.ops = &sdhci_esdhc_ops,
