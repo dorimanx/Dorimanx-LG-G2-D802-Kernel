@@ -1732,6 +1732,8 @@ static struct worker *create_worker(struct worker_pool *pool)
 	struct worker *worker = NULL;
 	int id = -1;
 
+	lockdep_assert_held(&pool->manager_mutex);
+
 	spin_lock_irq(&pool->lock);
 	while (ida_get_new(&pool->worker_ida, &id)) {
 		spin_unlock_irq(&pool->lock);
@@ -1813,11 +1815,13 @@ static void start_worker(struct worker *worker)
  * create_and_start_worker - create and start a worker for a pool
  * @pool: the target pool
  *
- * Create and start a new worker for @pool.
+ * Grab the managership of @pool and create and start a new worker for it.
  */
 static int create_and_start_worker(struct worker_pool *pool)
 {
 	struct worker *worker;
+
+	mutex_lock(&pool->manager_mutex);
 
 	worker = create_worker(pool);
 	if (worker) {
@@ -1825,6 +1829,8 @@ static int create_and_start_worker(struct worker_pool *pool)
 		start_worker(worker);
 		spin_unlock_irq(&pool->lock);
 	}
+
+	mutex_unlock(&pool->manager_mutex);
 
 	return worker ? 0 : -ENOMEM;
 }
@@ -1842,6 +1848,9 @@ static void destroy_worker(struct worker *worker)
 {
 	struct worker_pool *pool = worker->pool;
 	int id = worker->id;
+
+	lockdep_assert_held(&pool->manager_mutex);
+	lockdep_assert_held(&pool->lock);
 
 	/* sanity check frenzy */
 	if (WARN_ON(worker->current_work) ||
@@ -3564,6 +3573,7 @@ static void put_unbound_pool(struct worker_pool *pool)
 	 * manager_mutex.
 	 */
 	mutex_lock(&pool->manager_arb);
+	mutex_lock(&pool->manager_mutex);
 	spin_lock_irq(&pool->lock);
 
 	while ((worker = first_worker(pool)))
@@ -3571,6 +3581,7 @@ static void put_unbound_pool(struct worker_pool *pool)
 	WARN_ON(pool->nr_workers || pool->nr_idle);
 
 	spin_unlock_irq(&pool->lock);
+	mutex_unlock(&pool->manager_mutex);
 	mutex_unlock(&pool->manager_arb);
 
 	/* shut down the timers */
