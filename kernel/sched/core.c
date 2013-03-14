@@ -1560,8 +1560,8 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
 static void
 ttwu_do_wakeup(struct rq *rq, struct task_struct *p, int wake_flags)
 {
-	trace_sched_wakeup(p, true);
 	check_preempt_curr(rq, p, wake_flags);
+	trace_sched_wakeup(p, true);
 
 	update_task_ravg(p, rq, 0);
 	p->state = TASK_RUNNING;
