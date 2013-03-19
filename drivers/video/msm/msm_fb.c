@@ -2103,11 +2103,11 @@ static int msm_fb_set_par(struct fb_info *info)
 	}
 
 	if ((mfd->var_pixclock != var->pixclock) ||
-		(mfd->hw_refresh && ((mfd->fb_imgType != old_imgType) ||
-				(mfd->var_pixclock != var->pixclock) ||
-				(mfd->var_xres != var->xres) ||
-				(mfd->var_yres != var->yres) ||
-				(msm_fb_check_frame_rate(mfd, info))))) {
+		(mfd->hw_refresh &&
+			((mfd->fb_imgType != old_imgType) ||
+			 (mfd->var_xres   != var->xres) ||
+			 (mfd->var_yres   != var->yres) ||
+			 (msm_fb_check_frame_rate(mfd, info))))) {
 		mfd->var_xres = var->xres;
 		mfd->var_yres = var->yres;
 		mfd->var_pixclock = var->pixclock;
