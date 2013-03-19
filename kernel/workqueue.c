@@ -121,6 +121,9 @@ enum {
  *
  * F: wq->flush_mutex protected.
  *
+ * MG: pool->manager_mutex and pool->lock protected.  Writes require both
+ *     locks.  Reads can happen under either lock.
+ *
  * WQ: wq_mutex protected.
  *
  * WR: wq_mutex protected for writes.  Sched-RCU protected for reads.
@@ -158,7 +161,7 @@ struct worker_pool {
 	/* see manage_workers() for details on the two manager mutexes */
 	struct mutex		manager_arb;	/* manager arbitration */
 	struct mutex		manager_mutex;	/* manager exclusion */
-	struct ida		worker_ida;	/* L: for worker IDs */
+	struct idr		worker_idr;	/* MG: worker IDs and iteration */
 
 	struct workqueue_attrs	*attrs;		/* I: worker attributes */
 	struct hlist_node	hash_node;	/* WQ: unbound_pool_hash node */
@@ -314,6 +317,15 @@ static void copy_workqueue_attrs(struct workqueue_attrs *to,
 			   lockdep_is_held(&pwq_lock),			\
 			   "sched RCU or pwq_lock should be held")
 
+#ifdef CONFIG_LOCKDEP
+#define assert_manager_or_pool_lock(pool)				\
+	WARN_ONCE(!lockdep_is_held(&(pool)->manager_mutex) &&		\
+		  !lockdep_is_held(&(pool)->lock),			\
+		  "pool->manager_mutex or ->lock should be held")
+#else
+#define assert_manager_or_pool_lock(pool)	do { } while (0)
+#endif
+
 #define for_each_cpu_worker_pool(pool, cpu)				\
 	for ((pool) = &per_cpu(cpu_worker_pools, cpu)[0];		\
 	     (pool) < &per_cpu(cpu_worker_pools, cpu)[NR_STD_WORKER_POOLS]; \
@@ -337,6 +349,22 @@ static void copy_workqueue_attrs(struct workqueue_attrs *to,
 #define for_each_pool(pool, pi)						\
 	idr_for_each_entry(&worker_pool_idr, pool, pi)			\
 		if (({ assert_rcu_or_wq_mutex(); false; })) { }		\
+		else
+
+/**
+ * for_each_pool_worker - iterate through all workers of a worker_pool
+ * @worker: iteration cursor
+ * @wi: integer used for iteration
+ * @pool: worker_pool to iterate workers of
+ *
+ * This must be called with either @pool->manager_mutex or ->lock held.
+ *
+ * The if/else clause exists only for the lockdep assertion and can be
+ * ignored.
+ */
+#define for_each_pool_worker(worker, wi, pool)				\
+	idr_for_each_entry(&(pool)->worker_idr, (worker), (wi))		\
+		if (({ assert_manager_or_pool_lock((pool)); false; })) { } \
 		else
 
 /**
@@ -1740,14 +1768,19 @@ static struct worker *create_worker(struct worker_pool *pool)
 
 	lockdep_assert_held(&pool->manager_mutex);
 
+	/*
+	 * ID is needed to determine kthread name.  Allocate ID first
+	 * without installing the pointer.
+	 */
+	idr_preload(GFP_KERNEL);
 	spin_lock_irq(&pool->lock);
-	while (ida_get_new(&pool->worker_ida, &id)) {
-		spin_unlock_irq(&pool->lock);
-		if (!ida_pre_get(&pool->worker_ida, GFP_KERNEL))
-			goto fail;
-		spin_lock_irq(&pool->lock);
-	}
+
+	id = idr_alloc(&pool->worker_idr, NULL, 0, 0, GFP_NOWAIT);
+
 	spin_unlock_irq(&pool->lock);
+	idr_preload_end();
+	if (id < 0)
+		goto fail;
 
 	worker = alloc_worker();
 	if (!worker)
@@ -1789,11 +1822,17 @@ static struct worker *create_worker(struct worker_pool *pool)
 	if (pool->flags & POOL_DISASSOCIATED)
 		worker->flags |= WORKER_UNBOUND;
 
+	/* successful, commit the pointer to idr */
+	spin_lock_irq(&pool->lock);
+	idr_replace(&pool->worker_idr, worker, worker->id);
+	spin_unlock_irq(&pool->lock);
+
 	return worker;
+
 fail:
 	if (id >= 0) {
 		spin_lock_irq(&pool->lock);
-		ida_remove(&pool->worker_ida, id);
+		idr_remove(&pool->worker_idr, id);
 		spin_unlock_irq(&pool->lock);
 	}
 	kfree(worker);
@@ -1853,7 +1892,6 @@ static int create_and_start_worker(struct worker_pool *pool)
 static void destroy_worker(struct worker *worker)
 {
 	struct worker_pool *pool = worker->pool;
-	int id = worker->id;
 
 	lockdep_assert_held(&pool->manager_mutex);
 	lockdep_assert_held(&pool->lock);
@@ -1877,6 +1915,8 @@ static void destroy_worker(struct worker *worker)
 	list_del_init(&worker->entry);
 	worker->flags |= WORKER_DIE;
 
+	idr_remove(&pool->worker_idr, worker->id);
+
 	spin_unlock_irq(&pool->lock);
 
 	kthread_stop(worker->task);
@@ -1884,7 +1924,6 @@ static void destroy_worker(struct worker *worker)
 	kfree(worker);
 
 	spin_lock_irq(&pool->lock);
-	ida_remove(&pool->worker_ida, id);
 }
 
 static void idle_worker_timeout(unsigned long __pool)
@@ -3519,7 +3558,7 @@ static int init_worker_pool(struct worker_pool *pool)
 
 	mutex_init(&pool->manager_arb);
 	mutex_init(&pool->manager_mutex);
-	ida_init(&pool->worker_ida);
+	idr_init(&pool->worker_idr);
 
 	INIT_HLIST_NODE(&pool->hash_node);
 	pool->refcnt = 1;
@@ -3535,7 +3574,7 @@ static void rcu_free_pool(struct rcu_head *rcu)
 {
 	struct worker_pool *pool = container_of(rcu, struct worker_pool, rcu);
 
-	ida_destroy(&pool->worker_ida);
+	idr_destroy(&pool->worker_idr);
 	free_workqueue_attrs(pool->attrs);
 	kfree(pool);
 }
