@@ -988,7 +988,6 @@ static ssize_t fuse_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
 		return err;
 
 	count = ocount;
-
 	mutex_lock(&inode->i_mutex);
 	vfs_check_frozen(inode->i_sb, SB_FREEZE_WRITE);
 
