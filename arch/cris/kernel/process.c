@@ -58,31 +58,6 @@ struct task_struct init_task = INIT_TASK(init_task);
 EXPORT_SYMBOL(init_task);
 
 /*
- * The hlt_counter, disable_hlt and enable_hlt is just here as a hook if
- * there would ever be a halt sequence (for power save when idle) with
- * some largish delay when halting or resuming *and* a driver that can't
- * afford that delay.  The hlt_counter would then be checked before
- * executing the halt sequence, and the driver marks the unhaltable
- * region by enable_hlt/disable_hlt.
- */
-
-int cris_hlt_counter=0;
-
-void disable_hlt(void)
-{
-	cris_hlt_counter++;
-}
-
-EXPORT_SYMBOL(disable_hlt);
-
-void enable_hlt(void)
-{
-	cris_hlt_counter--;
-}
-
-EXPORT_SYMBOL(enable_hlt);
- 
-/*
  * The following aren't currently used.
  */
 void (*pm_idle)(void);

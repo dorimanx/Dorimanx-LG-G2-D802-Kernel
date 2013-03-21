@@ -929,8 +929,6 @@ int __devinit __cpu_up(unsigned int cpu)
 	int timeout;
 
 #ifdef CONFIG_HOTPLUG_CPU
-	if (num_online_cpus() == 1)
-		disable_hlt();
 	if (sleep_mode[cpu])
 		run_wakeup_cpu(cpu);
 #endif /* CONFIG_HOTPLUG_CPU */
@@ -997,9 +995,6 @@ int __cpu_disable(void)
 void __cpu_die(unsigned int cpu)
 {
 	run_sleep_cpu(cpu);
-
-	if (num_online_cpus() == 1)
-		enable_hlt();
 }
 
 #ifdef CONFIG_MN10300_CACHE_ENABLED
