@@ -99,12 +99,50 @@ register struct thread_info *__current_thread_info __asm__("$8");
 #define ALPHA_UAC_MASK		(1 << TIF_UAC_NOPRINT | 1 << TIF_UAC_NOFIX | \
 				 1 << TIF_UAC_SIGBUS)
 
+<<<<<<< HEAD
 #define SET_UNALIGN_CTL(task,value)	({				     \
 	task_thread_info(task)->flags = ((task_thread_info(task)->flags &    \
 		~ALPHA_UAC_MASK)					     \
 		| (((value) << ALPHA_UAC_SHIFT)       & (1<<TIF_UAC_NOPRINT))\
 		| (((value) << (ALPHA_UAC_SHIFT + 1)) & (1<<TIF_UAC_SIGBUS)) \
 		| (((value) << (ALPHA_UAC_SHIFT - 1)) & (1<<TIF_UAC_NOFIX)));\
+=======
+#ifndef __ASSEMBLY__
+#define HAVE_SET_RESTORE_SIGMASK	1
+static inline void set_restore_sigmask(void)
+{
+	struct thread_info *ti = current_thread_info();
+	ti->status |= TS_RESTORE_SIGMASK;
+	WARN_ON(!test_bit(TIF_SIGPENDING, (unsigned long *)&ti->flags));
+}
+static inline void clear_restore_sigmask(void)
+{
+	current_thread_info()->status &= ~TS_RESTORE_SIGMASK;
+}
+static inline bool test_restore_sigmask(void)
+{
+	return current_thread_info()->status & TS_RESTORE_SIGMASK;
+}
+static inline bool test_and_clear_restore_sigmask(void)
+{
+	struct thread_info *ti = current_thread_info();
+	if (!(ti->status & TS_RESTORE_SIGMASK))
+		return false;
+	ti->status &= ~TS_RESTORE_SIGMASK;
+	return true;
+}
+#endif
+
+#define SET_UNALIGN_CTL(task,value)	({				\
+	__u32 status = task_thread_info(task)->status & ~UAC_BITMASK;	\
+	if (value & PR_UNALIGN_NOPRINT)					\
+		status |= TS_UAC_NOPRINT;				\
+	if (value & PR_UNALIGN_SIGBUS)					\
+		status |= TS_UAC_SIGBUS;				\
+	if (value & 4)	/* alpha-specific */				\
+		status |= TS_UAC_NOFIX;					\
+	task_thread_info(task)->status = status;			\
+>>>>>>> ee761f6... arch: Consolidate tsk_is_polling()
 	0; })
 
 #define GET_UNALIGN_CTL(task,value)	({				\

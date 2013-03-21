@@ -552,10 +552,6 @@ static inline void init_hrtick(void)
  */
 #ifdef CONFIG_SMP
 
-#ifndef tsk_is_polling
-#define tsk_is_polling(t) 0
-#endif
-
 /*
  *  * cmpxchg based fetch_or, macro so it works for different integer types
  *   */
