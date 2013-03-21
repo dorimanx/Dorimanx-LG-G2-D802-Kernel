@@ -262,7 +262,14 @@ static inline void set_restore_sigmask(void)
 	set_bit(TIF_SIGPENDING, &ti->flags);
 }
 
+<<<<<<< HEAD
 #define tsk_is_polling(t) test_tsk_thread_flag(t, TIF_POLLING_NRFLAG)
+=======
+#define thread32_stack_is_64bit(__SP) (((__SP) & 0x1) != 0)
+#define test_thread_64bit_stack(__SP) \
+	((test_thread_flag(TIF_32BIT) && !thread32_stack_is_64bit(__SP)) ? \
+	 false : true)
+>>>>>>> ee761f6... arch: Consolidate tsk_is_polling()
 
 #endif	/* !__ASSEMBLY__ */
 
