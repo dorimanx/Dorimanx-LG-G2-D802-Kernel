@@ -127,12 +127,9 @@ enum {
  *
  * PR: wq_pool_mutex protected for writes.  Sched-RCU protected for reads.
  *
- * PW: pwq_lock protected.
- *
  * WQ: wq->mutex protected.
  *
- * WR: wq->mutex and pwq_lock protected for writes.  Sched-RCU protected
- *     for reads.
+ * WR: wq->mutex protected for writes.  Sched-RCU protected for reads.
  *
  * MD: wq_mayday_lock protected.
  */
@@ -268,7 +265,6 @@ module_param_named(power_efficient, wq_power_efficient, bool, 0644);
 static struct kmem_cache *pwq_cache;
 
 static DEFINE_MUTEX(wq_pool_mutex);	/* protects pools and workqueues list */
-static DEFINE_SPINLOCK(pwq_lock);	/* protects pool_workqueues */
 static DEFINE_SPINLOCK(wq_mayday_lock);	/* protects wq->maydays list */
 
 static LIST_HEAD(workqueues);		/* PL: list of all workqueues */
@@ -315,8 +311,7 @@ static void copy_workqueue_attrs(struct workqueue_attrs *to,
 
 #define assert_rcu_or_wq_mutex(wq)					\
 	rcu_lockdep_assert(rcu_read_lock_sched_held() ||		\
-			   lockdep_is_held(&wq->mutex) ||		\
-			   lockdep_is_held(&pwq_lock),			\
+			   lockdep_is_held(&wq->mutex),			\
 			   "sched RCU or wq->mutex should be held")
 
 #ifdef CONFIG_LOCKDEP
@@ -3586,9 +3581,7 @@ static void pwq_unbound_release_workfn(struct work_struct *work)
 	 * and consistent with the linking path.
 	 */
 	mutex_lock(&wq->mutex);
-	spin_lock_irq(&pwq_lock);
 	list_del_rcu(&pwq->pwqs_node);
-	spin_unlock_irq(&pwq_lock);
 	mutex_unlock(&wq->mutex);
 
 	put_unbound_pool(pool);
@@ -3672,9 +3665,7 @@ static void init_and_link_pwq(struct pool_workqueue *pwq,
 	pwq_adjust_max_active(pwq);
 
 	/* link in @pwq */
-	spin_lock_irq(&pwq_lock);
 	list_add_rcu(&pwq->pwqs_node, &wq->pwqs);
-	spin_unlock_irq(&pwq_lock);
 
 	mutex_unlock(&wq->mutex);
 }
