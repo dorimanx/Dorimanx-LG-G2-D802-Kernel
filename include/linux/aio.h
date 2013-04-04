@@ -187,7 +187,6 @@ struct kioctx {
 
 	/* This needs improving */
 	unsigned long		user_id;
-	struct hlist_node	list;
 
 	wait_queue_head_t	wait;
 
