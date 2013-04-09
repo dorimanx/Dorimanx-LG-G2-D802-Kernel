@@ -27,6 +27,7 @@
 #endif
 
 #define DWC3_IDEV_CHG_MAX 1600
+#define DWC3_IDEV_CHG_MIN 500
 
 struct dwc3_charger;
 
