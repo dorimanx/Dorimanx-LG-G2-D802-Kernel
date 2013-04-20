@@ -2128,6 +2128,12 @@ static inline void wake_up_nohz_cpu(int cpu) { }
 
 extern unsigned int sysctl_sched_wakeup_load_threshold;
 
+#ifdef CONFIG_NO_HZ_FULL
+extern bool sched_can_stop_tick(void);
+#else
+static inline bool sched_can_stop_tick(void) { return false; }
+#endif
+
 #ifdef CONFIG_SCHED_AUTOGROUP
 extern void sched_autogroup_create_attach(struct task_struct *p);
 extern void sched_autogroup_detach(struct task_struct *p);
