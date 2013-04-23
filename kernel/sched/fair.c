@@ -4473,7 +4473,7 @@ find_busiest_queue(struct sched_domain *sd, struct sched_group *group,
 #define MAX_PINNED_INTERVAL	512
 
 /* Working cpumask for load_balance and load_balance_newidle. */
-DEFINE_PER_CPU(cpumask_var_t, load_balance_tmpmask);
+DEFINE_PER_CPU(cpumask_var_t, load_balance_mask);
 
 static int need_active_balance(struct sched_domain *sd, int idle,
 			       int busiest_cpu, int this_cpu)
@@ -4530,7 +4530,7 @@ static int load_balance(int this_cpu, struct rq *this_rq,
 	unsigned long imbalance;
 	struct rq *busiest = NULL;
 	unsigned long flags;
-	struct cpumask *cpus = __get_cpu_var(load_balance_tmpmask);
+	struct cpumask *cpus = __get_cpu_var(load_balance_mask);
 
 	struct lb_env env = {
 		.sd		= sd,
