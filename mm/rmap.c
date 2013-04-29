@@ -1588,6 +1588,9 @@ static int try_to_unmap_file(struct page *page, enum ttu_flags flags,
 	unsigned int mapcount;
 	unsigned long address;
 
+	if (PageHuge(page))
+		pgoff = page->index << compound_order(page);
+
 	mutex_lock(&mapping->i_mmap_mutex);
 	if (target_vma) {
 		/* We don't handle non-linear vma on ramfs */
