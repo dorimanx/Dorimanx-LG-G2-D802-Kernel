@@ -89,7 +89,11 @@ extern int copy_pte_range(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 extern int handle_pte_fault(struct mm_struct *mm,
 			    struct vm_area_struct *vma, unsigned long address,
 			    pte_t *pte, pmd_t *pmd, unsigned int flags);
-extern int split_huge_page(struct page *page);
+extern int split_huge_page_to_list(struct page *page, struct list_head *list);
+static inline int split_huge_page(struct page *page)
+{
+	return split_huge_page_to_list(page, NULL);
+}
 extern void __split_huge_page_pmd(struct mm_struct *mm, pmd_t *pmd);
 #define split_huge_page_pmd(__mm, __pmd)				\
 	do {								\
@@ -168,6 +172,11 @@ static inline struct page *compound_trans_head(struct page *page)
 #define transparent_hugepage_enabled(__vma) 0
 
 #define transparent_hugepage_flags 0UL
+static inline int
+split_huge_page_to_list(struct page *page, struct list_head *list)
+{
+	return 0;
+}
 static inline int split_huge_page(struct page *page)
 {
 	return 0;
