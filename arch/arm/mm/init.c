@@ -578,24 +578,6 @@ void __init bootmem_init(void)
 	max_pfn = max_high - PHYS_PFN_OFFSET;
 }
 
-static inline int free_area(unsigned long pfn, unsigned long end, char *s)
-{
-	unsigned int pages = 0, size = (end - pfn) << (PAGE_SHIFT - 10);
-
-	for (; pfn < end; pfn++) {
-		struct page *page = pfn_to_page(pfn);
-		ClearPageReserved(page);
-		init_page_count(page);
-		__free_page(page);
-		pages++;
-	}
-
-	if (size && s)
-		printk(KERN_INFO "Freeing %s memory: %dK\n", s, size);
-
-	return pages;
-}
-
 /*
  * Poison init memory with an undefined instruction (ARM) or a branch to an
  * undefined instruction (Thumb).
@@ -688,6 +670,16 @@ static void __init free_unused_memmap(struct meminfo *mi)
 #endif
 }
 
+#ifdef CONFIG_HIGHMEM
+static inline void free_area_high(unsigned long pfn, unsigned long end)
+{
+	for (; pfn < end; pfn++) {
+		__free_reserved_page(pfn_to_page(pfn));
+		totalhigh_pages++;
+	}
+}
+#endif
+
 static void __init free_highpages(void)
 {
 #ifdef CONFIG_HIGHMEM
@@ -723,8 +715,7 @@ static void __init free_highpages(void)
 			if (res_end > end)
 				res_end = end;
 			if (res_start != start)
-				totalhigh_pages += free_area(start, res_start,
-							     NULL);
+				free_area_high(start, res_start);
 			start = res_end;
 			if (start == end)
 				break;
@@ -732,7 +723,7 @@ static void __init free_highpages(void)
 
 		/* And now free anything which remains */
 		if (start < end)
-			totalhigh_pages += free_area(start, end, NULL);
+			free_area_high(start, end);
 	}
 	totalram_pages += totalhigh_pages;
 #endif
@@ -799,8 +790,7 @@ void __init mem_init(void)
 
 #ifdef CONFIG_SA1111
 	/* now that our DMA memory is actually so designated, we can free it */
-	totalram_pages += free_area(PHYS_PFN_OFFSET,
-				    __phys_to_pfn(__pa(swapper_pg_dir)), NULL);
+	free_reserved_area(__va(PHYS_PFN_OFFSET), swapper_pg_dir, 0, NULL);
 #endif
 
 	free_highpages();
@@ -893,31 +883,21 @@ void __init mem_init(void)
 #undef MLK_ROUNDUP
 void free_initmem(void)
 {
-	unsigned long reclaimed_initmem;
 #ifdef CONFIG_HAVE_TCM
 	extern char __tcm_start, __tcm_end;
 
 	poison_init_mem(&__tcm_start, &__tcm_end - &__tcm_start);
-	totalram_pages += free_area(__phys_to_pfn(__pa(&__tcm_start)),
-				    __phys_to_pfn(__pa(&__tcm_end)),
-				    "TCM link");
+	free_reserved_area(&__tcm_start, &__tcm_end, 0, "TCM link");
 #endif
 
 #ifdef CONFIG_STRICT_MEMORY_RWX
 	poison_init_mem((char *)__arch_info_begin,
 		__init_end - (char *)__arch_info_begin);
-	reclaimed_initmem = free_area(__phys_to_pfn(__pa(__arch_info_begin)),
-				    __phys_to_pfn(__pa(__init_end)),
-				    "init");
-	totalram_pages += reclaimed_initmem;
+	free_initmem_default(0);
 #else
 	poison_init_mem(__init_begin, __init_end - __init_begin);
-	if (!machine_is_integrator() && !machine_is_cintegrator()) {
-		reclaimed_initmem = free_area(__phys_to_pfn(__pa(__init_begin)),
-					    __phys_to_pfn(__pa(__init_end)),
-					    "init");
-		totalram_pages += reclaimed_initmem;
-	}
+	if (!machine_is_integrator() && !machine_is_cintegrator())
+		free_initmem_default(0);
 #endif
 }
 
@@ -927,14 +907,9 @@ static int keep_initrd;
 
 void free_initrd_mem(unsigned long start, unsigned long end)
 {
-	unsigned long reclaimed_initrd_mem;
-
 	if (!keep_initrd) {
 		poison_init_mem((void *)start, PAGE_ALIGN(end) - start);
-		reclaimed_initrd_mem = free_area(__phys_to_pfn(__pa(start)),
-						 __phys_to_pfn(__pa(end)),
-						 "initrd");
-		totalram_pages += reclaimed_initrd_mem;
+		free_reserved_area(start, end, 0, "initrd");
 	}
 }
 
