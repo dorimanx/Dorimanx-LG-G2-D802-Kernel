@@ -2092,7 +2092,6 @@ void cpuset_update_active_cpus(void)
 	partition_sched_domains(ndoms, doms, attr);
 }
 
-#ifdef CONFIG_MEMORY_HOTPLUG
 /*
  * Keep top_cpuset.mems_allowed tracking node_states[N_HIGH_MEMORY].
  * Call this routine anytime after node_states[N_HIGH_MEMORY] changes.
@@ -2126,20 +2125,23 @@ static int cpuset_track_online_nodes(struct notifier_block *self,
 
 	return NOTIFY_OK;
 }
-#endif
+
+static struct notifier_block cpuset_track_online_nodes_nb = {
+	.notifier_call = cpuset_track_online_nodes,
+	.priority = 10,		/* ??! */
+};
 
 /**
  * cpuset_init_smp - initialize cpus_allowed
  *
  * Description: Finish top cpuset after cpu, node maps are initialized
- **/
-
+ */
 void __init cpuset_init_smp(void)
 {
 	cpumask_copy(top_cpuset.cpus_allowed, cpu_active_mask);
 	top_cpuset.mems_allowed = node_states[N_HIGH_MEMORY];
 
-	hotplug_memory_notifier(cpuset_track_online_nodes, 10);
+	register_hotmemory_notifier(&cpuset_track_online_nodes_nb);
 
 	cpuset_wq = create_singlethread_workqueue("cpuset");
 	BUG_ON(!cpuset_wq);
