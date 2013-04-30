@@ -138,6 +138,8 @@ __setup("idle=", idle_setup);
 void show_regs(struct pt_regs * regs)
 {
 	printk("\n");
+	show_regs_print_info(KERN_DEFAULT);
+
 	printk("BPC[%08lx]:PSW[%08lx]:LR [%08lx]:FP [%08lx]\n", \
 	  regs->bpc, regs->psw, regs->lr, regs->fp);
 	printk("BBPC[%08lx]:BBPSW[%08lx]:SPU[%08lx]:SPI[%08lx]\n", \
