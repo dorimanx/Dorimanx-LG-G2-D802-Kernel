@@ -1210,12 +1210,6 @@ void show_stack(struct task_struct *tsk, unsigned long *stack)
 	} while (count++ < kstack_depth_to_print);
 }
 
-void dump_stack(void)
-{
-	show_stack(current, NULL);
-}
-EXPORT_SYMBOL(dump_stack);
-
 #ifdef CONFIG_PPC64
 /* Called with hard IRQs off */
 void notrace __ppc64_runlatch_on(void)
