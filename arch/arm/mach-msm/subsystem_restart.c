@@ -88,6 +88,7 @@ static const char * const subsys_states[] = {
 static const char * const restart_levels[] = {
 	[RESET_SOC] = "SYSTEM",
 	[RESET_SUBSYS_COUPLED] = "RELATED",
+	[RESET_IGNORE] = "IGNORE",
 };
 
 /**
@@ -839,11 +840,12 @@ int subsystem_restart_dev(struct subsys_device *dev)
 #endif
 		panic("subsys-restart: Resetting the SoC - %s crashed.", name);
 		break;
+	case RESET_IGNORE:
 	default:
 #ifdef CONFIG_LGE_HANDLE_PANIC
 		lge_set_magic_subsystem(name, LGE_ERR_SUB_UNK);
 #endif
-		panic("subsys-restart: Unknown restart level!\n");
+		pr_err("subsys-restart: no action taken for %s\n", name);
 		break;
 	}
 	module_put(dev->owner);
