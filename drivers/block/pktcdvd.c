@@ -2414,10 +2414,9 @@ out:
 	return ret;
 }
 
-static int pkt_close(struct gendisk *disk, fmode_t mode)
+static void pkt_close(struct gendisk *disk, fmode_t mode)
 {
 	struct pktcdvd_device *pd = disk->private_data;
-	int ret = 0;
 
 	mutex_lock(&pktcdvd_mutex);
 	mutex_lock(&ctl_mutex);
@@ -2429,7 +2428,6 @@ static int pkt_close(struct gendisk *disk, fmode_t mode)
 	}
 	mutex_unlock(&ctl_mutex);
 	mutex_unlock(&pktcdvd_mutex);
-	return ret;
 }
 
 
