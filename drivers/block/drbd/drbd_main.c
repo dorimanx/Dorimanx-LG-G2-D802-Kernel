@@ -71,7 +71,7 @@ int drbd_asender(struct drbd_thread *);
 
 int drbd_init(void);
 static int drbd_open(struct block_device *bdev, fmode_t mode);
-static int drbd_release(struct gendisk *gd, fmode_t mode);
+static void drbd_release(struct gendisk *gd, fmode_t mode);
 static int w_after_state_ch(struct drbd_conf *mdev, struct drbd_work *w, int unused);
 static void after_state_ch(struct drbd_conf *mdev, union drbd_state os,
 			   union drbd_state ns, enum chg_state_flags flags);
@@ -2925,13 +2925,12 @@ static int drbd_open(struct block_device *bdev, fmode_t mode)
 	return rv;
 }
 
-static int drbd_release(struct gendisk *gd, fmode_t mode)
+static void drbd_release(struct gendisk *gd, fmode_t mode)
 {
 	struct drbd_conf *mdev = gd->private_data;
 	mutex_lock(&drbd_main_mutex);
 	mdev->open_cnt--;
 	mutex_unlock(&drbd_main_mutex);
-	return 0;
 }
 
 static void drbd_set_defaults(struct drbd_conf *mdev)
