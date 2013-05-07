@@ -928,19 +928,29 @@ static int can_do_hugetlb_shm(void)
 
 static int get_hstate_idx(int page_size_log)
 {
-	struct hstate *h;
+	struct hstate *h = hstate_sizelog(page_size_log);
 
-	if (!page_size_log)
-		return default_hstate_idx;
-	h = size_to_hstate(1 << page_size_log);
 	if (!h)
 		return -1;
 	return h - hstates;
 }
 
-struct file *hugetlb_file_setup(const char *name, unsigned long addr,
-				size_t size, vm_flags_t acctflag,
-				struct user_struct **user,
+static char *hugetlb_dname(struct dentry *dentry, char *buffer, int buflen)
+{
+	return dynamic_dname(dentry, buffer, buflen, "/%s (deleted)",
+				dentry->d_name.name);
+}
+
+static struct dentry_operations anon_ops = {
+	.d_dname = hugetlb_dname
+};
+
+/*
+ * Note that size should be aligned to proper hugepage size in caller side,
+ * otherwise hugetlb_reserve_pages reserves one less hugepages than intended.
+ */
+struct file *hugetlb_file_setup(const char *name, size_t size,
+				vm_flags_t acctflag, struct user_struct **user,
 				int creat_flags, int page_size_log)
 {
 	int error = -ENOMEM;
@@ -949,8 +959,6 @@ struct file *hugetlb_file_setup(const char *name, unsigned long addr,
 	struct path path;
 	struct dentry *root;
 	struct qstr quick_string;
-	struct hstate *hstate;
-	unsigned long num_pages;
 	int hstate_idx;
 
 	hstate_idx = get_hstate_idx(page_size_log);
@@ -989,7 +997,7 @@ struct file *hugetlb_file_setup(const char *name, unsigned long addr,
 	if (!inode)
 		goto out_dentry;
 
-	error = -ENOMEM;
+	file = ERR_PTR(-ENOMEM);
 	if (hugetlb_reserve_pages(inode, 0,
 			size >> huge_page_shift(hstate_inode(inode)), NULL,
 			acctflag))
