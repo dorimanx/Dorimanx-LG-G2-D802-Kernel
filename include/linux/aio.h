@@ -33,22 +33,17 @@ struct kioctx;
  * think they can use it.
  */
 /* #define KIF_LOCKED		0 */
-#define KIF_KICKED		1
 #define KIF_CANCELLED		2
 
 #define kiocbTryLock(iocb)	test_and_set_bit(KIF_LOCKED, &(iocb)->ki_flags)
-#define kiocbTryKick(iocb)	test_and_set_bit(KIF_KICKED, &(iocb)->ki_flags)
 
 #define kiocbSetLocked(iocb)	set_bit(KIF_LOCKED, &(iocb)->ki_flags)
-#define kiocbSetKicked(iocb)	set_bit(KIF_KICKED, &(iocb)->ki_flags)
 #define kiocbSetCancelled(iocb)	set_bit(KIF_CANCELLED, &(iocb)->ki_flags)
 
 #define kiocbClearLocked(iocb)	clear_bit(KIF_LOCKED, &(iocb)->ki_flags)
-#define kiocbClearKicked(iocb)	clear_bit(KIF_KICKED, &(iocb)->ki_flags)
 #define kiocbClearCancelled(iocb)	clear_bit(KIF_CANCELLED, &(iocb)->ki_flags)
 
 #define kiocbIsLocked(iocb)	test_bit(KIF_LOCKED, &(iocb)->ki_flags)
-#define kiocbIsKicked(iocb)	test_bit(KIF_KICKED, &(iocb)->ki_flags)
 #define kiocbIsCancelled(iocb)	test_bit(KIF_CANCELLED, &(iocb)->ki_flags)
 
 /* is there a better place to document function pointer methods? */
@@ -75,18 +70,8 @@ struct kioctx;
  * not ask the method again -- ki_retry must ensure forward progress.
  * aio_complete() must be called once and only once in the future, multiple
  * calls may result in undefined behaviour.
- *
- * If ki_retry returns -EIOCBRETRY it has made a promise that kick_iocb()
- * will be called on the kiocb pointer in the future.  This may happen
- * through generic helpers that associate kiocb->ki_wait with a wait
- * queue head that ki_retry uses via current->io_wait.  It can also happen
- * with custom tracking and manual calls to kick_iocb(), though that is
- * discouraged.  In either case, kick_iocb() must be called once and only
- * once.  ki_retry must ensure forward progress, the AIO core will wait
- * indefinitely for kick_iocb() to be called.
  */
 struct kiocb {
-	struct list_head	ki_run_list;
 	unsigned long		ki_flags;
 	int			ki_users;
 	unsigned		ki_key;		/* id of this request */
@@ -185,7 +170,6 @@ static inline unsigned aio_ring_avail(struct aio_ring_info *info,
 struct kioctx {
 	atomic_t		users;
 	int			dead;
-	struct mm_struct	*mm;
 
 	/* This needs improving */
 	unsigned long		user_id;
@@ -197,14 +181,11 @@ struct kioctx {
 
 	int			reqs_active;
 	struct list_head	active_reqs;	/* used for cancellation */
-	struct list_head	run_list;	/* used for kicked reqs */
 
 	/* sys_io_setup currently limits this to an unsigned int */
 	unsigned		max_reqs;
 
 	struct aio_ring_info	ring_info;
-
-	struct delayed_work	wq;
 
 	struct rcu_head		rcu_head;
 };
@@ -215,7 +196,6 @@ extern unsigned aio_max_size;
 #ifdef CONFIG_AIO
 extern ssize_t wait_on_sync_kiocb(struct kiocb *iocb);
 extern int aio_put_req(struct kiocb *iocb);
-extern void kick_iocb(struct kiocb *iocb);
 extern int aio_complete(struct kiocb *iocb, long res, long res2);
 struct mm_struct;
 extern void exit_aio(struct mm_struct *mm);
@@ -234,7 +214,6 @@ int aio_kernel_submit(struct kiocb *iocb);
 #else
 static inline ssize_t wait_on_sync_kiocb(struct kiocb *iocb) { return 0; }
 static inline int aio_put_req(struct kiocb *iocb) { return 0; }
-static inline void kick_iocb(struct kiocb *iocb) { }
 static inline int aio_complete(struct kiocb *iocb, long res, long res2) { return 0; }
 struct mm_struct;
 static inline void exit_aio(struct mm_struct *mm) { }
