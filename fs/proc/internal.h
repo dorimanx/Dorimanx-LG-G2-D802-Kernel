@@ -117,6 +117,7 @@ int proc_remount(struct super_block *sb, int *flags, char *data);
 int proc_readdir(struct file *, void *, filldir_t);
 struct dentry *proc_lookup(struct inode *, struct dentry *, struct nameidata *);
 
+extern const struct file_operations proc_reclaim_operations;
 
 
 /* Lookups */
