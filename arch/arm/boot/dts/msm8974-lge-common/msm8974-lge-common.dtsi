@@ -131,6 +131,10 @@
 		status = "disable";
 	};
 
+	sound {
+		qcom,mbhc-disabled = <0>;
+	};
+
 };
 
 &spi_epm {

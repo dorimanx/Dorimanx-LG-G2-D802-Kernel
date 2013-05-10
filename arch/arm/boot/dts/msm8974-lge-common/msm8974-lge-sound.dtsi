@@ -18,6 +18,9 @@
 		lge,debounce-time-us = <60>;
 		lge,board-use-auxpcm-gpio = <0>;
 		lge,maxim-detic-phandle = <&maxim_detic>;
+		qcom,mbhc-audio-jack-type = "6-pole-jack";
+
+		qcom,mbhc-disabled = <1>;
 
 		qcom,hdmi-audio-rx;
 
