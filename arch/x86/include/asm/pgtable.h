@@ -505,9 +505,6 @@ static inline unsigned long pages_to_mb(unsigned long npg)
 	return npg >> (20 - PAGE_SHIFT);
 }
 
-#define io_remap_pfn_range(vma, vaddr, pfn, size, prot)	\
-	remap_pfn_range(vma, vaddr, pfn, size, prot)
-
 #if PAGETABLE_LEVELS > 2
 static inline int pud_none(pud_t pud)
 {
