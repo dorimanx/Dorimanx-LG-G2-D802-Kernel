@@ -31,6 +31,13 @@ static int set_nohalt(void *data, u64 val)
 static int get_nohalt(void *data, u64 *val)
 {
 	*val = (unsigned int)get_hlt();
+}
+
+extern int cpu_idle_force_poll;
+
+static int get_nohalt(void *data, u64 *val)
+{
+	*val = (unsigned int)cpu_idle_force_poll;
 
 	return 0;
 }
