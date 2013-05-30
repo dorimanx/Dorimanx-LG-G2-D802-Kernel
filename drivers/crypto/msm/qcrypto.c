@@ -39,6 +39,7 @@
 #include <mach/scm.h>
 #include <linux/platform_data/qcom_crypto_device.h>
 #include <mach/msm_bus.h>
+#include <mach/qcrypto.h>
 #include "qce.h"
 
 
@@ -222,6 +223,7 @@ struct qcrypto_cipher_ctx {
 	unsigned int auth_key_len;
 
 	struct crypto_priv *cp;
+	unsigned int flags;
 };
 
 struct qcrypto_cipher_req_ctx {
@@ -280,6 +282,7 @@ struct qcrypto_sha_ctx {
 	struct scatterlist *sg;
 	struct scatterlist tmp_sg;
 	struct crypto_priv *cp;
+	unsigned int flags;
 };
 
 struct qcrypto_sha_req_ctx {
@@ -1255,6 +1258,7 @@ static int _qcrypto_process_ablkcipher(struct crypto_priv *cp,
 	qreq.ivsize = crypto_ablkcipher_ivsize(tfm);
 	qreq.cryptlen = req->nbytes;
 	qreq.use_pmem = 0;
+	qreq.flags = cipher_ctx->flags;
 
 	if ((cipher_ctx->enc_key_len == 0) &&
 			(cp->platform_support.hw_key_support == 0))
@@ -1288,6 +1292,7 @@ static int _qcrypto_process_ahash(struct crypto_priv *cp,
 	sreq.last_blk = sha_ctx->last_blk;
 	sreq.size = req->nbytes;
 	sreq.areq = req;
+	sreq.flags = sha_ctx->flags;
 
 	switch (sha_ctx->alg) {
 	case QCE_HASH_SHA1:
@@ -1347,6 +1352,8 @@ static int _qcrypto_process_aead(struct crypto_priv *cp,
 	qreq.authklen = cipher_ctx->auth_key_len;
 	qreq.authsize = crypto_aead_authsize(aead);
 	qreq.ivsize =  crypto_aead_ivsize(aead);
+	qreq.flags = cipher_ctx->flags;
+
 	if (qreq.mode == QCE_MODE_CCM) {
 		if (qreq.dir == QCE_ENCRYPT)
 			qreq.cryptlen = req->cryptlen;
@@ -3044,6 +3051,99 @@ static int _sha256_hmac_digest(struct ahash_request *req)
 
 	return _sha_digest(req);
 }
+
+int qcrypto_cipher_set_flag(struct ablkcipher_request *req, unsigned int flags)
+{
+	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
+	struct crypto_priv *cp = ctx->cp;
+
+	if ((flags & QCRYPTO_CTX_USE_HW_KEY) &&
+		(cp->platform_support.hw_key_support == false)) {
+		pr_err("%s HW key usage not supported\n", __func__);
+		return -EINVAL;
+	}
+	if (((flags | ctx->flags) & QCRYPTO_CTX_KEY_MASK) ==
+						QCRYPTO_CTX_KEY_MASK) {
+		pr_err("%s Cannot set all key flags\n", __func__);
+		return -EINVAL;
+	}
+
+	ctx->flags |= flags;
+	return 0;
+};
+EXPORT_SYMBOL(qcrypto_cipher_set_flag);
+
+int qcrypto_aead_set_flag(struct aead_request *req, unsigned int flags)
+{
+	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
+	struct crypto_priv *cp = ctx->cp;
+
+	if ((flags & QCRYPTO_CTX_USE_HW_KEY) &&
+		(cp->platform_support.hw_key_support == false)) {
+		pr_err("%s HW key usage not supported\n", __func__);
+		return -EINVAL;
+	}
+	if (((flags | ctx->flags) & QCRYPTO_CTX_KEY_MASK) ==
+						QCRYPTO_CTX_KEY_MASK) {
+		pr_err("%s Cannot set all key flags\n", __func__);
+		return -EINVAL;
+	}
+
+	ctx->flags |= flags;
+	return 0;
+};
+EXPORT_SYMBOL(qcrypto_aead_set_flag);
+
+int qcrypto_ahash_set_flag(struct ahash_request *req, unsigned int flags)
+{
+	struct qcrypto_sha_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
+	struct crypto_priv *cp = ctx->cp;
+
+	if ((flags & QCRYPTO_CTX_USE_HW_KEY) &&
+		(cp->platform_support.hw_key_support == false)) {
+		pr_err("%s HW key usage not supported\n", __func__);
+		return -EINVAL;
+	}
+	if (((flags | ctx->flags) & QCRYPTO_CTX_KEY_MASK) ==
+						QCRYPTO_CTX_KEY_MASK) {
+		pr_err("%s Cannot set all key flags\n", __func__);
+		return -EINVAL;
+	}
+
+	ctx->flags |= flags;
+	return 0;
+};
+EXPORT_SYMBOL(qcrypto_ahash_set_flag);
+
+int qcrypto_cipher_clear_flag(struct ablkcipher_request *req,
+							unsigned int flags)
+{
+	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
+
+	ctx->flags &= ~flags;
+	return 0;
+
+};
+EXPORT_SYMBOL(qcrypto_cipher_clear_flag);
+
+int qcrypto_aead_clear_flag(struct aead_request *req, unsigned int flags)
+{
+	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
+
+	ctx->flags &= ~flags;
+	return 0;
+
+};
+EXPORT_SYMBOL(qcrypto_aead_clear_flag);
+
+int qcrypto_ahash_clear_flag(struct ahash_request *req, unsigned int flags)
+{
+	struct qcrypto_sha_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
+
+	ctx->flags &= ~flags;
+	return 0;
+};
+EXPORT_SYMBOL(qcrypto_ahash_clear_flag);
 
 static struct ahash_alg _qcrypto_ahash_algos[] = {
 	{
