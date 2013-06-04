@@ -266,6 +266,7 @@ ktime_t alarm_expires_remaining(const struct alarm *alarm)
 	struct alarm_base *base = &alarm_bases[alarm->type];
 	return ktime_sub(alarm->node.expires, base->gettime());
 }
+EXPORT_SYMBOL_GPL(alarm_expires_remaining);
 
 #ifdef CONFIG_RTC_CLASS
 /**
@@ -371,6 +372,7 @@ void alarm_init(struct alarm *alarm, enum alarmtimer_type type,
 	alarm->type = type;
 	alarm->state = ALARMTIMER_STATE_INACTIVE;
 }
+EXPORT_SYMBOL_GPL(alarm_init);
 
 /**
  * alarm_start - Sets an absolute alarm to fire
@@ -391,6 +393,7 @@ int alarm_start(struct alarm *alarm, ktime_t start)
 	spin_unlock_irqrestore(&base->lock, flags);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(alarm_start);
 
 /**
  * alarm_start_relative - Sets a relative alarm to fire
@@ -404,6 +407,7 @@ int alarm_start_relative(struct alarm *alarm, ktime_t start)
 	start = ktime_add(start, base->gettime());
 	return alarm_start(alarm, start);
 }
+EXPORT_SYMBOL_GPL(alarm_start_relative);
 
 void alarm_restart(struct alarm *alarm)
 {
@@ -416,6 +420,7 @@ void alarm_restart(struct alarm *alarm)
 	alarmtimer_enqueue(base, alarm);
 	spin_unlock_irqrestore(&base->lock, flags);
 }
+EXPORT_SYMBOL_GPL(alarm_restart);
 
 /**
  * alarm_try_to_cancel - Tries to cancel an alarm timer
@@ -437,6 +442,7 @@ int alarm_try_to_cancel(struct alarm *alarm)
 	spin_unlock_irqrestore(&base->lock, flags);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(alarm_try_to_cancel);
 
 
 /**
@@ -454,6 +460,7 @@ int alarm_cancel(struct alarm *alarm)
 		cpu_relax();
 	}
 }
+EXPORT_SYMBOL_GPL(alarm_cancel);
 
 
 u64 alarm_forward(struct alarm *alarm, ktime_t now, ktime_t interval)
@@ -486,6 +493,7 @@ u64 alarm_forward(struct alarm *alarm, ktime_t now, ktime_t interval)
 	alarm->node.expires = ktime_add(alarm->node.expires, interval);
 	return overrun;
 }
+EXPORT_SYMBOL_GPL(alarm_forward);
 
 u64 alarm_forward_now(struct alarm *alarm, ktime_t interval)
 {
@@ -493,7 +501,7 @@ u64 alarm_forward_now(struct alarm *alarm, ktime_t interval)
 
 	return alarm_forward(alarm, base->gettime(), interval);
 }
-
+EXPORT_SYMBOL_GPL(alarm_forward_now);
 
 
 /**
