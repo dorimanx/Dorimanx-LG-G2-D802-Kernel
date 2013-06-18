@@ -347,19 +347,6 @@ static int __devinit pil_mss_loadable_init(struct modem_data *drv,
 	struct property *prop;
 	int ret;
 
-	int clk_ready = of_get_named_gpio(pdev->dev.of_node,
-			"qcom,gpio-proxy-unvote", 0);
-	if (clk_ready < 0)
-		return clk_ready;
-
-#ifdef CONFIG_MACH_LGE
-	dev_info(&pdev->dev, " pil_mss_loadable init.");
-#endif
-
-	clk_ready = gpio_to_irq(clk_ready);
-	if (clk_ready < 0)
-		return clk_ready;
-
 	mba = devm_kzalloc(&pdev->dev, sizeof(*mba), GFP_KERNEL);
 	if (IS_ERR(mba))
 		return PTR_ERR(mba);
@@ -375,7 +362,6 @@ static int __devinit pil_mss_loadable_init(struct modem_data *drv,
 	q6_desc->ops = &pil_msa_pbl_ops;
 	q6_desc->owner = THIS_MODULE;
 	q6_desc->proxy_timeout = PROXY_TIMEOUT_MS;
-	q6_desc->proxy_unvote_irq = clk_ready;
 
 	q6->self_auth = of_property_read_bool(pdev->dev.of_node,
 							"qcom,pil-self-auth");
