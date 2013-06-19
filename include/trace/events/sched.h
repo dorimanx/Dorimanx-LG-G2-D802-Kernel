@@ -90,9 +90,6 @@ TRACE_EVENT(sched_enq_deq_task,
 			__entry->cpu_load, __entry->rt_nr_running)
 );
 
-/*
- * Tracepoint for task enqueue/dequeue:
- */
 #ifdef CONFIG_SCHED_HMP
 
 TRACE_EVENT(sched_task_load,
