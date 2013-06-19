@@ -1956,6 +1956,9 @@ static void put_cpu_partial(struct kmem_cache *s, struct page *page, int drain)
 	int pages;
 	int pobjects;
 
+	if (!s->cpu_partial)
+		return;
+
 	do {
 		pages = 0;
 		pobjects = 0;
