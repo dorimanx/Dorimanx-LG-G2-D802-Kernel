@@ -148,6 +148,25 @@ static int __init parse_tag_initrd(const bp_tag_t* tag)
 
 __tagtable(BP_TAG_INITRD, parse_tag_initrd);
 
+#ifdef CONFIG_OF
+
+static int __init parse_tag_fdt(const bp_tag_t *tag)
+{
+	dtb_start = __va(tag->data[0]);
+	return 0;
+}
+
+__tagtable(BP_TAG_FDT, parse_tag_fdt);
+
+void __init early_init_dt_setup_initrd_arch(u64 start, u64 end)
+{
+	initrd_start = (void *)__va(start);
+	initrd_end = (void *)__va(end);
+	initrd_below_start_ok = 1;
+}
+
+#endif /* CONFIG_OF */
+
 #endif /* CONFIG_BLK_DEV_INITRD */
 
 static int __init parse_tag_cmdline(const bp_tag_t* tag)
