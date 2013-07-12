@@ -1854,6 +1854,7 @@ static void do_read_data(struct work_struct *work)
 					hdr->src_port_id);
 				up_read(&routing_table_lock_lha3);
 				up_read(&local_ports_lock_lha2);
+				release_pkt(pkt);
 				return;
 			}
 		}
