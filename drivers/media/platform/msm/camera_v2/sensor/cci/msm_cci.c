@@ -126,7 +126,7 @@ static int32_t msm_cci_i2c_set_freq(struct v4l2_subdev *sd,
 static void msm_cci_flush_queue(struct cci_device *cci_dev,
 	enum cci_i2c_master_t master)
 {
-	uint32_t rc = 0;
+	int32_t rc = 0;
 
 	msm_camera_io_w(1 << master, cci_dev->base + CCI_HALT_REQ_ADDR);
 	rc = wait_for_completion_interruptible_timeout(
@@ -625,7 +625,7 @@ static struct msm_cam_clk_info cci_clk_info[] = {
 
 static int32_t msm_cci_init(struct v4l2_subdev *sd)
 {
-	int rc = 0;
+	int32_t rc = 0;
 	struct cci_device *cci_dev;
 	cci_dev = v4l2_get_subdevdata(sd);
 	CDBG("%s line %d\n", __func__, __LINE__);
