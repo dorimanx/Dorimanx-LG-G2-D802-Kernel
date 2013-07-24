@@ -236,6 +236,7 @@ static struct workqueue_struct *bam_mux_tx_workqueue;
 #define UL_TIMEOUT_DELAY 1000	/* in ms */
 #define ENABLE_DISCONNECT_ACK	0x1
 #define SHUTDOWN_TIMEOUT_MS	500
+#define UL_WAKEUP_TIMEOUT_MS	2000
 static void toggle_apps_ack(void);
 static void reconnect_to_bam(void);
 static void disconnect_to_bam(void);
@@ -1667,7 +1668,7 @@ static void ul_wakeup(void)
 		BAM_DMUX_LOG("%s waiting for previous ack\n", __func__);
 		ret = wait_for_completion_timeout(
 					&ul_wakeup_ack_completion,
-					ul_wakeup_timeout * HZ);
+					msecs_to_jiffies(UL_WAKEUP_TIMEOUT_MS));
 		wait_for_ack = 0;
 		if (unlikely(ret == 0) && ssrestart_check()) {
 			mutex_unlock(&wakeup_lock);
@@ -1678,8 +1679,8 @@ static void ul_wakeup(void)
 	INIT_COMPLETION(ul_wakeup_ack_completion);
 	power_vote(1);
 	BAM_DMUX_LOG("%s waiting for wakeup ack\n", __func__);
-	ret = wait_for_completion_timeout(&ul_wakeup_ack_completion, 
-						ul_wakeup_timeout * HZ);
+	ret = wait_for_completion_timeout(&ul_wakeup_ack_completion,
+					msecs_to_jiffies(UL_WAKEUP_TIMEOUT_MS));
 	if (unlikely(ret == 0) && ssrestart_check()) {
 		mutex_unlock(&wakeup_lock);
 		BAM_DMUX_LOG("%s timeout wakeup ack\n", __func__);
@@ -1687,7 +1688,7 @@ static void ul_wakeup(void)
 	}
 	BAM_DMUX_LOG("%s waiting completion\n", __func__);
 	ret = wait_for_completion_timeout(&bam_connection_completion,
-						ul_wakeup_timeout * HZ);
+					msecs_to_jiffies(UL_WAKEUP_TIMEOUT_MS));
 	if (unlikely(ret == 0) && ssrestart_check()) {
 		mutex_unlock(&wakeup_lock);
 		BAM_DMUX_LOG("%s timeout power on\n", __func__);
