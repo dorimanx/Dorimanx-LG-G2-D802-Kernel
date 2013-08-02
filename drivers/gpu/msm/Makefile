@@ -27,7 +27,8 @@ msm_adreno-y += \
 	adreno_a2xx_snapshot.o \
 	adreno_a3xx.o \
 	adreno_a3xx_snapshot.o \
-	adreno.o
+	adreno.o \
+	adreno_cp_parser.o
 
 msm_adreno-$(CONFIG_DEBUG_FS) += adreno_debugfs.o adreno_profile.o
 
