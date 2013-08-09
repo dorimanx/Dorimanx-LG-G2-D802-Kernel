@@ -21,11 +21,10 @@
 /*
  * Architecture-specific macros
  */
-#define ARM_EFFICIENT_UNALIGNED_ACCESS
 #define BYTE	u8
-#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)		\
-	|| defined(CONFIG_ARM) && __LINUX_ARM_ARCH__ >= 6	\
-	&& defined(ARM_EFFICIENT_UNALIGNED_ACCESS)
+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) || defined(CONFIG_ARM) \
+	&& __LINUX_ARM_ARCH__ >= 6 \
+	&& defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
 typedef struct _U32_S { u32 v; } U32_S;
 typedef struct _U64_S { u64 v; } U64_S;
 
@@ -52,33 +51,33 @@ typedef struct _U64_S { u64 v; } U64_S;
 #define STEPSIZE 8
 
 #define LZ4_COPYSTEP(s, d)	\
-	do {			\
+	do {	\
 		PUT8(s, d);	\
-		d += 8;		\
-		s += 8;		\
+		d += 8;	\
+		s += 8;	\
 	} while (0)
 
 #define LZ4_COPYPACKET(s, d)	LZ4_COPYSTEP(s, d)
 
-#define LZ4_SECURECOPY(s, d, e)			\
-	do {					\
-		if (d < e) {			\
+#define LZ4_SECURECOPY(s, d, e)	\
+	do {				\
+		if (d < e) {		\
 			LZ4_WILDCOPY(s, d, e);	\
-		}				\
+		}	\
 	} while (0)
 
 #else	/* 32-bit */
 #define STEPSIZE 4
 
 #define LZ4_COPYSTEP(s, d)	\
-	do {			\
+	do {	\
 		PUT4(s, d);	\
-		d += 4;		\
-		s += 4;		\
+		d += 4;	\
+		s += 4;	\
 	} while (0)
 
-#define LZ4_COPYPACKET(s, d)		\
-	do {				\
+#define LZ4_COPYPACKET(s, d)	\
+	do {			\
 		LZ4_COPYSTEP(s, d);	\
 		LZ4_COPYSTEP(s, d);	\
 	} while (0)
@@ -88,8 +87,7 @@ typedef struct _U64_S { u64 v; } U64_S;
 
 #define LZ4_READ_LITTLEENDIAN_16(d, s, p) \
 	(d = s - get_unaligned_le16(p))
-
-#define LZ4_WILDCOPY(s, d, e)		\
+#define LZ4_WILDCOPY(s, d, e)	\
 	do {				\
 		LZ4_COPYPACKET(s, d);	\
 	} while (d < e)

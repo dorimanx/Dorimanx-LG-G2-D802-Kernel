@@ -1,7 +1,7 @@
 /*
  * LZ4 Decompressor for Linux kernel
  *
- * Copyright (C) 2013, LG Electronics, Kyungsik Lee <kyungsik.lee@lge.com>
+ * Copyright (C) 2013 LG Electronics Co., Ltd. (http://www.lge.com/)
  *
  * Based on LZ4 implementation by Yann Collet.
  *
@@ -51,10 +51,13 @@ static int lz4_uncompress(const char *source, char *dest, int osize)
 {
 	const BYTE *ip = (const BYTE *) source;
 	const BYTE *ref;
+
 	BYTE *op = (BYTE *) dest;
 	BYTE * const oend = op + osize;
 	BYTE *cpy;
+
 	unsigned token;
+
 	size_t length;
 	size_t dec32table[] = {0, 3, 2, 3, 0, 0, 0, 0};
 #if LZ4_ARCH64
@@ -69,84 +72,86 @@ static int lz4_uncompress(const char *source, char *dest, int osize)
 		if (length == RUN_MASK) {
 			size_t len;
 
+			/* for (; (len = *ip++) == 255; length += 255){} */
 			len = *ip++;
 			for (; len == 255; length += 255)
 				len = *ip++;
 			length += len;
 		}
 
-		/* copy literals */
-		cpy = op + length;
-		if (unlikely(cpy > oend - COPYLENGTH)) {
-			/*
-			 * Error: not enough place for another match
-			 * (min 4) + 5 literals
-			 */
-			if (cpy != oend)
-				goto _output_error;
+	/* copy literals */
+	cpy = op + length;
+	if (unlikely(cpy > oend - COPYLENGTH)) {
 
-			memcpy(op, ip, length);
-			ip += length;
-			break; /* EOF */
-		}
-		LZ4_WILDCOPY(ip, op, cpy);
-		ip -= (op - cpy);
-		op = cpy;
-
-		/* get offset */
-		LZ4_READ_LITTLEENDIAN_16(ref, cpy, ip);
-		ip += 2;
-
-		/* Error: offset create reference outside destination buffer */
-		if (unlikely(ref < (BYTE *const) dest))
+		/*
+		 * Error: not enough place for another match
+		 * (min 4) + 5 literals
+		 */
+		if (cpy != oend)
 			goto _output_error;
 
-		/* get matchlength */
-		length = token & ML_MASK;
-		if (length == ML_MASK) {
-			for (; *ip == 255; length += 255)
-				ip++;
-			length += *ip++;
-		}
+		memcpy(op, ip, length);
+		ip += length;
+		break; /* EOF */
+	}
+	LZ4_WILDCOPY(ip, op, cpy);
+	ip -= (op - cpy);
+	op = cpy;
 
-		/* copy repeated sequence */
-		if (unlikely((op - ref) < STEPSIZE)) {
+	/* get offset */
+	LZ4_READ_LITTLEENDIAN_16(ref, cpy, ip);
+	ip += 2;
+
+	/* Error: offset create reference outside destination buffer */
+	if (unlikely(ref < (BYTE *const)dest))
+		goto _output_error;
+
+	/* get matchlength */
+	length = token & ML_MASK;
+	if (length == ML_MASK) {
+		for (; *ip == 255; length += 255)
+			ip++;
+		length += *ip++;
+	}
+
+	/* copy repeated sequence */
+	if (unlikely((op - ref) < STEPSIZE)) {
 #if LZ4_ARCH64
-			size_t dec64 = dec64table[op - ref];
+		size_t dec64 = dec64table[op - ref];
 #else
-			const int dec64 = 0;
+		const int dec64 = 0;
 #endif
-			op[0] = ref[0];
-			op[1] = ref[1];
-			op[2] = ref[2];
-			op[3] = ref[3];
-			op += 4;
-			ref += 4;
-			ref -= dec32table[op-ref];
-			PUT4(ref, op);
-			op += STEPSIZE - 4;
-			ref -= dec64;
-		} else {
-			LZ4_COPYSTEP(ref, op);
-		}
-		cpy = op + length - (STEPSIZE - 4);
-		if (cpy > (oend - COPYLENGTH)) {
+		op[0] = ref[0];
+		op[1] = ref[1];
+		op[2] = ref[2];
+		op[3] = ref[3];
+		op += 4;
+		ref += 4;
+		ref -= dec32table[op-ref];
+		PUT4(ref, op);
+		op += STEPSIZE - 4;
+		ref -= dec64;
+	} else {
+		LZ4_COPYSTEP(ref, op);
+	}
+	cpy = op + length - (STEPSIZE - 4);
+	if (cpy > oend - COPYLENGTH) {
 
-			/* Error: request to write beyond destination buffer */
-			if (cpy > oend)
-				goto _output_error;
-			LZ4_SECURECOPY(ref, op, (oend - COPYLENGTH));
-			while (op < cpy)
-				*op++ = *ref++;
-			op = cpy;
-			/*
-			 * Check EOF (should never happen, since last 5 bytes
-			 * are supposed to be literals)
-			 */
-			if (op == oend)
-				goto _output_error;
-			continue;
-		}
+		/* Error: request to write beyond destination buffer */
+		if (cpy > oend)
+			goto _output_error;
+		LZ4_SECURECOPY(ref, op, (oend - COPYLENGTH));
+		while (op < cpy)
+			*op++ = *ref++;
+		op = cpy;
+		/*
+		 * Check EOF (should never happen, since last 5 bytes
+		 * are supposed to be literals)
+		 */
+		if (op == oend)
+			goto _output_error;
+		continue;
+	}
 		LZ4_SECURECOPY(ref, op, cpy);
 		op = cpy; /* correction */
 	}
@@ -216,7 +221,7 @@ static int lz4_uncompress_unknownoutputsize(const char *source, char *dest,
 		/* get offset */
 		LZ4_READ_LITTLEENDIAN_16(ref, cpy, ip);
 		ip += 2;
-		if (ref < (BYTE * const) dest)
+		if (ref < (BYTE * const)dest)
 			goto _output_error;
 			/*
 			 * Error : offset creates reference
@@ -236,7 +241,7 @@ static int lz4_uncompress_unknownoutputsize(const char *source, char *dest,
 		}
 
 		/* copy repeated sequence */
-		if (unlikely((op - ref) < STEPSIZE)) {
+		if (unlikely(op - ref < STEPSIZE)) {
 #if LZ4_ARCH64
 			size_t dec64 = dec64table[op - ref];
 #else
@@ -276,11 +281,11 @@ static int lz4_uncompress_unknownoutputsize(const char *source, char *dest,
 		op = cpy; /* correction */
 	}
 	/* end of decoding */
-	return (int) (((char *) op) - dest);
+	return (int) (((char *)op) - dest);
 
 	/* write overflow error detected */
 _output_error:
-	return (int) (-(((char *) ip) - source));
+	return (int) (-(((char *)ip) - source));
 }
 
 int lz4_decompress(const char *src, size_t *src_len, char *dest,
