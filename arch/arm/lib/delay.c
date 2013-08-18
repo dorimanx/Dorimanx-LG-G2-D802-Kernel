@@ -51,7 +51,7 @@ static void __timer_delay(unsigned long cycles)
 {
 	cycles_t start = get_cycles();
 
-	while ((get_cycles() - start) < cycles)
+	while ((get_cycles() - start) <= cycles)
 		cpu_relax();
 }
 
