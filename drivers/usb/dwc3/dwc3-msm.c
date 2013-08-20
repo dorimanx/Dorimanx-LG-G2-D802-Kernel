@@ -265,6 +265,8 @@ struct dwc3_msm {
 	unsigned int		vdd_no_vol_level;
 	unsigned int		vdd_low_vol_level;
 	unsigned int		vdd_high_vol_level;
+	unsigned int		tx_fifo_size;
+	unsigned int		qdss_tx_fifo_size;
 	bool			vbus_active;
 	bool			ext_inuse;
 	enum dwc3_id_state	id_state;
@@ -1093,6 +1095,19 @@ int msm_ep_unconfig(struct usb_ep *ep)
 }
 EXPORT_SYMBOL(msm_ep_unconfig);
 
+void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enabled)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	if (qdss_enabled)
+		dwc->tx_fifo_size = mdwc->qdss_tx_fifo_size;
+	else
+		dwc->tx_fifo_size = mdwc->tx_fifo_size;
+}
+EXPORT_SYMBOL(dwc3_tx_fifo_resize_request);
+
 static void dwc3_restart_usb_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
@@ -1647,6 +1662,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 				"DWC3_CONTROLLER_POST_RESET_EVENT received\n");
 		dwc3_msm_qscratch_reg_init(mdwc,
 					DWC3_CONTROLLER_POST_RESET_EVENT);
+		dwc->tx_fifo_size = mdwc->tx_fifo_size;
 		break;
 	case DWC3_CONTROLLER_POST_INITIALIZATION_EVENT:
 		/* clear LANE0_PWR_PRESENT bit after initialization is done */
@@ -3647,6 +3663,16 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto disable_hs_ldo;
 	}
+
+	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-tx-fifo-size",
+				 &mdwc->tx_fifo_size))
+		dev_err(&pdev->dev,
+			"unable to read platform data tx fifo size\n");
+
+	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-qdss-tx-fifo-size",
+				 &mdwc->qdss_tx_fifo_size))
+		dev_err(&pdev->dev,
+			"unable to read platform data qdss tx fifo size\n");
 
 	dwc3_set_notifier(&dwc3_msm_notify_event);
 	/* usb_psy required only for vbus_notifications or charging support */
