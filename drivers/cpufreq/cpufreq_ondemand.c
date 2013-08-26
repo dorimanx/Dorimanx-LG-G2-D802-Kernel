@@ -1222,9 +1222,6 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		/* No longer fully busy, reset rate_mult */
 		this_dbs_info->rate_mult = 1;
 
-		if (freq_next < policy->min)
-			freq_next = policy->min;
-
 		if ((num_online_cpus() > 1) && (dbs_tuners_ins.enable_turbo_mode)) {
 			if (max_load_other_cpu >
 			(dbs_tuners_ins.up_threshold_multi_core -
