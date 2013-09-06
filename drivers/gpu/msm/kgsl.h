@@ -164,6 +164,7 @@ struct kgsl_memdesc {
 	unsigned int sglen; /* Active entries in the sglist */
 	struct kgsl_memdesc_ops *ops;
 	unsigned int flags; /* Flags set from userspace */
+	struct device *dev;
 };
 
 /* List of different memory entry types */
