@@ -1409,7 +1409,7 @@ EXPORT_SYMBOL(mem_text_write_kernel_word);
 static void __init map_lowmem(void)
 {
 	struct memblock_region *reg;
-	struct vm_struct *vm;
+	struct static_vm *svm;
 	phys_addr_t start;
 	phys_addr_t end;
 	unsigned long vaddr;
@@ -1477,9 +1477,10 @@ static void __init map_lowmem(void)
 		create_mapping(&map);
 	}
 
-	vm = early_alloc_aligned(sizeof(*vm) * nr, __alignof__(*vm));
+	svm = early_alloc_aligned(sizeof(*svm) * nr, __alignof__(*svm));
 
 	for_each_memblock(memory, reg) {
+		struct vm_struct *vm;
 
 		start = reg->base;
 		end = start + reg->size;
@@ -1489,6 +1490,7 @@ static void __init map_lowmem(void)
 		if (start >= end)
 			break;
 
+		vm = &svm->vm;
 		pfn = __phys_to_pfn(start);
 		vaddr = __phys_to_virt(start);
 		length = end - start;
@@ -1497,12 +1499,11 @@ static void __init map_lowmem(void)
 		vm->addr = (void *)(vaddr & PAGE_MASK);
 		vm->size = PAGE_ALIGN(length + (vaddr & ~PAGE_MASK));
 		vm->phys_addr = __pfn_to_phys(pfn);
-		vm->flags = VM_LOWMEM | VM_ARM_STATIC_MAPPING;
+		vm->flags = VM_LOWMEM;
 		vm->flags |= VM_ARM_MTYPE(type);
 		vm->caller = map_lowmem;
-		vm_area_add_early(vm);
+		add_static_vm_early(svm++);
 		mark_vmalloc_reserved_area(vm->addr, vm->size);
-		vm++;
 	}
 }
 
