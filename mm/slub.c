@@ -210,10 +210,7 @@ static void sysfs_slab_remove(struct kmem_cache *);
 static inline int sysfs_slab_add(struct kmem_cache *s) { return 0; }
 static inline int sysfs_slab_alias(struct kmem_cache *s, const char *p)
 							{ return 0; }
-static inline void sysfs_slab_remove(struct kmem_cache *s)
-{
-	kfree(s->name);
-}
+static inline void sysfs_slab_remove(struct kmem_cache *s) { }
 
 #endif
 
@@ -3930,7 +3927,6 @@ struct kmem_cache *__kmem_cache_create(const char *name, size_t size,
 		size_t align, unsigned long flags, void (*ctor)(void *))
 {
 	struct kmem_cache *s;
-	char *n;
 
 	s = find_mergeable(size, align, flags, name, ctor);
 	if (s) {
@@ -3949,13 +3945,9 @@ struct kmem_cache *__kmem_cache_create(const char *name, size_t size,
 		return s;
 	}
 
-	n = kstrdup(name, GFP_KERNEL);
-	if (!n)
-		return NULL;
-
 	s = kmem_cache_alloc(kmem_cache, GFP_KERNEL);
 	if (s) {
-		if (kmem_cache_open(s, n,
+		if (kmem_cache_open(s, name,
 				size, align, flags, ctor)) {
 			int r;
 
@@ -3968,7 +3960,6 @@ struct kmem_cache *__kmem_cache_create(const char *name, size_t size,
 
 			kmem_cache_close(s);
 		}
-		kfree(n);
 		kmem_cache_free(kmem_cache, s);
 	}
 	return NULL;
@@ -5201,13 +5192,6 @@ static ssize_t slab_attr_store(struct kobject *kobj,
 	return err;
 }
 
-static void kmem_cache_release(struct kobject *kobj)
-{
-	struct kmem_cache *s = to_slab(kobj);
-
-	kfree(s->name);
-}
-
 static const struct sysfs_ops slab_sysfs_ops = {
 	.show = slab_attr_show,
 	.store = slab_attr_store,
@@ -5215,7 +5199,6 @@ static const struct sysfs_ops slab_sysfs_ops = {
 
 static struct kobj_type slab_ktype = {
 	.sysfs_ops = &slab_sysfs_ops,
-	.release = kmem_cache_release
 };
 
 static int uevent_filter(struct kset *kset, struct kobject *kobj)
