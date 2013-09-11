@@ -763,6 +763,7 @@ static void ep_free(struct eventpoll *ep)
 		epi = rb_entry(rbp, struct epitem, rbn);
 
 		ep_unregister_pollwait(ep, epi);
+		cond_resched();
 	}
 
 	/*
@@ -777,6 +778,7 @@ static void ep_free(struct eventpoll *ep)
 	while ((rbp = rb_first(&ep->rbr)) != NULL) {
 		epi = rb_entry(rbp, struct epitem, rbn);
 		ep_remove(ep, epi);
+		cond_resched();
 	}
 	mutex_unlock(&ep->mtx);
 
