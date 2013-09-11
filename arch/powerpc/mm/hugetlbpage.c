@@ -52,10 +52,22 @@ static inline int shift_to_mmu_psize(unsigned int shift)
 {
 	int psize;
 
-	for (psize = 0; psize < MMU_PAGE_COUNT; ++psize)
-		if (mmu_psize_defs[psize].shift == shift)
-			return psize;
-	return -1;
+int pgd_huge(pgd_t pgd)
+{
+	/*
+	 * leaf pte for huge page, bottom two bits != 00
+	 */
+	return ((pgd_val(pgd) & 0x3) != 0x0);
+}
+
+int pmd_huge_support(void)
+{
+	return 1;
+}
+#else
+int pmd_huge(pmd_t pmd)
+{
+	return 0;
 }
 
 static inline unsigned int mmu_psize_to_shift(unsigned int mmu_psize)
@@ -65,7 +77,16 @@ static inline unsigned int mmu_psize_to_shift(unsigned int mmu_psize)
 	BUG();
 }
 
-#define hugepd_none(hpd)	((hpd).pd == 0)
+int pgd_huge(pgd_t pgd)
+{
+	return 0;
+}
+
+int pmd_huge_support(void)
+{
+	return 0;
+}
+#endif
 
 pte_t *find_linux_pte_or_hugepte(pgd_t *pgdir, unsigned long ea, unsigned *shift)
 {
