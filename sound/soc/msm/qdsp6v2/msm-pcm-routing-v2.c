@@ -1261,6 +1261,17 @@ static int msm_routing_set_srs_trumedia_control_HDMI(
 	return ret;
 }
 
+static int msm_routing_set_srs_trumedia_control_Proxy(
+		struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol) {
+	int ret;
+	pr_debug("SRS control proxy  called");
+	mutex_lock(&routing_lock);
+	srs_port_id = RT_PROXY_PORT_001_RX;
+	ret =  msm_routing_set_srs_trumedia_control_(kcontrol, ucontrol);
+	mutex_unlock(&routing_lock);
+	return ret;
+}
 static void msm_send_eq_values(int eq_idx)
 {
 	int result;
@@ -2862,6 +2873,25 @@ static const struct snd_kcontrol_new lpa_SRS_trumedia_controls_I2S[] = {
 	}
 };
 
+static const struct snd_kcontrol_new lpa_SRS_trumedia_controls_Proxy[] = {
+	{.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	.name = "SRS TruMedia Proxy",
+	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ |
+		SNDRV_CTL_ELEM_ACCESS_READWRITE,
+	.info = snd_soc_info_volsw, \
+	.get = msm_routing_get_srs_trumedia_control,
+	.put = msm_routing_set_srs_trumedia_control_Proxy,
+	.private_value = ((unsigned long)&(struct soc_mixer_control)
+	{.reg = SND_SOC_NOPM,
+	.rreg = SND_SOC_NOPM,
+	.shift = 0,
+	.rshift = 0,
+	.max = 0xFFFFFFFF,
+	.platform_max = 0xFFFFFFFF,
+	.invert = 0
+	})
+	}
+};
 int msm_routing_get_dolby_security_control(
 		struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol) {
@@ -4390,6 +4420,9 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 				lpa_SRS_trumedia_controls_I2S,
 			ARRAY_SIZE(lpa_SRS_trumedia_controls_I2S));
 
+	snd_soc_add_platform_controls(platform,
+            lpa_SRS_trumedia_controls_Proxy,
+        ARRAY_SIZE(lpa_SRS_trumedia_controls_Proxy));
 	snd_soc_add_platform_controls(platform,
 				multi_ch_channel_map_mixer_controls,
 			ARRAY_SIZE(multi_ch_channel_map_mixer_controls));
