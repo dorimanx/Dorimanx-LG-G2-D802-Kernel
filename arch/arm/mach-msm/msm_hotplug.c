@@ -91,9 +91,6 @@ static struct cpu_stats {
 	.total_cpus = NR_CPUS
 };
 
-static uint32_t limited_max_freq = UINT_MAX;
-static uint32_t limited_min_freq;
-
 static int msm_hotplug_cpufreq_callback(struct notifier_block *nfb,
 					unsigned long event, void *data)
 {
@@ -101,8 +98,7 @@ static int msm_hotplug_cpufreq_callback(struct notifier_block *nfb,
 
 	switch (event) {
 	case CPUFREQ_INCOMPATIBLE:
-		cpufreq_verify_within_limits(policy, limited_min_freq,
-					     limited_max_freq);
+		cpufreq_verify_within_cpu_limits(policy);
 		break;
 	}
 	return NOTIFY_OK;
