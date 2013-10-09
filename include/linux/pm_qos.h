@@ -93,6 +93,7 @@ struct dev_pm_qos_request {
 		struct pm_qos_flags_request flr;
 	} data;
 	struct device *dev;
+	struct delayed_work work; /* for pm_qos_update_request_timeout */
 };
 
 enum pm_qos_type {
@@ -243,6 +244,9 @@ s32 dev_pm_qos_read_value(struct device *dev);
 int dev_pm_qos_add_request(struct device *dev, struct dev_pm_qos_request *req,
 			   enum dev_pm_qos_req_type type, s32 value);
 int dev_pm_qos_update_request(struct dev_pm_qos_request *req, s32 new_value);
+int dev_pm_qos_update_request_timeout(struct dev_pm_qos_request *req,
+				      s32 new_value,
+				      unsigned long timeout_us);
 int dev_pm_qos_remove_request(struct dev_pm_qos_request *req);
 int dev_pm_qos_add_notifier(struct device *dev,
 			    struct notifier_block *notifier);

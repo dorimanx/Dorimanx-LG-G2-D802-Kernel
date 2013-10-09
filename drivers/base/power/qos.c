@@ -42,6 +42,7 @@
 #include <linux/export.h>
 #include <linux/pm_runtime.h>
 #include <linux/err.h>
+#include <linux/workqueue.h>
 
 #include "power.h"
 
@@ -265,6 +266,21 @@ void dev_pm_qos_constraints_destroy(struct device *dev)
 }
 
 /**
+ * dev_pm_qos_work_fn - the timeout handler of dev_pm_qos_update_request_timeout
+ * @work: work struct for the delayed work (timeout)
+ *
+ * This cancels the timeout request by falling back to the default at timeout.
+ */
+static void dev_pm_qos_work_fn(struct work_struct *work)
+{
+	struct dev_pm_qos_request *req = container_of(to_delayed_work(work),
+						  struct dev_pm_qos_request,
+						  work);
+
+	dev_pm_qos_update_request(req, 0);
+}
+
+/**
  * dev_pm_qos_add_request - inserts new qos request into the list
  * @dev: target device for the constraint
  * @req: pointer to a preallocated handle
@@ -304,6 +320,8 @@ int dev_pm_qos_add_request(struct device *dev, struct dev_pm_qos_request *req,
 		ret = -ENODEV;
 	else if (!dev->power.qos)
 		ret = dev_pm_qos_constraints_allocate(dev);
+
+	INIT_DELAYED_WORK(&req->work, dev_pm_qos_work_fn);
 
 	if (!ret) {
 		req->dev = dev;
@@ -398,10 +416,35 @@ static int __dev_pm_qos_remove_request(struct dev_pm_qos_request *req)
 	if (IS_ERR_OR_NULL(req->dev->power.qos))
 		return -ENODEV;
 
+	if (delayed_work_pending(&req->work))
+		cancel_delayed_work_sync(&req->work);
+
 	ret = apply_constraint(req, PM_QOS_REMOVE_REQ, PM_QOS_DEFAULT_VALUE);
 	memset(req, 0, sizeof(*req));
 	return ret;
 }
+
+/**
+ * dev_pm_qos_update_request_timeout - modifies an existing qos request
+ * temporarily.
+ * @req : handle to list element holding a pm_qos request to use
+ * @new_value: defines the temporal qos request
+ * @timeout_us: the effective duration of this qos request in usecs.
+ *
+ * After timeout_us, this qos request is cancelled automatically.
+ */
+int dev_pm_qos_update_request_timeout(struct dev_pm_qos_request *req,
+				      s32 new_value, unsigned long timeout_us)
+{
+	if (delayed_work_pending(&req->work))
+		cancel_delayed_work_sync(&req->work);
+
+	dev_pm_qos_update_request(req, new_value);
+	schedule_delayed_work(&req->work, usecs_to_jiffies(timeout_us));
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(dev_pm_qos_update_request_timeout);
 
 /**
  * dev_pm_qos_remove_request - modifies an existing qos request
@@ -421,6 +464,9 @@ static int __dev_pm_qos_remove_request(struct dev_pm_qos_request *req)
 int dev_pm_qos_remove_request(struct dev_pm_qos_request *req)
 {
 	int ret;
+
+	if (delayed_work_pending(&req->work))
+		cancel_delayed_work_sync(&req->work);
 
 	mutex_lock(&dev_pm_qos_mtx);
 	ret = __dev_pm_qos_remove_request(req);
