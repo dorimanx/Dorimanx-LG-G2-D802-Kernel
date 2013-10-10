@@ -133,21 +133,6 @@ static void ufs_test_pseudo_rnd_size(unsigned int *seed,
 		*num_of_bios = DEFAULT_NUM_OF_BIOS;
 }
 
-static void ufs_test_write_read_test_end_io_fn(struct request *rq, int err)
-{
-	struct test_request *test_rq = (struct test_request *)rq->elv.priv[0];
-	BUG_ON(!test_rq);
-
-	test_rq->req_completed = 1;
-	test_rq->req_result = err;
-
-	test_pr_info("%s: request %d completed, err=%d",
-			__func__, test_rq->req_id, err);
-
-	utd->write_completed = true;
-	wake_up(&utd->wait_q);
-}
-
 static struct gendisk *ufs_test_get_rq_disk(void)
 {
 	struct request_queue *req_q = test_iosched_get_req_queue();
@@ -177,6 +162,16 @@ exit:
 	return gd;
 }
 
+static bool ufs_write_read_completion(void)
+{
+	if (!utd->write_completed) {
+		utd->write_completed = true;
+		wake_up(&utd->wait_q);
+		return false;
+	}
+	return true;
+}
+
 static int ufs_test_run_write_read_test(struct test_data *td)
 {
 	int ret = 0;
@@ -198,9 +193,8 @@ static int ufs_test_run_write_read_test(struct test_data *td)
 			, __func__, num_bios, td->wr_rd_next_req_id);
 
 	utd->write_completed = false;
-	ret = test_iosched_add_wr_rd_test_req(0, WRITE, start_sec,
-					num_bios, TEST_PATTERN_5A,
-					ufs_test_write_read_test_end_io_fn);
+	ret = test_iosched_add_wr_rd_test_req(0, WRITE, start_sec, num_bios,
+						TEST_PATTERN_5A, NULL);
 
 	if (ret) {
 		test_pr_err("%s: failed to add a write request", __func__);
