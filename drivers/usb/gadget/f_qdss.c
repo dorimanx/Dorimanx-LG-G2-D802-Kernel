@@ -396,7 +396,9 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 			goto fail;
 		}
 	}
-	dwc3_tx_fifo_resize_request(qdss->data, true);
+
+	if (gadget_is_dwc3(gadget))
+		dwc3_tx_fifo_resize_request(qdss->data, true);
 
 	return 0;
 fail:
@@ -415,7 +417,8 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	flush_workqueue(qdss->wq);
 
-	dwc3_tx_fifo_resize_request(qdss->data, false);
+	if (gadget_is_dwc3(gadget))
+		dwc3_tx_fifo_resize_request(qdss->data, false);
 
 	clear_eps(f);
 	clear_desc(gadget, f);
