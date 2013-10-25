@@ -2163,8 +2163,9 @@ static struct kgsl_cmdbatch *_kgsl_cmdbatch_create_legacy(
 static struct kgsl_cmdbatch *_kgsl_cmdbatch_create(struct kgsl_device *device,
 		struct kgsl_context *context,
 		unsigned int flags,
-		unsigned int cmdlist, unsigned int numcmds,
-		unsigned int synclist, unsigned int numsyncs)
+		struct kgsl_ibdesc __user *cmdlist, unsigned int numcmds,
+		struct kgsl_cmd_syncpoint __user *synclist,
+		unsigned int numsyncs)
 {
 	struct kgsl_cmdbatch *cmdbatch =
 		kgsl_cmdbatch_create(device, context, flags, numcmds);
@@ -2240,7 +2241,8 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 			goto done;
 
 		cmdbatch = _kgsl_cmdbatch_create(device, context, param->flags,
-				param->ibdesc_addr, param->numibs, 0, 0);
+			(struct kgsl_ibdesc __user *)param->ibdesc_addr,
+			 param->numibs, 0, 0);
 	} else
 		cmdbatch = _kgsl_cmdbatch_create_legacy(device, context, param);
 
@@ -2296,8 +2298,8 @@ long kgsl_ioctl_submit_commands(struct kgsl_device_private *dev_priv,
 		return -EINVAL;
 
 	cmdbatch = _kgsl_cmdbatch_create(device, context, param->flags,
-		(unsigned int) param->cmdlist, param->numcmds,
-		(unsigned int) param->synclist, param->numsyncs);
+		param->cmdlist, param->numcmds,
+		param->synclist, param->numsyncs);
 
 	if (IS_ERR(cmdbatch)) {
 		result = PTR_ERR(cmdbatch);
