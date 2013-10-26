@@ -202,7 +202,7 @@ enum kgsl_property_type {
 };
 
 struct kgsl_shadowprop {
-	unsigned int gpuaddr;
+	unsigned long gpuaddr;
 	unsigned int size;
 	unsigned int flags; /* contains KGSL_FLAGS_ values */
 };
@@ -237,7 +237,7 @@ struct kgsl_version {
 
 /* structure holds list of ibs */
 struct kgsl_ibdesc {
-	unsigned int gpuaddr;
+	unsigned long gpuaddr;
 	void *hostptr;
 	unsigned int sizedwords;
 	unsigned int ctrl;
@@ -331,7 +331,7 @@ struct kgsl_cmdstream_readtimestamp {
  * type should be a value from enum kgsl_timestamp_type
  */
 struct kgsl_cmdstream_freememontimestamp {
-	unsigned int gpuaddr;
+	unsigned long gpuaddr;
 	unsigned int type;
 	unsigned int timestamp;
 };
@@ -371,10 +371,10 @@ struct kgsl_drawctxt_destroy {
  * into the GPU address space */
 struct kgsl_map_user_mem {
 	int fd;
-	unsigned int gpuaddr;   /*output param */
+	unsigned long gpuaddr;   /*output param */
 	unsigned int len;
 	unsigned int offset;
-	unsigned int hostptr;   /*input param */
+	unsigned long hostptr;   /*input param */
 	enum kgsl_user_mem_type memtype;
 	unsigned int flags;
 };
@@ -393,7 +393,7 @@ struct kgsl_cmdstream_readtimestamp_ctxtid {
 
 struct kgsl_cmdstream_freememontimestamp_ctxtid {
 	unsigned int context_id;
-	unsigned int gpuaddr;
+	unsigned long gpuaddr;
 	unsigned int type;
 	unsigned int timestamp;
 };
@@ -405,7 +405,7 @@ struct kgsl_cmdstream_freememontimestamp_ctxtid {
 /* add a block of pmem or fb into the GPU address space */
 struct kgsl_sharedmem_from_pmem {
 	int pmem_fd;
-	unsigned int gpuaddr;	/*output param */
+	unsigned long gpuaddr;	/*output param */
 	unsigned int len;
 	unsigned int offset;
 };
@@ -415,7 +415,7 @@ struct kgsl_sharedmem_from_pmem {
 
 /* remove memory from the GPU's address space */
 struct kgsl_sharedmem_free {
-	unsigned int gpuaddr;
+	unsigned long gpuaddr;
 };
 
 #define IOCTL_KGSL_SHAREDMEM_FREE \
@@ -444,7 +444,7 @@ struct kgsl_gmem_desc {
 
 struct kgsl_buffer_desc {
 	void 			*hostptr;
-	unsigned int	gpuaddr;
+	unsigned long	gpuaddr;
 	int				size;
 	unsigned int	format;
 	unsigned int  	pitch;
@@ -471,7 +471,7 @@ struct kgsl_bind_gmem_shadow {
  */
 
 struct kgsl_sharedmem_from_vmalloc {
-	unsigned int gpuaddr;	/*output param */
+	unsigned long gpuaddr;	/*output param */
 	unsigned int hostptr;
 	unsigned int flags;
 };
@@ -518,7 +518,7 @@ struct kgsl_cmdwindow_write {
 	_IOW(KGSL_IOC_TYPE, 0x2e, struct kgsl_cmdwindow_write)
 
 struct kgsl_gpumem_alloc {
-	unsigned long gpuaddr;
+	unsigned long gpuaddr; /* output param */
 	size_t size;
 	unsigned int flags;
 };
@@ -527,7 +527,7 @@ struct kgsl_gpumem_alloc {
 	_IOWR(KGSL_IOC_TYPE, 0x2f, struct kgsl_gpumem_alloc)
 
 struct kgsl_cff_syncmem {
-	unsigned int gpuaddr;
+	unsigned long gpuaddr;
 	unsigned int len;
 	unsigned int __pad[2]; /* For future binary compatibility */
 };
@@ -545,7 +545,7 @@ struct kgsl_timestamp_event {
 	int type;                /* Type of event (see list below) */
 	unsigned int timestamp;  /* Timestamp to trigger event on */
 	unsigned int context_id; /* Context for the timestamp */
-	void *priv;              /* Pointer to the event specific blob */
+	void *priv;		 /* Pointer to the event specific blob */
 	size_t len;              /* Size of the event specific blob */
 };
 
@@ -669,7 +669,7 @@ struct kgsl_gpumem_get_info {
  *
  */
 struct kgsl_gpumem_sync_cache {
-	unsigned int gpuaddr;
+	unsigned long gpuaddr;
 	unsigned int id;
 	unsigned int op;
 /* private: reserved for future use*/
