@@ -270,7 +270,6 @@ struct kgsl_version {
 /* structure holds list of ibs */
 struct kgsl_ibdesc {
 	unsigned long gpuaddr;
-	void *hostptr;
 	unsigned long __pad;
 	size_t sizedwords;
 	unsigned int ctrl;
@@ -291,7 +290,7 @@ struct kgsl_ibdesc {
 */
 struct kgsl_device_getproperty {
 	unsigned int type;
-	void  *value;
+	void __user *value;
 	size_t sizebytes;
 };
 
@@ -578,7 +577,7 @@ struct kgsl_timestamp_event {
 	int type;                /* Type of event (see list below) */
 	unsigned int timestamp;  /* Timestamp to trigger event on */
 	unsigned int context_id; /* Context for the timestamp */
-	void *priv;		 /* Pointer to the event specific blob */
+	void __user *priv;	 /* Pointer to the event specific blob */
 	size_t len;              /* Size of the event specific blob */
 };
 
@@ -789,7 +788,7 @@ struct kgsl_perfcounter_put {
 struct kgsl_perfcounter_query {
 	unsigned int groupid;
 	/* Array to return the current countable for up to size counters */
-	unsigned int *countables;
+	unsigned int __user *countables;
 	unsigned int count;
 	unsigned int max_counters;
 /* private: reserved for future use */
@@ -818,7 +817,7 @@ struct kgsl_perfcounter_read_group {
 };
 
 struct kgsl_perfcounter_read {
-	struct kgsl_perfcounter_read_group *reads;
+	struct kgsl_perfcounter_read_group __user *reads;
 	unsigned int count;
 /* private: reserved for future use */
 	unsigned int __pad[2]; /* For future binary compatibility */
@@ -838,7 +837,7 @@ struct kgsl_perfcounter_read {
  * size of the working set of memory to be managed.
  */
 struct kgsl_gpumem_sync_cache_bulk {
-	unsigned int *id_list;
+	unsigned int __user *id_list;
 	unsigned int count;
 	unsigned int op;
 /* private: reserved for future use */
