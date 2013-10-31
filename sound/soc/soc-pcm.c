@@ -1153,6 +1153,12 @@ int dpcm_be_dai_startup(struct snd_soc_pcm_runtime *fe, int stream)
 		struct snd_pcm_substream *be_substream =
 			snd_soc_dpcm_get_substream(be, stream);
 
+		if (!be_substream) {
+			dev_err(be->dev, "ASoC: no backend %s stream\n",
+				stream ? "capture" : "playback");
+			continue;
+		}
+
 		/* is this op for this BE ? */
 		if (!snd_soc_dpcm_be_can_update(fe, be, stream))
 			continue;
@@ -1169,7 +1175,8 @@ int dpcm_be_dai_startup(struct snd_soc_pcm_runtime *fe, int stream)
 		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_CLOSE))
 			continue;
 
-		dev_dbg(be->dev, "dpcm: open BE %s\n", be->dai_link->name);
+		dev_dbg(be->dev, "ASoC: open %s BE %s\n",
+			stream ? "capture" : "playback", be->dai_link->name);
 
 		be_substream->runtime = be->dpcm[stream].runtime;
 		err = soc_pcm_open(be_substream);
