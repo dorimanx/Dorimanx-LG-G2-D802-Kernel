@@ -655,6 +655,9 @@ retry:
 	r->entropy_total += nbits;
 	if (!r->initialized && nbits > 0) {
 		if (r->entropy_total > 128) {
+			if (r == &nonblocking_pool)
+				pr_notice("random: %s pool is initialized\n",
+					  r->name);
 			r->initialized = 1;
 			r->entropy_total = 0;
 		}
@@ -1341,7 +1344,14 @@ http://lwn.net/Articles/489734/ - WIP
 static ssize_t
 urandom_read(struct file *file, char __user *buf, size_t nbytes, loff_t *ppos)
 {
-	int ret = extract_entropy_user(&nonblocking_pool, buf, nbytes);
+	int ret;
+
+	if (unlikely(nonblocking_pool.initialized == 0))
+		printk_once(KERN_NOTICE "random: %s urandom read "
+			    "with %d bits of entropy available\n",
+			    current->comm, nonblocking_pool.entropy_total);
+
+	ret = extract_entropy_user(&nonblocking_pool, buf, nbytes);
 
 	trace_urandom_read(8 * nbytes, ENTROPY_BITS(&nonblocking_pool),
 			   ENTROPY_BITS(&input_pool));
