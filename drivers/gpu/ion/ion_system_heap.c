@@ -224,14 +224,11 @@ void ion_system_heap_free(struct ion_buffer *buffer)
 							struct ion_system_heap,
 							heap);
 	struct sg_table *table = buffer->sg_table;
-	bool cached = ion_buffer_cached(buffer);
 	struct scatterlist *sg;
 	LIST_HEAD(pages);
 	int i;
 
-	/* uncached pages come from the page pools, zero them before returning
-	   for security purposes (other allocations are zerod at alloc time */
-	if (!cached && !(buffer->flags & ION_FLAG_FREED_FROM_SHRINKER))
+	if (!(buffer->flags & ION_FLAG_FREED_FROM_SHRINKER))
 		ion_heap_buffer_zero(buffer);
 
 #ifdef CONFIG_LGE_MEMORY_INFO /* NeedToRetouch at M8974AAAAANLYA0050056 */
