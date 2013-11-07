@@ -38,6 +38,7 @@ static void mmc_host_classdev_release(struct device *dev)
 	kfree(host);
 }
 
+#ifdef CONFIG_PM_RUNTIME
 static int mmc_host_runtime_suspend(struct device *dev)
 {
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
@@ -72,7 +73,9 @@ static int mmc_host_runtime_resume(struct device *dev)
 
 	return ret;
 }
+#endif
 
+#ifdef CONFIG_PM_SLEEP
 static int mmc_host_suspend(struct device *dev)
 {
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
@@ -131,6 +134,7 @@ static int mmc_host_resume(struct device *dev)
 	host->dev_status = DEV_RESUMED;
 	return ret;
 }
+#endif
 
 static const struct dev_pm_ops mmc_host_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(mmc_host_suspend, mmc_host_resume)
