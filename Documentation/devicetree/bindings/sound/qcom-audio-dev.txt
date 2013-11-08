@@ -462,11 +462,16 @@ LG Electronics' additional properties:
 			1 : Used
 			NOTE: Assume that it is used in board if the property is not existed.
 - qcom,headset-jack-type-NO: Adjust GPIO level based on the headset jack type.
+
 - qcom,tapan-codec-9302: Indicates that this device node is for WCD9302 audio
 			    codec.
 - qcom,mbhc-bias-internal: Flag to indicate if internal micbias should be used
 			   for headset detection.
-
+- qcom,mbhc-audio-jack-type : String to indicate the jack type on the hardware.
+		Possible Values:
+		4-pole-jack : Jack on the hardware is 4-pole.
+		5-pole-jack : Jack on the hardware is 5-pole.
+		6-pole-jack : Jack on the hardware is 6-pole.
 * APQ8074 ASoC Machine driver
 
 Required properties:
@@ -523,6 +528,7 @@ sound {
 	qcom,sec-auxpcm-gpio-sync = <&msmgpio 80 0>;
 	qcom,sec-auxpcm-gpio-din  = <&msmgpio 81 0>;
 	qcom,sec-auxpcm-gpio-dout = <&msmgpio 82 0>;
+	qcom,mbhc-audio-jack-type = "4-pole-jack";
 };
 
 * msm-dai-mi2s

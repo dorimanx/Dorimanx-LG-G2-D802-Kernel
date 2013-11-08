@@ -94,6 +94,12 @@ enum wcd9xxx_micbias_num {
 	MBHC_MICBIAS4,
 };
 
+enum hw_jack_type {
+	FOUR_POLE_JACK = 0,
+	FIVE_POLE_JACK,
+	SIX_POLE_JACK,
+};
+
 enum wcd9xx_mbhc_micbias_enable_bits {
 	MBHC_MICBIAS_ENABLE_THRESHOLD_HEADSET,
 	MBHC_MICBIAS_ENABLE_REGULAR_HEADSET,
@@ -243,6 +249,7 @@ struct wcd9xxx_mbhc_config {
 	bool do_recalibration;
 	bool use_vddio_meas;
 	bool enable_anc_mic_detect;
+	enum hw_jack_type hw_jack_type;
 };
 
 struct wcd9xxx_cfilt_mode {
