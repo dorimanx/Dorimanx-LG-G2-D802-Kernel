@@ -257,7 +257,7 @@ config LGP_DATA_TCPIP_SLAAC_IPV6_ALLOCATION_BOOSTER
 	  we will set the value of waiting time to 0.02 sec for Link-local IPv6 address and will not operate the DAD process for Global IPv6 address.
 
 config LGP_DATA_BUGFIX_IPV6_ADDRCONF_KERNEL_CRASH
-	bool "IPv6: Bug Fix of Kernel Crash
+	bool "IPv6: Bug Fix of Kernel Crash"
 	---help---
 	During DAD process, if the interface of ipv6 were down, kernel crash will be occured.
 

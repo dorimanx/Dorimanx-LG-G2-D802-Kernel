@@ -567,7 +567,7 @@ config FTT_CHARGER_V3
 	  FTT Demo app : 120326-1
 
 config FTT_SYSFS
-	bool " Wireless charging support FTT v3 sysfs"
+	bool "Wireless charging support FTT v3 sysfs"
 	depends on FTT_CHARGER_V3
 	default n
 	help

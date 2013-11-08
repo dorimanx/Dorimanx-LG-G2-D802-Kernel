@@ -368,7 +368,7 @@ config BACKLIGHT_LM3630
 	  If you have a LM3630 backlight on the device, enable this feature
 
 config BACKLIGHT_CABC_DEBUG_ENABLE
-	bool " enable lm3630 CABC debugging "
+	bool "enable lm3630 CABC debugging "
 	depends on BACKLIGHT_LM3630
 	default n
 	help
