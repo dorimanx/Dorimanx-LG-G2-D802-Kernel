@@ -325,7 +325,7 @@ static int lcd_notifier_callback(struct notifier_block *nb,
 	case LCD_EVENT_ON_START:
 		msm_hotplug_resume(hp, st, policy);
 		break;
-	case LCD_EVENT_OFF_START:
+	case LCD_EVENT_OFF_END:
 		msm_hotplug_suspend(hp, st, policy);
 		break;
 	default:
