@@ -412,7 +412,7 @@ void kgsl_cffdump_user_event(struct kgsl_device *device,
 
 void kgsl_cffdump_syncmem(struct kgsl_device *device,
 			  struct kgsl_memdesc *memdesc, uint gpuaddr,
-			  uint sizebytes, bool clean_cache)
+			  size_t sizebytes, bool clean_cache)
 {
 	const void *src;
 
