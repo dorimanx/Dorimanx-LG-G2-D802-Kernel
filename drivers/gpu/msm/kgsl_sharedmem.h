@@ -124,7 +124,7 @@ static inline unsigned int kgsl_get_sg_pa(struct scatterlist *sg)
 
 static inline int
 memdesc_sg_phys(struct kgsl_memdesc *memdesc,
-		phys_addr_t physaddr, unsigned int size)
+		phys_addr_t physaddr, size_t size)
 {
 	memdesc->sg = kgsl_malloc(sizeof(struct scatterlist));
 	if (memdesc->sg == NULL)
@@ -207,10 +207,10 @@ kgsl_memdesc_use_cpu_map(const struct kgsl_memdesc *memdesc)
  * for the guard page to be mapped so that the address spaces
  * match up.
  */
-static inline unsigned int
+static inline size_t
 kgsl_memdesc_mmapsize(const struct kgsl_memdesc *memdesc)
 {
-	unsigned int size = memdesc->size;
+	size_t size = memdesc->size;
 	if (kgsl_memdesc_use_cpu_map(memdesc) &&
 		kgsl_memdesc_has_guard_page(memdesc))
 		size += SZ_4K;
