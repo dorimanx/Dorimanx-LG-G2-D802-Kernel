@@ -40,6 +40,7 @@
 #include "kgsl_trace.h"
 #include "kgsl_sync.h"
 #include "adreno.h"
+#include "kgsl_compat.h"
 
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "kgsl."
@@ -1410,7 +1411,12 @@ long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,
 		break;
 	}
 	default:
-		result = dev_priv->device->ftbl->getproperty(
+		if (is_compat_task())
+			result = dev_priv->device->ftbl->getproperty_compat(
+					dev_priv->device, param->type,
+					param->value, param->sizebytes);
+		else
+			result = dev_priv->device->ftbl->getproperty(
 					dev_priv->device, param->type,
 					param->value, param->sizebytes);
 	}
@@ -2171,6 +2177,12 @@ static struct kgsl_cmdbatch *_kgsl_cmdbatch_create(struct kgsl_device *device,
 
 	if (IS_ERR(cmdbatch))
 		return cmdbatch;
+
+	if (is_compat_task()) {
+		ret = kgsl_cmdbatch_create_compat(device, flags, cmdbatch,
+					cmdlist, numcmds, synclist, numsyncs);
+		goto done;
+	}
 
 	if (!(flags & KGSL_CMDBATCH_SYNC)) {
 		if (copy_from_user(cmdbatch->ibdesc, cmdlist,
@@ -3658,7 +3670,13 @@ long kgsl_ioctl_helper(struct file *filep, unsigned int cmd,
 
 		func = ioctl_funcs[nr].func;
 	} else {
-		func = dev_priv->device->ftbl->ioctl;
+		if (is_compat_task() &&
+		    cmd != IOCTL_KGSL_DRAWCTXT_SET_BIN_BASE_OFFSET &&
+		    cmd != IOCTL_KGSL_PERFCOUNTER_GET &&
+		    cmd != IOCTL_KGSL_PERFCOUNTER_PUT)
+			func = dev_priv->device->ftbl->compat_ioctl;
+		else
+			func = dev_priv->device->ftbl->ioctl;
 		if (!func) {
 			KGSL_DRV_INFO(dev_priv->device,
 				      "invalid ioctl code %08x\n", cmd);
@@ -4030,6 +4048,7 @@ static const struct file_operations kgsl_fops = {
 	.mmap = kgsl_mmap,
 	.get_unmapped_area = kgsl_get_unmapped_area,
 	.unlocked_ioctl = kgsl_ioctl,
+	.compat_ioctl = kgsl_compat_ioctl,
 };
 
 struct kgsl_driver kgsl_driver  = {
