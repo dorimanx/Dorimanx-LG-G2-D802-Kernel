@@ -54,6 +54,8 @@ static struct cpu_hotplug {
 	unsigned int down_lock_dur;
 	struct work_struct up_work;
 	struct work_struct down_work;
+	struct work_struct suspend_work;
+	struct work_struct resume_work;
 	struct timer_list lock_timer;
 	struct notifier_block notif;
 	bool screen_on;
@@ -272,10 +274,11 @@ reschedule:
 }
 EXPORT_SYMBOL_GPL(msm_hotplug_fn);
 
-static void msm_hotplug_suspend(struct cpu_hotplug *hp, struct cpu_stats *st,
-				struct cpufreq_policy *policy)
+static void msm_hotplug_suspend(struct work_struct *work)
 {
 	unsigned int cpu = 0;
+	struct cpu_hotplug *hp = &hotplug;
+	struct cpu_stats *st = &stats;
 
 	hp->screen_on = 0;
 
@@ -286,15 +289,20 @@ static void msm_hotplug_suspend(struct cpu_hotplug *hp, struct cpu_stats *st,
 	offline_cpu(st->min_cpus);
 
 	msm_cpufreq_set_freq_limits(cpu, MSM_CPUFREQ_NO_LIMIT, hp->suspend_freq);
-	pr_info("%s: Early suspend - max freq: %dMHz\n", MSM_HOTPLUG,
+	pr_info("%s: Suspend - max freq: %dMHz\n", MSM_HOTPLUG,
 		hp->suspend_freq / 1000);
 }
 EXPORT_SYMBOL_GPL(msm_hotplug_suspend);
 
-static void msm_hotplug_resume(struct cpu_hotplug *hp, struct cpu_stats *st,
-			       struct cpufreq_policy *policy)
+static void msm_hotplug_resume(struct work_struct *work)
 {
 	unsigned int cpu = 0;
+	struct cpu_hotplug *hp = &hotplug;
+	struct cpu_stats *st = &stats;
+	struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
+
+	if (!policy)
+		return;
 
 	hp->screen_on = 1;
 
@@ -303,7 +311,7 @@ static void msm_hotplug_resume(struct cpu_hotplug *hp, struct cpu_stats *st,
 	    msm_cpufreq_set_freq_limits(cpu, MSM_CPUFREQ_NO_LIMIT,
 					MSM_CPUFREQ_NO_LIMIT);
 
-	pr_info("%s: Late resume - restore max frequency: %dMHz\n",
+	pr_info("%s: Resume - restore max frequency: %dMHz\n",
 		MSM_HOTPLUG, policy->max / 1000);
 
 	reschedule_hotplug_fn(st);
@@ -313,20 +321,14 @@ EXPORT_SYMBOL_GPL(msm_hotplug_resume);
 static int lcd_notifier_callback(struct notifier_block *nb,
 				 unsigned long event, void *data)
 {
-	unsigned int cpu = 0;
 	struct cpu_hotplug *hp = &hotplug;
-	struct cpu_stats *st = &stats;
-	struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
-
-	if (!policy)
-		return -EINVAL;
 
 	switch (event) {
 	case LCD_EVENT_ON_START:
-		msm_hotplug_resume(hp, st, policy);
+		schedule_work(&hp->resume_work);
 		break;
 	case LCD_EVENT_OFF_END:
-		msm_hotplug_suspend(hp, st, policy);
+		schedule_work(&hp->suspend_work);
 		break;
 	default:
 		break;
@@ -643,6 +645,8 @@ static int __init msm_hotplug_init(void)
 	INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_fn);
 	INIT_WORK(&hp->up_work, cpu_up_work);
 	INIT_WORK(&hp->down_work, cpu_down_work);
+	INIT_WORK(&hp->suspend_work, msm_hotplug_suspend);
+	INIT_WORK(&hp->resume_work, msm_hotplug_resume);
 
 	queue_delayed_work_on(0, hotplug_wq, &hotplug_work, START_DELAY);
 
