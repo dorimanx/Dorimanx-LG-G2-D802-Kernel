@@ -183,21 +183,10 @@ static void bcm_btlock_exit(void)
 #endif // defined(CONFIG_BCM4335BT) 
 static int bluetooth_set_power(void *data, bool blocked)
 {
-#if defined(CONFIG_BCM4335BT)
-//+++BRCM 4335 AXI Patch
-	int lock_cookie_bt = 'B' | 'T'<<8 | '3'<<16 | '5'<<24;	/* cookie is "BT35" */
-//---BRCM
-#endif // defined(CONFIG_BCM4335BT) 
     
 	BTRFKILLDBG("bluetooth_set_power set blocked=%d", blocked);
 	if (!blocked) {
 
-#if defined(CONFIG_BCM4335BT)
-//+++BRCM 4335 AXI Patch
-		if (bcm_bt_lock(lock_cookie_bt) != 0)
-			printk("** BT rfkill: timeout in acquiring bt lock**\n");
-//---BRCM
-#endif // defined(CONFIG_BCM4335BT) 
 
 		gpio_direction_output(GPIO_BT_RESET_N, 0);
 		msleep(30);
@@ -207,6 +196,7 @@ static int bluetooth_set_power(void *data, bool blocked)
 		gpio_direction_output(GPIO_BT_RESET_N, 0);
 		BTRFKILLDBG("Bluetooth RESET LOW!!");
 	}
+
 	return 0;
 }
 
