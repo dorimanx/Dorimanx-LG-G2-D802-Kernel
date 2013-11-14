@@ -215,7 +215,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 err1:
 	kfree(table);
 err:
-	list_for_each_entry(info, &pages, list) {
+	list_for_each_entry_safe(info, tmp_info, &pages, list) {
 #ifdef CONFIG_LGE_MEMORY_INFO /* NeedToRetouch at M8974AAAAANLYA0050056 */
 		__dec_zone_page_state(info->page, NR_ION_PAGES);
 #endif
