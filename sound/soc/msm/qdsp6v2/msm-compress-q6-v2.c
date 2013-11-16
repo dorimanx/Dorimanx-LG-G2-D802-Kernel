@@ -555,8 +555,9 @@ static void populate_codec_list(struct msm_compr_audio *prtd)
 	prtd->compr_cap.codecs[1] = SND_AUDIOCODEC_AAC;
 	prtd->compr_cap.codecs[2] = SND_AUDIOCODEC_AC3;
 	prtd->compr_cap.codecs[3] = SND_AUDIOCODEC_EAC3;
+	prtd->compr_cap.codecs[4] = SND_AUDIOCODEC_MP2;
 #ifdef CONFIG_HIFI_SOUND
-	prtd->compr_cap.codecs[4] = SND_AUDIOCODEC_PCM;
+	prtd->compr_cap.codecs[5] = SND_AUDIOCODEC_PCM;
 #endif
 }
 
@@ -590,6 +591,9 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 	case FORMAT_AC3:
 		break;
 	case FORMAT_EAC3:
+		break;
+	case FORMAT_MP2:
+		pr_debug("%s: SND_AUDIOCODEC_MP2\n", __func__);
 		break;
 #ifdef CONFIG_HIFI_SOUND
 	case FORMAT_LINEAR_PCM:
@@ -1001,6 +1005,13 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 		frame_sz = EAC3_OUTPUT_FRAME_SZ;
 		break;
 	}
+
+	case SND_AUDIOCODEC_MP2: {
+		pr_debug("SND_AUDIOCODEC_MP2\n");
+		prtd->codec = FORMAT_MP2;
+		break;
+	}
+
 #ifdef CONFIG_HIFI_SOUND
 	case SND_AUDIOCODEC_PCM: {
 		pr_err("%s: SND_AUDIOCODEC_PCM BPS: %d\n",\
@@ -1010,6 +1021,7 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 		break;
 	}
 #endif
+
 	default:
 		pr_err("codec not supported, id =%d\n", params->codec.id);
 		return -EINVAL;
