@@ -61,28 +61,28 @@ ifeq ($(CONFIG_MACH_LGE),n)
         dtb-$(CONFIG_ARCH_MSM8974)	+= apq8074-v2-liquid.dtb
         dtb-$(CONFIG_ARCH_MSM8974)	+= apq8074-v2-dragonboard.dtb
 else
+        dtb-$(CONFIG_MACH_MSM8974_G2_ATT)	+= msm8974-g2-att.dtb
+        dtb-$(CONFIG_MACH_MSM8974_G2_ATT)	+= msm8974-v2-g2-att.dtb
+        dtb-$(CONFIG_MACH_MSM8974_G2_CA)	+= msm8974-g2-ca.dtb
+        dtb-$(CONFIG_MACH_MSM8974_G2_CA)	+= msm8974-v2-g2-ca.dtb
+        dtb-$(CONFIG_MACH_MSM8974_G2_OPEN_COM)	+= msm8974-g2-open_com.dtb
+        dtb-$(CONFIG_MACH_MSM8974_G2_OPEN_COM)	+= msm8974-v2-g2-open_com.dtb
+        dtb-$(CONFIG_MACH_MSM8974_G2_TMO_US)	+= msm8974-g2-tmo_us.dtb
+        dtb-$(CONFIG_MACH_MSM8974_G2_TMO_US)	+= msm8974-v2-g2-tmo_us.dtb
+        dtb-$(CONFIG_MACH_MSM8974_G2_VZW)	+= msm8974-g2-vzw.dtb
+        dtb-$(CONFIG_MACH_MSM8974_G2_VZW)	+= msm8974-v2-g2-vzw.dtb
         dtb-$(CONFIG_ARCH_MSM8974_G2_KR)	+= msm8974-g2-kr.dtb
         dtb-$(CONFIG_ARCH_MSM8974_G2_KR)	+= msm8974-v2-g2-kr.dtb
-        dtb-$(CONFIG_ARCH_MSM8974_G2_ATT)	+= msm8974-g2-att.dtb
-        dtb-$(CONFIG_ARCH_MSM8974_G2_ATT)	+= msm8974-v2-g2-att.dtb
-        dtb-$(CONFIG_ARCH_MSM8974_G2_VZW)	+= msm8974-g2-vzw.dtb
-        dtb-$(CONFIG_ARCH_MSM8974_G2_VZW)	+= msm8974-v2-g2-vzw.dtb
         dtb-$(CONFIG_ARCH_MSM8974_G2_SPR)	+= msm8974-g2-spr.dtb
         dtb-$(CONFIG_ARCH_MSM8974_G2_SPR)	+= msm8974-v2-g2-spr.dtb
-        dtb-$(CONFIG_ARCH_MSM8974_G2_TMO_US)+= msm8974-g2-tmo_us.dtb
-        dtb-$(CONFIG_ARCH_MSM8974_G2_TMO_US)+= msm8974-v2-g2-tmo_us.dtb
         dtb-$(CONFIG_ARCH_MSM8974_G2_DCM)	+= msm8974-g2-dcm.dtb
         dtb-$(CONFIG_ARCH_MSM8974_G2_DCM)	+= msm8974-v2-g2-dcm.dtb
         dtb-$(CONFIG_ARCH_MSM8974_G2_KDDI)	+= msm8974-g2-kddi.dtb
         dtb-$(CONFIG_ARCH_MSM8974_G2_KDDI)	+= msm8974-v2-g2-kddi.dtb
-        dtb-$(CONFIG_ARCH_MSM8974_G2_OPEN_COM)	+= msm8974-g2-open_com.dtb
-        dtb-$(CONFIG_ARCH_MSM8974_G2_OPEN_COM)	+= msm8974-v2-g2-open_com.dtb
 	dtb-$(CONFIG_ARCH_MSM8974_G2_OPEN_AME)	+= msm8974-g2-open_ame.dtb
         dtb-$(CONFIG_ARCH_MSM8974_G2_OPEN_AME)	+= msm8974-v2-g2-open_ame.dtb
 	dtb-$(CONFIG_ARCH_MSM8974_G2_OPT_AU)	+= msm8974-g2-opt_au.dtb
         dtb-$(CONFIG_ARCH_MSM8974_G2_OPT_AU)	+= msm8974-v2-g2-opt_au.dtb
-        dtb-$(CONFIG_ARCH_MSM8974_G2_CA)	+= msm8974-g2-ca.dtb
-        dtb-$(CONFIG_ARCH_MSM8974_G2_CA)	+= msm8974-v2-g2-ca.dtb
 endif
 
 # APQ8084
