@@ -17,7 +17,7 @@
 		syncoam,vpwr-on = <0>;
 		syncoam,haptic-pwr-gpio = <&msmgpio 60 0x00>;
 		syncoam,motor-pwm-gpio = <&msmgpio 27 0x00>;
-		syncoam,motor-amp = <117>;
+		syncoam,motor-amp = <130>;
 		syncoam,n-value = <166>;
 		status = "disable";
 	};
@@ -28,7 +28,7 @@
 		syncoam,vpwr-on = <0>;
 		syncoam,haptic-pwr-gpio = <&msmgpio 30 0x00>;
 		syncoam,motor-pwm-gpio = <&msmgpio 27 0x00>;
-		syncoam,motor-amp = <117>;
+		syncoam,motor-amp = <130>;
 		syncoam,n-value = <166>;
 		status = "disable";
 	};
@@ -38,7 +38,7 @@
 		syncoam,vpwr-on = <1>;
 		syncoam,haptic-pwr-gpio = <&msmgpio 60 0x00>;
 		syncoam,motor-pwm-gpio = <&msmgpio 27 0x00>;
-		syncoam,motor-amp = <117>;
+		syncoam,motor-amp = <130>;
 		syncoam,n-value = <166>;
 		status = "disable";
 	};
