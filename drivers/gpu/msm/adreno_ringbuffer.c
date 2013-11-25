@@ -366,7 +366,7 @@ static int _ringbuffer_bootstrap_ucode(struct adreno_ringbuffer *rb,
  *
  * Setup ringbuffer for GPU.
  */
-void _ringbuffer_setup_common(struct adreno_ringbuffer *rb)
+static void _ringbuffer_setup_common(struct adreno_ringbuffer *rb)
 {
 	struct kgsl_device *device = rb->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -418,7 +418,7 @@ void _ringbuffer_setup_common(struct adreno_ringbuffer *rb)
  *
  * Start ringbuffer for GPU.
  */
-int _ringbuffer_start_common(struct adreno_ringbuffer *rb)
+static int _ringbuffer_start_common(struct adreno_ringbuffer *rb)
 {
 	int status;
 	struct kgsl_device *device = rb->device;

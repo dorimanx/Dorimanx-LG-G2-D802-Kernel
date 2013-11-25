@@ -302,7 +302,7 @@ static int _check_global_timestamp(struct kgsl_device *device,
 	return kgsl_check_timestamp(device, NULL, timestamp);
 }
 
-int adreno_drawctxt_wait_global(struct adreno_device *adreno_dev,
+static int adreno_drawctxt_wait_global(struct adreno_device *adreno_dev,
 		struct kgsl_context *context,
 		uint32_t timestamp, unsigned int timeout)
 {
