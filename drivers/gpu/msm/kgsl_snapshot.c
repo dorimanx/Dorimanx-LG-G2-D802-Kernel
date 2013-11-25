@@ -761,9 +761,9 @@ struct kgsl_snapshot_attribute attr_##_name = { \
 	.store = _store, \
 }
 
-SNAPSHOT_ATTR(trigger, 0600, NULL, trigger_store);
-SNAPSHOT_ATTR(timestamp, 0444, timestamp_show, NULL);
-SNAPSHOT_ATTR(faultcount, 0644, faultcount_show, faultcount_store);
+static SNAPSHOT_ATTR(trigger, 0600, NULL, trigger_store);
+static SNAPSHOT_ATTR(timestamp, 0444, timestamp_show, NULL);
+static SNAPSHOT_ATTR(faultcount, 0644, faultcount_show, faultcount_store);
 
 static void snapshot_sysfs_release(struct kobject *kobj)
 {

@@ -1008,7 +1008,7 @@ error:
 	return NULL;
 }
 
-int kgsl_close_device(struct kgsl_device *device)
+static int kgsl_close_device(struct kgsl_device *device)
 {
 	int result = 0;
 	device->open_count--;
@@ -1026,7 +1026,6 @@ int kgsl_close_device(struct kgsl_device *device)
 	return result;
 
 }
-EXPORT_SYMBOL(kgsl_close_device);
 
 static int kgsl_release(struct inode *inodep, struct file *filep)
 {
@@ -1106,7 +1105,7 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	return result;
 }
 
-int kgsl_open_device(struct kgsl_device *device)
+static int kgsl_open_device(struct kgsl_device *device)
 {
 	int result = 0;
 	if (device->open_count == 0) {
@@ -1141,7 +1140,6 @@ err:
 
 	return result;
 }
-EXPORT_SYMBOL(kgsl_open_device);
 
 static int kgsl_open(struct inode *inodep, struct file *filep)
 {
@@ -3287,7 +3285,7 @@ kgsl_ioctl_sharedmem_flush_cache(struct kgsl_device_private *dev_priv,
 /*
  * The common parts of kgsl_ioctl_gpumem_alloc and kgsl_ioctl_gpumem_alloc_id.
  */
-int
+static int
 _gpumem_alloc(struct kgsl_device_private *dev_priv,
 		struct kgsl_mem_entry **ret_entry,
 		unsigned int size, unsigned int flags)
