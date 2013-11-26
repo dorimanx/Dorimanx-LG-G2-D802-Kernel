@@ -20,7 +20,7 @@
 
 #include "z180.h"
 #include "z180_reg.h"
-#include "z180_trace.h"
+/* #include "z180_trace.h" */
 
 #define DRIVER_VERSION_MAJOR   3
 #define DRIVER_VERSION_MINOR   1
@@ -196,7 +196,7 @@ static irqreturn_t z180_irq_handler(struct kgsl_device *device)
 
 	z180_regread(device, ADDR_VGC_IRQSTATUS >> 2, &status);
 
-	trace_kgsl_z180_irq_status(device, status);
+	/* trace_kgsl_z180_irq_status(device, status); */
 
 	if (status & GSL_VGC_INT_MASK) {
 		z180_regwrite(device,
@@ -513,8 +513,10 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	z180_cmdwindow_write(device, ADDR_VGV3_CONTROL, cmd);
 	z180_cmdwindow_write(device, ADDR_VGV3_CONTROL, 0);
 error:
+/*
 	kgsl_trace_issueibcmds(device, context->id, cmdbatch,
 		*timestamp, cmdbatch ? cmdbatch->flags : 0, result, 0);
+*/
 
 	kgsl_active_count_put(device);
 error_active_count:
@@ -893,7 +895,7 @@ static int z180_wait(struct kgsl_device *device,
 	else if (timeout == 0) {
 		status = -ETIMEDOUT;
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_HUNG);
-		kgsl_postmortem_dump(device, 0);
+		/* kgsl_postmortem_dump(device, 0); */
 	} else
 		status = timeout;
 
@@ -1020,7 +1022,7 @@ static const struct kgsl_functable z180_functable = {
 	.drawctxt_detach = z180_drawctxt_detach,
 	.drawctxt_destroy = z180_drawctxt_destroy,
 	.ioctl = NULL,
-	.postmortem_dump = z180_dump,
+	/* .postmortem_dump = z180_dump, */
 };
 
 static struct platform_device_id z180_id_table[] = {
