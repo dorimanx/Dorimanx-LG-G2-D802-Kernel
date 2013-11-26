@@ -2355,18 +2355,18 @@ _adreno_debug_ft_info(struct kgsl_device *device,
 		/* Print fault tolerance data here */
 		KGSL_FT_INFO(device, "Temp RB buffer size 0x%X\n",
 			ft_data->rb_size);
-		adreno_dump_rb(device, ft_data->rb_buffer,
-			ft_data->rb_size<<2, 0, ft_data->rb_size);
+		//adreno_dump_rb(device, ft_data->rb_buffer,
+		//	ft_data->rb_size<<2, 0, ft_data->rb_size);
 
 		KGSL_FT_INFO(device, "Bad RB buffer size 0x%X\n",
 			ft_data->bad_rb_size);
-		adreno_dump_rb(device, ft_data->bad_rb_buffer,
-			ft_data->bad_rb_size<<2, 0, ft_data->bad_rb_size);
+		//adreno_dump_rb(device, ft_data->bad_rb_buffer,
+		//	ft_data->bad_rb_size<<2, 0, ft_data->bad_rb_size);
 
 		KGSL_FT_INFO(device, "Good RB buffer size 0x%X\n",
 			ft_data->good_rb_size);
-		adreno_dump_rb(device, ft_data->good_rb_buffer,
-			ft_data->good_rb_size<<2, 0, ft_data->good_rb_size);
+		//adreno_dump_rb(device, ft_data->good_rb_buffer,
+		//	ft_data->good_rb_size<<2, 0, ft_data->good_rb_size);
 
 	}
 }
@@ -3909,7 +3909,7 @@ static const struct kgsl_functable adreno_functable = {
 	.drawctxt_detach = adreno_drawctxt_detach,
 	.drawctxt_destroy = adreno_drawctxt_destroy,
 	.setproperty = adreno_setproperty,
-	.postmortem_dump = adreno_dump,
+	//.postmortem_dump = adreno_dump,
 	.next_event = adreno_next_event,
 };
 
