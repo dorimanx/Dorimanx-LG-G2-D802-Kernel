@@ -37,10 +37,7 @@ msm_adreno-y += \
 msm_adreno-$(CONFIG_DEBUG_FS) += adreno_debugfs.o
 
 msm_z180-y += \
-	z180.o \
-	z180_postmortem.o \
-	z180_trace.o
-
+	z180.o 
 msm_kgsl_core-objs = $(msm_kgsl_core-y)
 msm_adreno-objs = $(msm_adreno-y)
 msm_z180-objs = $(msm_z180-y)
