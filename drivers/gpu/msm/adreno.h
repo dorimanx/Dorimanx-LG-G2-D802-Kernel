@@ -469,9 +469,11 @@ void adreno_shadermem_regread(struct kgsl_device *device,
 						unsigned int *value);
 
 int adreno_dump(struct kgsl_device *device, int manual);
+/*
 void adreno_dump_fields(struct kgsl_device *device,
 			const char *start, const struct log_field *lines,
 			int num);
+*/
 unsigned int adreno_a3xx_rbbm_clock_ctl_default(struct adreno_device
 							*adreno_dev);
 

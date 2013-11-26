@@ -2114,6 +2114,7 @@ static void a2xx_postmortem_dump(struct adreno_device *adreno_dev)
 	"INT_CNTL = %08X | INT_STATUS   = %08X | READ_ERROR   = %08X\n",
 	r1, r2, r3);
 
+/*
 	{
 		char cmdFifo[16];
 		struct log_field lines[] = {
@@ -2143,6 +2144,7 @@ static void a2xx_postmortem_dump(struct adreno_device *adreno_dev)
 		adreno_dump_fields(device, " STATUS=", lines,
 				ARRAY_SIZE(lines));
 	}
+*/
 
 	kgsl_regread(device, REG_CP_RB_BASE, &r1);
 	kgsl_regread(device, REG_CP_RB_CNTL, &r2);
@@ -2180,7 +2182,9 @@ static void a2xx_postmortem_dump(struct adreno_device *adreno_dev)
 			{cp_stat &  BIT(1), "RD_RQ_BSY  1"},
 			{cp_stat &  BIT(2), "RD_RTN_BSY 2"},
 		};
+/*
 		adreno_dump_fields(device, "    MIU=", lns, ARRAY_SIZE(lns));
+*/
 	}
 	{
 		struct log_field lns[] = {
@@ -2190,7 +2194,9 @@ static void a2xx_postmortem_dump(struct adreno_device *adreno_dev)
 			{cp_stat &  BIT(9), "ST_BUSY    9"},
 			{cp_stat & BIT(10), "BUSY      10"},
 		};
+/*
 		adreno_dump_fields(device, "    CSF=", lns, ARRAY_SIZE(lns));
+*/
 	}
 	{
 		struct log_field lns[] = {
@@ -2200,7 +2206,9 @@ static void a2xx_postmortem_dump(struct adreno_device *adreno_dev)
 			{cp_stat & BIT(16), "ST_QUEUE_B16"},
 			{cp_stat & BIT(17), "PFP_BUSY  17"},
 		};
+/*
 		adreno_dump_fields(device, "   RING=", lns, ARRAY_SIZE(lns));
+*/
 	}
 	{
 		struct log_field lns[] = {
@@ -2217,7 +2225,9 @@ static void a2xx_postmortem_dump(struct adreno_device *adreno_dev)
 			{cp_stat & BIT(30), "MIU_FF EM 30"},
 			{cp_stat & BIT(31), "CP_BUSY   31"},
 		};
+/*
 		adreno_dump_fields(device, " CP_STT=", lns, ARRAY_SIZE(lns));
+*/
 	}
 #endif
 

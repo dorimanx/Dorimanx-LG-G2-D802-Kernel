@@ -4354,6 +4354,7 @@ static void a3xx_postmortem_dump(struct adreno_device *adreno_dev)
 	kgsl_regread(device, REG_RBBM_STATUS, &rbbm_status);
 	KGSL_LOG_DUMP(device, "RBBM:   STATUS   = %08X\n", rbbm_status);
 
+/*
 	{
 		struct log_field lines[] = {
 			{rbbm_status & BIT(0),  "HI busy     "},
@@ -4381,7 +4382,7 @@ static void a3xx_postmortem_dump(struct adreno_device *adreno_dev)
 		adreno_dump_fields(device, " STATUS=", lines,
 				ARRAY_SIZE(lines));
 	}
-
+*/
 	kgsl_regread(device, REG_CP_RB_BASE, &r1);
 	kgsl_regread(device, REG_CP_RB_CNTL, &r2);
 	rb_count = 2 << (r2 & (BIT(6) - 1));
@@ -4421,7 +4422,9 @@ static void a3xx_postmortem_dump(struct adreno_device *adreno_dev)
 			{cp_stat & BIT(1), "RD_RQ_BSY  1"},
 			{cp_stat & BIT(2), "RD_RTN_BSY 2"},
 		};
+/*
 		adreno_dump_fields(device, "    MIU=", lns, ARRAY_SIZE(lns));
+*/
 	}
 	{
 		struct log_field lns[] = {
@@ -4431,7 +4434,9 @@ static void a3xx_postmortem_dump(struct adreno_device *adreno_dev)
 			{cp_stat & BIT(9), "ST_BUSY    9"},
 			{cp_stat & BIT(10), "BUSY      10"},
 		};
+/*
 		adreno_dump_fields(device, "    CSF=", lns, ARRAY_SIZE(lns));
+*/
 	}
 	{
 		struct log_field lns[] = {
@@ -4441,7 +4446,9 @@ static void a3xx_postmortem_dump(struct adreno_device *adreno_dev)
 			{cp_stat & BIT(16), "ST_QUEUE_B16"},
 			{cp_stat & BIT(17), "PFP_BUSY  17"},
 		};
+/*
 		adreno_dump_fields(device, "   RING=", lns, ARRAY_SIZE(lns));
+*/
 	}
 	{
 		struct log_field lns[] = {
@@ -4461,12 +4468,15 @@ static void a3xx_postmortem_dump(struct adreno_device *adreno_dev)
 			{cp_stat & BIT(30), "VS_FFO_BSY30"},
 			{cp_stat & BIT(31), "CP_BUSY   31"},
 		};
+/*
 		adreno_dump_fields(device, " CP_STT=", lns, ARRAY_SIZE(lns));
+*/
 	}
 #endif
 
 	kgsl_regread(device, A3XX_RBBM_INT_0_STATUS, &r1);
 	KGSL_LOG_DUMP(device, "MSTR_INT_SGNL = %08X\n", r1);
+/*
 	{
 		struct log_field ints[] = {
 			{r1 & BIT(0),  "RBBM_GPU_IDLE 0"},
@@ -4496,6 +4506,7 @@ static void a3xx_postmortem_dump(struct adreno_device *adreno_dev)
 		};
 		adreno_dump_fields(device, "INT_SGNL=", ints, ARRAY_SIZE(ints));
 	}
+*/
 }
 
 /* Register offset defines for A3XX */
