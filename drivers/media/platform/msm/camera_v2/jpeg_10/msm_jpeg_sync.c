@@ -107,7 +107,7 @@ inline int msm_jpeg_q_in_buf(struct msm_jpeg_q *q_p,
 inline int msm_jpeg_q_wait(struct msm_jpeg_q *q_p)
 {
 	int tm = MAX_SCHEDULE_TIMEOUT; /* 500ms */
-	int rc;
+	int rc = 0;
 
 	JPEG_DBG("%s:%d] %s wait\n", __func__, __LINE__, q_p->name);
 	rc = wait_event_interruptible_timeout(q_p->wait,
@@ -129,6 +129,9 @@ inline int msm_jpeg_q_wait(struct msm_jpeg_q *q_p)
 				q_p->name, rc);
 		}
 	}
+
+	if (rc >= 0)
+		rc = 0;
 	return rc;
 }
 
@@ -210,17 +213,22 @@ int msm_jpeg_framedone_irq(struct msm_jpeg_device *pgmn_dev,
 int msm_jpeg_evt_get(struct msm_jpeg_device *pgmn_dev,
 	void __user *to)
 {
+	int rc;
 	struct msm_jpeg_core_buf *buf_p;
 	struct msm_jpeg_ctrl_cmd ctrl_cmd;
 
 	JPEG_DBG("%s:%d] Enter\n", __func__, __LINE__);
 
-	msm_jpeg_q_wait(&pgmn_dev->evt_q);
+	rc = msm_jpeg_q_wait(&pgmn_dev->evt_q);
+	if (rc < 0)
+		goto end;
+
 	buf_p = msm_jpeg_q_out(&pgmn_dev->evt_q);
 
 	if (!buf_p) {
 		JPEG_DBG("%s:%d] no buffer\n", __func__, __LINE__);
-		return -EAGAIN;
+		rc = -EAGAIN;
+		goto end;
 	}
 
 	memset(&ctrl_cmd, 0, sizeof(ctrl_cmd));
@@ -232,10 +240,12 @@ int msm_jpeg_evt_get(struct msm_jpeg_device *pgmn_dev,
 
 	if (copy_to_user(to, &ctrl_cmd, sizeof(ctrl_cmd))) {
 		JPEG_PR_ERR("%s:%d]\n", __func__, __LINE__);
-		return -EFAULT;
+		rc = -EFAULT;
+		goto end;
 	}
 
-	return 0;
+end:
+	return rc;
 }
 
 int msm_jpeg_evt_get_unblock(struct msm_jpeg_device *pgmn_dev)
@@ -310,18 +320,23 @@ int msm_jpeg_we_pingpong_irq(struct msm_jpeg_device *pgmn_dev,
 
 int msm_jpeg_output_get(struct msm_jpeg_device *pgmn_dev, void __user *to)
 {
+	int rc;
 	struct msm_jpeg_core_buf *buf_p;
 	struct msm_jpeg_buf buf_cmd;
 
 	JPEG_DBG("%s:%d] Enter\n", __func__, __LINE__);
 
-	msm_jpeg_q_wait(&pgmn_dev->output_rtn_q);
+	rc = msm_jpeg_q_wait(&pgmn_dev->output_rtn_q);
+	if (rc < 0)
+		goto end;
+
 	buf_p = msm_jpeg_q_out(&pgmn_dev->output_rtn_q);
 
 	if (!buf_p) {
 		JPEG_DBG("%s:%d] no output buffer return\n",
 			__func__, __LINE__);
-		return -EAGAIN;
+		rc = -EAGAIN;
+		goto end;
 	}
 
 	buf_cmd = buf_p->vbuf;
@@ -334,10 +349,12 @@ int msm_jpeg_output_get(struct msm_jpeg_device *pgmn_dev, void __user *to)
 
 	if (copy_to_user(to, &buf_cmd, sizeof(buf_cmd))) {
 		JPEG_PR_ERR("%s:%d]", __func__, __LINE__);
-		return -EFAULT;
+		rc = -EFAULT;
+		goto end;
 	}
 
-	return 0;
+end:
+	return rc;
 }
 
 int msm_jpeg_output_get_unblock(struct msm_jpeg_device *pgmn_dev)
@@ -446,17 +463,21 @@ int msm_jpeg_fe_pingpong_irq(struct msm_jpeg_device *pgmn_dev,
 
 int msm_jpeg_input_get(struct msm_jpeg_device *pgmn_dev, void __user *to)
 {
+	int rc;
 	struct msm_jpeg_core_buf *buf_p;
 	struct msm_jpeg_buf buf_cmd;
 
 	JPEG_DBG("%s:%d] Enter\n", __func__, __LINE__);
-	msm_jpeg_q_wait(&pgmn_dev->input_rtn_q);
-	buf_p = msm_jpeg_q_out(&pgmn_dev->input_rtn_q);
+	rc = msm_jpeg_q_wait(&pgmn_dev->input_rtn_q);
+	if (rc < 0)
+		goto end;
 
+	buf_p = msm_jpeg_q_out(&pgmn_dev->input_rtn_q);
 	if (!buf_p) {
 		JPEG_DBG("%s:%d] no input buffer return\n",
 			__func__, __LINE__);
-		return -EAGAIN;
+		rc = -EAGAIN;
+		goto end;
 	}
 
 	buf_cmd = buf_p->vbuf;
@@ -469,10 +490,12 @@ int msm_jpeg_input_get(struct msm_jpeg_device *pgmn_dev, void __user *to)
 
 	if (copy_to_user(to, &buf_cmd, sizeof(buf_cmd))) {
 		JPEG_PR_ERR("%s:%d]\n", __func__, __LINE__);
-		return -EFAULT;
+		rc = -EFAULT;
+		goto end;
 	}
 
-	return 0;
+end:
+	return rc;
 }
 
 int msm_jpeg_input_get_unblock(struct msm_jpeg_device *pgmn_dev)
