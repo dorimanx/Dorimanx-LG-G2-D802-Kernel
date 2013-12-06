@@ -97,10 +97,3 @@ config MSM_KGSL_DISABLE_SHADOW_WRITES
 	default n
 	depends on MSM_KGSL
 
-config MSM_KGSL_SIMPLE_GOV
-	bool "Simple KGSL GPU govenor for Qualcomm Adreno xxx devices"
-	default n
-	depends on MSM_KGSL
-	---help---
-	  A simple KGSL GPU govenor for Qualcom Adreno XXX devices
-

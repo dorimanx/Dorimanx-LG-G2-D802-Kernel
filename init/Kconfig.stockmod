@@ -1,0 +1,57 @@
+#menu "StockMOD Kernel Customisations"
+
+choice
+    prompt "Compiler optimization level"
+    default CC_OPTIMIZE_FOR_SIZE
+    help
+      This option selects the gcc compiler optimization level.
+
+    config CC_OPTIMIZE_FOR_SIZE
+        bool "Optimize for size -Os"
+        help
+         Enabling this option will pass "-Os" instead of "-O2" to gcc
+         resulting in a smaller kernel.
+        
+
+    config CC_OPTIMIZE_FOR_NORMAL
+        bool "Optimize normally -O2"
+        help
+         Enabling this option will pass "-O2" to gcc
+         resulting in a larger kernel compared to -Os but with possible,
+         minor performance improvements.
+        
+         This is the recommended setting
+        
+
+    config CC_OPTIMIZE_FOR_SPEED
+        bool "Optimize for speed -O3"
+        help
+         Enabling this option will pass "-O3" to gcc
+         resulting in a larger kernel but possible higher performance
+         compared with -O2
+        
+         -O3 can cause problems with applications however and is not recommended
+
+endchoice
+
+config CPU_OC
+    bool "Enable 2.419 Ghz CPU Overclock"
+    help
+	Enabled CPU overclocking to 2.419 Ghz per core
+	
+
+config CPU_VOLTAGE_TABLE
+	bool "Enable CPU Voltage Table via sysfs for adjustements"
+	default n
+	help
+	  Krait CPU User Votlage Control
+	  
+
+config MSM_KGSL_SIMPLE_GOV
+        bool "Simple KGSL GPU govenor for Qualcomm Adreno xxx devices"
+        default n
+        depends on MSM_KGSL
+        ---help---
+         A simple KGSL GPU govenor for Qualcom Adreno XXX devices
+
+#endmenu

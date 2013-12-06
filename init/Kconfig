@@ -954,14 +954,6 @@ source "usr/Kconfig"
 
 endif
 
-config CC_OPTIMIZE_FOR_SIZE
-	bool "Optimize for size"
-	help
-	  Enabling this option will pass "-Os" instead of "-O2" to gcc
-	  resulting in a smaller kernel.
-
-	  If unsure, say Y.
-
 config SYSCTL
 	bool
 
@@ -1469,4 +1461,7 @@ config PADATA
 	depends on SMP
 	bool
 
+
 source "kernel/Kconfig.locks"
+source "init/Kconfig.stockmod"
+
