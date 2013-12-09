@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/cpufreq.h>
 #include <linux/lcd_notify.h>
+#include <linux/input.h>
 
 #include <mach/cpufreq.h>
 
@@ -314,6 +315,72 @@ static int lcd_notifier_callback(struct notifier_block *nb,
 
 	return 0;
 }
+
+static void hotplug_input_event(struct input_handle *handle, unsigned int type,
+				unsigned int code, int value)
+{
+	if (num_online_cpus() >= hotplug.cpus_boosted)
+		return;
+
+	dprintk("%s: online_cpus: %u boosted\n", MSM_HOTPLUG,
+		stats.online_cpus);
+
+	online_cpu(hotplug.cpus_boosted);
+}
+EXPORT_SYMBOL_GPL(hotplug_input_event);
+
+static int hotplug_input_connect(struct input_handler *handler,
+				 struct input_dev *dev,
+				 const struct input_device_id *id)
+{
+	struct input_handle *handle;
+	int err;
+
+	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
+	if (!handle)
+		return -ENOMEM;
+
+	handle->dev = dev;
+	handle->handler = handler;
+	handle->name = "msm-hotplug";
+
+	err = input_register_handle(handle);
+	if (err)
+		goto err_register;
+
+	err = input_open_device(handle);
+	if (err)
+		goto err_open;
+
+	return 0;
+err_register:
+	input_unregister_handle(handle);
+err_open:
+	kfree(handle);
+	return err;
+}
+EXPORT_SYMBOL_GPL(hotplug_input_connect);
+
+static void hotplug_input_disconnect(struct input_handle *handle)
+{
+	input_close_device(handle);
+	input_unregister_handle(handle);
+	kfree(handle);
+}
+EXPORT_SYMBOL_GPL(hotplug_input_disconnect);
+
+static const struct input_device_id hotplug_ids[] = {
+	{ .driver_info = 1 },
+	{ },
+};
+
+static struct input_handler hotplug_input_handler = {
+	.event		= hotplug_input_event,
+	.connect	= hotplug_input_connect,
+	.disconnect	= hotplug_input_disconnect,
+	.name		= MSM_HOTPLUG,
+	.id_table	= hotplug_ids,
+};
 
 /************************** sysfs interface ************************/
 
@@ -649,6 +716,11 @@ static int __init msm_hotplug_device_init(void)
 	if (lcd_register_client(&hotplug.notif) != 0)
 		pr_err("%s: LCD notifier callback failed\n", __func__);
 
+	ret = input_register_handler(&hotplug_input_handler);
+	if (ret)
+		return pr_err("%s: Faileds to register input handler: %d\n",
+			      MSM_HOTPLUG, ret);
+
 	pr_info("%s: Device init\n", MSM_HOTPLUG);
 
 	return ret;
@@ -658,6 +730,7 @@ EXPORT_SYMBOL_GPL(msm_hotplug_device_init);
 static void __exit msm_hotplug_device_exit(void)
 {
 	destroy_workqueue(hotplug_wq);
+	input_unregister_handler(&hotplug_input_handler);
 	del_timer(&hotplug.lock_timer);
 	kfree(stats.load_hist);
 }
