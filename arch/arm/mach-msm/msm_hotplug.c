@@ -593,7 +593,7 @@ static int __init msm_hotplug_init(void)
 	struct cpu_stats *st = &stats;
 	struct cpu_hotplug *hp = &hotplug;
 
-	hotplug_wq = alloc_workqueue("msm_hotplug_wq", 0, 0);
+	hotplug_wq = alloc_workqueue("msm_hotplug_wq", WQ_HIGHPRI, 0);
 	if (!hotplug_wq) {
 		pr_err("%s: Creation of hotplug work failed\n", MSM_HOTPLUG);
 		return -ENOMEM;
@@ -657,6 +657,7 @@ EXPORT_SYMBOL_GPL(msm_hotplug_device_init);
 
 static void __exit msm_hotplug_device_exit(void)
 {
+	destroy_workqueue(hotplug_wq);
 	del_timer(&hotplug.lock_timer);
 	kfree(stats.load_hist);
 }
