@@ -29,6 +29,7 @@
 #define DEFAULT_UPDATE_RATE	HZ / 10
 #define START_DELAY		HZ * 20
 #define NUM_LOAD_LEVELS		5
+#define MIN_INPUT_INTERVAL	150 * 1000L
 #define DEFAULT_HISTORY_SIZE	10
 #define DEFAULT_DOWN_LOCK_DUR	2500
 #define DEFAULT_SUSPEND_FREQ	1036800
@@ -53,6 +54,7 @@ static struct cpu_hotplug {
 	unsigned int cpus_boosted;
 	atomic_t down_lock;
 	unsigned int down_lock_dur;
+	u64 last_input_time;
 	struct work_struct up_work;
 	struct work_struct down_work;
 	struct work_struct suspend_work;
@@ -72,6 +74,8 @@ static struct cpu_hotplug {
 
 static struct workqueue_struct *hotplug_wq;
 static struct delayed_work hotplug_work;
+
+static u64 last_input_time;
 
 static struct cpu_stats {
 	unsigned int update_rate;
@@ -319,13 +323,20 @@ static int lcd_notifier_callback(struct notifier_block *nb,
 static void hotplug_input_event(struct input_handle *handle, unsigned int type,
 				unsigned int code, int value)
 {
+	u64 now;
+
 	if (num_online_cpus() >= hotplug.cpus_boosted)
+		return;
+
+	now = ktime_to_us(ktime_get());
+	if (now - last_input_time < MIN_INPUT_INTERVAL)
 		return;
 
 	dprintk("%s: online_cpus: %u boosted\n", MSM_HOTPLUG,
 		stats.online_cpus);
 
 	online_cpu(hotplug.cpus_boosted);
+	last_input_time = ktime_to_us(ktime_get());
 }
 EXPORT_SYMBOL_GPL(hotplug_input_event);
 
