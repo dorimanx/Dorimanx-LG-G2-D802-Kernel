@@ -162,6 +162,9 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 	unsigned int max_order = orders[0];
 	bool split_pages = ion_buffer_fault_user_mappings(buffer);
 
+	if (align > PAGE_SIZE)
+		return -EINVAL;
+
 	if (size / PAGE_SIZE > totalram_pages / 2)
 		return -ENOMEM;
 
@@ -450,8 +453,12 @@ static int ion_system_contig_heap_allocate(struct ion_heap *heap,
 					   unsigned long align,
 					   unsigned long flags)
 {
+	int order = get_order(len);
 	int ret;
 	struct kmalloc_buffer_info *info;
+
+	if (align > (PAGE_SIZE << order))
+		return -EINVAL;
 
 	info = kmalloc(sizeof(struct kmalloc_buffer_info), GFP_KERNEL);
 	if (!info) {
