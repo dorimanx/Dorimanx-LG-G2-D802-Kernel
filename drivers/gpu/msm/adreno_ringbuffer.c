@@ -20,6 +20,7 @@
 #include "kgsl.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_cffdump.h"
+#include "kgsl_trace.h"
 
 #include "adreno.h"
 #include "adreno_pm4types.h"
@@ -1336,7 +1337,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 #endif
 
 done:
-	kgsl_trace_issueibcmds(device, context->id, cmdbatch,
+	trace_kgsl_issueibcmds(device, context->id, cmdbatch,
 		cmdbatch->timestamp, cmdbatch->flags, ret,
 		drawctxt->type);
 
