@@ -23,8 +23,6 @@
 #include <linux/lcd_notify.h>
 #include <linux/input.h>
 
-#include <mach/cpufreq.h>
-
 #define MSM_HOTPLUG		"msm_hotplug"
 #define DEFAULT_UPDATE_RATE	HZ / 10
 #define START_DELAY		HZ * 20
@@ -91,6 +89,27 @@ static struct cpu_stats {
 	.hist_size = DEFAULT_HISTORY_SIZE,
 	.min_cpus = 1,
 	.total_cpus = NR_CPUS
+};
+
+static uint32_t limited_max_freq = UINT_MAX;
+static uint32_t limited_min_freq;
+
+static int msm_hotplug_cpufreq_callback(struct notifier_block *nfb,
+					unsigned long event, void *data)
+{
+	struct cpufreq_policy *policy = data;
+
+	switch (event) {
+	case CPUFREQ_INCOMPATIBLE:
+		cpufreq_verify_within_limits(policy, limited_min_freq,
+					     limited_max_freq);
+		break;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block msm_hotplug_cpufreq_notifier = {
+	.notifier_call = msm_hotplug_cpufreq_callback,
 };
 
 extern unsigned int report_load_at_max_freq(void);
@@ -274,8 +293,14 @@ static void msm_hotplug_suspend(struct work_struct *work)
 	atomic_set(&hotplug.down_lock, 0);
 	offline_cpu(stats.min_cpus);
 
-	msm_cpufreq_set_freq_limits(cpu, MSM_CPUFREQ_NO_LIMIT,
-				    hotplug.suspend_freq);
+	get_online_cpus();
+	for_each_online_cpu(cpu) {
+		if (cpufreq_update_policy(cpu))
+			pr_info("%s: Unable to update policy for cpu:%d\n",
+				MSM_HOTPLUG, cpu);
+	}
+	put_online_cpus();
+
 	pr_info("%s: Suspend - max freq: %dMHz\n", MSM_HOTPLUG,
 		hotplug.suspend_freq / 1000);
 }
@@ -292,9 +317,14 @@ static void msm_hotplug_resume(struct work_struct *work)
 	hotplug.screen_on = 1;
 
 	online_cpu(stats.total_cpus);
-	for_each_possible_cpu(cpu)
-	    msm_cpufreq_set_freq_limits(cpu, MSM_CPUFREQ_NO_LIMIT,
-					MSM_CPUFREQ_NO_LIMIT);
+
+	get_online_cpus();
+	for_each_online_cpu(cpu) {
+		if (cpufreq_update_policy(cpu))
+			pr_info("%s: Unable to update policy for cpu:%d\n",
+				MSM_HOTPLUG, cpu);
+	}
+	put_online_cpus();
 
 	pr_info("%s: Resume - restore max frequency: %dMHz\n",
 		MSM_HOTPLUG, policy->max / 1000);
@@ -676,6 +706,11 @@ static int __init msm_hotplug_init(void)
 		pr_err("%s: Creation of hotplug work failed\n", MSM_HOTPLUG);
 		return -ENOMEM;
 	}
+
+	ret = cpufreq_register_notifier(&msm_hotplug_cpufreq_notifier,
+					CPUFREQ_POLICY_NOTIFIER);
+	if (ret)
+		pr_err("%s: cannot register cpufreq notifier\n", MSM_HOTPLUG);
 
 	INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
 	INIT_WORK(&hp->up_work, cpu_up_work);
