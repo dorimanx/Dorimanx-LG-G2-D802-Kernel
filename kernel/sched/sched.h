@@ -1131,7 +1131,7 @@ extern const struct sched_class idle_sched_class;
 
 extern void update_group_power(struct sched_domain *sd, int cpu);
 
-extern void trigger_load_balance(struct rq *rq, int cpu);
+extern void trigger_load_balance(struct rq *rq);
 extern void idle_balance(int this_cpu, struct rq *this_rq);
 
 #else	/* CONFIG_SMP */
