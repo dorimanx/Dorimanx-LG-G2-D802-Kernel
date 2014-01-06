@@ -5362,11 +5362,13 @@ void trigger_load_balance(struct rq *rq)
 	int cpu = rq->cpu;
 
 	/* Don't need to rebalance while attached to NULL domain */
-	if (time_after_eq(jiffies, rq->next_balance) &&
-	    likely(!on_null_domain(rq)))
+	if (unlikely(on_null_domain(rq)))
+		return;
+
+	if (time_after_eq(jiffies, rq->next_balance))
 		raise_softirq(SCHED_SOFTIRQ);
 #ifdef CONFIG_NO_HZ
-	if (nohz_kick_needed(rq) && likely(!on_null_domain(rq)))
+	if (nohz_kick_needed(rq))
 		nohz_balancer_kick(cpu);
 #endif
 }
