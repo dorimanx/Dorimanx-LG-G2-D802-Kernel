@@ -1,0 +1,130 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	/* I2C BUS  */
+	/* REV.B change: BLSP3 I2c device removeed.
+	i2c@f9925000 {
+		cell-index = <3>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9925000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 97 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <24000000>;
+	};
+	*/
+	i2c@f9968000 {
+		cell-index = <12>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9968000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 106 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <24000000>;
+	};
+	/* I2C device */
+	i2c@f9968000 {
+		/* STMicroelectronics */
+		lsm330_acc@1D {
+			compatible = "ST,lsm330_acc";
+			reg = <0x1D>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <73 0x2 65 0x2>;
+			ST,vdd_ana-supply = <&pm8941_l18>;
+			ST,vcc_i2c-supply = <&pm8941_lvs1>;
+			ST,gpio_int1 = <&msmgpio 73 0x00>;
+			ST,gpio_int2 = <&msmgpio 65 0x00>;
+			fs_range = <0x00>;
+			axis_map_x = <0>;
+			axis_map_y = <1>;
+			axis_map_z = <2>;
+			negate_x = <0>;
+			negate_y = <0>;
+			negate_z = <0>;
+			poll_interval = <100>;
+			min_interval = <1>;
+		};
+		lsm330_gyr@6B {
+			compatible = "ST,lsm330_gyr";
+			reg = <0x6B>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <66 0x2 102 0x2>;
+			ST,vdd_ana-supply = <&pm8941_l18>;
+			ST,vcc_i2c-supply = <&pm8941_lvs1>;
+			ST,gyro_data_en-gpio = <&msmgpio 3 0x00>;
+			ST,gpio_int1 = <&msmgpio 66 0x00>;
+			ST,gpio_int2 = <&msmgpio 102 0x00>;
+			fs_range = <0x00>;
+			axis_map_x = <0>;
+			axis_map_y = <1>;
+			axis_map_z = <2>;
+			negate_x = <0>;
+			negate_y = <0>;
+			negate_z = <0>;
+			poll_interval = <100>;
+			min_interval = <2>;
+		};
+	};
+
+	i2c@f9967000 {
+		sensirion_sht21@40 {
+			/* Sensor common */
+			compatible = "sensirion,sht21";
+			reg = <0x40>;
+			sensirion,vdd_ana-supply = <&pm8941_l18>;
+			sensirion,vddio_i2c-supply = <&pm8941_lvs1>;
+			sensirion,enable-gpio = <&msmgpio 8 0x00>;
+		};
+
+		Ashai_ak8963c@0F {
+			/* Sensor common */
+			compatible = "Ashai,ak8963c";
+			reg = <0x0F>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <67 0x2>;
+			Ashai,vdd_ana-supply = <&pm8941_l18>;
+			Ashai,vddio_i2c-supply = <&pm8941_lvs1>;
+			Ashai,irq-gpio = <&msmgpio 67 0x00>;
+			Ashai,i2c-pull-up = <1>;
+		};
+
+		bosch_bmp18x@77 {
+			compatible = "bosch,bmp18x";
+			reg = <0x77>;
+			bosch,vdd_ana-supply = <&pm8941_l18>;
+			bosch,vdd_i2c-supply = <&pm8941_lvs1>;
+			bocsh,i2c-pull-up = <1>;
+			chip_id = <0x55>;
+			default_oversampling = <1>;
+			temp_measurement_period = <1000>;
+		};
+
+		Avago_apds9950@39 {
+			/* Sensor common */
+			compatible = "Avago,apds9950";
+			reg = <0x39>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <74 0x2>;
+			Avago,vdd_ana-supply = <&pm8941_l18>;
+			Avago,vddio_i2c-supply = <&pm8941_lvs1>;
+			Avago,irq-gpio = <&msmgpio 74 0x00>;
+			Avago,i2c-pull-up = <1>;
+		};
+	};
+};

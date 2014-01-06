@@ -1,0 +1,121 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+
+	i2c@f9924000 {
+		rmi_s3404@20  {
+			status = "disable";
+		};
+		synaptics_s3404@20 {
+			status = "ok";
+			synaptics,platform_data	{
+				button_support = <1>;
+				number_of_button = <2>;				
+				button_name = [9e 8b];
+				x_max = <1100>;
+				y_max	= <1900>;
+				lcd_x	= <960>;
+				lcd_y	= <1280>;
+				key_type = <1>;
+				jitter_filter_enable = <0>;
+				accuracy_filter_enable = <0>;
+				/*role*/
+				ghost_detection_enable = <0>;
+			};
+		};
+		synaptics_s7020@20 {
+			status = "disable";
+		};
+		melfas_mms136@48 {
+			status = "disable";
+		};
+	};
+	gpio_keys_rea_a {
+		revision = "rev_a";
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		home_key {
+			label = "home_key";
+			gpios = <&pm8941_gpios 5 0x1>;
+			linux,input-type = <1>;
+			linux,code = <172>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		hot_key {
+			label = "hot_key";
+			gpios = <&pm8941_gpios 4 0x1>;
+			linux,input-type = <1>;
+			linux,code = <250>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+		vol_down {
+			label = "volume_down";
+			gpios = <&pm8941_gpios 2 0x1>;
+			linux,input-type = <1>;
+			linux,code = <114>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm8941_gpios 3 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+	};
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		revision = "rev_b...";
+		vol_down {
+			label = "volume_down";
+			gpios = <&pm8941_gpios 3 0x1>;
+			linux,input-type = <1>;
+			linux,code = <114>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm8941_gpios 2 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+		home_key {
+			label = "home_key";
+			gpios = <&pm8941_gpios 5 0x1>;
+			linux,input-type = <1>;
+			linux,code = <172>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		hot_key {
+			label = "hot_key";
+			gpios = <&pm8941_gpios 4 0x1>;
+			linux,input-type = <1>;
+			linux,code = <250>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+	};
+};

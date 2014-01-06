@@ -1,0 +1,14 @@
+#
+# T3A00_DEVICE subsystem configuration
+#
+
+#menu "T3A00 support"
+
+config T3A00_TDMB
+	default n
+	---help---
+	  This driver implements the front-end of the Xen virtual
+	  keyboard and mouse device driver.  It communicates with a back-end
+	  in another domain.
+  
+#endmenu

@@ -1,0 +1,83 @@
+#
+# Mandatory Access Control configuration
+#
+mainmenu_option next_comment
+comment 'Security options'
+
+[ -z "$CONFIG_CCSECURITY" ] && define_bool CONFIG_CCSECURITY y
+bool 'CCSecurity support' CONFIG_CCSECURITY
+
+if [ "$CONFIG_CCSECURITY" = "y" ]; then
+
+  [ -z "$CONFIG_CCSECURITY_LKM" ] && define_bool CONFIG_CCSECURITY_LKM n
+  bool 'Compile as loadable kernel module' CONFIG_CCSECURITY_LKM
+
+  [ -z "$CONFIG_CCSECURITY_DISABLE_BY_DEFAULT" ] && define_bool CONFIG_CCSECURITY_DISABLE_BY_DEFAULT n
+  bool 'Disable by default' CONFIG_CCSECURITY_DISABLE_BY_DEFAULT
+
+  [ -z "$CONFIG_CCSECURITY_MAX_ACCEPT_ENTRY" ] && define_int CONFIG_CCSECURITY_MAX_ACCEPT_ENTRY 2048
+  [ $CONFIG_CCSECURITY_MAX_ACCEPT_ENTRY -lt 0 ] && define_int CONFIG_CCSECURITY_MAX_ACCEPT_ENTRY 0
+  int  'Default maximal count for learning mode' CONFIG_CCSECURITY_MAX_ACCEPT_ENTRY
+
+  [ -z "$CONFIG_CCSECURITY_MAX_AUDIT_LOG" ] && define_int CONFIG_CCSECURITY_MAX_AUDIT_LOG 1024
+  [ $CONFIG_CCSECURITY_MAX_AUDIT_LOG -lt 0 ] && define_int CONFIG_CCSECURITY_MAX_AUDIT_LOG 0
+  int  'Default maximal count for audit log' CONFIG_CCSECURITY_MAX_AUDIT_LOG
+
+  [ -z "$CONFIG_CCSECURITY_OMIT_USERSPACE_LOADER" ] && define_bool CONFIG_CCSECURITY_OMIT_USERSPACE_LOADER n
+  bool 'Activate without calling userspace policy loader.' CONFIG_CCSECURITY_OMIT_USERSPACE_LOADER
+
+  if [ "$CONFIG_CCSECURITY_OMIT_USERSPACE_LOADER" = "n" ]; then
+
+    define_string CONFIG_CCSECURITY_POLICY_LOADER "/sbin/ccs-init"
+    string 'Location of userspace policy loader' CONFIG_CCSECURITY_POLICY_LOADER "/sbin/ccs-init"
+
+    define_string CONFIG_CCSECURITY_ACTIVATION_TRIGGER "/sbin/init"
+    string 'Trigger for calling userspace policy loader' CONFIG_CCSECURITY_ACTIVATION_TRIGGER "/sbin/init"
+
+  fi
+
+  [ -z "$CONFIG_CCSECURITY_FILE_READDIR" ] && define_bool CONFIG_CCSECURITY_FILE_READDIR y
+  bool "Enable readdir operation restriction." CONFIG_CCSECURITY_FILE_READDIR
+
+  [ -z "$CONFIG_CCSECURITY_FILE_GETATTR" ] && define_bool CONFIG_CCSECURITY_FILE_GETATTR y
+  bool "Enable getattr operation restriction." CONFIG_CCSECURITY_FILE_GETATTR
+
+  if [ "$CONFIG_NET" = "y" ]; then
+
+     [ -z "$CONFIG_CCSECURITY_NETWORK" ] && define_bool CONFIG_CCSECURITY_NETWORK y
+     bool "Enable socket operation restriction." CONFIG_CCSECURITY_NETWORK
+
+     if [ "$CONFIG_CCSECURITY_NETWORK" = "y" ]; then
+
+	#[ -z "$CONFIG_CCSECURITY_NETWORK_RECVMSG" ] &&
+	define_bool CONFIG_CCSECURITY_NETWORK_RECVMSG y
+
+     fi
+
+  fi
+
+  [ -z "$CONFIG_CCSECURITY_CAPABILITY" ] && define_bool CONFIG_CCSECURITY_CAPABILITY y
+  bool "Enable non-POSIX capability operation restriction." CONFIG_CCSECURITY_CAPABILITY
+
+  [ -z "$CONFIG_CCSECURITY_IPC" ] && define_bool CONFIG_CCSECURITY_IPC y
+  bool "Enable IPC operation restriction." CONFIG_CCSECURITY_IPC
+
+  [ -z "$CONFIG_CCSECURITY_MISC" ] && define_bool CONFIG_CCSECURITY_MISC y
+  bool "Enable environment variable names restriction." CONFIG_CCSECURITY_MISC
+
+  [ -z "$CONFIG_CCSECURITY_TASK_EXECUTE_HANDLER" ] && define_bool CONFIG_CCSECURITY_TASK_EXECUTE_HANDLER y
+  bool "Enable execute handler functionality." CONFIG_CCSECURITY_TASK_EXECUTE_HANDLER
+
+  [ -z "$CONFIG_CCSECURITY_TASK_DOMAIN_TRANSITION" ] && define_bool CONFIG_CCSECURITY_TASK_DOMAIN_TRANSITION y
+  bool "Enable domain transition without program execution request." CONFIG_CCSECURITY_TASK_DOMAIN_TRANSITION
+
+  if [ "$CONFIG_NET" = "y" ]; then
+
+     [ -z "$CONFIG_CCSECURITY_PORTRESERVE" ] && define_bool CONFIG_CCSECURITY_PORTRESERVE y
+     bool "Enable local port reserver." CONFIG_CCSECURITY_PORTRESERVE
+
+  fi
+
+fi
+
+endmenu

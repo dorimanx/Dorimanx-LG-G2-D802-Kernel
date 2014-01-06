@@ -1,0 +1,42 @@
+
+#
+# Broadcast Device Driver Support
+#
+
+menu "LGE Japanese Mobile Broadcast(ISDB-T 1seg/ISDB-Tmm 13seg) Device Support"
+config LGE_BROADCAST_ONESEG_MB86A36K
+	bool "1Seg broacast tuner chipset mb86a35s  device driver"
+#	depends on LGE_BROADCAST_ONESEG && MACH_MSM8974_G2_DCM
+	default n
+	help
+	  Select this if you want to use Japanese 1Seg mobile broadcast service
+
+config LGE_BROADCAST_ONESEG_MB86A35S
+	bool "1Seg broacast tuner chipset mb86a35s  device driver"
+	depends on LGE_BROADCAST_ONESEG && MACH_APQ8064_J1D
+	default y
+	help
+	  Select this if you want to use Japanese 1Seg mobile broadcast service
+	  
+config LGE_BROADCAST_ONESEG_FC8150
+	bool "1Seg broacast tuner chipset fc8150 device driver"
+	depends on LGE_BROADCAST_ONESEG && ( (MACH_APQ8064_J1KD) || (MACH_MSM8974_G2_DCM) || (MACH_MSM8974_G2_KDDI))
+	default y
+	help
+	  Select this if you want to use Japanese 1Seg mobile broadcast service
+
+config LGE_BROADCAST_ONESEG_TCC3530
+	bool "1Seg broacast tuner chipset tcc3530  device driver"
+	depends on LGE_BROADCAST_ONESEG && MACH_APQ8064_F9J
+	default y
+	help
+	  Select this if you want to use Japanese 1Seg mobile broadcast service
+
+config LGE_BROADCAST_ONESEG_TCC3535
+	bool "1Seg broacast tuner chipset tcc3535  device driver"
+	depends on LGE_BROADCAST_ONESEG && MACH_MSM8974_Z_KDDI
+	default y
+	help
+	  Select this if you want to use Japanese 1Seg mobile broadcast service
+	  
+endmenu

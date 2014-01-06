@@ -1,0 +1,84 @@
+/* Copyright (c) 2013, LGE Electronics. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+
+	sound {
+		lge,debounce-time-us = <60>;
+		lge,board-use-prim-auxpcm-gpio = <0>;
+		lge,board-use-sec-auxpcm-gpio = <1>;
+	};
+
+	maxim_detic:maxim_max1462x{
+		status = "ok";
+	};
+
+};
+
+&pm8941_boost {
+	status = "okay";
+};
+	
+&slim_msm {
+	taiko_codec{
+		qcom,cdc-micbias2-no-ext-cap;
+		revision = "...rev_b";
+	};
+	
+	taiko_codec_rev_c {
+		revision = "rev_c...";
+		cdc-vdd-a-1p2v-supply = <&pm8941_l1>;
+		cdc-vdd-buck-supply = <&pm8941_s2>;
+		cdc-vdd-rx-h-supply = <&pm8941_s3>;
+		cdc-vdd-spkdrv-supply = <&pm8941_boost>;
+		cdc-vdd-tx-h-supply = <&pm8941_s3>;
+		cdc-vddcx-1-supply = <&pm8941_l1>;
+		cdc-vddcx-2-supply = <&pm8941_l1>;
+		cdc-vddpx-1-supply = <&pm8941_s3>;
+		compatible = "qcom,taiko-slim-pgd";
+		elemental-addr = [00 01 a0 00 17 02];
+		interrupt-parent = <&wcd9xxx_intc>;
+		interrupts = <0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e>;
+		qcom,cdc-dmic-sample-rate = <0x493e00>;
+		qcom,cdc-mclk-clk-rate = <0x927c00>;
+		qcom,cdc-micbias-cfilt1-mv = <0x708>;
+		qcom,cdc-micbias-cfilt2-mv = <0xaf0>;
+		qcom,cdc-micbias-cfilt3-mv = <0x708>;
+		qcom,cdc-micbias-ldoh-v = <0x3>;
+		qcom,cdc-micbias1-cfilt-sel = <0x0>;
+		qcom,cdc-micbias2-cfilt-sel = <0x1>;
+		qcom,cdc-micbias2-no-ext-cap;
+		qcom,cdc-micbias3-cfilt-sel = <0x0>;
+		qcom,cdc-micbias4-cfilt-sel = <0x0>;
+		qcom,cdc-on-demand-supplies = "cdc-vdd-spkdrv";
+		qcom,cdc-reset-gpio = <&msmgpio 0x3f 0x0>;
+		qcom,cdc-slim-ifd = "taiko-slim-ifd";
+		qcom,cdc-slim-ifd-elemental-addr = [00 00 a0 00 17 02];
+		qcom,cdc-static-supplies = "cdc-vdd-buck", "cdc-vdd-tx-h", "cdc-vdd-rx-h", "cdc-vddpx-1", "cdc-vdd-a-1p2v", "cdc-vddcx-1", "cdc-vddcx-2";
+		qcom,cdc-vdd-a-1p2v-current = <0x2710>;
+		qcom,cdc-vdd-a-1p2v-voltage = <0x12b128 0x12b128>;
+		qcom,cdc-vdd-buck-current = <0x9eb10>;
+		qcom,cdc-vdd-buck-voltage = <0x20ce70 0x20ce70>;
+		qcom,cdc-vdd-rx-h-current = <0x61a8>;
+		qcom,cdc-vdd-rx-h-voltage = <0x1b7740 0x1b7740>;
+		qcom,cdc-vdd-spkdrv-current = <0x0>;
+		qcom,cdc-vdd-spkdrv-voltage = <0x0 0x0>;
+		qcom,cdc-vdd-tx-h-current = <0x61a8>;
+		qcom,cdc-vdd-tx-h-voltage = <0x1b7740 0x1b7740>;
+		qcom,cdc-vddcx-1-current = <0x2710>;
+		qcom,cdc-vddcx-1-voltage = <0x12b128 0x12b128>;
+		qcom,cdc-vddcx-2-current = <0x2710>;
+		qcom,cdc-vddcx-2-voltage = <0x12b128 0x12b128>;
+		qcom,cdc-vddpx-1-current = <0x2710>;
+		qcom,cdc-vddpx-1-voltage = <0x1b7740 0x1b7740>;
+	};
+};

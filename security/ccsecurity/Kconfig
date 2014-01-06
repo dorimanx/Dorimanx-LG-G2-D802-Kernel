@@ -1,0 +1,190 @@
+config CCSECURITY
+	bool "CCSecurity support"
+	default n
+	help
+	  Say Y here to support non-LSM version of TOMOYO Linux.
+	  http://tomoyo.sourceforge.jp/
+
+config CCSECURITY_LKM
+	bool "Compile as loadable kernel module"
+	default n
+	depends on CCSECURITY && MODULES
+	help
+	  This version of TOMOYO depends on patching the kernel source in order
+	  to insert some hooks which LSM does not provide. Therefore,
+	  recompiling the kernel is inevitable. But if you want to keep
+	  vmlinux's size as small as possible, you can compile most part of
+	  TOMOYO as a loadable kernel module by saying Y here.
+
+config CCSECURITY_DISABLE_BY_DEFAULT
+	bool "Disable by default"
+	default n
+	depends on CCSECURITY
+	help
+	  Say Y here if you want TOMOYO disabled by default.
+	  To enable TOMOYO, pass ccsecurity=on to kernel command line.
+	  To disable TOMOYO, pass ccsecurity=off to kernel command line.
+
+config CCSECURITY_USE_EXTERNAL_TASK_SECURITY
+	bool "Do not modify 'struct task_struct' in order to keep KABI"
+	default n
+	depends on CCSECURITY
+	help
+	  Say Y here if you want to keep KABI for prebuilt kernel modules
+	  unchanged. TOMOYO needs "struct ccs_domain_info *" and "u32" for each
+	  "struct task_struct". But embedding these variables into
+	  "struct task_struct" breaks KABI for prebuilt kernel modules (which
+	  means that you will need to rebuild prebuilt kernel modules).
+	  If you say Y here, these variables are managed outside
+	  "struct task_struct" rather than embedding into "struct task_struct",
+	  but accessing these variables becomes slower because lookup operation
+	  is performed every time the current thread needs to access them.
+
+config CCSECURITY_MAX_ACCEPT_ENTRY
+	int "Default maximal count for learning mode"
+	default 2048
+	range 0 2147483647
+	depends on CCSECURITY
+	help
+	  This is the default value for maximal ACL entries
+	  that are automatically appended into policy at "learning mode".
+	  Some programs access thousands of objects, so running
+	  such programs in "learning mode" dulls the system response
+	  and consumes much memory.
+	  This is the safeguard for such programs.
+
+config CCSECURITY_MAX_AUDIT_LOG
+	int "Default maximal count for audit log"
+	default 1024
+	range 0 2147483647
+	depends on CCSECURITY
+	help
+	  This is the default value for maximal entries for
+	  audit logs that the kernel can hold on memory.
+	  You can read the log via /proc/ccs/audit.
+	  If you don't need audit logs, you may set this value to 0.
+
+config CCSECURITY_OMIT_USERSPACE_LOADER
+	bool "Activate without calling userspace policy loader."
+	default n
+	depends on CCSECURITY
+	---help---
+	  Say Y here if you want to activate access control as soon as built-in
+	  policy was loaded. This option will be useful for systems where
+	  operations which can lead to the hijacking of the boot sequence are
+	  needed before loading the policy. For example, you can activate
+	  immediately after loading the fixed part of policy which will allow
+	  only operations needed for mounting a partition which contains the
+	  variant part of policy and verifying (e.g. running GPG check) and
+	  loading the variant part of policy. Since you can start using
+	  enforcing mode from the beginning, you can reduce the possibility of
+	  hijacking the boot sequence.
+
+	  If you say Y to both "Compile as loadable kernel module" option and
+	  "Activate without calling userspace policy loader." option, be sure
+	  to excplicitly load the kernel module from the userspace, for
+	  the kernel will not call /sbin/ccs-init when /sbin/init starts.
+
+config CCSECURITY_POLICY_LOADER
+	string "Location of userspace policy loader"
+	default "/sbin/ccs-init"
+	depends on CCSECURITY
+	depends on !CCSECURITY_OMIT_USERSPACE_LOADER
+	---help---
+	  This is the default pathname of policy loader which is called before
+	  activation. You can override this setting via CCS_loader= kernel
+	  command line option.
+
+config CCSECURITY_ACTIVATION_TRIGGER
+	string "Trigger for calling userspace policy loader"
+	default "/sbin/init"
+	depends on CCSECURITY
+	depends on !CCSECURITY_OMIT_USERSPACE_LOADER
+	---help---
+	  This is the default pathname of activation trigger.
+	  You can override this setting via CCS_trigger= kernel command line
+	  option. For example, if you pass init=/bin/systemd option, you may
+	  want to also pass CCS_trigger=/bin/systemd option.
+
+	  Say Y here if you want to enable only specific functionality in order
+	  to reduce object file size.
+
+config CCSECURITY_FILE_READDIR
+	bool "Enable readdir operation restriction."
+	default y
+	depends on CCSECURITY
+	---help---
+	  Say Y here if you want to enable analysis/restriction of opening
+	  directories for reading. Reading directory entries is a commonly
+	  requested operation and damage caused by not restricting it as MAC
+	  might be acceptable for you.
+
+config CCSECURITY_FILE_GETATTR
+	bool "Enable getattr operation restriction."
+	default y
+	depends on CCSECURITY
+	---help---
+	  Say Y here if you want to enable analysis/restriction of getting
+	  information of files. Getting file's information is a commonly
+	  requested operation and damage caused by not restricting it as MAC
+	  might be acceptable for you.
+
+config CCSECURITY_NETWORK
+	bool "Enable socket operation restriction."
+	default y
+	depends on NET
+	depends on CCSECURITY
+	---help---
+	  Say Y here if you want to enable analysis/restriction of INET and
+	  UNIX domain socket's operations.
+
+config CCSECURITY_CAPABILITY
+	bool "Enable non-POSIX capability operation restriction."
+	default y
+	depends on CCSECURITY
+	---help---
+	  Say Y here if you want to enable analysis/restriction of non-POSIX
+	  capabilities.
+
+config CCSECURITY_IPC
+	bool "Enable IPC operation restriction."
+	default y
+	depends on CCSECURITY
+	---help---
+	  Say Y here if you want to enable analysis/restriction of sending
+	  signals.
+
+config CCSECURITY_MISC
+	bool "Enable environment variable names restriction."
+	default y
+	depends on CCSECURITY
+	---help---
+	  Say Y here if you want to enable analysis/restriction of environment
+	  variable names passed upon program execution request.
+
+config CCSECURITY_TASK_EXECUTE_HANDLER
+	bool "Enable execute handler functionality."
+	default y
+	depends on CCSECURITY
+	---help---
+	  Say Y here if you want to enable execute handler functionality.
+
+config CCSECURITY_TASK_DOMAIN_TRANSITION
+	bool "Enable domain transition without program execution request."
+	default y
+	depends on CCSECURITY
+	---help---
+	  Say Y here if you want to enable domain transition without involving
+	  program execution request.
+
+config CCSECURITY_PORTRESERVE
+       bool "Enable local port reserver."
+       default y
+       depends on NET
+       depends on CCSECURITY
+       ---help---
+	 Say Y here if you want to implement
+	 /proc/sys/net/ipv4/ip_local_reserved_ports as a MAC policy.
+
+config CCSECURITY_NETWORK_RECVMSG
+	def_bool CCSECURITY_NETWORK

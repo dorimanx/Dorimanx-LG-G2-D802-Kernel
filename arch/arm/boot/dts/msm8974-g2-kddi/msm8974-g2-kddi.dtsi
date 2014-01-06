@@ -1,0 +1,236 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/include/ "msm8974-g2-kddi-panel.dtsi"
+/include/ "msm8974-g2-kddi-input.dtsi"
+/include/ "msm8974-g2-kddi-hdmi.dtsi"
+/include/ "msm8974-g2-kddi-usb.dtsi"
+/include/ "msm8974-g2-kddi-misc.dtsi"
+/include/ "msm8974-g2-kddi-pm.dtsi"
+/include/ "msm8974-g2-kddi-camera.dtsi"
+/include/ "msm8974-g2-kddi-nfc.dtsi"
+/include/ "msm8974-g2-kddi-1seg-spi.dtsi"
+/include/ "msm8974-g2-kddi-sound.dtsi"
+
+/ {
+	aliases {
+		serial0 = &blsp1_uart1; /* ttyHSL0 for Debug */
+		serial1 = &blsp2_uart5; /* ttyHSL1 for IrRC  */
+		serial3 = &blsp1_uart3; /* ttyHSL3 for IrDA  */
+	};
+};
+
+&soc {
+	i2c@f9967000 {
+		CXD2355AGG-i2c@2b {
+			status = "ok";
+		};
+	};
+
+	blsp1_uart1: serial@f991d000 { /* Debug Uart */
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf991d000 0x1000>;
+		interrupts = <0 107 0>;
+		status = "ok";
+	};
+	
+	blsp1_uart3: serial@f991f000 { /* IrDA Uart */
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf991f000 0x1000>;
+		interrupts = <0 109 0>;
+		status = "ok";
+	};
+
+	blsp2_uart5: serial@f9962000 { /* IrRC Uart */
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf9962000 0x1000>;
+		interrupts = <0 118 0>;
+		status = "ok";
+	};
+
+	sdhc_1: sdhci@f9824900 {
+	/*	cell-index = <1>; *//* SDC1 eMMC slot */ /*  This is not needed for SDHC driver */
+		qcom,bus-width = <8>;
+		compatible = "qcom,sdhci-msm";
+		reg = <0xf9824900 0x11c>, <0xf9824000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+		interrupts = <0 123 0>, <0 138 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
+		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+		qcom,cpu-dma-latency-us = <200>;
+
+		qcom,msm-bus,name = "sdhc1";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <78 512 0 0>, /* No vote */
+				<78 512 1600 3200>,    /* 400 KB/s*/
+				<78 512 80000 160000>, /* 20 MB/s */
+				<78 512 100000 200000>, /* 25 MB/s */
+				<78 512 200000 400000>, /* 50 MB/s */
+				<78 512 400000 800000>, /* 100 MB/s */
+				<78 512 800000 1600000>, /* 200 MB/s */
+				<78 512 2048000 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000 100000000 200000000 4294967295>;
+
+		vdd-supply = <&pm8941_l20>;
+		vdd-io-supply = <&pm8941_s3>;
+
+		qcom,vdd-always-on;
+		qcom,vdd-lpm-sup;
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <800 500000>;
+
+		qcom,vdd-io-always-on;
+		qcom,vdd-io-voltage-level = <1800000 1800000>;
+		qcom,vdd-io-current-level = <250 154000>;
+
+		qcom,pad-pull-on = <0x0 0x0 0x0>; /* no-pull, pull-up, pull-up --> no-pull, no-pull, no-pull */
+		qcom,pad-pull-off = <0x0 0x0 0x0>; /* no-pull, pull-up, pull-up --> no-pull, no-pull, no-pull */
+		qcom,pad-drv-on = <0x2 0x4 0x4>; /* 16mA, 10mA, 10mA --> 6mA, 10mA, 10mA */
+		qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
+	/*	qcom,sup-voltages = <2950 2950>; */ /* This is not needed for SDHC driver */
+		qcom,bus-width = <8>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,nonremovable;
+
+		status = "ok";
+	};
+
+	sdhc_2: sdhci@f98a4900 {
+	/*	cell-index = <2>; *//* SDC2 SD card slot */ /* This is not needed for SDHC driver */
+		compatible = "qcom,sdhci-msm";
+		reg = <0xf98a4900 0x11c>, <0xf98a4000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+
+		#address-cells = <0>;
+		interrupt-parent = <&sdhc_2>;
+	/*	interrupts = <0 125 0>, <0 221 0>; */
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 125 0
+						1 &intc 0 221 0
+						2 &msmgpio 95 0x3>;
+		interrupt-names = "hc_irq", "pwr_irq", "status_irq";
+		cd-gpios = <&msmgpio 95 0x1>; /* 1:Low-Active, 0:High-Active */
+
+		vdd-supply = <&pm8941_l21>;
+		vdd-io-supply = <&pm8941_l13>;
+
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <9000 800000>;
+		qcom,vdd-io-voltage-level = <1800000 2950000>;
+		qcom,vdd-io-current-level = <6 22000>;
+
+		qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,pad-drv-on = <0x2 0x4 0x4>; /* 16mA, 10mA, 10mA --> 6mA, 10mA, 10mA */
+		qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
+	/*	qcom,sup-voltages = <2950 2950>; */ /* This is not needed for SDHC driver */
+		qcom,bus-width = <4>;
+		qcom,xpc;
+		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+		qcom,current-limit = <800>;
+		qcom,cpu-dma-latency-us = <200>;
+
+		qcom,msm-bus,name = "sdhc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <81 512 0 0>, /* No vote */
+				<81 512 1600 3200>,    /* 400 KB/s*/
+				<81 512 80000 160000>, /* 20 MB/s */
+				<81 512 100000 200000>, /* 25 MB/s */
+				<81 512 200000 400000>, /* 50 MB/s */
+				<81 512 400000 800000>, /* 100 MB/s */
+				<81 512 800000 1600000>, /* 200 MB/s */
+				<81 512 2048000 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000 100000000 200000000 4294967295>;
+	/*	qcom,dat1-mpm-int = <44>; */ /* This is not needed for SDHC driver */
+		status = "ok";
+	};
+	sdcc1: qcom,sdcc@f9824000 {
+		qcom,pad-pull-on = <0x0 0x0 0x0>; /* no-pull, pull-up, pull-up --> no-pull, no-pull, no-pull */
+		qcom,pad-pull-off = <0x0 0x0 0x0>; /* no-pull, pull-up, pull-up --> no-pull, no-pull, no-pull */
+		qcom,pad-drv-on = <0x2 0x4 0x4>; /* 16mA, 10mA, 10mA --> 6mA, 10mA, 10mA */
+		status = "disable";
+	};
+
+	sdcc3_rev_evb: qcom,sdcc_rev_evb@f9864000 {
+		cell-index = <3>; /* SDC3 WLAN slot */
+		compatible = "qcom,msm-sdcc";
+		reg = <0xf9864000 0x800>,
+			<0xf9864800 0x100>,
+			<0xf9844000 0x7000>;
+		reg-names = "core_mem", "dml_mem", "bam_mem";
+		#address-cells = <0>;
+		interrupt-parent = <&sdcc3_rev_evb>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 127 0
+				1 &intc 0 223 0
+				2 &msmgpio 44 0x3>;
+		interrupt-names = "core_irq", "bam_irq", "wlan_oob_irq";
+
+		gpios = <&msmgpio 40 0>, /* CLK */
+			<&msmgpio 39 0>, /* CMD */
+			<&msmgpio 38 0>, /* DATA0 */
+			<&msmgpio 37 0>, /* DATA1 */
+			<&msmgpio 36 0>, /* DATA2 */
+			<&msmgpio 35 0>; /* DATA3 */
+		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
+
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000>;
+		qcom,sup-voltages = <1800 2950>;
+		qcom,bus-width = <4>;
+		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50";
+
+		qcom,msm-bus,name = "sdcc3";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <79 512 0 0>, /* No vote */
+				<79 512 1600 3200>,    /* 400 KB/s*/
+				<79 512 80000 160000>, /* 20 MB/s */
+				<79 512 100000 200000>, /* 25 MB/s */
+				<79 512 200000 400000>, /* 50 MB/s */
+				<79 512 400000 800000>, /* 100 MB/s */
+				<79 512 800000 1600000>, /* 200 MB/s */
+				<79 512 2048000 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000 100000000 200000000 4294967295>;
+		status = "ok";
+	};
+};
+
+&sdcc2 {
+		#address-cells = <0>;
+		interrupt-parent = <&sdcc2>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 125 0
+						1 &intc 0 220 0
+						2 &msmgpio 95 0x3>;
+		interrupt-names = "core_irq", "bam_irq", "status_irq";
+		cd-gpios = <&msmgpio 95 0x1>; /* 1:Low-Active, 0:High-Active */
+		status = "disable";
+};
+
+&sdcc3 {
+		status = "disable";
+};

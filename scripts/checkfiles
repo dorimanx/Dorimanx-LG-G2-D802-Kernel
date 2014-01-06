@@ -1,0 +1,32 @@
+#!/bin/sh
+
+# Usage: checkfiles file [files...]
+#        if "file" is a directory, will check all *.[hc] files recursively
+
+# check usage
+usage() {
+	echo "Usage: checkfiles [-x] file [files...]"
+	echo "(if \"file\" is a directory, check recursively for all C sources/headers)"
+	echo "(-x : exclude warnings and only appear errors)"
+	echo
+	echo "(NOTE : this script don't care about signoff errors(use --no-signoff).)"
+	exit 1
+}
+if test -z "$1" ; then
+	usage
+fi
+if ! test -f scripts/checkpatch.pl ; then
+	echo "checkfiles: must run from top level source tree"
+	exit 1
+fi
+
+if [ "$1" = "-x" ]; then
+	exclude_warning="-x"
+	shift
+fi
+
+# check coding-style compliance of each source file found
+find "$@" -type f -name '*.[hc]' | \
+while read f ; do
+	diff -u /dev/null $f | perl scripts/checkpatch_next.pl --no-signoff ${exclude_warning} -
+done

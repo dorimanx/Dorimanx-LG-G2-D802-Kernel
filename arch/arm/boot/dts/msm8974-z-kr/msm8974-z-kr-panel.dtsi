@@ -1,0 +1,194 @@
+
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	mdss_mdp: qcom,mdss_mdp@fd900000 {
+		qcom,max-clk-rate = <200000000>;
+	};
+	qcom,mdss_dsi_lgit_video {
+		status = "disable";
+	};
+	qcom,mdss_dsi_lgit_cmd {
+		status = "disable";
+		qcom,cont-splash-enabled;
+	};
+	qcom,mdss_dsi_jdi_cmd {
+		status = "disable";
+	};
+	qcom,mdss_dsi_jdi_video {
+		status = "disable";
+	};
+	i2c@f9967000 {
+		lm3630_rev_b@38 {
+			status = "disable";
+			revision = "...rev_b";
+		};
+
+		lm3630_rev_c@38 {
+			status = "disable";
+			revision = "rev_c...";
+		};
+	};
+	qcom,mdss_dsi@fd922800 {
+		lge,mdss-dsi-use-vdd-supply = <0>;
+		lge,mdss-dsi-byte-clk-rate = <53150000>;
+		lge,mdss-dsi-pixel-clk-rate = <70860000>;
+	};
+
+	qcom,mdss_dsi_lgit_oled_720p_video {
+		compatible = "qcom,mdss-dsi-panel";
+		label = "lgit oled 720p video mode dsi panel";
+		status = "ok";
+		qcom,dsi-ctrl-phandle = <&mdss_dsi0>;
+		qcom,enable-gpio = <&msmgpio 58 0>;  // dsv disable because the dsv is handled with LCD panel . daewoo.kwak Z bring up 2012 11 26 
+		qcom,rst-gpio = <&pm8941_gpios 19 0>;
+		qcom,mdss-pan-res = <720 1280>;
+		qcom,mdss-pan-margin-res = <720 1284>;
+		qcom,mdss-pan-bpp = <24>;
+		qcom,mdss-pan-dest = "display_1";
+		qcom,mdss-pan-porch-values =<120 4 48 16 8 16>;
+		qcom,mdss-pan-underflow-clr = <0xff>;
+		qcom,mdss-pan-bl-ctrl = "bl_ctrl_oled"; // bl-ctrl changed because of the oled . daewoo.kwak Z bring up 2012 11 26 
+		qcom,mdss-pan-bl-levels = <1 255>;
+		qcom,mdss-pan-dsi-mode = <0>;
+		qcom,mdss-pan-dsi-h-pulse-mode = <0>;
+		qcom,mdss-pan-dsi-h-power-stop = <0 0 0>;
+		qcom,mdss-pan-dsi-bllp-power-stop = <1 1>;
+		qcom,mdss-pan-dsi-traffic-mode = <1>;
+		qcom,mdss-pan-dsi-dst-format = <3>;
+		qcom,mdss-pan-dsi-vc = <0>;
+		qcom,mdss-pan-dsi-rgb-swap = <0>;
+		qcom,mdss-pan-dsi-data-lanes = <1 1 1 1>;
+                qcom,mdss-pan-dsi-dlane-swap = <0>;
+		qcom,mdss-pan-dsi-t-clk = <0x2B 0x1F>;
+		qcom,mdss-pan-dsi-stream = <0>;
+		qcom,mdss-pan-dsi-mdp-tr = <0x0>;
+		qcom,mdss-pan-dsi-dma-tr = <0x04>;
+		qcom,mdss-pan-frame-rate = <60>;
+		qcom,panel-phy-regulatorSettings = [03 01 01 00  /* Regualotor settings */
+						    20 00 01];
+		qcom,panel-phy-timingSettings = [6D 24 19 00 34 2F
+						    1E 26 2A 03 04 00];
+						    				    
+
+		qcom,panel-phy-strengthCtrl = [77 06];
+		qcom,panel-phy-bistCtrl = [00 00 b1 ff           /* BIST Ctrl settings */
+					   00 00];
+		qcom,panel-phy-laneConfig = [
+			00 c2 45 00 00 00 00 01 75 // lane0 config
+			00 c2 45 00 00 00 00 01 75 // lane1 config
+			00 c2 45 00 00 00 00 01 75 // lane2 config
+			00 c2 45 00 00 00 00 01 75 // lane3 config
+			00 02 45 00 00 00 00 01 97 // Clk ln config
+		];
+		
+		qcom,panel-on-cmds = [
+			15 01 00 00 12 00 02 B0 AC // MCS access
+			05 01 00 00 37 00 02 11 00 // Sleep Out : delay 55ms
+			39 01 00 00 22 00 14 ED 0F 00 00 35 6A 35 6A 3E 6A 3E 6A 00 23 2C 4F 27 6B 27 6B // timing control 7th sample			
+			39 01 00 00 00 00 07 D5 1E 28 72 01 00 4F // PLC Dimming
+			15 01 00 00 00 00 02 51 00 // Brightness
+			15 01 00 00 00 00 02 53 20 // Display Control Register
+			05 01 00 00 00 00 02 29 00 // Display on
+		];
+		qcom,on-cmds-dsi-state = "DSI_LP_MODE";
+		qcom,panel-off-cmds = [
+			05 01 00 00 00 00 02 28 00 // Display off
+			05 01 00 00 78 00 02 10 00 // Sleep In : delay 7frames
+		];
+		qcom,off-cmds-dsi-state = "DSI_HS_MODE";
+
+		qcom,blmap_size = <256>;
+		qcom,blmap = <
+			0
+			/*
+			// unused area(001-054)
+			117 117 117 117 117 117 117 117 117 117 117 117 117 117 117
+			117 117 117 117 117 117 117 117 117 117 117 117 117 117 117
+			117 117 117 117 117 117 117 117 117 117 117 117 117 117 117
+			117 117 117 117 117 117 117 117 117
+			// used area(055-255)
+			117 117 117 118 118 118 119 119 119 119 119 119 119 119 120	// 055-069
+			120 121 121 122 122 123 123 124 124 125 126 127 128 129 129	// 070-084
+			130 130 131 132 132 133 134 135 136 137 138 138 139 140 141	// 085-099
+			142 143 144 145 146 147 147 148 149 150 151 152 153 154 155	// 100-114
+			156 156 157 158 159 160 161 162 163 164 166 166 167 168 169	// 115-129
+			170 171 172 173 174 175 175 176 177 178 179 180 181 182 182	// 130-144
+			183 183 184 185 186 186 187 187 188 188 189 189 190 191 192	// 145-159
+			193 194 194 195 195 196 196 197 198 199 199 200 200 201 201	// 160-174
+			202 202 203 203 204 205 206 206 207 207 208 208 209 209 210	// 175-189
+			210 212 212 214 214 216 216 218 218 219 220 221 221 222 222	// 190-204
+			223 223 224 224 225 225 226 227 228 228 229 229 230 231 232	// 205-219
+			232 233 234 235 235 236 236 237 238 239 239 240 240 241 241	// 220-234
+			242 242 243 243 244 245 246 246 247 248 249 249 250 250 251	// 235-249
+			252 253 253 254 254 255						// 250-255
+			*/
+			// Only for 8th(7/18) sample
+			// unused area(001-054)
+			164 164 164 164 164 164 164 164 164 164 164 164 164 164 164
+			164 164 164 164 164 164 164 164 164 164 164 164 164 164 164
+			164 164 164 164 164 164 164 164 164 164 164 164 164 164 164
+			164 164 164 164 164 164 164 164 164
+			// used area(055-255)
+			164 164 164 164 164 164 165 165 165 165 165 165 165 165 165	// 055-069 
+			165 166 166 166 166 166 166 166 167 167 167 168 168 168 169	// 070-084 
+			169 169 169 170 170 170 171 171 171 172 172 172 172 173 173	// 085-099 
+			173 174 174 174 175 175 175 175 176 176 177 177 178 178 179	// 100-114 
+			179 179 180 180 181 181 182 182 183 183 184 184 185 185 186	// 115-129 
+			186 187 187 188 188 189 189 190 190 191 191 192 192 193 193	// 130-144 
+			194 194 195 195 196 197 197 198 199 199 200 200 201 201 202	// 145-159 
+			202 203 203 204 204 205 205 206 206 207 208 208 209 210 210	// 160-174 
+			211 211 212 212 213 214 214 215 216 216 217 217 218 218 219	// 175-189 
+			219 220 220 221 221 222 222 223 223 224 225 225 226 227 227	// 190-204 
+			228 228 229 229 230 230 231 231 232 232 233 233 234 234 235	// 205-219 
+			236 236 237 238 238 239 239 240 240 241 242 242 243 244 244	// 220-234 
+			245 245 246 246 247 247 248 248 249 249 250 250 251 251 252	// 235-249 
+			252 253 253 254 254 255 					// 250-255
+
+		>;
+		
+		/* image tuning cmds set */
+		// CM mode0 : Normal & Sharpness (echo 0)
+		lge,img-tune-cmds-cm0 = [
+			15 01 00 00 00 00 02 55 48 
+		];
+		// CM mode0 : Normal & Sharpness (echo 1)
+		// add PLC 60% on and CACC
+		lge,img-tune-cmds-ce-cm0-plc60 = [
+			15 01 00 00 00 00 02 55 79 
+		];
+		// CM mode1 : Vivid & Sharpness (echo 2)
+		lge,img-tune-cmds-cm1 = [
+			15 01 00 00 00 00 02 55 C8 // add gamma enable
+		];
+		// CM mode1 : Vivid & Sharpness (echo 3)
+		// add PLC 60% on and CACC
+		lge,img-tune-cmds-ce-cm1-plc60 = [
+			15 01 00 00 00 00 02 55 F9 // add gamma enable
+		];
+		// CM mode2 : Natural & Sharpness (echo 4)
+		lge,img-tune-cmds-cm2 = [
+			15 01 00 00 00 00 02 55 44
+			39 01 00 00 00 00 19 E1 83 83 83 87 87 85 83 88 88 83 83 83 60 7E 7A 69 6D 77 68 50 4E 4D 7C 60 // SET CM PARAMETER0
+			39 01 00 00 00 00 19 E2 7F 7F 7F 76 75 75 7F 7D 7A 7F 7F 7F FF FF FF 05 08 03 FF E2 DD EF FF FF // SET CM PARAMETER1
+		];
+		// CM mode2 : Natural & Sharpness (echo 5)
+		// add PLC 60% on and CACC
+		lge,img-tune-cmds-ce-cm2-plc60 = [
+			15 01 00 00 00 00 02 55 75
+			39 01 00 00 00 00 19 E1 83 83 83 87 87 85 83 88 88 83 83 83 60 7E 7A 69 6D 77 68 50 4E 4D 7C 60 // SET CM PARAMETER0
+			39 01 00 00 00 00 19 E2 7F 7F 7F 76 75 75 7F 7D 7A 7F 7F 7F FF FF FF 05 08 03 FF E2 DD EF FF FF // SET CM PARAMETER1
+		];
+
+	};
+};

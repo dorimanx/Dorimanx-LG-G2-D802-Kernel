@@ -1,0 +1,45 @@
+config FB_MSM_MDSS_WRITEBACK
+	bool "MDSS Writeback Panel"
+	---help---
+	The MDSS Writeback Panel provides support for routing the output of
+	MDSS frame buffer driver and MDP processing to memory.
+
+config FB_MSM_MDSS_HDMI_PANEL
+	depends on FB_MSM_MDSS
+	bool "MDSS HDMI Tx Panel"
+	default n
+	---help---
+	The MDSS HDMI Panel provides support for transmitting TMDS signals of
+	MDSS frame buffer data to connected hdmi compliant TVs, monitors etc.
+
+config FB_MSM_MDSS_HDMI_MHL_SII8334
+	depends on FB_MSM_MDSS_HDMI_PANEL
+	bool 'MHL SII8334 support '
+	default n
+	---help---
+	  Support the HDMI to MHL conversion.
+	  MHL (Mobile High-Definition Link) technology
+	  uses USB connector to output HDMI content
+config LGE_ESD_CHECK
+	bool "Enable sysfs for ESD check"
+	default n
+config LGE_SUPPORT_LCD_MAKER_ID
+	depends on MACH_LGE
+	default n
+	bool "LGE LCD MAKER ID support configuration"
+	help
+	Say Y here to enable support for LCD MAKER ID lge feature.
+config LCD_KCAL
+	depends on MACH_LGE
+	bool "Enable sysfs for LCD KCAL"
+	default n
+config MACH_MSM8974_A1
+	depends on MACH_LGE
+	bool "LGE LCD support configuration for A1"
+	default n
+config LGE_OLED_IMG_TUNING
+	depends on (MACH_MSM8974_Z_KR || MACH_MSM8974_Z_US || MACH_MSM8974_Z_KDDI) && OLED_SUPPORT
+	bool "Enable sysfs for OLED image tuning"
+	default y
+	---help---
+	Support the image tuning for the LGD OLED Panel.

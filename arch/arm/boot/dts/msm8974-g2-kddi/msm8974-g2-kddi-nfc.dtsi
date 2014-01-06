@@ -1,0 +1,82 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+
+* This program is free software; you can redistribute it and/or modify
+
+* it under the terms of the GNU General Public License version 2 and
+
+* only version 2 as published by the Free Software Foundation.
+ *
+
+* This program is distributed in the hope that it will be useful,
+
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+
+* GNU General Public License for more details.
+
+*/
+/ {
+	aliases {
+		serial2 = &blsp1_uart5;  /* ttyHSL2 for NFC/Felica  */
+	};
+};
+
+&soc {
+
+	blsp1_uart5: serial@f9921000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf9921000 0x1000>;
+		interrupts = <0 111 0>;
+		status = "ok";
+	};
+
+	i2c@f9967000 {
+		CXD2355AGG-i2c@2b {
+			compatible = "sony,CXD2355AGG-i2c";
+			status = "disable";
+			reg = <0x2b>;
+			sony,i2c-pull-up = <1>;
+			sony,cen-gpio = <&msmgpio 89 0x00>;
+		};		
+	};
+	sony_int {
+		compatible = "sony,int";
+		interrupt-parent = <&msmgpio>;
+		interrupts = <92 0x2>;
+		sony,int-gpio = <&msmgpio 92 0x00>;
+	};
+	sony_rfs {
+		compatible = "sony,rfs";
+		interrupt-parent = <&msmgpio>;
+		interrupts = <102 0x3>;
+		sony,int-gpio = <&msmgpio 102 0x00>;
+	};
+	sony_uart_con_after_rev_c {
+		compatible = "sony,driver";
+		status = "ok";
+		revision = "rev_c...";
+		interrupt-parent = <&msmgpio>;
+		interrupts = <59 0x2>;		
+		sony,hsel-gpio = <&msmgpio 94 0x00>;
+		sony,pon-gpio = <&msmgpio 74 0x00>;
+		sony,hvdd-gpio = <&msmgpio 145 0x00>;	
+		sony,intu-gpio = <&msmgpio 59 0x00>;	
+		sony,rfs-gpio = <&msmgpio 102 0x00>;
+		sony,uicc_con = <&msmgpio 25 0x00>;
+	};
+	sony_uart_con_before_rev_b {
+		compatible = "sony,driver";
+		status = "ok";
+		revision = "...rev_b";
+		interrupt-parent = <&msmgpio>;
+		interrupts = <94 0x2>;		
+		sony,hsel-gpio = <&msmgpio 59 0x00>;
+		sony,pon-gpio = <&msmgpio 74 0x00>;
+		sony,hvdd-gpio = <&msmgpio 145 0x00>;	
+		sony,intu-gpio = <&msmgpio 94 0x00>;	
+		sony,rfs-gpio = <&msmgpio 102 0x00>;
+		sony,uicc_con = <&msmgpio 25 0x00>;
+	};	
+};

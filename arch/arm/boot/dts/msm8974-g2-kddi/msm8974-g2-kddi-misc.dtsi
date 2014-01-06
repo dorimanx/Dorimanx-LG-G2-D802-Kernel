@@ -1,0 +1,48 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	syncoam_sm100 {
+		status = "ok";
+		vdd_ana-supply = <&pm8941_l23>;
+	};
+
+	earjack-debugger {
+		status = "ok";
+	};
+
+
+	hall-bu52031nvx {
+		status = "ok";
+	};
+
+	hall-bu52031nvx-carkit {
+		compatible = "rohm,hall-bu52031nvx-carkit";
+		hallic-carkit-irq-gpio = <&msmgpio 0 0x00>;
+		status = "ok";
+	};
+
+	uei_irrc {
+		status = "ok";
+	};
+
+};
+
+&rpm_bus {
+        rpm-regulator-ldoa23 {
+                pm8941_l23: regulator-l23 {
+                        regulator-min-microvolt = <3000000>;
+                        regulator-max-microvolt = <3000000>;
+                        qcom,init-voltage = <3000000>;
+                };
+        };
+};

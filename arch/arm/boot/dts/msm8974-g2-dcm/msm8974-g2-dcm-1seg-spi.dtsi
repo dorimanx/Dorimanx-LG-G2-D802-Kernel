@@ -1,0 +1,98 @@
+/*
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* [1seg][taew00k.kang], 2013-04-22, 1Seg FCI, FC8150 SPI Bring up */
+/ {
+	/* SPI BUS - BLSP8
+	 * BLSP hardware ID	: BLSP8
+	 * QUP Core 		: BLSP 2 QUP 1
+	 * Physical address	: 0xF9964000
+	 */
+	aliases {
+		spi8 = &spi_8;
+	};
+
+soc {
+	/* Configure the QUP Core as SPI*/
+	spi_8: spi_1seg: spi@f9964000 {//QUP Base address for BLSP2_QUP1
+		revision = "rev_c...";
+		compatible = "qcom,spi-qup-v2"; //Manufactur and Mode
+			/*
+			Modify the reg field as below to add BLSP BAM base address.
+			First Row BLSP_QUP Base and Size always 0x1000
+			Second Row is BAM address, size always 0x19000
+			For BLSP1 QUP0:5 Bam Address = 0xF9904000
+			For BLSP2 QUP0:5 Bam Address = 0xF9944000
+			*/
+		reg = <0xf9964000 0x1000>,//Base address for BLSP2_QUP1 and size
+			  <0xf9944000 0x19000>;
+		reg-names = "spi_physical", "spi_bam_physical"; //Keep the same names
+			/*
+			First Field: 0 SPI interrupt (Shared Peripheral Interrupt)
+			Second Field: Interrupt #
+			Third field: Trigger type, keep 0
+			For more information:/kernel/Documentation/devicetree/bindings
+			/arm/gic.txt
+			*/
+			/*
+			Replace the interrupt field.
+			First Field: 0 SPI interrupt (Shared Peripheral Interrupt)
+			Second Field: Interrupt #
+			Third field: Trigger type, keep 0
+			For more information:/kernel/Documentation/devicetree/bindings/arm/gic.txt
+			First Row BLSP_QUP IRQ #
+			Second Row is BAM IRQ
+			For BLSP1 QUP0:5 IRQ = 238
+			For BLSP2 QUP0:5 IRQ = 239
+			*/
+		interrupts = <0 102 0>, <0 239 0>;
+		interrupt-names = "spi_irq", "spi_bam_irq"; //Keep same
+			/*
+			Add Consumer and Producer Pipes
+			*/
+		qcom,use-bam; //enable BAM-mode
+		qcom,bam-consumer-pipe-index = <14>; //Consumer PIPE from table MSM8974 BLSP SPI Pipe Assignment
+		qcom,bam-producer-pipe-index = <15>; //Producer PIPE from table MSM8974 BLSP SPI Pipe Assignment
+		qcom,ver-reg-exists; //Version register exists (True for 8974)
+		spi-max-frequency = <19200000>;//Maximum supported frequency in HZ
+			/*
+				address,size for slave chips
+			*/
+		#address-cells = <1>;
+		#size-cells = <0>;
+		//Add following additional nodes to enable RunTime GPIO
+		//msmgpio is the parent, second # is gpio #. Third flag keep it 0.
+		gpios = <&msmgpio 48 0>, /* CLK */
+				<&msmgpio 46 0>, /* MISO */
+				<&msmgpio 45 0>; /* MOSI */
+		cs-gpios = <&msmgpio 47 0>; /* CS if this core support multiple CS add them to list */
+		};
+	};
+};
+
+	/* Register a Slave Device */
+&spi_1seg {
+	fci_spi_fc8150@0 {//Slave driver and CS ID
+		revision = "rev_c...";
+		compatible = "fci,fc8150-spi";//Manufacture, and Model
+		reg = <0>; //Same as CS ID
+		spi-max-frequency = <19200000>;//Max Frequency for Device
+		interrupt-parent = <&msmgpio>; //GPIO Handler
+		interrupts = <77 0>; //GPIO # and flags
+
+		fci_spi_fc8150,irq-gpio = <&msmgpio 77 0x00>; //Pass a GPIO
+		fci_spi_fc8150,en-gpio = <&msmgpio 76 0x00>; //Pass a GPIO
+		fci_spi_fc8150,reset-gpio = <&msmgpio 75 0x00>; //Pass a GPIO
+	};
+};
+

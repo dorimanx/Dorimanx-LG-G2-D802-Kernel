@@ -1,0 +1,86 @@
+menu "Diag Support"
+
+config DIAG_CHAR
+	tristate "char driver interface and diag forwarding to/from modem"
+	default m
+	depends on USB_G_ANDROID || USB_FUNCTION_DIAG || USB_QCOM_MAEMO
+	depends on ARCH_MSM
+	help
+	 Char driver interface for diag user space and diag-forwarding to modem ARM and back.
+	 This enables diagchar for maemo usb gadget or android usb gadget based on config selected.
+endmenu
+
+menu "DIAG traffic over USB"
+
+config DIAG_OVER_USB
+	bool "Enable DIAG traffic to go over USB"
+        depends on ARCH_MSM
+	default y
+	help
+	 This feature helps segregate code required for DIAG traffic to go over USB.
+endmenu
+
+menu "SLATE Support"
+
+config LGE_SLATE
+	bool "Enable SLATE Key Logging message routing"
+		depends on DIAG_OVER_USB
+	default n
+	help
+	 This feature helps decide whether slate key logging start message would be routed to apps or not.
+endmenu
+
+menu "SDIO support for DIAG"
+
+config DIAG_SDIO_PIPE
+	depends on MSM_SDIO_AL
+	default y
+	bool "Enable 9K DIAG traffic over SDIO"
+	help
+	 SDIO Transport Layer for DIAG Router
+endmenu
+
+menu "HSIC/SMUX support for DIAG"
+
+config DIAGFWD_BRIDGE_CODE
+	depends on USB_QCOM_DIAG_BRIDGE
+	default y
+	bool "Enable QSC/9K DIAG traffic over SMUX/HSIC"
+	help
+	 SMUX/HSIC Transport Layer for DIAG Router
+endmenu
+
+config LGE_DIAG_USB_ACCESS_LOCK
+    boolean "feature for usb diag access lock"
+    help
+     this feature should be applied to meet usb diag lock requirement
+
+    default n
+
+config LGE_DIAG_ENABLE_SYSFS
+    boolean "provide diag enable sysfs for user space"
+    help
+     diag enable sysfs value can define diag enable or disable
+
+    default n
+
+menu "LGE DM APP Support"
+
+config LGE_DM_APP
+	bool "LGE DM APP Support"
+	default n
+	depends on MACH_LGE
+	help
+	 LGE DM APP Support
+endmenu
+
+menu "LGE DM DEV Support"
+
+config LGE_DM_DEV
+    bool "LGE DM DEV Support"
+    default n
+    depends on MACH_LGE
+    help
+     LGE DM DEV Support
+endmenu
+

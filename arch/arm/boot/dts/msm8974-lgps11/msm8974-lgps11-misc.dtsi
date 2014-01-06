@@ -1,0 +1,40 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	syncoam_sm100 {
+		compatible = "syncoam,sm100";
+		syncoam,haptic-pwr-gpio = <&msmgpio 89 0x00>;
+		syncoam,haptic-ldo-gpio = <&msmgpio 85 0x00>;
+		syncoam,motor-pwm-gpio = <&msmgpio 27 0x00>;
+		syncoam,motor-amp = <117>;
+		syncoam,n-value = <166>;
+	};
+
+	pmic_gpio_led {
+		compatible = "gpio-leds";
+		pmic_gpio_led {
+			label = "button-backlight";
+			gpios = <&pm8941_gpios 36 0>;
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+	};
+
+	earjack-debugger {
+		compatible = "serial,earjack-debugger";
+		status = "ok";
+		interrupt-parent = <&msmgpio>;
+		interrupts = <9 0x0>;
+		serial,irq-gpio = <&msmgpio 9 0x00>;
+	};
+};

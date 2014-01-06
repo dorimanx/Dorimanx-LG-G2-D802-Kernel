@@ -1,0 +1,33 @@
+#platform.team@lge.com	2011.01
+
+comment "LGE Felica selection"
+
+config LGE_FELICA
+	bool "Felica driver"
+	default n
+	---help---
+	LGE Felica related change
+
+config LGE_FELICA_NFC
+	bool "Felica NFC driver"
+	default n
+	---help---
+	LGE Felica related change
+
+config LGE_FELICA_ONLY
+	bool "Felica only driver"
+	default n
+	---help---
+	LGE Felica related change
+
+config LGE_FELICA_KDDI
+	bool "Felica KDDI driver"
+	default n
+	---help---
+	LGE Felica related change
+
+config LGE_FELICA_NFC_DCM
+	bool "Felica DCM driver"
+	default n
+	---help---
+	LGE Felica related change

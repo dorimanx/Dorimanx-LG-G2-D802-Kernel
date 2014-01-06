@@ -1,0 +1,18 @@
+##########################################################
+#
+#	Kconfig - NFC Driver (FOR CXD2235AGG)
+#
+##########################################################
+
+config CXD2235AGG_GJ_KDDI
+	tristate "CXD2235AGG NFC driver GJ_KDDI"
+	#depends on UART
+	#depends on I2C
+	default n
+	---help---
+	  Say yes if you like to use CXD2235AGG through UART for GJ KDDI.
+
+	  
+config LGE_NFC_SONY_KDDI
+	bool "CXD2235AGG NFC driver"	
+	default n

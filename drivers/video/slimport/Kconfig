@@ -1,0 +1,18 @@
+config SLIMPORT_ANX7808
+	tristate "Analogix Slimport transmitter ANX7808 support"
+	help
+	  Slimport Transmitter is a HD video transmitter chip
+	  over micro-USB connector for smartphone device.
+
+config SLIMPORT_DYNAMIC_HPD
+	tristate "ANX7808 support for dynamic HDMI HPD control"
+	depends on SLIMPORT_ANX7808
+	help
+	Slimport set HPD when cable is connected,
+	HDMI clk is off during slimport cable is not connected
+
+config SLIMPORT_ANX7805
+	tristate "Analogix Slimport transmitter ANX7805 support"
+	help
+	  Slimport Transmitter is a HD video transmitter chip
+	  over micro-USB connector for smartphone device.

@@ -1,0 +1,48 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+
+	/* I2C device */
+	i2c@f9968000 {
+		/* STMicroelectronics */
+		lsm330_acc@1D {
+			status = "ok";
+		};
+
+		lsm330_gyr@6B {
+			status = "ok";
+		};
+	};
+
+	i2c@f9967000 {
+		sensirion_sht21@40 {
+			/* Sensor common */
+			status = "ok";
+		};
+
+		Ashai_ak8963c@0F {
+			/* Sensor common */
+			status = "ok";
+		};
+
+		bosch_bmp18x@77 {
+			status = "ok";
+		};
+
+		Avago_apds9950@39 {
+			/* Sensor common */
+			status = "ok";
+		};
+	};
+
+};

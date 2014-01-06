@@ -1,0 +1,78 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	syncoam_sm100 {
+		compatible = "syncoam,sm100";
+		vdd_ana-supply = <&pm8941_l19>;
+		syncoam,vpwr-on = <0>;
+		syncoam,haptic-pwr-gpio = <&msmgpio 60 0x00>;
+		syncoam,motor-pwm-gpio = <&msmgpio 27 0x00>;
+		syncoam,motor-amp = <117>;
+		syncoam,n-value = <166>;
+		status = "disable";
+	};
+
+	syncoam_sm100_rev_a {
+		compatible = "syncoam,sm100";
+		vdd_ana-supply = <&pm8941_l21>;
+		syncoam,vpwr-on = <0>;
+		syncoam,haptic-pwr-gpio = <&msmgpio 30 0x00>;
+		syncoam,motor-pwm-gpio = <&msmgpio 27 0x00>;
+		syncoam,motor-amp = <117>;
+		syncoam,n-value = <166>;
+		status = "disable";
+	};
+
+	syncoam_sm100_rev_b {
+		compatible = "syncoam,sm100";
+		syncoam,vpwr-on = <1>;
+		syncoam,haptic-pwr-gpio = <&msmgpio 60 0x00>;
+		syncoam,motor-pwm-gpio = <&msmgpio 27 0x00>;
+		syncoam,motor-amp = <117>;
+		syncoam,n-value = <166>;
+		status = "disable";
+	};
+
+	earjack-debugger {
+		compatible = "serial,earjack-debugger";
+		status = "disable";
+		interrupt-parent = <&pm8941_gpios>;
+		interrupts = <1 0>;
+		serial,irq-gpio = <&pm8941_gpios 1 0x0>;
+	};
+
+	hall-bu52031nvx_rev_a {
+		compatible = "rohm,hall-bu52031nvx";
+		interrupt-parent = <&msmgpio>;
+		interrupts = <73 0x0>;
+		hallic-pouch-irq-gpio = <&msmgpio 73 0x00>;
+		hallic-camera-irq-gpio = <&msmgpio 0 0x00>;
+		status = "disable";
+	};
+
+	hall-bu52031nvx {
+		compatible = "rohm,hall-bu52031nvx";
+		interrupt-parent = <&msmgpio>;
+		interrupts = <144 0x0>;
+		hallic-camera-irq-gpio = <&msmgpio 0 0x00>;
+		hallic-pouch-irq-gpio = <&msmgpio 144 0x00>;
+		status = "disable";
+	};
+
+	uei_irrc {
+		status = "disable";
+    compatible = "uei,irrc";
+    uei,reset-gpio = <&msmgpio 78 0x00>;
+	};
+
+};

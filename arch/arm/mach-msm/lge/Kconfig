@@ -1,0 +1,338 @@
+config MACH_LGE
+	bool
+
+menu "LGE Board Selection"
+
+config MACH_MSM8974_LGPS11
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 LGPS11"
+	help
+	  Support for the Qualcomm MSM8974 LGPS11 device.
+
+config MACH_MSM8974_G2EVB
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2-EVB"
+	help
+	  Support for the Qualcomm MSM8974 G2-EVB device.
+
+config MACH_MSM8974_G2_KR
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 KR"
+	help
+	  Support for the Qualcomm MSM8974 G2 Korea device.
+
+config MACH_MSM8974_G2_LGU
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 LGU"
+	help
+	  Support for the Qualcomm MSM8974 G2 LG Uplus device.
+
+config MACH_MSM8974_G2_ATT
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 ATT"
+	help
+	  Support for the Qualcomm MSM8974 G2 AT&T device.
+
+config MACH_MSM8974_G2_SKT
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 SKT"
+	help
+	  Support for the Qualcomm MSM8974 G2 SKT device.
+
+config MACH_MSM8974_G2_KT
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 KT"
+	help
+	  Support for the Qualcomm MSM8974 G2 KT device.
+
+config MACH_MSM8974_G2_VZW
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 VZW"
+	help
+	  Support for the Qualcomm MSM8974 G2 Verizon device.
+
+config MACH_MSM8974_G2_SPR
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 SPR"
+	help
+	  Support for the Qualcomm MSM8974 G2 SPRINT device.
+
+config MACH_MSM8974_G2_TMO_US
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 TMO_US"
+	help
+	  Support for the Qualcomm MSM8974 G2 TMUS device.
+
+config MACH_MSM8974_G2_DCM
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 DCM"
+	help
+	  Support for the Qualcomm MSM8974 G2 DCM device.
+
+config MACH_MSM8974_G2_KDDI
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 KDDI"
+	help
+	  Support for the Qualcomm MSM8974 G2 KDDI device.
+
+config MACH_MSM8974_G2_OPEN_COM
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 OPEN_COM"
+	help
+	  Support for the Qualcomm MSM8974 G2 OPEN device.
+
+config MACH_MSM8974_G2_OPT_AU
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 OPT AU"
+	help
+	  Support for the Qualcomm MSM8974 G2 OPEN device.
+
+config MACH_MSM8974_G2_TEL_AU
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 TEL AU"
+	help
+	  Support for the Qualcomm MSM8974 G2 OPEN device.
+
+config MACH_MSM8974_G2_CA
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 CA"
+	help
+	  Support for the Qualcomm MSM8974 G2 Canada device.
+
+config MACH_MSM8974_G2_BELL
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 BELL"
+	help
+	  Support for the Qualcomm MSM8974 G2 BELL device.
+
+config MACH_MSM8974_G2_TLS
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 TLS"
+	help
+	  Support for the Qualcomm MSM8974 G2 BELL device.
+
+config MACH_MSM8974_G2_RGS
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 RGS"
+	help
+	  Support for the Qualcomm MSM8974 G2 BELL device.
+
+config MACH_MSM8974_G2_VTR
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 VTR"
+	help
+	  Support for the Qualcomm MSM8974 G2 VTR device.
+	  
+config MACH_MSM8974_G2_WIN
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 WIN"
+	help
+	  Support for the Qualcomm MSM8974 G2 WIN device.
+
+config MACH_MSM8974_Z_KR
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 Z KR"
+	help
+	  Support for the Qualcomm MSM8974 Z Korea device.
+
+config MACH_MSM8974_Z_LGU
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 Z LGU"
+	help
+	  Support for the Qualcomm MSM8974 Z LG Uplus device.
+
+config MACH_MSM8974_Z_US
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 Z US"
+	help
+	  Support for the Qualcomm MSM8974 Z United State device.
+
+config MACH_MSM8974_Z_SPR
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 Z SPR"
+	help
+	  Support for the Qualcomm MSM8974 Z Sprint device.
+config MACH_MSM8974_Z_TMO_US
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 Z TMO US"
+	help
+	  Support for the Qualcomm MSM8974 TMUS device.
+
+config MACH_MSM8974_Z_ATT_US
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 Z ATT US"
+	help
+	  Support for the Qualcomm MSM8974 Z ATT device.
+
+config MACH_MSM8974_VU3_KR
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 VU3 KR"
+	help
+	  Support for the Qualcomm MSM8974 VU3 Korea device.
+
+config MACH_MSM8974_VU3_LGU
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 VU3 LGU"
+	help
+	  Support for the Qualcomm MSM8974 VU3 LG Uplus device.
+
+config MACH_MSM8974_VU3_SKT
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 VU3 SKT"
+	help
+	  Support for the Qualcomm MSM8974 VU3 SKT device.
+
+config MACH_MSM8974_VU3_KT
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 VU3 KT"
+	help
+	  Support for the Qualcomm MSM8974 VU3 KT device.
+
+config MACH_MSM8974_Z_SKT
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 Z SKT"
+	help
+	  Support for the Qualcomm MSM8974 Z SKT device.
+
+config MACH_MSM8974_Z_KT
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 Z KT"
+	help
+	  Support for the Qualcomm MSM8974 Z KT device.
+
+config MACH_MSM8974_G2_OPEN_AME
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G2 OPEN_AME"
+	help
+	  Support for the Qualcomm MSM8974 G2 OPEN device.
+
+config MACH_MSM8974_Z_KDDI
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 Z KDDI"
+	help
+	  Support for the Qualcomm MSM8974 Z KDDI device.
+
+endmenu
+
+menu "LGE Specific Patches"
+
+config LGE_USES_SMD_DS_TTY
+	bool "Explicitly use smd tty driver for DS"
+	default n
+	depends on MSM_SMD_TTY && MACH_LGE
+	help
+	  In Qualcomm MSM8960, smd tty driver for ds(/dev/smd0) is not used.
+	  Say yes if this tty driver must be used on LGE device. This is used
+	  to connect smd channel in user space(for example, ATCMD processing).
+
+config DEBUG_USER_INIT
+	bool "Print debug messages for init process only"
+	default n
+	depends on DEBUG_USER
+	help
+	  Print the init process debug message only.
+
+config LGE_BOOTLOADER_LOG
+	tristate "Support LGE bootloader log"
+	default n
+	depends on MACH_LGE
+	help
+	  LGE bootloader log
+
+config LGE_HANDLE_PANIC
+	tristate "Support LGE Kernel Panic Handler"
+	default n
+	depends on MACH_LGE
+	help
+	  LGE Error handler
+
+config LGE_MEMORY_INFO
+	bool "Show Additional Memory Information"
+	default n
+	depends on MACH_LGE
+	help
+	  If you want to show additional memory information by /proc/meminfo or
+	  /proc/zoneinfo, set this setting.
+	  This configuration show page size for vmalloc, binder, kgsl, ion, and iommu.
+
+config LGE_LCD_TUNING
+	bool "lcd_gamma_tuning"
+	default n
+	depends on MACH_LGE
+	help
+	  Support LCD gamma tuning.
+
+config LGE_BOOTLOADER_TIME_CHECKER
+	bool "Show bootloader(LK, SBL) time"
+	default n
+	depends on MACH_LGE
+	help
+	  This shows the lk and sbl1 booting time in MSM8974.
+	  If this feature is enabled, it should be check by adb shell.
+	  Device Node : sys/module/lge_bootloader_time_checker/
+
+config LGE_ECO_MODE
+	tristate "Support LGE ECO Mode"
+	default n
+	depends on MACH_LGE
+	help
+	  LGE ECO mode support
+
+config LGE_QFPROM_INTERFACE
+	bool "Support qfprom interface"
+	default n
+	depends on MACH_LGE
+	help
+	  LGE QFPROM DRIVER.
+
+config LGE_BNR_RECOVERY_REBOOT
+	bool "Support PC suite BNR recovery reboot"
+	default y
+	depends on MACH_LGE
+	help
+	  Support PC suite BNR recovery reboot. bnr recovery mode
+	  could be entered with reboot --bnr_recovery cmd.
+
+config LGE_BOOST_GPIO
+        bool "Control PM8941 GPIO_12 & GPIO_21"
+        default y
+        depends on MACH_LGE && SPMI
+        help
+          Control PM8941 GPIO_12 & GPIO_21 for boost IC
+
+endmenu

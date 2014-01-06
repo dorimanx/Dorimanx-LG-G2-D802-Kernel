@@ -1,0 +1,83 @@
+/* Copyright (c) 2013, LGE Electronics. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+
+	sound {
+		compatible = "qcom,msm8974-audio-taiko";
+		qcom,model = "msm8974-taiko-mtp-snd-card";
+		lge,debounce-time-us = <60>;
+		lge,board-use-auxpcm-gpio = <0>;
+		lge,maxim-detic-phandle = <&maxim_detic>;
+
+		qcom,hdmi-audio-rx;
+
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"LDO_H", "MCLK",
+			"AMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Handset Mic",
+			"AMIC2", "MIC BIAS2 External",
+			"MIC BIAS2 External", "Headset Mic",
+			"AMIC3", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Handset SubMic",
+			"AMIC4", "MIC BIAS4 External",
+			"MIC BIAS4 External", "3rd Mic",
+			"AMIC5", "MIC BIAS4 External",
+			"MIC BIAS4 External", "4th Mic",
+			"DMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic1",
+			"DMIC2", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic2",
+			"DMIC3", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic3",
+			"DMIC4", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic4",
+			"DMIC5", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic5",
+			"DMIC6", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic6";
+
+		qcom,cdc-mclk-gpios = <&pm8941_gpios 15 0>;
+		taiko-mclk-clk = <&pm8941_clkdiv1>;
+		qcom,taiko-mclk-clk-freq = <9600000>;
+	};
+
+	maxim_detic:maxim_max1462x {
+		compatible = "maxim,max1462x";
+		status = "disable";
+		interrupt-parent = <&msmgpio>;
+		interrupts = <65 0x3 64 0x3>;
+		max1462x,gpio_detect = <&msmgpio 65 0x00>;
+		max1462x,gpio_mic_en = <&pm8941_gpios 29 0x00>;
+		max1462x,gpio_key = <&msmgpio 64 0x00>;
+	};
+
+};
+
+&vph_pwr_vreg {
+	status = "ok";
+};
+&slim_msm {
+	taiko_codec {
+		qcom,cdc-micbias-cfilt2-mv = <2800>;
+		qcom,cdc-micbias2-no-ext-cap;
+		qcom,cdc-micbias3-cfilt-sel = <0x0>;
+		qcom,cdc-micbias4-cfilt-sel = <0x0>;
+	 /*  Give a dummy supply to  make codec driver's happy. */
+		cdc-vdd-spkdrv-supply = <&vph_pwr_vreg>;
+		qcom,cdc-vdd-spkdrv-voltage = <0 0>;
+		qcom,cdc-vdd-spkdrv-current = <0>;
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-spkdrv";
+	};
+};

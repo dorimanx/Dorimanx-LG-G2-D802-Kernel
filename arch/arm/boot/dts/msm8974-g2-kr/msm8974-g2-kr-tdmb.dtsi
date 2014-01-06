@@ -1,0 +1,67 @@
+/*
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/include/ "../skeleton.dtsi"
+
+/ {
+	aliases {
+		spi100 = &spi_100;
+	};
+
+	soc {
+		spi_100: spi_tdmb: spi@f9964000 {
+		compatible = "qcom,spi-qup-v2";
+		reg = <0xf9964000 0x1000>, <0xf9944000 0x19000>;
+		reg-names = "spi_physical", "spi_bam_physical";
+
+		interrupts = <0 102 0>, <0 239 0>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+
+		spi-max-frequency = <15000000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		gpios = <&msmgpio 48 0>, /* CLK  */
+			<&msmgpio 46 0>, /* MISO */
+			<&msmgpio 45 0>; /* MOSI */
+		cs-gpios = <&msmgpio 47 0>;
+
+		qcom,use-bam; /* enable BAM-mode */
+		qcom,bam-consumer-pipe-index = <14>; /* Consumer PIPE for BLSP8 */
+		qcom,bam-producer-pipe-index = <15>; /* Producer PIPE for BLSP8 */
+		qcom,ver-reg-exists; /* Version register exists (True for 8974) */
+		};
+	};
+};
+
+&spi_tdmb {
+	tdmb-fc8050@0 {
+		compatible = "fci,tdmb-fc8050";
+		reg = <0>;
+		interrupt-parent = <&msmgpio>;
+		interrupts = <77 0x0>;
+		spi-max-frequency = <15000000>;
+
+		tdmb-fc8050,irq-gpio = <&msmgpio 77 0x00>;
+		tdmb-fc8050,en-gpio = <&msmgpio 76 0x00>;
+		tdmb-fc8050,reset-gpio = <&msmgpio 75 0x00>;
+
+		/* bus scaling section */
+		qcom,msm-bus,name = "spi100.0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+		<84 512 0 0>, /* 84 is BLSP-2 as master, 512 is DDR as slave */
+		<84 512 3000 153600>; /* <BLSP-2 DDR avg-BAM-bw max-bw:=~19.2MHZ*8> */
+	};
+};
+

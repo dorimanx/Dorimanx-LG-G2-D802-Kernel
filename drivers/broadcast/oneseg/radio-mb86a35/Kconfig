@@ -1,0 +1,14 @@
+#
+# MB86A35S_DEVICE subsystem configuration
+#
+
+#menu "MB86A35S support"
+
+config MB86A35S_ISDB_T
+	default n
+	---help---
+	  This driver implements the front-end of the Xen virtual
+	  keyboard and mouse device driver.  It communicates with a back-end
+	  in another domain.
+  
+#endmenu

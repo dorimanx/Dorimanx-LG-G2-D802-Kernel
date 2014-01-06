@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# Usage: checksplint file [files...]
+#        if "file" is a directory, will check all *.[hc] files recursively
+
+# check usage
+usage() {
+	echo "Usage: checksplint file [files...]"
+	echo "(if \"file\" is a directory, check recursively for all C sources/headers)"
+	exit 1
+}
+if test -z "$1" ; then
+	usage
+fi
+if ! test -f ./scripts/Makefile.splint ; then
+	echo "checksplint: must run from top level source tree"
+	exit 1
+fi
+
+# run splint for eace source file given by arguements
+
+export SRCS="$@.temp.c"
+
+echo "#include <linux/autoconf.h>" >> $SRCS
+cat $@ >> $SRCS
+
+make -f ./scripts/Makefile.splint 
+
+rm $SRCS
+echo "checksplint: running splint is completed"

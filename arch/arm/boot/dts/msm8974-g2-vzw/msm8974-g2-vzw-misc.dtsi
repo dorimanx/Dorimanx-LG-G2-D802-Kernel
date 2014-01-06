@@ -1,0 +1,54 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+
+	syncoam_sm100 {
+		status = "ok";
+	};
+
+	earjack-debugger {
+		status = "ok";
+	};
+
+	hall-bu52031nvx_rev_a {
+		compatible = "rohm,hall-bu52031nvx";
+		interrupt-parent = <&msmgpio>;
+		hallic-camera-irq-gpio = <&msmgpio 0 0x00>;
+		hallic-pouch-irq-gpio = <&msmgpio 0 0x00>;
+		status = "ok";
+		revision = "...rev_d";
+	};
+
+	hall-bu52031nvx {
+		compatible = "rohm,hall-bu52031nvx";
+		interrupt-parent = <&msmgpio>;
+		interrupts = <35 0x0>;
+		hallic-camera-irq-gpio = <&msmgpio 0 0x00>;
+		hallic-pouch-irq-gpio = <&msmgpio 35 0x00>;
+		status = "ok";
+		revision = "rev_e...";
+	};
+
+	hall-bu52031nvx-carkit {
+		compatible = "rohm,hall-bu52031nvx-carkit";
+		interrupt-parent = <&msmgpio>;
+		interrupts = <144 0x0>;
+		hallic-carkit-irq-gpio = <&msmgpio 144 0x00>;
+		status = "ok";
+	};
+
+	uei_irrc {
+		status = "ok";
+	};
+
+};

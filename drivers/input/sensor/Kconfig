@@ -1,0 +1,60 @@
+#
+# Input core configuration
+#
+menuconfig INPUT_SENSOR
+	bool "SENSOR"
+	default y
+	help
+	  Say Y here, and a list of supported SENSORs will be displayed.
+	  This option doesn't affect the kernel.
+
+	  If unsure, say Y.
+
+if INPUT_SENSOR
+
+config SENSOR_LSM330
+	bool "LSM330 Sensor(Acc + Gyr)"
+	depends on I2C
+	default n
+	help
+	  LSM330 Device Driver.
+
+config SENSOR_APDS9950
+	bool "APDS9950 combined als and proximity sensors"
+	depends on I2C
+	default n
+	---help---
+	Say Y here if you want to build a driver for Avago APDS9950
+	combined ambient light and proximity sensor chip.
+
+	To compile this driver as a module, choose M here: the
+	module will be called apds9950. If unsure, say N here.
+
+config SENSOR_AK8963
+	bool "AK8963 compass support"
+	default n
+	depends on I2C
+	help
+	  If you say yes here you get support for Asahi Kasei's
+	  orientation sensor AK8963.
+
+config SENSOR_SHT21
+	bool "SHT21 humidity sensor support"
+	default n
+	depends on I2C
+	help
+	  If you say yes here you get support for humidity
+	  sensor SHT21.
+
+config SENSOR_BMP18X
+	bool "BMP18X digital pressure sensor"
+	depends on I2C && SYSFS
+	help
+	  If you say yes here you get support for Bosch Sensortec
+	  digital pressure sensors BMP085, BMP180 and BMP181.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called bmp18x-core.
+endif
+
+

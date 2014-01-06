@@ -1,0 +1,186 @@
+/* Copyright (c) 2013, LGE Electronics. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/include/ "../msm8974-camera-sensor-mtp.dtsi"
+/include/ "../msm8974-leds.dtsi"
+
+/include/ "msm8974-lge-panel.dtsi"
+/include/ "msm8974-lge-input.dtsi"
+/include/ "msm8974-lge-hdmi.dtsi"
+/include/ "msm8974-lge-usb.dtsi"
+/include/ "msm8974-lge-misc.dtsi"
+/include/ "msm8974-lge-pm.dtsi"
+/include/ "msm8974-lge-nfc.dtsi"
+/include/ "msm8974-lge-sound.dtsi"
+/include/ "msm8974-lge-bt.dtsi" /* [BT][younghyun.kwon@lge.com], Bluetooth driver configuration */
+
+&soc {
+
+	/* common: core */
+	qcom,wdt@f9017000 {
+		qcom,bark-time = <16000>;
+		qcom,pet-time = <10000>;
+	};
+
+	/* common: interface(serial, uart, i2c) */
+	serial@f991d000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf991d000 0x1000>;
+		interrupts = <0 107 0>;
+		status = "disable";
+
+                qcom,msm-bus,name = "serial_uart1";
+                qcom,msm-bus,num-cases = <2>;
+                qcom,msm-bus,active-only = <0>;
+                qcom,msm-bus,num-paths = <1>;
+                qcom,msm-bus,vectors-KBps =
+                          <86 512 0 0>,
+                          <86 512 500 800>;
+	};
+
+	serial@f9962000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf9962000 0x100>;
+		interrupts = <0 118 0>;
+		status = "disable";
+
+                qcom,msm-bus,name = "serial_uart12";
+                qcom,msm-bus,num-cases = <2>;
+                qcom,msm-bus,active-only = <0>;
+                qcom,msm-bus,num-paths = <1>;
+                qcom,msm-bus,vectors-KBps =
+                         <84 512 0 0>,
+                         <84 512 500 800>;
+	};
+
+	/* label: i2c_0 (label defined in msm8974.dtsi) */
+	i2c@f9967000 {
+		cell-index = <0>;
+		compatible = "qcom,i2c-qup";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0Xf9967000 0x1000>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 105 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <400000>;
+		qcom,i2c-src-freq = <50000000>;
+		qcom,scl-gpio = <&msmgpio 84 0>;
+		qcom,sda-gpio = <&msmgpio 83 0>;
+		qcom,active-only;
+		qcom,master-id = <84>;
+	};
+
+	i2c_1: i2c@f9923000 {
+		status = "ok";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <50000000>;
+		qcom,active-only;
+		qcom,master-id = <86>;
+	};
+
+	/* label: i2c_2 (label defined in msm8974.dtsi) */
+	i2c@f9924000 {
+		cell-index = <2>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9924000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 96 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <400000>;
+		qcom,i2c-src-freq = <50000000>;
+		qcom,scl-gpio = <&msmgpio 7 0>;
+		qcom,sda-gpio = <&msmgpio 6 0>;
+		qcom,active-only;
+		qcom,master-id = <86>;
+	};
+
+	spi@f9923000 {
+		ethernet-switch@2 {
+			compatible = "micrel,ks8851";
+			reg = <2>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <94 0>;
+			spi-max-frequency = <4800000>;
+			rst-gpio = <&pm8941_mpps 6 0>;
+			vdd-io-supply = <&spi_eth_vreg>;
+			vdd-phy-supply = <&spi_eth_vreg>;
+			status = "disable";
+		};
+	};
+
+	/* wifi */
+	qcom,wcnss-wlan@fb000000 {
+		status = "disable";
+	};
+
+};
+
+&spi_epm {
+	epm-adc@0 {
+		status = "disable";
+		compatible = "cy,epm-adc-cy8c5568lti-114";
+		reg = <0>;
+		interrupt-parent = <&msmgpio>;
+		spi-max-frequency = <960000>;
+		qcom,channels = <31>;
+		qcom,gain = <100 100 100 50 100 100 1 100 1 50
+			1 100 1 100 50 50 50 50 50 50
+			100 50 100 50 50 50 50 50 50 50
+			50>;
+		qcom,rsense = <2 2 2 200 20 2 1 2 1 30
+			1 10 1 30 50 30 500 30 100 30
+			100 500 20 200 1000 20 1000 1000 70 200
+			50>;
+		qcom,channel-type = <0x1540>;
+	};
+};
+
+&cci {
+	qcom,camera@20 {
+		status = "disable";
+	};
+};
+
+&sdcc1 {
+	status = "ok";
+};
+
+&gdsc_venus {
+	lge,use_workaround = <13>;
+};
+
+&gdsc_mdss {
+	lge,use_workaround = <13>;
+};
+
+&gdsc_jpeg {
+	lge,use_workaround = <13>;
+};
+
+&gdsc_vfe {
+	lge,use_workaround = <13>;
+};
+
+&gdsc_oxili_gx {
+	lge,use_workaround = <13>;
+};
+
+&gdsc_oxili_cx {
+	lge,use_workaround = <13>;
+};
+
+&gdsc_usb_hsic {
+	lge,use_workaround = <13>;
+};

@@ -1,0 +1,287 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/include/ "msm8974-g2-opt_au-panel.dtsi"
+/include/ "msm8974-g2-opt_au-input.dtsi"
+/include/ "msm8974-g2-opt_au-hdmi.dtsi"
+/include/ "msm8974-g2-opt_au-usb.dtsi"
+/include/ "msm8974-g2-opt_au-misc.dtsi"
+/include/ "msm8974-g2-opt_au-pm.dtsi"
+/include/ "msm8974-g2-opt_au-camera.dtsi"
+/include/ "msm8974-g2-opt_au-nfc.dtsi" /* [NFC][wongab.jeon@lge.com], 2013-02-13, NFC Bring up */
+/include/ "msm8974-g2-opt_au-sound.dtsi"
+
+&soc {
+	serial@f991d000 {
+		status = "ok";
+	};
+
+	serial@f9962000 {
+		status = "ok";
+	};
+
+	/*  LGE_CHANGE_S, [NFC][wongab.jeon@lge.com], 2013-02-13, NFC Bring up */
+	i2c@f9967000 {
+		bcm2079x@77 {
+			status = "ok";
+		};
+	};
+	/*  LGE_CHANGE_E, [NFC][wongab.jeon@lge.com], 2013-02-13, NFC Bring up */
+
+	qcom,msm-dai-mi2s {
+		compatible = "qcom,msm-dai-mi2s";
+		qcom,msm-dai-q6-mi2s-quat {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <2>;
+			qcom,msm-mi2s-rx-lines = <0>;
+			qcom,msm-mi2s-tx-lines = <1>;
+		};
+	};
+
+	sdhc_1: sdhci@f9824900 {
+	/*	cell-index = <1>; *//* SDC1 eMMC slot */ /*  This is not needed for SDHC driver */
+		qcom,bus-width = <8>;
+		compatible = "qcom,sdhci-msm";
+		reg = <0xf9824900 0x11c>, <0xf9824000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+		interrupts = <0 123 0>, <0 138 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
+		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+		qcom,cpu-dma-latency-us = <200>;
+
+		qcom,msm-bus,name = "sdhc1";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <78 512 0 0>, /* No vote */
+				<78 512 1600 3200>,    /* 400 KB/s*/
+				<78 512 80000 160000>, /* 20 MB/s */
+				<78 512 100000 200000>, /* 25 MB/s */
+				<78 512 200000 400000>, /* 50 MB/s */
+				<78 512 400000 800000>, /* 100 MB/s */
+				<78 512 800000 1600000>, /* 200 MB/s */
+				<78 512 2048000 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000 100000000 200000000 4294967295>;
+
+		vdd-supply = <&pm8941_l20>;
+		vdd-io-supply = <&pm8941_s3>;
+
+		qcom,vdd-always-on;
+		qcom,vdd-lpm-sup;
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <800 500000>;
+
+		qcom,vdd-io-always-on;
+		qcom,vdd-io-voltage-level = <1800000 1800000>;
+		qcom,vdd-io-current-level = <250 154000>;
+
+		qcom,pad-pull-on = <0x0 0x0 0x0>; /* no-pull, pull-up, pull-up --> no-pull, no-pull, no-pull */
+		qcom,pad-pull-off = <0x0 0x0 0x0>; /* no-pull, pull-up, pull-up --> no-pull, no-pull, no-pull */
+		qcom,pad-drv-on = <0x2 0x4 0x4>; /* 16mA, 10mA, 10mA --> 6mA, 10mA, 10mA */
+		qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
+	/*	qcom,sup-voltages = <2950 2950>; */ /* This is not needed for SDHC driver */
+		qcom,bus-width = <8>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,nonremovable;
+
+		status = "ok";
+	};
+
+	sdcc1: qcom,sdcc@f9824000 {
+		qcom,pad-pull-on = <0x0 0x0 0x0>; /* no-pull, pull-up, pull-up --> no-pull, no-pull, no-pull */
+		qcom,pad-pull-off = <0x0 0x0 0x0>; /* no-pull, pull-up, pull-up --> no-pull, no-pull, no-pull */
+		qcom,pad-drv-on = <0x2 0x4 0x4>; /* 16mA, 10mA, 10mA --> 6mA, 10mA, 10mA */
+		status = "disable";
+	};
+
+	/* Below is SDCC2 */
+	sdcc2_rev_a: qcom,sdcc_rev_a@f98a4000 {
+		cell-index = <2>; /* SDC2 SD card slot */
+		compatible = "qcom,msm-sdcc";
+		reg = <0xf98a4000 0x800>,
+			<0xf98a4800 0x100>,
+			<0xf9884000 0x7000>;
+		reg-names = "core_mem", "dml_mem", "bam_mem";
+		#address-cells = <0>;
+		interrupt-parent = <&sdcc2_rev_a>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 125 0
+				1 &intc 0 220 0
+				2 &msmgpio 74 0x3>;
+		interrupt-names = "core_irq", "bam_irq", "wlan_oob_irq";
+
+		vdd-supply = <&pm8941_l21>;
+		vdd-io-supply = <&pm8941_l13>;
+
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <9000 800000>;
+
+		qcom,vdd-io-voltage-level = <1800000 1800000>;
+		qcom,vdd-io-current-level = <6 22000>;
+
+		qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
+		qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
+		qcom,sup-voltages = <2950 2950>;
+		qcom,bus-width = <4>;
+		qcom,xpc;
+		/*qcom,nonremovable;*/
+		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "SDR104";
+		qcom,current-limit = <800>;
+
+		qcom,msm-bus,name = "sdcc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <81 512 0 0>, /* No vote */
+				<81 512 1600 3200>,    /* 400 KB/s*/
+				<81 512 80000 160000>, /* 20 MB/s */
+				<81 512 100000 200000>, /* 25 MB/s */
+				<81 512 200000 400000>, /* 50 MB/s */
+				<81 512 400000 800000>, /* 100 MB/s */
+				<81 512 800000 1600000>, /* 200 MB/s */
+				<81 512 2048000 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000 100000000 200000000 4294967295>;
+		qcom,dat1-mpm-int = <44>;
+		revision = "...rev_a";
+		status = "ok";
+	};
+
+	sdcc2_rev_b: qcom,sdcc_rev_b@f98a4000 {
+		cell-index = <2>; /* SDC2 SD card slot */
+		compatible = "qcom,msm-sdcc";
+		reg = <0xf98a4000 0x800>,
+			<0xf98a4800 0x100>,
+			<0xf9884000 0x7000>;
+		reg-names = "core_mem", "dml_mem", "bam_mem";
+		#address-cells = <0>;
+		interrupt-parent = <&sdcc2_rev_b>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 125 0
+				1 &intc 0 220 0
+				2 &msmgpio 44 0x3>;
+		interrupt-names = "core_irq", "bam_irq", "wlan_oob_irq";
+
+		vdd-supply = <&pm8941_l21>;
+		vdd-io-supply = <&pm8941_l13>;
+
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <9000 800000>;
+
+		qcom,vdd-io-voltage-level = <1800000 1800000>;
+		qcom,vdd-io-current-level = <6 22000>;
+
+		qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
+		qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
+		qcom,sup-voltages = <2950 2950>;
+		qcom,bus-width = <4>;
+		qcom,xpc;
+		/*qcom,nonremovable;*/
+		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "SDR104";
+		qcom,current-limit = <800>;
+
+		qcom,msm-bus,name = "sdcc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <81 512 0 0>, /* No vote */
+				<81 512 1600 3200>,    /* 400 KB/s*/
+				<81 512 80000 160000>, /* 20 MB/s */
+				<81 512 100000 200000>, /* 25 MB/s */
+				<81 512 200000 400000>, /* 50 MB/s */
+				<81 512 400000 800000>, /* 100 MB/s */
+				<81 512 800000 1600000>, /* 200 MB/s */
+				<81 512 2048000 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000 100000000 200000000 4294967295>;
+		qcom,dat1-mpm-int = <44>;
+		revision = "rev_b";
+		status = "ok";
+	};
+	
+	sdcc2_rev_c: qcom,sdcc_rev_c@f98a4000 {
+		cell-index = <2>; /* SDC2 SD card slot */
+		compatible = "qcom,msm-sdcc";
+		reg = <0xf98a4000 0x800>,
+			<0xf98a4800 0x100>,
+			<0xf9884000 0x7000>;
+		reg-names = "core_mem", "dml_mem", "bam_mem";
+		#address-cells = <0>;
+		interrupt-parent = <&sdcc2_rev_c>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 125 0
+				1 &intc 0 220 0
+				2 &msmgpio 44 0x3>;
+		interrupt-names = "core_irq", "bam_irq", "wlan_oob_irq";
+
+		vdd-supply = <&pm8941_l21>;
+		vdd-io-supply = <&pm8941_s3>;
+
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <9000 800000>;
+
+		qcom,vdd-io-voltage-level = <1800000 1800000>;
+		qcom,vdd-io-current-level = <6 22000>;
+
+		qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
+		qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
+		qcom,sup-voltages = <2950 2950>;
+		qcom,bus-width = <4>;
+		qcom,xpc;
+		/*qcom,nonremovable;*/
+		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "SDR104";
+		qcom,current-limit = <800>;
+
+		qcom,msm-bus,name = "sdcc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <81 512 0 0>, /* No vote */
+				<81 512 1600 3200>,    /* 400 KB/s*/
+				<81 512 80000 160000>, /* 20 MB/s */
+				<81 512 100000 200000>, /* 25 MB/s */
+				<81 512 200000 400000>, /* 50 MB/s */
+				<81 512 400000 800000>, /* 100 MB/s */
+				<81 512 800000 1600000>, /* 200 MB/s */
+				<81 512 2048000 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000 100000000 200000000 4294967295>;
+		qcom,dat1-mpm-int = <44>;
+		revision = "rev_c...";
+		status = "ok";
+	};	
+};
+
+&sdcc2 {
+	status = "disable";
+};
+
+&sdcc3 {
+	status = "disable";
+};

@@ -1,0 +1,34 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 and
+* only version 2 as published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
+
+&soc {
+	lge_android_usb@fc42b0c8 {
+		compatible = "lge,lge-android-usb";
+		lge,lge_android_usb,vendor_id = <0x1004>;
+		lge,lge_android_usb,factory_pid = <0x6000>;
+		lge,lge_android_usb,iSerialNumber = <0>;
+		lge,lge_android_usb,product_name = "LGE Android Phone";
+		lge,lge_android_usb,manufacturer_name = "LG Electronics Inc.";
+		lge,lge_android_usb,factory_composition = "acm,diag";
+	};
+};
+
+&usb_otg{
+	compatible = "qcom,hsusb-otg";
+	reg = <0xf9a55000 0x400>;
+};
+
+&usb3{
+	compatible = "qcom,dwc-usb3-msm";
+	reg = <0xf9200000 0xfc000>,
+		<0xfd4ab000 0x4>;
+};

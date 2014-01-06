@@ -1,0 +1,145 @@
+#
+# Near Field Communication (NFC) devices
+#
+
+menu "Near Field Communication (NFC) devices"
+	depends on NFC
+endmenu
+
+config LGE_NFC
+	bool "NFC Device Enabled for LGE"
+	default n
+
+config LGE_NFC_PN544_C2
+	bool "PN544 C2 NFC driver"
+	depends on I2C
+	select CRC_CCITT
+	default n
+	---help---
+	  Say yes if you want PN544 Near Field Communication driver.
+	  This is for i2c connected version. If unsure, say N here.
+
+	  To compile this driver as a module, choose m here. The module will
+	  be called pn544.
+
+config LGE_NFC_PN544_C3
+	bool "PN544 C3 NFC driver"
+	depends on I2C
+	select CRC_CCITT
+	default n
+	---help---
+	  Say yes if you want PN544 Near Field Communication driver.
+	  This is for i2c connected version. If unsure, say N here.
+
+	  To compile this driver as a module, choose m here. The module will
+	  be called pn544.
+
+config LGE_NFC_PRESTANDBY
+	bool "NFC STANBY MODE"
+	default n
+	---help---
+	  Say yes if you want to change a power state of pn544 to stanby mode in Kernel.
+	  If unsure, say N here.
+
+config LGE_NFC_MULTICORE_FASTBOOT
+	bool "NFC MultiThread"
+	default n
+	---help---
+	  Say yes if multi thread is applied for pre-standby.
+	  If unsure, say N here.
+
+config LGE_NFC_SET_IRQ_WAKEUP
+	bool "NFC Set IRQ wakeup when NFC ON"
+	default n
+	---help---
+	  Say yes if Set IRQ Wakeup NFC ON.
+	  If unsure, say N here.
+	 
+config LGE_NFC_DEBUG_MESSAGE
+	bool "NFC Debug Message"
+	default n
+
+config LGE_NFC_HW_QCT_MSM72X7A
+	bool "Qualcom MSM72X7A Chipset"
+	default n
+
+config LGE_NFC_HW_QCT_APQ8064
+	bool "Qualcom APQ8064 Chipset"
+	default n
+
+config LGE_NFC_HW_QCT_MSM8960
+	bool "Qualcom APQ8960 Chipset"
+	default n
+
+config LGE_NFC_HW_QCT_MSM8930
+	bool "Qualcom MSM8930 Chipset"
+	default n
+
+config LGE_NFC_HW_QCT_MSM8660
+	bool "Qualcom MSM8660 Chipset"
+	default n
+
+config LGE_NFC_HW_QCT_MSM8255
+	bool "Qualcom MSM8255 Chipset"
+	default n
+
+config LGE_NFC_HW_TI_OMAP4430
+	bool "TI OMAP4430 Chipset"
+	default n
+
+config LGE_NFC_HW_NV_AP3X
+	bool "Nvidia AP3X Chipset"
+	default n
+
+config NFC_PN533
+	tristate "NXP PN533 USB driver"
+	depends on USB
+	help
+	  NXP PN533 USB driver.
+	  This driver provides support for NFC NXP PN533 devices.
+
+	  Say Y here to compile support for PN533 devices into the
+	  kernel or say M to compile it as module (pn533).
+
+config NFC_WILINK
+	tristate "Texas Instruments NFC WiLink driver"
+	depends on TI_ST && NFC_NCI
+	help
+	  This enables the NFC driver for Texas Instrument's BT/FM/GPS/NFC
+	  combo devices. This makes use of shared transport line discipline
+	  core driver to communicate with the NFC core of the combo chip.
+
+	  Say Y here to compile support for Texas Instrument's NFC WiLink driver
+	  into the kernel or say M to compile it as module.
+
+
+config LGE_NFC_SONY_CXD2235AGG
+	bool "CXD2235AGG NFC driver"
+	#depends on I2C && UART
+	default n
+	---help---
+	  Say yes if you want CDX2235AGG Near Field Communication driver.
+	  This is for i2c & UART connected version. If unsure, say N here.
+
+	  To compile this driver as a module, choose m here. The module will
+	  be called CDX2235AGG.
+
+config LGE_NFC_SONY_KDDI
+	bool "CXD2235BGG NFC driver for kddi"
+	#depends on I2C && UART
+	default n
+	---help---
+	  Say yes if you want CDX2235AGG Near Field Communication driver.
+	  This is for i2c & UART connected version. If unsure, say N here.
+
+	  To compile this driver as a module, choose m here. The module will
+	  be called CDX2235AGG.	  
+source "drivers/nfc/snfc/Kconfig"
+source "drivers/nfc/snfc_kddi/Kconfig"
+
+config NFC_BCM2079X
+	bool "Broadcom 2079X NFC Controller Driver"
+	depends on I2C
+	select CRC_CCITT
+	help
+	  Broadcom 2079X Near Field Communication controller support.

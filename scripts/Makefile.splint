@@ -1,0 +1,81 @@
+DEFINED_FOR_KERNEL = -D__KERNEL__ 
+
+ifeq ($(SAVE_TEMPS_ENABLE), TRUE)
+SAVE_TEMPS = --save-temps
+SPLINT_KEEP = +keep
+endif
+
+# Splint fails to compile code for the Linux kernel largely because it does
+# not have some gcc specific features that the kernel code relies on. Defining
+# a list of FLAGS for splint that gcc defines by default helps with this.
+# Run "gcc -dM -E - < /dev/null" to see a list of gcc defined symbols.
+#
+# Note that __GNUC__ is defined to be 2, not 3, because of problems splint has
+# when compiling "typedef struct { } spinlock_t;" in <linux/splinlock.h>.
+
+GCC_DEFINED_FLAGS_FOR_SPLINT =         \
+-D__HAVE_BUILTIN_SETJMP__=1            \
+-D__unix__=1                           \
+-Dunix=1                               \
+-D__SIZE_TYPE__="unsigned int"         \
+-D__ELF__=1                            \
+-D__GNUC_PATCHLEVEL__=0                \
+-D__linux=1                            \
+-D__unix=1                             \
+-D__linux__=1                          \
+-D__USER_LABEL_PREFIX__                \
+-Dlinux=1                              \
+-D__STDC_HOSTED__=1                    \
+-D__WCHAR_TYPE__="long int"            \
+-D__gnu_linux__=1                      \
+-D__WINT_TYPE__="unsigned int"         \
+-D__GNUC__=4                           \
+-D__GXX_ABI_VERSION=102                \
+-D__GNUC_MINOR__=2                     \
+-D__STDC__=1                           \
+-D__PTRDIFF_TYPE__=int                 \
+-D__REGISTER_PREFIX__                  \
+-D__NO_INLINE__=1                      \
+-D__SPLINT__ 
+
+# Splint flags
+
+SPLINT_FLAGS = $(SPLINT_KEEP)                \
+-weak                   \
++nullderef	\
++nullpass	\
++nullret	\
++type		\
+-warnposix		\
+-indentspaces 8	\
+-fullinitblock	\
+-skip-ansi-headers              \
+$(DEFINED_FOR_KERNEL)           \
+$(GCC_DEFINED_FLAGS_FOR_SPLINT) \
+-D__signed__=signed 		\
+-D__extension__=""		\
++gnuextensions          \
+-sys-dirs /opt/crosstool/griffin/arm-eabi-4.2.1/bin/../lib/gcc/arm-eabi/4.2.1/include:./include:./arch/arm/include:./arch/arm/mach-msm/include \
+-systemdirerrors  		\
+-macrovarprefixexclude  \
+-namechecks             \
+-preproc                \
++hints                  \
++force-hints			\
++trytorecover   	    \
+-Dasm=__asm__           \
+-D__attribute=__attribute__ \
+-D__builtin_va_list=va_list \
+-D__builtin_offsetof=offsetof \
+-D__builtin_types_compatible_p'('x,y')'=NULL
+
+SPLINT = splint
+#SRCS = ./drivers/misc/hall_bu52031.c
+#SRCS = ./arch/arm/mach-msm/board-eve.c
+INC_FLAGS = -I/opt/crosstool/griffin/arm-eabi-4.2.1/bin/../lib/gcc/arm-eabi/4.2.1/include	\
+			-I./include						\
+			-I./arch/arm/include			\
+			-I./arch/arm/mach-msm/include	
+do_splint:
+	$(SPLINT) $(SPLINT_FLAGS) $(INC_FLAGS) $(SRCS)
+

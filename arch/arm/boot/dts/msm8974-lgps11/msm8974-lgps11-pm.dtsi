@@ -1,0 +1,84 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 and
+* only version 2 as published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
+
+&spmi_bus {
+	qcom,pm8941@0 {
+		pm8941_chg: qcom,charger {
+			status = "ok";
+
+			/* Cable type definition.
+			* Each cable type has 3 values
+			* that we can configure the threshold of ADC value and TA/USB IUSB max current value.
+			* ex)
+			*    cable type = <adc_threshold, TA_MA, USB_MA>.
+			*/
+
+			lge,no-init-cable = <0 0 0>;
+			lge,cable-mhl-1k = <5000 500 500>;
+			lge,cable-u-28p7k = <5500 500 500>;
+			lge,cable-28p7k = <6000 500 500>;
+			lge,cable-56k = <200000 1500 1500>;
+			lge,cable-100k = <239000 500 500>;
+			lge,cable-130k = <340000 1500 1500>;
+			lge,cable-180k = <400000 700 500>;
+			lge,cable-200k = <410000 700 500>;
+			lge,cable-220k = <485000 900 500>;
+			lge,cable-270k = <560000 900 500>;
+			lge,cable-330k = <735000 500 500>;
+			lge,cable-620k = <955000 500 500>;
+			lge,cable-910k = <1140000 1500 1500>;
+			lge,cable-none = <1900000 900  500>;
+
+			qcom,chgr@1000 {
+				status = "ok";
+			};
+
+			qcom,buck@1100 {
+				status = "ok";
+			};
+
+			qcom,bat-if@1200 {
+				status = "ok";
+			};
+
+			qcom,usb-chgpth@1300 {
+				status = "ok";
+			};
+
+			qcom,dc-chgpth@1400 {
+				status = "ok";
+			};
+
+			qcom,boost@1500 {
+				status = "ok";
+			};
+
+			qcom,chg-misc@1600 {
+				status = "ok";
+			};
+
+		};
+
+		vadc@3100 {
+			chan@39 {
+				label = "usb_id_lv";
+				reg = <0x39>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+		};
+	};
+};

@@ -1,0 +1,95 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+
+* This program is free software; you can redistribute it and/or modify
+
+* it under the terms of the GNU General Public License version 2 and
+
+* only version 2 as published by the Free Software Foundation.
+ *
+
+* This program is distributed in the hope that it will be useful,
+
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+
+* GNU General Public License for more details.
+
+*/
+
+&soc {
+	aliases {
+		serial2 = &blsp1_uart5;
+	};
+
+	blsp1_uart5: serial@f9921000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf9921000 0x1000>;
+		interrupts = <0 111 0>;
+		status = "ok";
+	};
+
+	i2c@f9967000 {
+		CXD2355AGG-i2c_rev_c@2b {
+			compatible = "sony,CXD2355AGG-i2c";
+			status = "disable";
+			revision = "...rev_c";
+			reg = <0x2b>;
+			sony,i2c-pull-up = <1>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <36 0x2>;
+			sony,hsel-gpio = <&msmgpio 59 0x00>;
+			sony,intu-gpio = <&msmgpio 36 0x00>;
+			sony,pon-gpio = <&msmgpio 40 0x00>;
+			sony,cen-gpio = <&msmgpio 37 0x00>;
+			sony,hvdd-gpio = <&msmgpio 35 0x00>;
+			sony,uicc-gpio = <&msmgpio 39 0x00>;
+		};
+
+		CXD2355AGG-i2c_rev_d@2b {
+			compatible = "sony,CXD2355AGG-i2c";
+			status = "disable";
+			revision = "rev_d...";
+			reg = <0x2b>;
+			sony,i2c-pull-up = <1>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <35 0x2>;
+			sony,hsel-gpio = <&msmgpio 94 0x00>;
+			sony,intu-gpio = <&msmgpio 35 0x00>;
+			sony,pon-gpio = <&msmgpio 40 0x00>;
+			sony,cen-gpio = <&msmgpio 38 0x00>;
+			sony,hvdd-gpio = <&msmgpio 36 0x00>;
+			sony,uicc-gpio = <&msmgpio 39 0x00>;
+		};
+	};
+
+	sony_int_rev_c {
+		compatible = "sony,int";
+		revision = "...rev_c";
+		interrupt-parent = <&msmgpio>;
+		interrupts = <38 0x2>;
+		sony,int-gpio = <&msmgpio 38 0x00>;
+	};
+	sony_int_rev_d {
+		compatible = "sony,int";
+		revision = "rev_d...";
+		interrupt-parent = <&msmgpio>;
+		interrupts = <37 0x2>;
+		sony,int-gpio = <&msmgpio 37 0x00>;
+	};
+	sony_rfs_rev_c {
+		compatible = "sony,rfs";
+		revision = "...rev_c";
+		interrupt-parent = <&msmgpio>;
+		interrupts = <94 0x3>;
+		sony,rfs-gpio = <&msmgpio 94 0x00>;
+	};
+	sony_rfs_rev_d {
+		compatible = "sony,rfs";
+		revision = "rev_d...";
+		interrupt-parent = <&msmgpio>;
+		interrupts = <59 0x3>;
+		sony,rfs-gpio = <&msmgpio 59 0x00>;
+	};
+};

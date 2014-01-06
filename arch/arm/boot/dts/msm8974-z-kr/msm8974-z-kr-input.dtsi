@@ -1,0 +1,42 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+
+	i2c@f9924000 {
+		rmi_s3404@20  {
+			status = "disable";
+		};
+		synaptics_s3404@20 {
+			status = "ok";
+			synaptics,fw_version = "E010";
+			synaptics,platform_data	{
+				/*Caps*/
+				x_max	= <720>;
+				y_max	= <1280>;
+				lcd_x	= <720>;
+				lcd_y	= <1280>;
+				/*role*/
+				jitter_filter_enable = <0>;
+				accuracy_filter_enable = <0>;
+				ghost_detection_enable = <1>;
+				};
+		};
+		synaptics_s7020@20 {
+			status = "disable";
+		};
+		melfas_mms136@48 {
+			status = "disable";
+		};
+	};
+
+};

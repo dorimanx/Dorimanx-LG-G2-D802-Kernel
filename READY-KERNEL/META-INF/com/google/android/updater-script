@@ -1,0 +1,34 @@
+ui_print("G2 StockMOD Kernel installer");
+
+#mount system
+mount("ext4", "EMMC", "/dev/block/platform/msm_sdcc.1/by-name/system", "/system");
+
+#delete existing modules
+ui_print("Removing old modules");
+delete_recursive("/system/lib/modules");
+
+#install new modules
+ui_print("Installing new modules");
+package_extract_dir("system", "/system");
+set_perm_recursive(0, 0, 0755, 0644, "/system/lib/modules");
+
+#copy loki flash files
+package_extract_dir("loki", "/tmp");
+
+#copy boot.img (for loki flash method)
+package_extract_file("boot.img", "/tmp/loki/boot.img");
+
+#set loki permissions
+set_perm(0, 0, 0755, "/tmp/loki.sh");
+set_perm_recursive(0, 0, 0755, 0755, "/tmp/loki");
+
+#run loki flash
+ui_print("Installing kernel");
+assert(run_program("/tmp/loki.sh") == 0);
+
+#cleanup
+delete("/tmp/loki.sh");
+unmount("/system");
+show_progress(0.100000, 0);
+
+
