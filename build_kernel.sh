@@ -25,6 +25,7 @@ clear
 
 # location
 KERNELDIR=`readlink -f .`;
+export HOST=`uname -n`;
 
 # begin by ensuring the required directory structure is complete, and empty
 echo "Initialising................."
@@ -45,6 +46,7 @@ rm -f arch/arm/boot/zImage
 rm -f arch/arm/boot/Image
 
 export PATH=$PATH:tools/lz4demo
+export KERNEL_CONFIG=dorimanx_defconfig
 
 if [ -e /usr/bin/python3 ]; then
 	rm /usr/bin/python
@@ -57,9 +59,6 @@ if [ ! -f $KERNELDIR/.config ]; then
 	sh load_config.sh
 fi;
 
-# read config
-. $KERNELDIR/.config;
-
 cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/dorimanx_defconfig;
 
 # remove all old modules before compile
@@ -67,12 +66,23 @@ for i in `find $KERNELDIR/ -name "*.ko"`; do
         rm -f $i;
 done;
 
+# dorimanx detection ;)
+if [ $HOST == "dorimanx-virtual-machine" ] || [ $HOST == "dorimanx" ]; then
+	NR_CPUS=16;
+	echo "Dori power detected!";
+else
+	NR_CPUS=4
+        echo "not dorimanx system detected, setting $NR_CPUS build threads"
+fi;
+
 # build zImage
-make ARCH=arm dorimanx_defconfig zImage -j16
+time make -j ${NR_CPUS}
+
+stat $KERNELDIR/arch/arm/boot/zImage || exit 1;
 
 # compile the modules, and depmod to create the final zImage
 echo "Compiling Modules............"
-make modules -j16
+time make modules -j ${NR_CPUS} || exit 1
 
 # move the compiled zImage and modules into the READY-KERNEL working directory
 echo "Move compiled objects........"
@@ -85,43 +95,58 @@ done;
 #        cp -av $i ../LG-G2-D802-Ramdisk/lib/modules/
 #done;
 
-cp arch/arm/boot/zImage READY-KERNEL/boot
+chmod 755 $KERNELDIR/READY-KERNEL/system/lib/modules/*
 
-# create the ramdisk and move it to the output working directory
-echo "Create ramdisk..............."
-scripts/mkbootfs ../LG-G2-D802-Ramdisk | gzip > ramdisk.gz 2>/dev/null
-mv ramdisk.gz READY-KERNEL/boot
+if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 
-# clean modules from ramdisk.
-#rm -rf ../LG-G2-D802-Ramdisk/lib/
+	cp arch/arm/boot/zImage READY-KERNEL/boot
 
-# create the dt.img from the compiled device files, necessary for msm8974 boot images
-echo "Create dt.img................"
-scripts/dtbTool -v -s 2048 -o READY-KERNEL/boot/dt.img arch/arm/boot/
+	# create the ramdisk and move it to the output working directory
+	echo "Create ramdisk..............."
+	scripts/mkbootfs ../LG-G2-D802-Ramdisk | gzip > ramdisk.gz 2>/dev/null
+	mv ramdisk.gz READY-KERNEL/boot
 
-# resore python3
-if [ -e /usr/bin/python3 ]; then
-	rm /usr/bin/python
-	ln -s /usr/bin/python3 /usr/bin/python
+	# clean modules from ramdisk.
+	#rm -rf ../LG-G2-D802-Ramdisk/lib/
+
+	# create the dt.img from the compiled device files, necessary for msm8974 boot images
+	echo "Create dt.img................"
+	./scripts/dtbTool -v -s 2048 -o READY-KERNEL/boot/dt.img arch/arm/boot/
+
+	if [ -e /usr/bin/python3 ]; then
+		rm /usr/bin/python
+		ln -s /usr/bin/python3 /usr/bin/python
+	fi;
+
+	# build the final boot.img ready for inclusion in flashable zip
+	echo "Build boot.img..............."
+	cp scripts/mkbootimg READY-KERNEL/boot
+	cd READY-KERNEL/boot
+	base=0x00000000
+	offset=0x05000000
+	tags_addr=0x04800000
+	cmd_line="console=ttyHSL0,115200,n8 androidboot.hardware=g2 user_debug=31 msm_rtb.filter=0x0"
+	./mkbootimg --kernel zImage --ramdisk ramdisk.gz --cmdline "$cmd_line" --base $base --offset $offset --tags-addr $tags_addr --pagesize 2048 --dt dt.img -o newboot.img
+	mv newboot.img ../boot.img
+
+	# cleanup all temporary working files
+	echo "Post build cleanup..........."
+	cd ..
+	rm -rf boot
+
+	# create the flashable zip file from the contents of the output directory
+	echo "Make flashable zip..........."
+	zip -r Dorimanx-LG-G2-D802-Kernel.zip * >/dev/null
+	stat boot.img
+	rm -f *.img
+	cd ..
+else
+	if [ -e /usr/bin/python3 ]; then
+		rm /usr/bin/python
+		ln -s /usr/bin/python3 /usr/bin/python
+	fi;
+
+	# with red-color
+	 echo -e "\e[1;31mKernel STUCK in BUILD! no zImage exist\e[m"
 fi;
 
-# build the final boot.img ready for inclusion in flashable zip
-echo "Build boot.img..............."
-cp scripts/mkbootimg READY-KERNEL/boot
-cd READY-KERNEL/boot
-base=0x00000000
-offset=0x05000000
-tags_addr=0x04800000
-cmd_line="console=ttyHSL0,115200,n8 androidboot.hardware=g2 user_debug=31 msm_rtb.filter=0x0"
-./mkbootimg --kernel zImage --ramdisk ramdisk.gz --cmdline "$cmd_line" --base $base --offset $offset --tags-addr $tags_addr --pagesize 2048 --dt dt.img -o newboot.img
-mv newboot.img ../boot.img
-
-# cleanup all temporary working files
-echo "Post build cleanup..........."
-cd ..
-rm -rf boot
-
-# create the flashable zip file from the contents of the output directory
-echo "Make flashable zip..........."
-zip -r Dorimanx-LG-G2-D802-Kernel.zip * >/dev/null
-cd ..
