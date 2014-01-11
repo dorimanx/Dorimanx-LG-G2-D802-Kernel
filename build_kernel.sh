@@ -123,6 +123,9 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 		ln -s /usr/bin/python3 /usr/bin/python
 	fi;
 
+	# add kernel config to kernle zip for other devs
+	cp $KERNELDIR/.config READY-KERNEL/
+
 	# build the final boot.img ready for inclusion in flashable zip
 	echo "Build boot.img..............."
 	cp scripts/mkbootimg READY-KERNEL/boot
