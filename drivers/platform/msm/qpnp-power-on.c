@@ -23,9 +23,6 @@
 #include <linux/input.h>
 #include <linux/log2.h>
 #include <linux/qpnp/power-on.h>
-#ifdef CONFIG_MACH_LGE
-#include <linux/wakelock.h>
-#endif
 
 /* Common PNP defines */
 #define QPNP_PON_REVISION2(base)		(base + 0x01)
@@ -112,10 +109,6 @@ static u32 s1_delay[PON_S1_COUNT_MAX + 1] = {
 	0 , 32, 56, 80, 138, 184, 272, 408, 608, 904, 1352, 2048,
 	3072, 4480, 6720, 10256
 };
-
-#ifdef CONFIG_MACH_LGE
-struct wake_lock kpdpwr_irq_wake_lock;
-#endif
 
 static int
 qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
@@ -350,9 +343,6 @@ static irqreturn_t qpnp_kpdpwr_irq(int irq, void *_pon)
 	if (rc)
 		dev_err(&pon->spmi->dev, "Unable to send input event\n");
 
-#ifdef CONFIG_MACH_LGE
-	wake_lock_timeout(&kpdpwr_irq_wake_lock, HZ/2);
-#endif
 	return IRQ_HANDLED;
 }
 
@@ -676,19 +666,15 @@ static int __devinit qpnp_pon_config_init(struct qpnp_pon *pon)
 	int rc = 0, i = 0;
 	struct device_node *pp = NULL;
 	struct qpnp_pon_config *cfg;
-#ifdef CONFIG_MACH_LGE
 	int disable = 0;
-#endif
 
 	/* iterate through the list of pon configs */
 	while ((pp = of_get_next_child(pon->spmi->dev.of_node, pp))) {
 
-#ifdef CONFIG_MACH_LGE
 		rc = of_property_read_u32(pp, "qcom,disable", &disable);
 		if (!rc && disable)
 			continue;
 		pr_debug("%s: &pon->pon_cfg[%d]\n", __func__, i);
-#endif
 
 		cfg = &pon->pon_cfg[i++];
 
@@ -888,9 +874,6 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 	struct device_node *itr = NULL;
 	u32 delay = 0;
 	int rc, sys_reset;
-#ifdef CONFIG_MACH_LGE
-	int disable = 0;
-#endif
 
 	pon = devm_kzalloc(&spmi->dev, sizeof(struct qpnp_pon),
 							GFP_KERNEL);
@@ -910,20 +893,14 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 
 	pon->spmi = spmi;
 
-#ifdef CONFIG_MACH_LGE
 	/* get the total number of pon configurations */
 	while ((itr = of_get_next_child(spmi->dev.of_node, itr))) {
 		rc = of_property_read_u32(itr, "qcom,disable", &disable);
-		if (rc || disable == 0)
-			pon->num_pon_config++;
+		if (!rc && disable)
+			continue;
+		pon->num_pon_config++;
 	}
 	pr_debug("%s: num_pon_config %d\n", __func__, pon->num_pon_config);
-#else
-	/* get the total number of pon configurations */
-	while ((itr = of_get_next_child(spmi->dev.of_node, itr)))
-		pon->num_pon_config++;
-#endif
-
 
 	if (!pon->num_pon_config) {
 		/* No PON config., do not register the driver */
@@ -972,9 +949,6 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
-#ifdef CONFIG_MACH_LGE
-	wake_lock_init(&kpdpwr_irq_wake_lock, WAKE_LOCK_SUSPEND, "kpdpwr_irq");
-#endif
 	return rc;
 }
 
@@ -983,9 +957,6 @@ static int qpnp_pon_remove(struct spmi_device *spmi)
 	struct qpnp_pon *pon = dev_get_drvdata(&spmi->dev);
 
 	cancel_delayed_work_sync(&pon->bark_work);
-#ifdef CONFIG_MACH_LGE
-	wake_lock_destroy(&kpdpwr_irq_wake_lock);
-#endif
 
 	if (pon->pon_input)
 		input_unregister_device(pon->pon_input);
