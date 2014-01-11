@@ -59,6 +59,9 @@ if [ ! -f $KERNELDIR/.config ]; then
 	sh load_config.sh
 fi;
 
+# get version from config
+GETVER=`grep 'Kernel-.*-V' .config |sed 's/Kernel-//g' | sed 's/.*".//g' | sed 's/-L.*//g'`;
+
 cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/dorimanx_defconfig;
 
 # remove all old modules before compile
@@ -136,7 +139,7 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 
 	# create the flashable zip file from the contents of the output directory
 	echo "Make flashable zip..........."
-	zip -r Dorimanx-LG-G2-D802-Kernel.zip * >/dev/null
+	zip -r Kernel-${GETVER}-`date +"[%H-%M]-[%d-%m]-LG-D802-PWR-CORE"`.zip * >/dev/null
 	stat boot.img
 	rm -f *.img
 	cd ..
