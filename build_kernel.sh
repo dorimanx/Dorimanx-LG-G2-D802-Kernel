@@ -18,6 +18,7 @@ clear
 
 #--project/				(progect container folder)
 #------LG-G2-D802-Ramdisk/		(ramdisk files for boot.img)
+#------ramdisk-tmp			(ramdisk tmp store without .git)
 #------dorimanx-LG-G2-D802-Kernel/	(kernel source goes here)
 #--------READY-KERNEL/			(output directory, where the final boot.img and modules are placed)
 #----------meta-inf/			(meta-inf folder for your flashable zip)
@@ -38,6 +39,14 @@ rm -f $KERNELDIR/READY-KERNEL/*.img
 rm -f $KERNELDIR/READY-KERNEL/system/lib/modules/*.ko
 mkdir -p $KERNELDIR/READY-KERNEL/boot
 mkdir -p ../LG-G2-D802-Ramdisk/lib/modules/
+
+if [ -d ../ramdisk-tmp ]; then
+	rm -rf ../ramdisk-tmp/*
+else
+	mkdir ../ramdisk-tmp
+	chown root:root ../ramdisk-tmp
+	chmod 777 ../ramdisk-tmp
+fi
 
 #force regeneration of .dtb and zImage files for every compile
 rm -f arch/arm/boot/*.dtb
@@ -108,7 +117,9 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 
 	# create the ramdisk and move it to the output working directory
 	echo "Create ramdisk..............."
-	scripts/mkbootfs ../LG-G2-D802-Ramdisk | gzip > ramdisk.gz 2>/dev/null
+	cp -a ../LG-G2-D802-Ramdisk/* ../ramdisk-tmp/
+	rm -rf ../ramdisk-tmp/.git
+	scripts/mkbootfs ../ramdisk-tmp | gzip > ramdisk.gz 2>/dev/null
 	mv ramdisk.gz READY-KERNEL/boot
 
 	# clean modules from ramdisk.
