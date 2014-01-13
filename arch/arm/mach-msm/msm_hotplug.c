@@ -23,6 +23,8 @@
 #include <linux/lcd_notify.h>
 #include <linux/input.h>
 
+#include "acpuclock.h"
+
 #define MSM_HOTPLUG		"msm_hotplug"
 #define DEFAULT_UPDATE_RATE	HZ / 10
 #define START_DELAY		HZ * 20
@@ -169,6 +171,26 @@ static void handle_lock_timer(unsigned long data)
 }
 EXPORT_SYMBOL_GPL(handle_lock_timer);
 
+static int get_slowest_cpu(void)
+{
+	int cpu, slowest_cpu = 0;
+	unsigned int lowest_rate = UINT_MAX;
+	unsigned int rate[NR_CPUS];
+
+	for_each_online_cpu(cpu) {
+		if (cpu == 0)
+			continue;
+		rate[cpu] = acpuclk_get_rate(cpu);
+		if (rate[cpu] < lowest_rate) {
+			lowest_rate = rate[cpu];
+			slowest_cpu = cpu;
+		}
+	}
+
+	return slowest_cpu;
+}
+EXPORT_SYMBOL_GPL(get_slowest_cpu);
+
 static void __ref cpu_up_work(struct work_struct *work)
 {
 	int cpu;
@@ -188,18 +210,17 @@ EXPORT_SYMBOL_GPL(cpu_up_work);
 
 static void cpu_down_work(struct work_struct *work)
 {
-	int cpu;
+	int cpu, slowest_cpu;
 	unsigned int target;
-
-	if (hotplug.down_lock)
-		return;
 
 	target = hotplug.target_cpus;
 
 	for_each_online_cpu(cpu) {
 		if (cpu == 0)
 			continue;
-		cpu_down(cpu);
+		slowest_cpu = get_slowest_cpu();
+		if (slowest_cpu)
+			cpu_down(slowest_cpu);
 		if (target == num_online_cpus())
 			break;
 	}
@@ -208,6 +229,9 @@ EXPORT_SYMBOL_GPL(cpu_down_work);
 
 static void online_cpu(unsigned int target)
 {
+	if (stats.total_cpus == num_online_cpus())
+		return;
+
 	apply_down_lock();
 	hotplug.target_cpus = target;
 	queue_work_on(0, hotplug_wq, &hotplug.up_work);
@@ -216,6 +240,12 @@ EXPORT_SYMBOL_GPL(online_cpu);
 
 static void offline_cpu(unsigned int target)
 {
+	if (hotplug.down_lock)
+		return;
+
+	if (stats.min_cpus == num_online_cpus())
+		return;
+
 	hotplug.target_cpus = target;
 	queue_work_on(0, hotplug_wq, &hotplug.down_work);
 }
@@ -238,7 +268,7 @@ static void msm_hotplug_work(struct work_struct *work)
 	cur_load = st->current_load;
 	online_cpus = st->online_cpus;
 
-	/* if nr of cpus locked, break out early */
+	/* If nr of cpus locked, break out early */
 	if (hp->min_cpus_online == num_possible_cpus()) {
 		if (online_cpus != hp->min_cpus_online)
 			online_cpu(hp->min_cpus_online);
@@ -345,6 +375,7 @@ static int lcd_notifier_callback(struct notifier_block *nb,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(lcd_notifier_callback);
 
 static void hotplug_input_event(struct input_handle *handle, unsigned int type,
 				unsigned int code, int value)
@@ -696,6 +727,7 @@ static int __init msm_hotplug_init(void)
 	int ret = 0;
 	struct cpu_stats *st = &stats;
 	struct cpu_hotplug *hp = &hotplug;
+	struct kobject *module_kobj;
 
 	hotplug_wq = alloc_workqueue("msm_hotplug_wq", WQ_HIGHPRI, 0);
 	if (!hotplug_wq) {
@@ -710,7 +742,28 @@ static int __init msm_hotplug_init(void)
 
 	hotplug.notif.notifier_call = lcd_notifier_callback;
 	if (lcd_register_client(&hotplug.notif) != 0)
-		pr_err("%s: LCD notifier callback failed\n", __func__);
+		return pr_err("%s: Register LCD notifier callback failed\n",
+			      MSM_HOTPLUG);
+
+	module_kobj = kset_find_obj(module_kset, MSM_HOTPLUG);
+	if (!module_kobj)
+		return pr_err("%s: Cannot find kobject for module\n", MSM_HOTPLUG);
+
+	ret = sysfs_create_group(module_kobj, &attr_group);
+	if (ret)
+		return pr_err("%s: Creation of sysfs failed: %d\n", MSM_HOTPLUG,
+			      ret);
+
+	ret = input_register_handler(&hotplug_input_handler);
+	if (ret)
+		return pr_err("%s: Failed to register input handler: %d\n",
+			      MSM_HOTPLUG, ret);
+
+	st->load_hist = kmalloc(sizeof(st->hist_size), GFP_KERNEL);
+	if (!st->load_hist)
+		return -ENOMEM;
+
+	setup_timer(&hp->lock_timer, handle_lock_timer, 0);
 
 	INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
 	INIT_WORK(&hp->up_work, cpu_up_work);
@@ -719,12 +772,6 @@ static int __init msm_hotplug_init(void)
 	INIT_WORK(&hp->resume_work, msm_hotplug_resume);
 
 	queue_delayed_work_on(0, hotplug_wq, &hotplug_work, START_DELAY);
-
-	st->load_hist = kmalloc(sizeof(st->hist_size), GFP_KERNEL);
-	if (!st->load_hist)
-		return -ENOMEM;
-
-	setup_timer(&hp->lock_timer, handle_lock_timer, 0);
 
 	return ret;
 }
@@ -740,28 +787,12 @@ static struct platform_device msm_hotplug_device = {
 static int __init msm_hotplug_device_init(void)
 {
 	int ret;
-	struct kobject *module_kobj;
 
 	ret = platform_device_register(&msm_hotplug_device);
 	if (ret) {
 		pr_err("%s: Device init failed: %d\n", MSM_HOTPLUG, ret);
 		return ret;
 	}
-
-	module_kobj = kset_find_obj(module_kset, MSM_HOTPLUG);
-	if (!module_kobj) {
-		pr_err("%s: Cannot find kobject for module\n", MSM_HOTPLUG);
-		return -ENOENT;
-	}
-
-	ret = sysfs_create_group(module_kobj, &attr_group);
-	if (ret)
-		return pr_err("%s: Creation of sysfs: %d\n", MSM_HOTPLUG, ret);
-
-	ret = input_register_handler(&hotplug_input_handler);
-	if (ret)
-		return pr_err("%s: Faileds to register input handler: %d\n",
-			      MSM_HOTPLUG, ret);
 
 	pr_info("%s: Device init\n", MSM_HOTPLUG);
 
