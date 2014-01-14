@@ -54,3 +54,6 @@ obj-$(CONFIG_ARM_OMAP2PLUS_CPUFREQ)     += omap-cpufreq.o
 # PowerPC platform drivers
 obj-$(CONFIG_CPU_FREQ_MAPLE)		+= maple-cpufreq.o
 obj-$(CONFIG_MSM_DCVS)			+= cpufreq_gov_msm.o
+
+# FREQ LIMIT CONTROL
+obj-$(CONFIG_MSM_CPUFREQ_LIMITER) += cpufreq_limit.o

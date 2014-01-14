@@ -34,24 +34,11 @@ choice
 
 endchoice
 
-config CPU_OC
-    bool "Enable 2.419 Ghz CPU Overclock"
-    help
-	Enabled CPU overclocking to 2.419 Ghz per core
-	
-
-config CPU_VOLTAGE_TABLE
-	bool "Enable CPU Voltage Table via sysfs for adjustements"
-	default n
-	help
-	  Krait CPU User Votlage Control
-	  
-
 config MSM_KGSL_SIMPLE_GOV
-        bool "Simple KGSL GPU govenor for Qualcomm Adreno xxx devices"
-        default n
-        depends on MSM_KGSL
-        ---help---
-         A simple KGSL GPU govenor for Qualcom Adreno XXX devices
+	bool "Simple KGSL GPU govenor for Qualcomm Adreno xxx devices"
+	default y
+	depends on MSM_KGSL
+	---help---
+	  A simple KGSL GPU govenor for Qualcom Adreno XXX devices
 
 #endmenu

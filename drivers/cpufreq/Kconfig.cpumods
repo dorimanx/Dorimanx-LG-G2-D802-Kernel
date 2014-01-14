@@ -1,0 +1,25 @@
+#menu "CPU Controls"
+
+config CPU_OC
+    bool "Enable 2.496 Ghz CPU Overclock"
+    help
+	Enabled CPU overclocking to 2.419 Ghz per core
+	
+config CPU_VOLTAGE_TABLE
+	bool "Enable CPU Voltage Table via sysfs for adjustements"
+	default n
+	help
+	  Krait CPU User Votlage Control
+
+config MSM_CPUFREQ_LIMITER
+	tristate "MSM CPU frequency limiter"
+	default n
+	help
+	  This driver limits MSM CPU frequency through sysfs file system.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called cpufreq_stats.
+
+	  If in doubt, say N.
+
+#endmenu

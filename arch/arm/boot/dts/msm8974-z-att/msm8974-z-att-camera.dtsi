@@ -132,7 +132,7 @@
 					"flash0_trigger";
 				qcom,id = <1>;
 				linux,name = "led:flash_0";
-				qcom,current = <650>;
+				qcom,current = <750>;
 			};
 
 			pm8941_flash1: qcom,flash_1 {
@@ -148,7 +148,7 @@
 				label = "flash";
 				qcom,id = <2>;
 				linux,name = "led:flash_1";
-				qcom,current = <650>;
+				qcom,current = <750>;
 			};
 
 			pm8941_torch: qcom,flash_torch {
