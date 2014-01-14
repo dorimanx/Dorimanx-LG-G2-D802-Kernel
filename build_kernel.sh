@@ -81,6 +81,8 @@ fi;
 # build zImage
 time make -j ${NR_CPUS}
 
+cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/dorimanx_defconfig;
+
 stat $KERNELDIR/arch/arm/boot/zImage || exit 1;
 
 # compile the modules, and depmod to create the final zImage
