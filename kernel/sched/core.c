@@ -295,16 +295,6 @@ __read_mostly int scheduler_running;
 int sysctl_sched_rt_runtime = 950000;
 
 /*
- * Maximum bandwidth available for all -deadline tasks and groups
- * (if group scheduling is configured) on each CPU.
- *
- * default: 5%
- */
-unsigned int sysctl_sched_dl_period = 1000000;
-int sysctl_sched_dl_runtime = 50000;
-
-
-/*
  * Maximum possible frequency across all cpus. Task demand and cpu
  * capacity (cpu_power) metrics could be scaled in reference to it.
  */
