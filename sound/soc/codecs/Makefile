@@ -222,3 +222,4 @@ obj-$(CONFIG_SND_SOC_TPA6130A2)	+= snd-soc-tpa6130a2.o
 ifeq ($(CONFIG_SND_SOC_ES325_SLIM),y)
 obj-$(CONFIG_SND_SOC_ES325_SLIM) += es325.o
 endif
+obj-$(CONFIG_SOUND_CONTROL_HAX_3_GPL) += sound_control_3_gpl.o

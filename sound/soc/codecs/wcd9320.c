@@ -40,9 +40,9 @@
 #include "wcd9xxx-common.h"
 
 #ifdef CONFIG_SND_SOC_ES325_SLIM
-/*              
-                                   
-                               
+/* LGE_BSP_AUDIO
+* include header for Audience eS325
+* 2013-01-10, jeremy.pi@lge.com
 */
 #include <sound/es325-export.h>
 #endif /* CONFIG_SND_SOC_ES325_SLIM */
@@ -1203,8 +1203,8 @@ static const struct snd_kcontrol_new class_h_dsm_mux =
 
 static const struct snd_kcontrol_new taiko_snd_controls[] = {
 
-/*                                                  
-                                                                                                        
+/* LGE_CHANGED_S 2013.03.12, jungsoo1221.lee@lge.com
+ * change the digital_gain's Min value -84 -> -60, because UCM off-line tunning Issue (Gain Range 0~100)
  */
 #if defined(CONFIG_MACH_LGE)
 	SOC_SINGLE_S8_TLV("RX1 Digital Volume", TAIKO_A_CDC_RX1_VOL_CTL_B2_CTL,
@@ -1279,7 +1279,7 @@ static const struct snd_kcontrol_new taiko_snd_controls[] = {
 	SOC_SINGLE_S8_TLV("DEC10 Volume", TAIKO_A_CDC_TX10_VOL_CTL_GAIN, -84,
 		40, digital_gain),
 #endif
-/*                                                   */
+/* LGE_CHANGED_E 2013.03.12, jungsoo1221.lee@lge.com */
 
 	SOC_SINGLE_S8_TLV("IIR1 INP1 Volume", TAIKO_A_CDC_IIR1_GAIN_B1_CTL, -84,
 		40, digital_gain),
@@ -4064,10 +4064,51 @@ static int taiko_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 	return 0;
 }
 
-static int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
-	unsigned int value)
+#ifndef CONFIG_SOUND_CONTROL_HAX_3_GPL
+static
+#endif
+unsigned int taiko_read(struct snd_soc_codec *codec,
+                                unsigned int reg)
+{
+        unsigned int val;
+        int ret;
+
+	if (reg == SND_SOC_NOPM)
+		return 0;
+
+	BUG_ON(reg > TAIKO_MAX_REGISTER);
+
+	 if (!taiko_volatile(codec, reg) && taiko_readable(codec, reg) &&
+                reg < codec->driver->reg_cache_size) {
+                ret = snd_soc_cache_read(codec, reg, &val);
+                if (ret >= 0) {
+                        return val;
+                } else
+                        dev_err(codec->dev, "Cache read from %x failed: %d\n",
+				reg, ret);
+	}
+
+	val = wcd9xxx_reg_read(codec->control_data, reg);
+        return val;
+}
+#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
+EXPORT_SYMBOL(taiko_read);
+#endif
+
+#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
+extern int reg_access(unsigned int);
+#endif
+
+#ifndef CONFIG_SOUND_CONTROL_HAX_3_GPL
+static
+#endif
+int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
+        unsigned int value)
 {
 	int ret;
+#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
+        int val;
+#endif
 
 	if (reg == SND_SOC_NOPM)
 		return 0;
@@ -4075,38 +4116,25 @@ static int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
 	BUG_ON(reg > TAIKO_MAX_REGISTER);
 
 	if (!taiko_volatile(codec, reg)) {
-		ret = snd_soc_cache_write(codec, reg, value);
-		if (ret != 0)
-			dev_err(codec->dev, "Cache write to %x failed: %d\n",
+                ret = snd_soc_cache_write(codec, reg, value);
+                if (ret != 0)
+                        dev_err(codec->dev, "Cache write to %x failed: %d\n",
 				reg, ret);
 	}
 
-	return wcd9xxx_reg_write(codec->control_data, reg, value);
+#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
+        if (!reg_access(reg))
+                val = wcd9xxx_reg_read_safe(codec->control_data, reg);
+        else
+                val = value;
+        return wcd9xxx_reg_write(codec->control_data, reg, val);
+#else
+        return wcd9xxx_reg_write(codec->control_data, reg, value);
+#endif
 }
-static unsigned int taiko_read(struct snd_soc_codec *codec,
-				unsigned int reg)
-{
-	unsigned int val;
-	int ret;
-
-	if (reg == SND_SOC_NOPM)
-		return 0;
-
-	BUG_ON(reg > TAIKO_MAX_REGISTER);
-
-	if (!taiko_volatile(codec, reg) && taiko_readable(codec, reg) &&
-		reg < codec->driver->reg_cache_size) {
-		ret = snd_soc_cache_read(codec, reg, &val);
-		if (ret >= 0) {
-			return val;
-		} else
-			dev_err(codec->dev, "Cache read from %x failed: %d\n",
-				reg, ret);
-	}
-
-	val = wcd9xxx_reg_read(codec->control_data, reg);
-	return val;
-}
+#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
+EXPORT_SYMBOL(taiko_write);
+#endif
 
 static int taiko_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
@@ -4627,9 +4655,9 @@ static int taiko_hw_params(struct snd_pcm_substream *substream,
 }
 
 #ifdef CONFIG_SND_SOC_ES325_SLIM
-/*              
-                                                           
-                               
+/* LGE_BSP_AUDIO
+* funciotn overide for Audience eS325 ALSA SoC Audio driver
+* 2013-01-10, jeremy.pi@lge.com
 */
 static int es325_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params,
@@ -4944,19 +4972,19 @@ static int taiko_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 					      dai->rate, dai->bit_width,
 					      &dai->grph);
 #ifdef CONFIG_SND_SOC_ES325_SLIM
-		/*              
-                                                    
-                                 
-  */
+		/* LGE_BSP_AUDIO
+		* configurated to enable slim rx of Audience eS325
+		* 2013-01-10, jeremy.pi@lge.com
+		*/
 		ret = es325_remote_cfg_slim_rx(taiko_dai[w->shift].id);
 #endif /* CONFIG_SND_SOC_ES325_SLIM */
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 #ifdef CONFIG_SND_SOC_ES325_SLIM
-		/*              
-                                                     
-                                 
-  */
+		/* LGE_BSP_AUDIO
+		* configurated to disable slim rx of Audience eS325
+		* 2013-01-10, jeremy.pi@lge.com
+		*/
 		ret = es325_remote_close_slim_rx(taiko_dai[w->shift].id);
 #endif /* CONFIG_SND_SOC_ES325_SLIM */
 		ret = wcd9xxx_close_slim_sch_rx(core, &dai->wcd9xxx_ch_list,
@@ -5082,19 +5110,19 @@ static int taiko_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 					      dai->rate, dai->bit_width,
 					      &dai->grph);
 #ifdef CONFIG_SND_SOC_ES325_SLIM
-		/*              
-                                                    
-                                 
-  */
+		/* LGE_BSP_AUDIO
+		* configurated to enable slim tx of Audience eS325
+		* 2013-01-10, jeremy.pi@lge.com
+		*/
 		ret = es325_remote_cfg_slim_tx(taiko_dai[w->shift].id);
 #endif /* CONFIG_SND_SOC_ES325_SLIM */
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 #ifdef CONFIG_SND_SOC_ES325_SLIM
-		/*              
-                                                     
-                                 
-  */
+		/* LGE_BSP_AUDIO
+		* configurated to disable slim tx of Audience eS325
+		* 2013-01-10, jeremy.pi@lge.com
+		*/
 		ret = es325_remote_close_slim_tx(taiko_dai[w->shift].id);
 #endif /* CONFIG_SND_SOC_ES325_SLIM */
 		ret = wcd9xxx_close_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
@@ -6495,6 +6523,11 @@ static struct regulator *taiko_codec_find_regulator(struct snd_soc_codec *codec,
 	return NULL;
 }
 
+#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
+struct snd_soc_codec *fauxsound_codec_ptr;
+EXPORT_SYMBOL(fauxsound_codec_ptr);
+#endif
+
 static int taiko_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
@@ -6506,6 +6539,11 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	int i, rco_clk_rate;
 	void *ptr = NULL;
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
+
+#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
+        pr_info("taiko codec probe...\n");
+        fauxsound_codec_ptr = codec;
+#endif
 
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	control = codec->control_data;
@@ -6599,10 +6637,10 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	}
 
 #ifdef CONFIG_SND_SOC_ES325_SLIM
-	/*              
-                                       
-                                
- */
+	/* LGE_BSP_AUDIO
+	* add codec control for Audience eS325
+	* 2013-01-10, jeremy.pi@lge.com
+	*/
 	es325_remote_add_codec_controls(codec);
 #endif /* CONFIG_SND_SOC_ES325_SLIM */
 
