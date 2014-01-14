@@ -25,7 +25,6 @@ struct bq24192_platform_data {
 	int pre_chg_current_ma;
 	int sys_vmin_mv;
 	int vin_limit_mv;
-	int icl_vbus_mv;
 };
 
 extern int32_t bq24192_is_ready(void);

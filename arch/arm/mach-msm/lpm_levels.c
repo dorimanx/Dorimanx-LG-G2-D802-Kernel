@@ -30,11 +30,7 @@ enum {
 
 #define MAX_STR_LEN 30
 
-#ifdef CONFIG_MACH_MSM8974_VU3_KR
-static int msm_lpm_lvl_dbg_msk = 1;
-#else
 static int msm_lpm_lvl_dbg_msk;
-#endif
 
 module_param_named(
 	debug_mask, msm_lpm_lvl_dbg_msk, int, S_IRUGO | S_IWUSR | S_IWGRP

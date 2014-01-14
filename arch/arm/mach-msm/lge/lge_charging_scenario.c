@@ -33,8 +33,8 @@ static int time_order = 1;
 static struct batt_temp_table chg_temp_table[CHG_MAXIDX] = {
 	{INT_MIN,        -9,    CHG_BATTEMP_BL_M11},
 	{     -8,        -5,    CHG_BATTEMP_M10_M5},
-	{     -4,        41,    CHG_BATTEMP_M4_41},
-	{     42,        45,    CHG_BATTEMP_42_45},
+	{     -4,        43,    CHG_BATTEMP_M4_41},
+	{     44,        45,    CHG_BATTEMP_42_45},
 	{     46,        53,    CHG_BATTEMP_46_OT},
 	{     54,   INT_MAX,    CHG_BATTEMP_AB_OT},
 };
@@ -151,9 +151,6 @@ void lge_monitor_batt_temp(struct charging_info req, struct charging_rsp *res)
 {
 	enum lge_battemp_states battemp_state;
 	enum lge_charging_states pre_state;
-#ifdef CONFIG_SMB349_VZW_FAST_CHG
-	int state = 0;
-#endif
 #ifdef DEBUG_LCS
 #ifdef DEBUG_LCS_DUMMY_TEMP
 	if (time_order == 1) {
@@ -171,23 +168,14 @@ void lge_monitor_batt_temp(struct charging_info req, struct charging_rsp *res)
 #endif
 
 	if (change_charger ^ req.is_charger) {
-#ifdef CONFIG_SMB349_VZW_FAST_CHG
-		state = 1;
-		pr_info("STATE : %d\n", state);
-#endif
 		change_charger = req.is_charger;
 		if (req.is_charger) {
 			charging_state = CHG_BATT_NORMAL_STATE;
 			res->force_update = true;
 		} else
 			res->force_update = false;
-	} else {
-#ifdef CONFIG_SMB349_VZW_FAST_CHG
-		state = 0;
-		pr_info("STATE : %d\n", state);
-#endif
+	} else 
 		res->force_update = false;
-	}
 
 	pre_state = charging_state;
 
@@ -203,13 +191,7 @@ void lge_monitor_batt_temp(struct charging_info req, struct charging_rsp *res)
 
 #ifdef CONFIG_LGE_THERMALE_CHG_CONTROL
 	if (charging_state == CHG_BATT_NORMAL_STATE) {
-#ifdef CONFIG_SMB349_VZW_FAST_CHG
-		if (state == 1)
-			res->dc_current = 1600;
-		else if (req.chg_current_te <= req.chg_current_ma)
-#else
-	    if (req.chg_current_te <= req.chg_current_ma)
-#endif
+		if (req.chg_current_te <= req.chg_current_ma)
 			res->dc_current = req.chg_current_te;
 		else
 			res->dc_current = req.chg_current_ma;

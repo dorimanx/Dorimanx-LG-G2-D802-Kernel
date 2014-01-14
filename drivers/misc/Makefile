@@ -77,3 +77,4 @@ obj-$(CONFIG_BU52031NVX) += pm8xxx-cradle.o
 obj-$(CONFIG_BU52031NVX_CARKIT) += pm8xxx-carkit.o
 obj-$(CONFIG_TSPDRV) += tspdrv/
 obj-$(CONFIG_LGE_IRDA_KDDI)	+= lge_irtty-kddi.o
+obj-$(CONFIG_BLX)	+= blx.o
