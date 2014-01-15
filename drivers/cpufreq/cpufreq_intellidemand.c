@@ -43,12 +43,12 @@
 
 #define DEF_SAMPLING_RATE                        (50000)
 #define DEF_FREQUENCY_DOWN_DIFFERENTIAL                (10)
-#define DEF_FREQUENCY_UP_THRESHOLD                (80)
+#define DEF_FREQUENCY_UP_THRESHOLD                (60)
 #define DEF_SAMPLING_DOWN_FACTOR                (1)
 #define MAX_SAMPLING_DOWN_FACTOR                (100000)
 #define MICRO_FREQUENCY_DOWN_DIFFERENTIAL        (3)
-#define MICRO_FREQUENCY_UP_THRESHOLD                (95)
-#define MICRO_FREQUENCY_MIN_SAMPLE_RATE                (10000)
+#define MICRO_FREQUENCY_UP_THRESHOLD                (70)
+#define MICRO_FREQUENCY_MIN_SAMPLE_RATE                (5000)
 #define MIN_FREQUENCY_UP_THRESHOLD                (11)
 #define MAX_FREQUENCY_UP_THRESHOLD                (100)
 #define MIN_FREQUENCY_DOWN_DIFFERENTIAL                (1)
@@ -59,8 +59,8 @@
 #define DBS_UI_SAMPLING_TIMEOUT                        (80)
 
 #define DEF_FREQ_STEP                                (25)
-#define DEF_STEP_UP_EARLY_HISPEED                (1190400)
-#define DEF_STEP_UP_INTERIM_HISPEED                (1728000)
+#define DEF_STEP_UP_EARLY_HISPEED                (1728000)
+#define DEF_STEP_UP_INTERIM_HISPEED                (1958400)
 #define DEF_SAMPLING_EARLY_HISPEED_FACTOR        (2)
 #define DEF_SAMPLING_INTERIM_HISPEED_FACTOR        (3)
 
@@ -98,7 +98,7 @@ freq_table_idx pre_freq_idx[SUP_CORE_NUM] = {};
 
 #define SUP_SLOW_UP_FREQUENCY                 (1574400)
 #define SUP_HIGH_SLOW_UP_FREQUENCY         (1728000)
-#define SUP_SLOW_UP_LOAD                 (90)
+#define SUP_SLOW_UP_LOAD                 (80)
 
 typedef struct {
         unsigned int hist_max_load[SUP_SLOW_UP_DUR];
