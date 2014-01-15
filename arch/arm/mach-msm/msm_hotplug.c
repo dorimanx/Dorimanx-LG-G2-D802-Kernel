@@ -32,7 +32,6 @@
 #define MIN_INPUT_INTERVAL	150 * 1000L
 #define DEFAULT_HISTORY_SIZE	10
 #define DEFAULT_DOWN_LOCK_DUR	2500
-#define DEFAULT_SUSPEND_FREQ	1036800
 #define DEFAULT_NR_CPUS_BOOSTED	2
 #define DEFAULT_MIN_CPUS_ONLINE	1
 #define DEFAULT_MAX_CPUS_ONLINE	NR_CPUS
@@ -61,15 +60,12 @@ static struct cpu_hotplug {
 	struct work_struct resume_work;
 	struct timer_list lock_timer;
 	struct notifier_block notif;
-	bool screen_on;
 } hotplug = {
-	.suspend_freq = DEFAULT_SUSPEND_FREQ,
 	.min_cpus_online = DEFAULT_MIN_CPUS_ONLINE,
 	.max_cpus_online = DEFAULT_MAX_CPUS_ONLINE,
 	.cpus_boosted = DEFAULT_NR_CPUS_BOOSTED,
 	.down_lock = 0,
-	.down_lock_dur = DEFAULT_DOWN_LOCK_DUR,
-	.screen_on = true
+	.down_lock_dur = DEFAULT_DOWN_LOCK_DUR
 };
 
 static struct workqueue_struct *hotplug_wq;
@@ -91,24 +87,6 @@ static struct cpu_stats {
 	.hist_size = DEFAULT_HISTORY_SIZE,
 	.min_cpus = 1,
 	.total_cpus = NR_CPUS
-};
-
-static int msm_hotplug_cpufreq_callback(struct notifier_block *nfb,
-					unsigned long event, void *data)
-{
-	struct cpufreq_policy *policy = data;
-
-	switch (event) {
-	case CPUFREQ_INCOMPATIBLE:
-		cpufreq_verify_within_cpu_limits(policy);
-		break;
-	}
-	return NOTIFY_OK;
-}
-EXPORT_SYMBOL_GPL(msm_hotplug_cpufreq_callback);
-
-static struct notifier_block msm_hotplug_cpufreq_notifier = {
-	.notifier_call = msm_hotplug_cpufreq_callback,
 };
 
 extern unsigned int report_load_at_max_freq(void);
@@ -307,73 +285,19 @@ reschedule:
 }
 EXPORT_SYMBOL_GPL(msm_hotplug_work);
 
-static void msm_hotplug_suspend(struct work_struct *work)
+static void msm_hotplug_resume_work(struct work_struct *work)
 {
-	unsigned int cpu = 0;
-
-	hotplug.screen_on = 0;
-
-	flush_workqueue(hotplug_wq);
-	cancel_delayed_work_sync(&hotplug_work);
-
-	hotplug.down_lock = 0;
-	offline_cpu(stats.min_cpus);
-
-	get_online_cpus();
-	for_each_online_cpu(cpu) {
-		if (cpufreq_update_policy(cpu))
-			pr_info("%s: Unable to update policy for cpu:%d\n",
-				MSM_HOTPLUG, cpu);
-	}
-	put_online_cpus();
-
-	pr_info("%s: Suspend - max freq: %dMHz\n", MSM_HOTPLUG,
-		hotplug.suspend_freq / 1000);
-}
-EXPORT_SYMBOL_GPL(msm_hotplug_suspend);
-
-static void msm_hotplug_resume(struct work_struct *work)
-{
-	unsigned int cpu = 0;
-	struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
-
-	if (!policy)
-		return;
-
-	hotplug.screen_on = 1;
-
 	online_cpu(stats.total_cpus);
-
-	get_online_cpus();
-	for_each_online_cpu(cpu) {
-		if (cpufreq_update_policy(cpu))
-			pr_info("%s: Unable to update policy for cpu:%d\n",
-				MSM_HOTPLUG, cpu);
-	}
-	put_online_cpus();
-
-	pr_info("%s: Resume - restore max frequency: %dMHz\n",
-		MSM_HOTPLUG, policy->max / 1000);
-
-	reschedule_hotplug_work();
 }
 EXPORT_SYMBOL_GPL(msm_hotplug_resume);
 
 static int lcd_notifier_callback(struct notifier_block *nb,
-				 unsigned long event, void *data)
+                                 unsigned long event, void *data)
 {
-	switch (event) {
-	case LCD_EVENT_ON_START:
+        if (event == LCD_EVENT_ON_START)
 		schedule_work(&hotplug.resume_work);
-		break;
-	case LCD_EVENT_OFF_END:
-		schedule_work(&hotplug.suspend_work);
-		break;
-	default:
-		break;
-	}
 
-	return 0;
+        return 0;
 }
 EXPORT_SYMBOL_GPL(lcd_notifier_callback);
 
@@ -451,33 +375,6 @@ static struct input_handler hotplug_input_handler = {
 };
 
 /************************** sysfs interface ************************/
-
-static ssize_t show_suspend_freq(struct device *dev,
-				 struct device_attribute *msm_hotplug_attrs,
-				 char *buf)
-{
-	return sprintf(buf, "%u\n", hotplug.suspend_freq);
-}
-
-static ssize_t store_suspend_freq(struct device *dev,
-				  struct device_attribute *msm_hotplug_attrs,
-				  const char *buf, size_t count)
-{
-	unsigned int ret;
-	unsigned int val = 0, cpu = 0;
-	struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
-
-	if (!policy)
-		return -EINVAL;
-
-	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val < policy->min || val > policy->max)
-		return -EINVAL;
-
-	hotplug.suspend_freq = val;
-
-	return ret;
-}
 
 static ssize_t show_down_lock_duration(struct device *dev,
 				       struct device_attribute
@@ -575,7 +472,6 @@ static ssize_t store_history_size(struct device *dev,
 	int ret;
 	unsigned int val;
 	struct cpu_stats *st = &stats;
-	struct cpu_hotplug *hp = &hotplug;
 
 	ret = sscanf(buf, "%u", &val);
 	if (ret != 1 || val == 0)
@@ -591,8 +487,7 @@ static ssize_t store_history_size(struct device *dev,
 	if (!st->load_hist)
 		return -ENOMEM;
 
-	if (!hp->screen_on)
-		reschedule_hotplug_work();
+	reschedule_hotplug_work();
 
 	return ret;
 }
@@ -680,17 +575,9 @@ static ssize_t show_current_load(struct device *dev,
 				 struct device_attribute *msm_hotplug_attrs,
 				 char *buf)
 {
-	unsigned int load;
-
-	if (hotplug.screen_on)
-		load = 0;
-	else
-		load = stats.current_load;
-
-	return sprintf(buf, "%u\n", load);
+	return sprintf(buf, "%u\n", stats.current_load);
 }
 
-static DEVICE_ATTR(suspend_freq, 644, show_suspend_freq, store_suspend_freq);
 static DEVICE_ATTR(down_lock_duration, 644, show_down_lock_duration,
 		   store_down_lock_duration);
 static DEVICE_ATTR(update_rate, 644, show_update_rate, store_update_rate);
@@ -704,7 +591,6 @@ static DEVICE_ATTR(cpus_boosted, 644, show_cpus_boosted, store_cpus_boosted);
 static DEVICE_ATTR(current_load, 444, show_current_load, NULL);
 
 static struct attribute *msm_hotplug_attrs[] = {
-	&dev_attr_suspend_freq.attr,
 	&dev_attr_down_lock_duration.attr,
 	&dev_attr_update_rate.attr,
 	&dev_attr_load_levels.attr,
@@ -722,75 +608,110 @@ static struct attribute_group attr_group = {
 
 /************************** sysfs end ************************/
 
-static int __init msm_hotplug_init(void)
+static int __devinit msm_hotplug_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct cpu_stats *st = &stats;
 	struct cpu_hotplug *hp = &hotplug;
 	struct kobject *module_kobj;
 
-	hotplug_wq = alloc_workqueue("msm_hotplug_wq", WQ_HIGHPRI, 0);
+	hotplug_wq =
+	    alloc_workqueue("msm_hotplug_wq", WQ_HIGHPRI | WQ_FREEZABLE, 0);
 	if (!hotplug_wq) {
 		pr_err("%s: Creation of hotplug work failed\n", MSM_HOTPLUG);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto err_out;
 	}
 
-	ret = cpufreq_register_notifier(&msm_hotplug_cpufreq_notifier,
-					CPUFREQ_POLICY_NOTIFIER);
-	if (ret)
-		pr_err("%s: Cannot register cpufreq notifier\n", MSM_HOTPLUG);
-
-	hotplug.notif.notifier_call = lcd_notifier_callback;
-	if (lcd_register_client(&hotplug.notif) != 0)
-		return pr_err("%s: Register LCD notifier callback failed\n",
-			      MSM_HOTPLUG);
-
 	module_kobj = kset_find_obj(module_kset, MSM_HOTPLUG);
-	if (!module_kobj)
-		return pr_err("%s: Cannot find kobject for module\n", MSM_HOTPLUG);
+	if (!module_kobj) {
+		pr_err("%s: Cannot find kobject for module\n", MSM_HOTPLUG);
+		goto err_dev;
+	}
 
 	ret = sysfs_create_group(module_kobj, &attr_group);
-	if (ret)
-		return pr_err("%s: Creation of sysfs failed: %d\n", MSM_HOTPLUG,
-			      ret);
+	if (ret) {
+		pr_err("%s: Creation of sysfs failed: %d\n", MSM_HOTPLUG, ret);
+		goto err_dev;
+	}
+
+	hotplug.notif.notifier_call = lcd_notifier_callback;
+        if (lcd_register_client(&hotplug.notif) != 0) {
+                pr_err("%s: Register LCD notifier callback failed\n",
+                       MSM_HOTPLUG);
+		goto err_dev;
+	}
 
 	ret = input_register_handler(&hotplug_input_handler);
-	if (ret)
-		return pr_err("%s: Failed to register input handler: %d\n",
-			      MSM_HOTPLUG, ret);
+	if (ret) {
+		pr_err("%s: Failed to register input handler: %d\n",
+		       MSM_HOTPLUG, ret);
+		goto err_dev;
+	}
 
 	st->load_hist = kmalloc(sizeof(st->hist_size), GFP_KERNEL);
-	if (!st->load_hist)
-		return -ENOMEM;
+	if (!st->load_hist) {
+		pr_err("%s: Failed to allocated memory\n", MSM_HOTPLUG);
+		ret = -ENOMEM;
+		goto err_out;
+	}
 
 	setup_timer(&hp->lock_timer, handle_lock_timer, 0);
 
 	INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
 	INIT_WORK(&hp->up_work, cpu_up_work);
 	INIT_WORK(&hp->down_work, cpu_down_work);
-	INIT_WORK(&hp->suspend_work, msm_hotplug_suspend);
-	INIT_WORK(&hp->resume_work, msm_hotplug_resume);
+	INIT_WORK(&hp->resume_work, msm_hotplug_resume_work);
 
 	queue_delayed_work_on(0, hotplug_wq, &hotplug_work, START_DELAY);
 
 	return ret;
+err_dev:
+	module_kobj = NULL;
+	destroy_workqueue(hotplug_wq);
+err_out:
+	return ret;
 }
-EXPORT_SYMBOL_GPL(msm_hotplug_init);
-
-late_initcall(msm_hotplug_init);
+EXPORT_SYMBOL_GPL(msm_hotplug_probe);
 
 static struct platform_device msm_hotplug_device = {
 	.name = MSM_HOTPLUG,
 	.id = -1,
 };
 
-static int __init msm_hotplug_device_init(void)
+static int msm_hotplug_remove(struct platform_device *pdev)
+{
+	destroy_workqueue(hotplug_wq);
+	input_unregister_handler(&hotplug_input_handler);
+	del_timer(&hotplug.lock_timer);
+	kfree(stats.load_hist);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(msm_hotplug_remove);
+
+static struct platform_driver msm_hotplug_driver = {
+	.probe = msm_hotplug_probe,
+	.remove = msm_hotplug_remove,
+	.driver = {
+		.name = MSM_HOTPLUG,
+		.owner = THIS_MODULE,
+	},
+};
+
+static int __init msm_hotplug_init(void)
 {
 	int ret;
 
+	ret = platform_driver_register(&msm_hotplug_driver);
+	if (ret) {
+		pr_err("%s: Driver register failed: %d\n", MSM_HOTPLUG, ret);
+		return ret;
+	}
+
 	ret = platform_device_register(&msm_hotplug_device);
 	if (ret) {
-		pr_err("%s: Device init failed: %d\n", MSM_HOTPLUG, ret);
+		pr_err("%s: Device register failed: %d\n", MSM_HOTPLUG, ret);
 		return ret;
 	}
 
@@ -798,19 +719,17 @@ static int __init msm_hotplug_device_init(void)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(msm_hotplug_device_init);
+EXPORT_SYMBOL_GPL(msm_hotplug_init);
 
-static void __exit msm_hotplug_device_exit(void)
+static void __exit msm_hotplug_exit(void)
 {
-	destroy_workqueue(hotplug_wq);
-	input_unregister_handler(&hotplug_input_handler);
-	del_timer(&hotplug.lock_timer);
-	kfree(stats.load_hist);
+	platform_device_unregister(&msm_hotplug_device);
+	platform_driver_unregister(&msm_hotplug_driver);
 }
-EXPORT_SYMBOL_GPL(msm_hotplug_device_exit);
+EXPORT_SYMBOL_GPL(msm_hotplug_exit);
 
-late_initcall(msm_hotplug_device_init);
-module_exit(msm_hotplug_device_exit);
+late_initcall(msm_hotplug_init);
+module_exit(msm_hotplug_exit);
 
 MODULE_AUTHOR("Fluxi <linflux@arcor.de>");
 MODULE_DESCRIPTION("MSM Hotplug Driver");
