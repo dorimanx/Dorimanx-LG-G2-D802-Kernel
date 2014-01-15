@@ -1,7 +1,7 @@
 /*
  * f_qdss.c -- QDSS function Driver
  *
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -411,6 +411,7 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	pr_debug("qdss_unbind\n");
 
+	flush_workqueue(qdss->wq);
 
 	clear_eps(f);
 	clear_desc(gadget, f);
