@@ -116,7 +116,7 @@ static unsigned long inter_staycycles;
 #define DEFAULT_STAYCYCLES_RESETFREQ 652800
 static u64 staycycles_resetfreq;
 
-#define DEFAULT_IO_IS_BUSY 2
+#define DEFAULT_IO_IS_BUSY 0
 static unsigned int io_is_busy;
 
 /*
