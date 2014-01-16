@@ -150,4 +150,5 @@ void mdss_fb_update_backlight(struct msm_fb_data_type *mfd);
 void mdss_fb_wait_for_fence(struct msm_fb_data_type *mfd);
 void mdss_fb_signal_timeline(struct msm_fb_data_type *mfd);
 int mdss_fb_register_mdp_instance(struct msm_mdp_interface *mdp);
+int mdss_fb_suspres_panel(struct device *dev, void *data);
 #endif /* MDSS_FB_H */
