@@ -506,9 +506,7 @@ static void kgsl_coherent_free(struct kgsl_memdesc *memdesc)
 {
 	atomic_sub(memdesc->size,
 		&kgsl_driver.stats.coherent);
-	atomic_sub(memdesc->size,
-		&kgsl_driver.stats.coherent);
-	dma_free_coherent(NULL, memdesc->size,
+	dma_free_coherent(memdesc->dev, memdesc->size,
 			  memdesc->hostptr, memdesc->physaddr);
 }
 
@@ -748,7 +746,8 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 EXPORT_SYMBOL(kgsl_sharedmem_page_alloc_user);
 
 int
-kgsl_sharedmem_alloc_coherent(struct kgsl_memdesc *memdesc, size_t size)
+kgsl_sharedmem_alloc_coherent(struct kgsl_device *device,
+			struct kgsl_memdesc *memdesc, size_t size)
 {
 	int result = 0;
 
@@ -758,9 +757,10 @@ kgsl_sharedmem_alloc_coherent(struct kgsl_memdesc *memdesc, size_t size)
 
 	memdesc->size = size;
 	memdesc->ops = &kgsl_coherent_ops;
+	memdesc->dev = device->parentdev;
 
-	memdesc->hostptr = dma_alloc_coherent(NULL, size, &memdesc->physaddr,
-					      GFP_KERNEL);
+	memdesc->hostptr = dma_alloc_coherent(memdesc->dev, size,
+					&memdesc->physaddr, GFP_KERNEL);
 	if (memdesc->hostptr == NULL) {
 		KGSL_CORE_ERR("dma_alloc_coherent(%d) failed\n", size);
 		result = -ENOMEM;
