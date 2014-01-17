@@ -30,8 +30,8 @@ export HOST=`uname -n`;
 
 # begin by ensuring the required directory structure is complete, and empty
 echo "Initialising................."
-if [ -e ../LG-G2-D802-Ramdisk/lib/modules/ ]; then
-	rm -rf ../LG-G2-D802-Ramdisk/lib/
+if [ -e ../LG-G2-D802-Ramdisk/lib/modules ]; then
+	rm -rf ../LG-G2-D802-Ramdisk/lib/modules
 fi;
 rm -rf $KERNELDIR/READY-KERNEL/boot
 rm -f $KERNELDIR/READY-KERNEL/*.zip
@@ -48,7 +48,7 @@ else
 	chmod 777 ../ramdisk-tmp
 fi
 
-#force regeneration of .dtb and zImage files for every compile
+# force regeneration of .dtb and zImage files for every compile
 rm -f arch/arm/boot/*.dtb
 rm -f arch/arm/boot/*.cmd
 rm -f arch/arm/boot/zImage
@@ -69,17 +69,17 @@ if [ ! -f $KERNELDIR/.config ]; then
 fi;
 
 # get version from config
-GETVER=`grep 'Kernel-.*-V' .config |sed 's/Kernel-//g' | sed 's/.*".//g' | sed 's/-L.*//g'`;
+GETVER=$(grep 'Kernel-.*-V' .config |sed 's/Kernel-//g' | sed 's/.*".//g' | sed 's/-L.*//g');
 
 cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/dorimanx_defconfig;
 
 # remove all old modules before compile
-for i in `find $KERNELDIR/ -name "*.ko"`; do
-        rm -f $i;
+for i in $(find $KERNELDIR/ -name "*.ko"); do
+        rm -f "$i";
 done;
 
 # dorimanx detection ;)
-if [ $HOST == "dorimanx-virtual-machine" ] || [ $HOST == "dorimanx" ]; then
+if [ "$HOST" == "dorimanx-virtual-machine" ] || [ "$HOST" == "dorimanx" ]; then
 	NR_CPUS=16;
 	echo "Dori power detected!";
 else
@@ -101,13 +101,16 @@ time make modules -j ${NR_CPUS} || exit 1
 # move the compiled zImage and modules into the READY-KERNEL working directory
 echo "Move compiled objects........"
 
-for i in `find $KERNELDIR -name '*.ko'`; do
-	cp -av $i $KERNELDIR/READY-KERNEL/system/lib/modules/
-done;
+cp -a ../LG-G2-D802-Ramdisk/* ../ramdisk-tmp/
+rm -rf ../ramdisk-tmp/.git
 
-#for i in `find $KERNELDIR -name '*.ko'`; do
-#        cp -av $i ../LG-G2-D802-Ramdisk/lib/modules/
+#for i in $(find $KERNELDIR -name '*.ko'); do
+#	cp -av $i $KERNELDIR/READY-KERNEL/system/lib/modules/
 #done;
+
+for i in $(find $KERNELDIR -name '*.ko'); do
+        cp -av "$i" ../ramdisk-tmp/lib/modules/;
+done;
 
 chmod 755 $KERNELDIR/READY-KERNEL/system/lib/modules/*
 
@@ -117,13 +120,8 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 
 	# create the ramdisk and move it to the output working directory
 	echo "Create ramdisk..............."
-	cp -a ../LG-G2-D802-Ramdisk/* ../ramdisk-tmp/
-	rm -rf ../ramdisk-tmp/.git
 	scripts/mkbootfs ../ramdisk-tmp | gzip > ramdisk.gz 2>/dev/null
 	mv ramdisk.gz READY-KERNEL/boot
-
-	# clean modules from ramdisk.
-	#rm -rf ../LG-G2-D802-Ramdisk/lib/
 
 	# create the dt.img from the compiled device files, necessary for msm8974 boot images
 	echo "Create dt.img................"
