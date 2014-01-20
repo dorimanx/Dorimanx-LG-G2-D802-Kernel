@@ -18,9 +18,10 @@ clear
 
 #--project/				(progect container folder)
 #------LG-G2-D802-Ramdisk/		(ramdisk files for boot.img)
-#------ramdisk-tmp			(ramdisk tmp store without .git)
+#------ramdisk-tmp/			(ramdisk tmp store without .git)
+#--------lib/modules/			(modules dir, will be added to system on boot)
 #------dorimanx-LG-G2-D802-Kernel/	(kernel source goes here)
-#--------READY-KERNEL/			(output directory, where the final boot.img and modules are placed)
+#--------READY-KERNEL/			(output directory, where the final boot.img is placed)
 #----------meta-inf/			(meta-inf folder for your flashable zip)
 #----------system/
 
@@ -36,7 +37,6 @@ fi;
 rm -rf $KERNELDIR/READY-KERNEL/boot
 rm -f $KERNELDIR/READY-KERNEL/*.zip
 rm -f $KERNELDIR/READY-KERNEL/*.img
-rm -f $KERNELDIR/READY-KERNEL/system/lib/modules/*.ko
 mkdir -p $KERNELDIR/READY-KERNEL/boot
 mkdir -p ../LG-G2-D802-Ramdisk/lib/modules/
 
@@ -55,7 +55,39 @@ rm -f arch/arm/boot/zImage
 rm -f arch/arm/boot/Image
 
 export PATH=$PATH:tools/lz4demo
-export KERNEL_CONFIG=dorimanx_defconfig
+
+BUILD_800=0
+BUILD_801=0
+BUILD_802=0
+BUILD_LS_980=0
+BUILD_VS_980=0
+
+read -t 20 -p "What to build? 800,801,802(805/6),ls980,vs980 timeout to build 802 20sec!==";
+if [ "$REPLY" == "800" ]; then
+	export KERNEL_CONFIG=dorimanx_d800_defconfig
+	KERNEL_CONFIG_FILE=dorimanx_d800_defconfig
+	BUILD_800=1
+elif [ "$REPLY" == "801" ]; then
+	export KERNEL_CONFIG=dorimanx_d801_defconfig
+	KERNEL_CONFIG_FILE=dorimanx_d801_defconfig
+	BUILD_801=1
+elif [ "$REPLY" == "802" ]; then
+	export KERNEL_CONFIG=dorimanx_d802_defconfig
+	KERNEL_CONFIG_FILE=dorimanx_d802_defconfig
+	BUILD_802=1
+elif [ "$REPLY" == "ls980" ]; then
+	export KERNEL_CONFIG=dorimanx_ls980_defconfig
+	KERNEL_CONFIG_FILE=dorimanx_ls980_defconfig
+	BUILD_LS_980=1
+elif [ "$REPLY" == "vs980" ]; then
+	export KERNEL_CONFIG=dorimanx_vs980_defconfig
+	KERNEL_CONFIG_FILE=dorimanx_vs980_defconfig
+	BUILD_VS_980=1
+else
+	export KERNEL_CONFIG=dorimanx_d802_defconfig
+	KERNEL_CONFIG_FILE=dorimanx_d802_defconfig
+	BUILD_802=1
+fi;
 
 if [ -e /usr/bin/python3 ]; then
 	rm /usr/bin/python
@@ -63,15 +95,49 @@ if [ -e /usr/bin/python3 ]; then
 fi;
 
 # move into the kernel directory and compile the main image
-echo "Compiling Kernel............."
+echo "Compiling Kernel.............";
 if [ ! -f $KERNELDIR/.config ]; then
-	sh load_config.sh
+	if [ "$BUILD_800" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_d800_defconfig .config
+	elif [ "$BUILD_801" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_d801_defconfig .config
+	elif [ "$BUILD_802" -eq "1" ]; then
+		sh load_config-802.sh
+	elif [ "$BUILD_LS_980" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_ls980_defconfig .config
+	elif [ "$BUILD_VS_980" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_vs980_defconfig .config
+	fi;
+fi;
+
+if [ -f $KERNELDIR/.config ]; then
+	BRANCH_800=$(grep -R "CONFIG_MACH_MSM8974_G2_ATT=y" .config | wc -l)
+	BRANCH_801=$(grep -R "CONFIG_MACH_MSM8974_G2_TMO_US=y" .config | wc -l)
+	BRANCH_802=$(grep -R "CONFIG_MACH_MSM8974_G2_OPEN_COM=y" .config | wc -l)
+	BRANCH_LS_980=$(grep -R "CONFIG_MACH_MSM8974_G2_SPR=y" .config | wc -l)
+	BRANCH_VS_980=$(grep -R "CONFIG_MACH_MSM8974_G2_VZW=y" .config | wc -l)
+	if [ "$BRANCH_800" -eq "0" ] && [ "$BUILD_800" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_d800_defconfig .config
+	fi;
+	if [ "$BRANCH_801" -eq "0" ] && [ "$BUILD_801" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_d801_defconfig .config
+	fi;
+	if [ "$BRANCH_802" -eq "0" ] && [ "$BUILD_802" -eq "1" ]; then
+		sh load_config-802.sh
+	fi;
+	if [ "$BRANCH_LS_980" -eq "0" ] && [ "$BUILD_LS_980" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_ls980_defconfig .config
+	fi;
+	if [ "$BRANCH_VS_980" -eq "0" ] && [ "$BUILD_VS_980" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_vs980_defconfig .config
+	fi;
 fi;
 
 # get version from config
 GETVER=$(grep 'Kernel-.*-V' .config |sed 's/Kernel-//g' | sed 's/.*".//g' | sed 's/-L.*//g');
+GETBRANCH=$(grep '.*-LG' .config |sed 's/Kernel-Dorimanx-V//g' | sed 's/[1-9].*-LG-//g' | sed 's/.*".//g' | sed 's/-PWR.*//g');
 
-cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/dorimanx_defconfig;
+cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/"$KERNEL_CONFIG_FILE";
 
 # remove all old modules before compile
 for i in $(find $KERNELDIR/ -name "*.ko"); do
@@ -90,7 +156,7 @@ fi;
 # build zImage
 time make -j ${NR_CPUS}
 
-cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/dorimanx_defconfig;
+cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/"$KERNEL_CONFIG_FILE";
 
 stat $KERNELDIR/arch/arm/boot/zImage || exit 1;
 
@@ -104,15 +170,11 @@ echo "Move compiled objects........"
 cp -a ../LG-G2-D802-Ramdisk/* ../ramdisk-tmp/
 rm -rf ../ramdisk-tmp/.git
 
-#for i in $(find $KERNELDIR -name '*.ko'); do
-#	cp -av $i $KERNELDIR/READY-KERNEL/system/lib/modules/
-#done;
-
 for i in $(find $KERNELDIR -name '*.ko'); do
         cp -av "$i" ../ramdisk-tmp/lib/modules/;
 done;
 
-chmod 755 $KERNELDIR/READY-KERNEL/system/lib/modules/*
+chmod 755 ../ramdisk-tmp/lib/modules/*
 
 if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 
@@ -153,7 +215,7 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 
 	# create the flashable zip file from the contents of the output directory
 	echo "Make flashable zip..........."
-	zip -r Kernel-${GETVER}-`date +"[%H-%M]-[%d-%m]-LG-D802-PWR-CORE"`.zip * >/dev/null
+	zip -r Kernel-${GETVER}-`date +"[%H-%M]-[%d-%m]-LG-${GETBRANCH}-PWR-CORE"`.zip * >/dev/null
 	stat boot.img
 	rm -f *.img
 	cd ..
