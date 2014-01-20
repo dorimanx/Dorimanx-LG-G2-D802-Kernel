@@ -16,8 +16,23 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+/************************************************************************/
+/*                                                                      */
+/*  PROJECT : exFAT & FAT12/16/32 File System                           */
+/*  FILE    : exfat_data.c                                              */
+/*  PURPOSE : exFAT Configuable Data Definitions                        */
+/*                                                                      */
+/*----------------------------------------------------------------------*/
+/*  NOTES                                                               */
+/*                                                                      */
+/*----------------------------------------------------------------------*/
+/*  REVISION HISTORY (Ver 0.9)                                          */
+/*                                                                      */
+/*  - 2010.11.15 [Joosun Hahn] : first writing                          */
+/*                                                                      */
+/************************************************************************/
+
 #include "exfat_config.h"
-#include "exfat_global.h"
 #include "exfat_data.h"
 #include "exfat_oal.h"
 
@@ -25,16 +40,32 @@
 #include "exfat_cache.h"
 #include "exfat_nls.h"
 #include "exfat_super.h"
-#include "exfat.h"
+#include "exfat_core.h"
 
-FS_STRUCT_T fs_struct[MAX_DRIVE];
+/*======================================================================*/
+/*                                                                      */
+/*                    GLOBAL VARIABLE DEFINITIONS                       */
+/*                                                                      */
+/*======================================================================*/
 
-DECLARE_MUTEX(f_sem);
+/*----------------------------------------------------------------------*/
+/*  File Manager                                                        */
+/*----------------------------------------------------------------------*/
+
+/*----------------------------------------------------------------------*/
+/*  Buffer Manager                                                      */
+/*----------------------------------------------------------------------*/
+
+/* FAT cache */
+DEFINE_SEMAPHORE(f_sem);
 BUF_CACHE_T FAT_cache_array[FAT_CACHE_SIZE];
 BUF_CACHE_T FAT_cache_lru_list;
 BUF_CACHE_T FAT_cache_hash_list[FAT_CACHE_HASH_SIZE];
 
-DECLARE_MUTEX(b_sem);
+/* buf cache */
+DEFINE_SEMAPHORE(b_sem);
 BUF_CACHE_T buf_cache_array[BUF_CACHE_SIZE];
 BUF_CACHE_T buf_cache_lru_list;
 BUF_CACHE_T buf_cache_hash_list[BUF_CACHE_HASH_SIZE];
+
+/* end of exfat_data.c */
