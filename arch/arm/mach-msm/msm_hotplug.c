@@ -289,7 +289,7 @@ static void msm_hotplug_resume_work(struct work_struct *work)
 {
 	online_cpu(stats.total_cpus);
 }
-EXPORT_SYMBOL_GPL(msm_hotplug_resume);
+EXPORT_SYMBOL_GPL(msm_hotplug_resume_work);
 
 static int lcd_notifier_callback(struct notifier_block *nb,
                                  unsigned long event, void *data)
