@@ -1274,6 +1274,7 @@ struct task_struct {
 	atomic_t usage;
 	unsigned int flags;	/* per process flags, defined below */
 	unsigned int ptrace;
+	unsigned int yield_count;
 
 #ifdef CONFIG_SMP
 	struct llist_node wake_entry;
@@ -2100,6 +2101,8 @@ static inline void wake_up_idle_cpu(int cpu) { }
 #endif
 
 extern unsigned int sysctl_sched_wakeup_load_threshold;
+extern unsigned int sysctl_sched_yield_sleep_duration;
+extern int sysctl_sched_yield_sleep_threshold;
 
 #ifdef CONFIG_SCHED_AUTOGROUP
 extern void sched_autogroup_create_attach(struct task_struct *p);
