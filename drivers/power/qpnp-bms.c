@@ -1819,7 +1819,7 @@ static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 	last_change_sec = chip->last_soc_change_sec;
 	calculate_delta_time(&last_change_sec, &time_since_last_change_sec);
 
-	charging = is_battery_charging(chip);
+	charging = chip->battery_status == POWER_SUPPLY_STATUS_CHARGING;
 	charging_since_last_report = charging || (chip->last_soc_unbound
 			&& chip->was_charging_at_sleep);
 	/*
