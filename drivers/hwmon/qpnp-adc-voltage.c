@@ -1194,7 +1194,7 @@ void xo_therm_logging(void)
 	if (rc)
 		pr_err("VADC read error with %d\n", rc);
 
-	printk(KERN_INFO "[XO_THERM] Result:%lld Raw:%d\n", tmp.physical, tmp.adc_code);
+	//printk(KERN_INFO "[XO_THERM] Result:%lld Raw:%d\n", tmp.physical, tmp.adc_code);
 }
 #endif
 

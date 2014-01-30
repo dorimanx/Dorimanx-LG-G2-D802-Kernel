@@ -1994,7 +1994,7 @@ static void smb349_bb_worker(struct work_struct *work)
 	int ret;
 
 	chg_current = smb349_get_prop_batt_current_now(smb349_chg);
-	smb349_console_silent = 0;
+	smb349_console_silent = 1;
 
 	if (smb349_chg->irq_trigger_cnt > (ULONG_MAX - 100)) {
 		smb349_chg->irq_trigger_cnt = 1;
@@ -3983,6 +3983,7 @@ static void smb349_status_print(struct smb349_struct *smb349_chg)
 	smb349_chg->batt_psy.get_property(&(smb349_chg->batt_psy),
 			  POWER_SUPPLY_PROP_CHARGE_TYPE, &ret);
 
+#if 0
 	printk(KERN_ERR "[chglog]EN:%d ERR:%d STAT:%c M:%c U:%d EOC:%d RE:%d BL:%c BO:%d BM:%d HOFF:%d TO:%c SYS:%d IT:%d TEMP:0x%02X PSY:[PRE:%d,ON:%d-%d,TYP:%d]\n",
 			val_3d & BIT(0)? 1: 0,		/* EN:charging enable */
 			val_3d & BIT(6)? 1: 0,		/* ERR:charging error */
@@ -4003,6 +4004,7 @@ static void smb349_status_print(struct smb349_struct *smb349_chg)
 			smb349_chg->usb_online, smb349_chg->ac_online, /* ON: power_supply online usb_online-ac_online */
 			ret.intval			/* TYP: power_supply charger type*/
 		);
+#endif
 }
 #endif
 
