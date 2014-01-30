@@ -3,7 +3,7 @@
  * This header file housing the define and function prototype use by
  * both the wl driver, tools & Apps.
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -306,6 +306,11 @@ typedef uint16 chanspec_t;
 
 #define LCHSPEC_CREATE(chan, band, bw, sb)  ((uint16)((chan) | (sb) | (bw) | (band)))
 
+#define CH20MHZ_LCHSPEC(channel) \
+	(chanspec_t)((chanspec_t)(channel) | WL_LCHANSPEC_BW_20 | \
+	WL_LCHANSPEC_CTL_SB_NONE | (((channel) <= CH_MAX_2G_CHANNEL) ? \
+	WL_LCHANSPEC_BAND_2G : WL_LCHANSPEC_BAND_5G))
+
 #endif 
 
 
@@ -350,5 +355,9 @@ extern int wf_channel2mhz(uint channel, uint start_factor);
 
 
 extern uint16 wf_channel2chspec(uint ctl_ch, uint bw);
+
+extern uint wf_channel2freq(uint channel);
+extern uint wf_freq2channel(uint freq);
+
 
 #endif	

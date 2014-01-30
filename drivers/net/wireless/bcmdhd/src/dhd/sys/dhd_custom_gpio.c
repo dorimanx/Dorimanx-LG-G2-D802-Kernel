@@ -1,6 +1,6 @@
 /*
 * Customer code to add GPIO control during WLAN start/stop
-* Copyright (C) 1999-2012, Broadcom Corporation
+* Copyright (C) 1999-2013, Broadcom Corporation
 * 
 *      Unless you and Broadcom execute a separate written software license
 * agreement governing use of this software, this software is licensed to you
@@ -20,7 +20,7 @@
 * software in any way with any other Broadcom software provided under a license
 * other than the GPL, without Broadcom's express prior written consent.
 *
-* $Id: dhd_custom_gpio.c 353280 2012-08-26 04:33:17Z $
+* $Id: dhd_custom_gpio.c 417465 2013-08-09 11:47:27Z $
 */
 
 #include <typedefs.h>
@@ -37,10 +37,6 @@
 #define WL_ERROR(x) printf x
 #define WL_TRACE(x)
 
-#ifdef CUSTOMER_HW
-extern  void bcm_wlan_power_off(int);
-extern  void bcm_wlan_power_on(int);
-#endif /* CUSTOMER_HW */
 #if defined(CUSTOMER_HW2) || defined(CUSTOMER_HW4)
 #ifdef CONFIG_WIFI_CONTROL_FUNC
 int wifi_set_power(int on, unsigned long msec);
@@ -53,7 +49,7 @@ int wifi_get_irq_number(unsigned long *irq_flags_ptr) { return -1; }
 int wifi_get_mac_addr(unsigned char *buf) { return -1; }
 void *wifi_get_country_code(char *ccode) { return NULL; }
 #endif /* CONFIG_WIFI_CONTROL_FUNC */
-#endif /* CUSTOMER_HW2 || CUSTOMER_HW4 */
+#endif 
 
 #if defined(OOB_INTR_ONLY) || defined(BCMSPI_ANDROID)
 
@@ -61,9 +57,6 @@ void *wifi_get_country_code(char *ccode) { return NULL; }
 extern int sdioh_mmc_irq(int irq);
 #endif /* (BCMLXSDMMC)  */
 
-#ifdef CUSTOMER_HW3
-#include <mach/gpio.h>
-#endif
 
 /* Customer specific Host GPIO defintion  */
 static int dhd_oob_gpio_num = -1;
@@ -86,7 +79,7 @@ int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr)
 {
 	int  host_oob_irq = 0;
 
-#if defined(CUSTOMER_HW2) || defined(CUSTOMER_HW4)
+#if defined(CUSTOMER_HW4)
 	host_oob_irq = wifi_get_irq_number(irq_flags_ptr);
 
 #else
@@ -105,14 +98,7 @@ int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr)
 	WL_ERROR(("%s: customer specific Host GPIO number is (%d)\n",
 	         __FUNCTION__, dhd_oob_gpio_num));
 
-#if defined CUSTOMER_HW
-	host_oob_irq = MSM_GPIO_TO_INT(dhd_oob_gpio_num);
-#elif defined CUSTOMER_HW3
-	gpio_request(dhd_oob_gpio_num, "oob irq");
-	host_oob_irq = gpio_to_irq(dhd_oob_gpio_num);
-	gpio_direction_input(dhd_oob_gpio_num);
-#endif /* CUSTOMER_HW */
-#endif /* CUSTOMER_HW2 || CUSTOMER_HW4 */
+#endif 
 
 	return (host_oob_irq);
 }
@@ -126,10 +112,7 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 		case WLAN_RESET_OFF:
 			WL_TRACE(("%s: call customer specific GPIO to insert WLAN RESET\n",
 				__FUNCTION__));
-#ifdef CUSTOMER_HW
-			bcm_wlan_power_off(2);
-#endif /* CUSTOMER_HW */
-#if defined(CUSTOMER_HW2) || defined(CUSTOMER_HW4)
+#if defined(CUSTOMER_HW4)
 			wifi_set_power(0, 0);
 #endif
 			WL_ERROR(("=========== WLAN placed in RESET ========\n"));
@@ -138,11 +121,12 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 		case WLAN_RESET_ON:
 			WL_TRACE(("%s: callc customer specific GPIO to remove WLAN RESET\n",
 				__FUNCTION__));
-#ifdef CUSTOMER_HW
-			bcm_wlan_power_on(2);
-#endif /* CUSTOMER_HW */
-#if defined(CUSTOMER_HW2) || defined(CUSTOMER_HW4)
+#if defined(CUSTOMER_HW4)
+#ifdef CUSTOEMR_HW10
 			wifi_set_power(1, 0);
+#else
+			wifi_set_power(1, 200);
+#endif
 #endif
 			WL_ERROR(("=========== WLAN going back to live  ========\n"));
 		break;
@@ -150,19 +134,11 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 		case WLAN_POWER_OFF:
 			WL_TRACE(("%s: call customer specific GPIO to turn off WL_REG_ON\n",
 				__FUNCTION__));
-#ifdef CUSTOMER_HW
-			bcm_wlan_power_off(1);
-#endif /* CUSTOMER_HW */
 		break;
 
 		case WLAN_POWER_ON:
 			WL_TRACE(("%s: call customer specific GPIO to turn on WL_REG_ON\n",
 				__FUNCTION__));
-#ifdef CUSTOMER_HW
-			bcm_wlan_power_on(1);
-			/* Lets customer power to get stable */
-			OSL_DELAY(200);
-#endif /* CUSTOMER_HW */
 		break;
 	}
 }
@@ -197,8 +173,10 @@ dhd_custom_get_mac_address(unsigned char *buf)
 
 /* Customized Locale table : OPTIONAL feature */
 const struct cntry_locales_custom translate_custom_table[] = {
+/* Table should be filled out based on custom platform regulatory requirement */
 #ifdef EXAMPLE_TABLE
-#if defined(BCM4334_CHIP) || defined(BCM43241_CHIP) || defined(BCM4335_CHIP)
+#if defined(BCM4334_CHIP) || defined(BCM43241_CHIP) || defined(BCM4335_CHIP) || \
+	defined(BCM4339_CHIP)
 	{"",   "XZ", 11},	/* Universal if Country code is unknown or empty */
 	{"IR", "XZ", 11},	/* Universal if Country code is IRAN, (ISLAMIC REPUBLIC OF) */
 	{"SD", "XZ", 11},	/* Universal if Country code is SUDAN */
@@ -207,7 +185,6 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"PS", "XZ", 11},	/* Universal if Country code is PALESTINIAN TERRITORY, OCCUPIED */
 	{"TL", "XZ", 11},	/* Universal if Country code is TIMOR-LESTE (EAST TIMOR) */
 	{"MH", "XZ", 11},	/* Universal if Country code is MARSHALL ISLANDS */
-	{"PK", "XZ", 11},	/* Universal if Country code is PAKISTAN */
 #endif
 #if defined(BCM4330_CHIP) || defined(BCM4334_CHIP) || defined(BCM43241_CHIP)
 	{"AE", "AE", 1},
@@ -239,7 +216,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"KW", "KW", 1},
 	{"LI", "LI", 1},
 	{"LT", "LT", 1},
-	{"LU", "LU", 3},
+	{"LU", "LU", 1},
 	{"LV", "LV", 1},
 	{"MT", "MT", 1},
 	{"MX", "MX", 1},
@@ -301,10 +278,10 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"PG", "XZ", 1},
 	{"SA", "XZ", 1},
 #endif /* BCM4330_CHIP */
-#ifdef BCM4335_CHIP
+#if defined(BCM4335_CHIP) || defined(BCM4339_CHIP)
 	{"AL", "AL", 2},
 	{"DZ", "DZ", 1},
-	{"AS", "AS", 2},
+	{"AS", "AS", 12},
 	{"AI", "AI", 1},
 	{"AG", "AG", 2},
 	{"AR", "AR", 21},
@@ -313,7 +290,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"AT", "AT", 4},
 	{"AZ", "AZ", 2},
 	{"BS", "BS", 2},
-	{"BH", "BH", 24},
+	{"BH", "BH", 4},
 	{"BD", "BD", 2},
 	{"BY", "BY", 3},
 	{"BE", "BE", 4},
@@ -326,7 +303,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"KH", "KH", 2},
 	{"CA", "CA", 31},
 	{"KY", "KY", 3},
-	{"CN", "CN", 24},
+	{"CN", "CN", 38},
 	{"CO", "CO", 17},
 	{"CR", "CR", 17},
 	{"HR", "HR", 4},
@@ -360,7 +337,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"LS", "LS", 2},
 	{"LI", "LI", 4},
 	{"LT", "LT", 4},
-	{"LU", "LU", 1},
+	{"LU", "LU", 3},
 	{"MO", "MO", 2},
 	{"MK", "MK", 2},
 	{"MW", "MW", 1},
@@ -413,7 +390,6 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"VA", "VA", 2},
 	{"VE", "VE", 3},
 	{"VN", "VN", 4},
-	{"MA", "MA", 1},
 	{"ZM", "ZM", 2},
 	{"EC", "EC", 21},
 	{"SV", "SV", 19},
@@ -424,7 +400,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"FR", "FR", 5},
 	{"MN", "MN", 1},
 	{"NI", "NI", 2},
-#endif /* BCM4335_CHIP */
+#endif /* BCM4335_CHIP || BCM4339_CHIP */
 #endif /* EXMAPLE_TABLE */
 };
 

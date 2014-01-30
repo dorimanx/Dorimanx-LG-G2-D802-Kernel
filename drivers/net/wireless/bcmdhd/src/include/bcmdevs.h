@@ -1,7 +1,7 @@
 /*
  * Broadcom device-specific manifest constants.
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmdevs.h 368924 2012-11-15 08:12:59Z $
+ * $Id: bcmdevs.h 414368 2013-07-24 15:00:23Z $
  */
 
 #ifndef	_BCMDEVS_H
@@ -137,6 +137,8 @@
 #define BCM4330_D11N5G_ID       0x4362          
 #define BCM4336_D11N_ID		0x4343		
 #define BCM6362_D11N_ID		0x435f		
+#define BCM6362_D11N2G_ID	0x433f		
+#define BCM6362_D11N5G_ID	0x434f		
 #define BCM4331_D11N_ID		0x4331		
 #define BCM4331_D11N2G_ID	0x4332		
 #define BCM4331_D11N5G_ID	0x4333		
@@ -288,12 +290,13 @@
 #define	BCM43243_CHIP_ID	43243		
 #define BCM4334_CHIP_ID		0x4334		
 #define BCM4335_CHIP_ID		0x4335		
+#define BCM4339_CHIP_ID		0x4339		
 #define BCM4360_CHIP_ID		0x4360          
 #define BCM4352_CHIP_ID		0x4352          
 #define BCM43526_CHIP_ID	0xAA06
+#define BCM43340_CHIP_ID	43340		
 #define BCM43341_CHIP_ID	43341		
 #define BCM43342_CHIP_ID	43342		
-#define BCM4335_CHIP_ID         0x4335
 #define BCM4350_CHIP_ID		0x4350          
 
 #define	BCM4342_CHIP_ID		4342		
@@ -455,11 +458,10 @@
 						
 #define BFL2_4313_RADIOREG	0x10000000
 									   
-#define BFL2_DYNAMIC_VMID       0x10000000  
-
-#define BFL2_SDR_EN		0x20000000	
-#define BFL2_DYNAMIC_VMID	0x10000000	
-#define BFL2_BT_SHARE_BM_BIT1 0x40000000 
+#define BFL2_DYNAMIC_VMID	0x10000000  
+#define BFL2_SDR_EN		0x20000000  
+#define BFL2_LNA1BYPFORTR2G  	0x40000000  
+#define BFL2_LNA1BYPFORTR5G  	0x80000000  
 
 
 #define BFL_SROM11_BTCOEX  0x00000001  
@@ -478,8 +480,24 @@
 #define BFL3_TXGAINTBLID_SHIFT	0x4         
 #define BFL3_TSSI_DIV_WAR	0x00000080  
 #define BFL3_TSSI_DIV_WAR_SHIFT	0x7         
-#define BFL3_FEMTBL_FROM_NVRAM        0x00000100  
+#define BFL3_FEMTBL_FROM_NVRAM  0x00000100  
 #define BFL3_FEMTBL_FROM_NVRAM_SHIFT  0x8         
+#define BFL3_AGC_CFG_2G         0x00000200  
+#define BFL3_AGC_CFG_5G         0x00000400  
+#define BFL3_PPR_BIT_EXT        0x00000800  
+#define BFL3_PPR_BIT_EXT_SHIFT  11          
+#define BFL3_BBPLL_SPR_MODE_DIS 0x00001000  
+#define BFL3_RCAL_OTP_VAL_EN    0x00002000  
+#define BFL3_2GTXGAINTBL_BLANK  0x00004000  
+#define BFL3_2GTXGAINTBL_BLANK_SHIFT 14     
+#define BFL3_5GTXGAINTBL_BLANK  0x00008000  
+#define BFL3_5GTXGAINTBL_BLANK_SHIFT 15     
+#define BFL3_BT_SHARE_BM_BIT1   0x40000000  
+#define BFL3_PHASETRACK_MAX_ALPHABETA	  0x00010000  
+#define BFL3_PHASETRACK_MAX_ALPHABETA_SHIFT 16       
+#define BFL3_BT_SHARE_BM_BIT1 0x40000000 
+#define BFL3_EN_NONBRCM_TXBF      0x10000000  
+#define BFL3_EN_P2PLINK_TXBF      0x20000000  
 
 
 #define	BOARD_GPIO_BTC3W_IN	0x850	
@@ -545,6 +563,8 @@
 #define RDL_RAM_BASE_43242  0x60000000
 #define RDL_RAM_SIZE_43143  0x70000
 #define RDL_RAM_BASE_43143  0x60000000
+#define RDL_RAM_SIZE_4350  0xC0000
+#define RDL_RAM_BASE_4350  0x180800
 
 
 #define MUXENAB_UART		0x00000001

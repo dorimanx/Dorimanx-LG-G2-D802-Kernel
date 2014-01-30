@@ -1,12 +1,9 @@
 config BCMDHD
-	tristate "Broadcom 4330/34/35 wireless cards support"
+	tristate "Broadcom 4335 wireless cards support"
 	depends on MMC
 	---help---
 	  This module adds support for wireless adapters based on
-	  Broadcom 4330/34/35 chipset.
-	  This driver uses the kernel's wireless extensions subsystem.
-	  If you choose to build a module, it'll be called dhd. Say M if
-	  unsure.
+	  Broadcom chipset.
 
 config BCM4330
 	tristate "Broadcom 4330 wireless cards support"
@@ -30,6 +27,20 @@ config BCM4335
 	---help---
 	  This module adds support for wireless adapters based on
 	  Broadcom 4335 chipset.
+
+config BCM4339
+	tristate "Broadcom 4339 wireless cards support"
+	depends on BCMDHD
+	---help---
+	  This module adds support for wireless adapters based on
+	  Broadcom 4339 chipset.
+
+config BCMDHD_COB
+	tristate "Enables COB type support"
+	depends on BCMDHD
+	default n
+	---help---
+	  This is configuration for COB type support.
 
 config BCMDHD_FW_PATH
 	depends on BCMDHD
@@ -114,8 +125,8 @@ config BCM4335BT
 	  This is a configuration for bt lock enable.
 
 config BRCM_WAPI
-	bool "Enables WAPI support"
-	depends on BCMDHD
-	default n
-	---help---
-	  Enables WAPI support
+        depends on BCMDHD
+        bool "Enables WAPI support"
+        default n
+        ---help---
+          Enables WAPI support

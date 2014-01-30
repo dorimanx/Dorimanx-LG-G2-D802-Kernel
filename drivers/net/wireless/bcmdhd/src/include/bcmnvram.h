@@ -1,7 +1,7 @@
 /*
  * NVRAM variable manipulation
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmnvram.h 364705 2012-10-25 00:42:42Z $
+ * $Id: bcmnvram.h 371859 2012-11-29 18:19:30Z $
  */
 
 #ifndef _bcmnvram_h_
@@ -100,6 +100,9 @@ extern int nvram_set(const char *name, const char *value);
 
 
 extern int nvram_unset(const char *name);
+
+
+extern int nvram_commit_internal(bool nvram_corrupt);
 
 
 extern int nvram_commit(void);

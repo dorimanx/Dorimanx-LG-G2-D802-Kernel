@@ -5,9 +5,9 @@
  * JTAG, 0/1/2 UARTs, clock frequency control, a watchdog interrupt timer,
  * GPIO interface, extbus, and support for serial and parallel flashes.
  *
- * $Id: sbchipc.h 368270 2012-11-12 23:46:50Z $
+ * $Id: sbchipc.h 385540 2013-02-15 23:14:50Z $
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -1161,6 +1161,7 @@ typedef volatile struct {
 
 
 #define	PMU_CHIPCTL0		0
+#define PMU43143_CC0_SDIO_DRSTR_OVR	(1 << 31) 
 
 
 #define PMU_CC1_CLKREQ_TYPE_SHIFT	19
@@ -1193,6 +1194,9 @@ typedef volatile struct {
 #define PMU_CC3_ENABLE_SDIO_WAKEUP_SHIFT  19
 #define PMU_CC3_ENABLE_RF_SHIFT           22
 #define PMU_CC3_RF_DISABLE_IVALUE_SHIFT   23
+
+
+#define PMU_CHIPCTL5                    5
 
 
 
@@ -1578,6 +1582,10 @@ typedef volatile struct {
 
 #define CCTRL43217_EXTPA_C0             (1<<13) 
 #define CCTRL43217_EXTPA_C1             (1<<8)  
+
+
+#define CCTRL43228_EXTPA_C0             (1<<14) 
+#define CCTRL43228_EXTPA_C1             (1<<9)  
 
 
 #define RES4328_EXT_SWITCHER_PWM	0	
@@ -2409,6 +2417,13 @@ typedef volatile struct {
 #define CCTRL_4360_UART_SEL	0x2
 
 
+#define CHIP_HOSTIF_PCIEMODE	0x1
+#define CHIP_HOSTIF_USBMODE	0x2
+#define CHIP_HOSTIF_SDIOMODE	0x4
+#define CHIP_HOSTIF_PCIE(sih)	(si_chip_hostif(sih) == CHIP_HOSTIF_PCIEMODE)
+#define CHIP_HOSTIF_SDIO(sih)	(si_chip_hostif(sih) == CHIP_HOSTIF_SDIOMODE)
+
+
 #define RES4335_LPLDO_PO           0
 #define RES4335_PMU_BG_PU          1
 #define RES4335_PMU_SLEEP          2
@@ -2457,8 +2472,30 @@ typedef volatile struct {
 #define CCTRL1_4335_SDIO_HOST_WAKE (1 << 2)  
 
 #define CR4_4335_RAM_BASE                    (0x180000)
+#define PATCHTBL_SIZE			(0x800)
 #define CR4_4350_RAM_BASE                    (0x180000)
 #define CR4_4360_RAM_BASE                    (0x0)
+
+
+
+#define SPROM4335_OTP_SELECT	0x00000010
+#define SPROM4335_OTP_PRESENT	0x00000020
+
+
+#define CC4335_GCI_STRAP_OVERRIDE_SFLASH_PRESENT	(1 << 24)
+#define CC4335_GCI_STRAP_OVERRIDE_SFLASH_TYPE	25
+#define CC4335_GCI_FUNC_SEL_PAD_SDIO	0x00707770
+
+
+#define CC4335_SFLASH_CLKDIV_MASK	0x1F000000
+#define CC4335_SFLASH_CLKDIV_SHIFT	25
+
+
+#define CC4335_SROM_OTP_SFLASH	40
+#define CC4335_SROM_OTP_SFLASH_PRESENT	0x1
+#define CC4335_SROM_OTP_SFLASH_TYPE	0x2
+#define CC4335_SROM_OTP_SFLASH_CLKDIV_MASK	0x003C
+#define CC4335_SROM_OTP_SFLASH_CLKDIV_SHIFT	2
 
 
 
@@ -2515,6 +2552,7 @@ typedef volatile struct {
 #define CST4350_CHIPMODE_HSIC30D(cs)	(CST4350_IFC_MODE(cs) == (CST4350_IFC_MODE_HSIC30D))
 #define CST4350_CHIPMODE_USB30D(cs)	(CST4350_IFC_MODE(cs) == (CST4350_IFC_MODE_USB30D))
 #define CST4350_CHIPMODE_USB30D_WL(cs)	(CST4350_IFC_MODE(cs) == (CST4350_IFC_MODE_USB30D_WL))
+#define CST4350_CHIPMODE_PCIE(cs)	(CST4350_IFC_MODE(cs) == (CST4350_IFC_MODE_PCIE))
 
 
 #define RES4350_LPLDO_PU	0
@@ -2586,6 +2624,74 @@ typedef volatile struct {
 #define CC4350_PIN_GPIO_14		(14)
 #define CC4350_PIN_GPIO_15		(15)
 
+#define CC2_4350_MEMLPLDO_PWRSW_EN_MASK		(1 << 21)
+#define CC2_4350_MEMLPLDO_PWRSW_EN_SHIFT	(21)
+#define CC2_4350_SDIO_AOS_WAKEUP_MASK		(1 << 24)
+#define CC2_4350_SDIO_AOS_WAKEUP_SHIFT		(24)
+
+
+#define CC3_SR_CLK_SR_MEM_MASK			(1 << 0)
+#define CC3_SR_CLK_SR_MEM_SHIFT			(0)
+#define CC3_SR_BIT1_TBD_MASK			(1 << 1)
+#define CC3_SR_BIT1_TBD_SHIFT			(1)
+#define CC3_SR_ENGINE_ENABLE_MASK		(1 << 2)
+#define CC3_SR_ENGINE_ENABLE_SHIFT		(2)
+#define CC3_SR_BIT3_TBD_MASK			(1 << 3)
+#define CC3_SR_BIT3_TBD_SHIFT			(3)
+#define CC3_SR_MINDIV_FAST_CLK_MASK		(0xF << 4)
+#define CC3_SR_MINDIV_FAST_CLK_SHIFT		(4)
+#define CC3_SR_R23_SR2_RISE_EDGE_TRIG_MASK	(1 << 8)
+#define CC3_SR_R23_SR2_RISE_EDGE_TRIG_SHIFT	(8)
+#define CC3_SR_R23_SR2_FALL_EDGE_TRIG_MASK	(1 << 9)
+#define CC3_SR_R23_SR2_FALL_EDGE_TRIG_SHIFT	(9)
+#define CC3_SR_R23_SR_RISE_EDGE_TRIG_MASK	(1 << 10)
+#define CC3_SR_R23_SR_RISE_EDGE_TRIG_SHIFT	(10)
+#define CC3_SR_R23_SR_FALL_EDGE_TRIG_MASK	(1 << 11)
+#define CC3_SR_R23_SR_FALL_EDGE_TRIG_SHIFT	(11)
+#define CC3_SR_NUM_CLK_HIGH_MASK		(0x7 << 12)
+#define CC3_SR_NUM_CLK_HIGH_SHIFT		(12)
+#define CC3_SR_BIT15_TBD_MASK			(1 << 15)
+#define CC3_SR_BIT15_TBD_SHIFT			(15)
+#define CC3_SR_PHY_FUNC_PIC_MASK		(1 << 16)
+#define CC3_SR_PHY_FUNC_PIC_SHIFT		(16)
+#define CC3_SR_BIT17_19_TBD_MASK		(0x7 << 17)
+#define CC3_SR_BIT17_19_TBD_SHIFT		(17)
+#define CC3_SR_CHIP_TRIGGER_1_MASK		(1 << 20)
+#define CC3_SR_CHIP_TRIGGER_1_SHIFT		(20)
+#define CC3_SR_CHIP_TRIGGER_2_MASK		(1 << 21)
+#define CC3_SR_CHIP_TRIGGER_2_SHIFT		(21)
+#define CC3_SR_CHIP_TRIGGER_3_MASK		(1 << 22)
+#define CC3_SR_CHIP_TRIGGER_3_SHIFT		(22)
+#define CC3_SR_CHIP_TRIGGER_4_MASK		(1 << 23)
+#define CC3_SR_CHIP_TRIGGER_4_SHIFT		(23)
+#define CC3_SR_ALLOW_SBC_FUNC_PIC_MASK		(1 << 24)
+#define CC3_SR_ALLOW_SBC_FUNC_PIC_SHIFT		(24)
+#define CC3_SR_BIT25_26_TBD_MASK		(0x3 << 25)
+#define CC3_SR_BIT25_26_TBD_SHIFT		(25)
+#define CC3_SR_ALLOW_SBC_STBY_MASK		(1 << 27)
+#define CC3_SR_ALLOW_SBC_STBY_SHIFT		(27)
+#define CC3_SR_GPIO_MUX_MASK			(0xF << 28)
+#define CC3_SR_GPIO_MUX_SHIFT			(28)
+
+
+#define CC4_SR_INIT_ADDR_MASK		(0x3FF0000)
+#define 	CC4_4350_SR_ASM_ADDR	(0x30)
+#define 	CC4_4335_SR_ASM_ADDR	(0x48)
+#define CC4_SR_INIT_ADDR_SHIFT		(16)
+
+#define CC4_4350_EN_SR_CLK_ALP_MASK	(1 << 30)
+#define CC4_4350_EN_SR_CLK_ALP_SHIFT	(30)
+#define CC4_4350_EN_SR_CLK_HT_MASK	(1 << 31)
+#define CC4_4350_EN_SR_CLK_HT_SHIFT	(31)
+
+#define VREG4_4350_MEMLPDO_PU_MASK	(1 << 31)
+#define VREG4_4350_MEMLPDO_PU_SHIFT	31
+
+#define CC6_4350_PCIE_CLKREQ_WAKEUP_MASK	(1 << 4)
+#define CC6_4350_PCIE_CLKREQ_WAKEUP_SHIFT	(4)
+#define CC6_4350_PMU_WAKEUP_ALPAVAIL_MASK	(1 << 6)
+#define CC6_4350_PMU_WAKEUP_ALPAVAIL_SHIFT	(6)
+
 
 #define CC_GCI_CHIPCTRL_00	(0)
 #define CC_GCI_CHIPCTRL_01	(1)
@@ -2596,6 +2702,9 @@ typedef volatile struct {
 #define CC_GCI_CHIPCTRL_06	(6)
 #define CC_GCI_CHIPCTRL_07	(7)
 #define CC_GCI_CHIPCTRL_08	(8)
+
+#define CC_GCI_06_JTAG_SEL_SHIFT	4
+#define CC_GCI_06_JTAG_SEL_MASK		(1 << 4)
 
 #define CC_GCI_NUMCHIPCTRLREGS(cap1)	((cap1 & 0xF00) >> 8)
 
@@ -2660,6 +2769,11 @@ typedef volatile struct {
 
 #define MUXENAB4335_UART_MASK		(0x0000000f)
 
+#define MUXENAB4335_UART_SHIFT		0
+#define MUXENAB4335_HOSTWAKE_MASK	(0x000000f0)	
+#define MUXENAB4335_HOSTWAKE_SHIFT	4
+#define MUXENAB4335_GETIX(val, name) \
+	((((val) & MUXENAB4335_ ## name ## _MASK) >> MUXENAB4335_ ## name ## _SHIFT) - 1)
 
 
 #define CHIP_HOSTIF_USB(sih)	(si_chip_hostif(sih) & CST4360_MODE_USB)

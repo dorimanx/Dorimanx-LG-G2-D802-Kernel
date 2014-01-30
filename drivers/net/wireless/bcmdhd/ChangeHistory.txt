@@ -1,0 +1,8 @@
+BCM43XX DHD 1.88.49 for Kitkat.
+
+2013.10.14
+DHD 1.88.48
+  - Initial version release for Kitkat.
+  - set TDLS auto enable.
+  - adding PNO.
+  - adding scheduled SCAN.
