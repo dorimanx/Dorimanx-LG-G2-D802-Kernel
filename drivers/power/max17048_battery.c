@@ -179,7 +179,9 @@ static int max17048_get_status(struct i2c_client *client)
 		dev_err(&client->dev, "%s: err %d\n", __func__, status);
 		return status;
 	} else {
+#ifdef MAX17048_DEBUG
 		printk(KERN_ERR "%s : status = 0x%x\n", __func__, status);
+#endif
 		chip->status = status;
 		return 0;
 	}
@@ -508,8 +510,10 @@ static void max17048_work(struct work_struct *work)
 	max17048_get_vcell(chip->client);
 	max17048_get_soc(chip->client);
 
+#ifdef MAX17048_DEBUG
 	printk(KERN_ERR "%s : Raw SOC : 0x%x / vcell : 0x%x\n",
 		__func__, chip->soc, chip->vcell);
+#endif
 
 #ifdef CONFIG_LGE_PM
 	if ( (abs(chip->voltage - chip->lasttime_voltage) >= 50) ||
@@ -525,8 +529,10 @@ static void max17048_work(struct work_struct *work)
 				goto psy_error;
 		}
 
+#ifdef MAX17048_DEBUG
 		printk(KERN_ERR "%s : Reported Capacity : %d / voltage : %d\n",
 				__func__, chip->capacity_level, chip->voltage);
+#endif
 
 		power_supply_changed(chip->batt_psy);
 	}
@@ -604,7 +610,9 @@ static int max17048_clear_interrupt(struct i2c_client *client)
 {
 	struct max17048_chip *chip = i2c_get_clientdata(client);
 	int ret;
+#ifdef MAX17048_DEBUG
 	printk(KERN_INFO "%s.\n", __func__);
+#endif
 	if (chip == NULL)
 		return -ENODEV;
 

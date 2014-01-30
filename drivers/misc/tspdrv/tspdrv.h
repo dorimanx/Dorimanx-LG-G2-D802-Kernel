@@ -86,7 +86,7 @@ typedef struct
 
 /* Kernel Debug Macros */
 #ifdef __KERNEL__
-    #if 1 // def VIBE_DEBUG
+    #if 0 // def VIBE_DEBUG
         #define DbgOut(_x_) printk _x_
     #else   /* VIBE_DEBUG */
         #define DbgOut(_x_)

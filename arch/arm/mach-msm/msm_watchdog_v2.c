@@ -255,10 +255,6 @@ static void pet_watchdog(struct msm_watchdog_data *wdog_dd)
 	unsigned long long slack_ns;
 	unsigned long long bark_time_ns = wdog_dd->bark_time * 1000000ULL;
 
-#ifdef CONFIG_MACH_LGE
-	printk(KERN_INFO "%s\n", __func__);
-#endif
-
 	for (i = 0; i < 2; i++) {
 		count = (__raw_readl(wdog_dd->base + WDT0_STS) >> 1) & 0xFFFFF;
 		if (count != prev_count) {
