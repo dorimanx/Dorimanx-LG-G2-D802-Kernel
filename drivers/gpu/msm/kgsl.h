@@ -206,6 +206,8 @@ long kgsl_ioctl_device_waittimestamp(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data);
 long kgsl_ioctl_device_waittimestamp_ctxtid(struct kgsl_device_private
 				*dev_priv, unsigned int cmd, void *data);
+long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
+				      unsigned int cmd, void *data);
 long kgsl_ioctl_submit_commands(struct kgsl_device_private *dev_priv,
 				unsigned int cmd, void *data);
 long kgsl_ioctl_cmdstream_readtimestamp(struct kgsl_device_private *dev_priv,
