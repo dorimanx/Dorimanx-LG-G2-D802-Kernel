@@ -27,6 +27,7 @@
 
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/host.h>
+#include <linux/mmc/card.h>
 
 #include "sdhci.h"
 
@@ -110,7 +111,7 @@ static void sdhci_dumpregs(struct sdhci_host *host)
 		sdhci_readl(host, SDHCI_INT_ENABLE),
 		sdhci_readl(host, SDHCI_SIGNAL_ENABLE));
 	pr_info(DRIVER_NAME ": AC12 err: 0x%08x | Slot int: 0x%08x\n",
-		sdhci_readw(host, SDHCI_ACMD12_ERR),
+		host->auto_cmd_err_sts,
 		sdhci_readw(host, SDHCI_SLOT_INT_STATUS));
 	pr_info(DRIVER_NAME ": Caps:     0x%08x | Caps_1:   0x%08x\n",
 		sdhci_readl(host, SDHCI_CAPABILITIES),
@@ -118,6 +119,12 @@ static void sdhci_dumpregs(struct sdhci_host *host)
 	pr_info(DRIVER_NAME ": Cmd:      0x%08x | Max curr: 0x%08x\n",
 		sdhci_readw(host, SDHCI_COMMAND),
 		sdhci_readl(host, SDHCI_MAX_CURRENT));
+	pr_info(DRIVER_NAME ": Resp 1:   0x%08x | Resp 0:   0x%08x\n",
+		sdhci_readl(host, SDHCI_RESPONSE + 0x4),
+		sdhci_readl(host, SDHCI_RESPONSE));
+	pr_info(DRIVER_NAME ": Resp 3:   0x%08x | Resp 2:   0x%08x\n",
+		sdhci_readl(host, SDHCI_RESPONSE + 0xC),
+		sdhci_readl(host, SDHCI_RESPONSE + 0x8));
 	pr_info(DRIVER_NAME ": Host ctl2: 0x%08x\n",
 		sdhci_readw(host, SDHCI_HOST_CONTROL2));
 
@@ -128,6 +135,33 @@ static void sdhci_dumpregs(struct sdhci_host *host)
 
 	sdhci_dump_state(host);
 	pr_info(DRIVER_NAME ": ===========================================\n");
+}
+
+#define MAX_PM_QOS_TIMEOUT_VALUE	100000 /* 100 ms */
+static ssize_t
+show_sdhci_pm_qos_tout(struct device *dev, struct device_attribute *attr,
+			char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d us\n", host->pm_qos_timeout_us);
+}
+
+static ssize_t
+store_sdhci_pm_qos_tout(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	uint32_t value;
+	unsigned long flags;
+
+	if (!kstrtou32(buf, 0, &value)) {
+		spin_lock_irqsave(&host->lock, flags);
+		if (value <= MAX_PM_QOS_TIMEOUT_VALUE)
+			host->pm_qos_timeout_us = value;
+		spin_unlock_irqrestore(&host->lock, flags);
+	}
+	return count;
 }
 
 /*****************************************************************************\
@@ -251,7 +285,8 @@ static void sdhci_init(struct sdhci_host *host, int soft)
 		SDHCI_INT_BUS_POWER | SDHCI_INT_DATA_END_BIT |
 		SDHCI_INT_DATA_CRC | SDHCI_INT_DATA_TIMEOUT | SDHCI_INT_INDEX |
 		SDHCI_INT_END_BIT | SDHCI_INT_CRC | SDHCI_INT_TIMEOUT |
-		SDHCI_INT_DATA_END | SDHCI_INT_RESPONSE);
+		SDHCI_INT_DATA_END | SDHCI_INT_RESPONSE |
+			     SDHCI_INT_AUTO_CMD_ERR);
 
 	if (soft) {
 		/* force clock reconfiguration */
@@ -710,7 +745,18 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 	 */
 	if (host->quirks & SDHCI_QUIRK_BROKEN_TIMEOUT_VAL)
 		return 0xE;
+#ifndef CONFIG_MACH_LGE
+	/*                                          */
+	/* QCT Case : 01383733 TD: 135796/OFFICIAL EVENT */
+	/* we agree that below code is not appied */
+	/* Hardware Interrupt occurs, since Data Timeout is longer than hadware interrupt time */
 
+	/* During initialization, don't use max timeout as the clock is slow */
+	if ((host->quirks2 & SDHCI_QUIRK2_USE_RESERVED_MAX_TIMEOUT) &&
+		(host->clock > 400000)) {
+		return 0xF;
+	}
+#endif
 	/* Unspecified timeout, assume max */
 	if (!data && !cmd->cmd_timeout_ms)
 		return 0xE;
@@ -1102,6 +1148,7 @@ static void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 
 	/* CMD19 is special in that the Data Present Select should be set */
 	if (cmd->data || cmd->opcode == MMC_SEND_TUNING_BLOCK ||
+	    cmd->opcode == MMC_SEND_TUNING_BLOCK_HS400 ||
 	    cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200)
 		flags |= SDHCI_CMD_DATA;
 
@@ -1361,13 +1408,53 @@ static int sdhci_disable(struct mmc_host *mmc)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
 
-	if (host->cpu_dma_latency_us)
-		pm_qos_update_request(&host->pm_qos_req_dma,
+	if (host->cpu_dma_latency_us) {
+		/*
+		 * In performance mode, release QoS vote after a timeout to
+		 * make sure back-to-back requests don't suffer from latencies
+		 * that are involved to wake CPU from low power modes in cases
+		 * where the CPU goes into low power mode as soon as QoS vote is
+		 * released.
+		 */
+		if (host->power_policy == SDHCI_PERFORMANCE_MODE)
+			pm_qos_update_request_timeout(&host->pm_qos_req_dma,
+					host->cpu_dma_latency_us,
+					host->pm_qos_timeout_us);
+		else
+			pm_qos_update_request(&host->pm_qos_req_dma,
 					PM_QOS_DEFAULT_VALUE);
+	}
+
 	if (host->ops->platform_bus_voting)
 		host->ops->platform_bus_voting(host, 0);
 
 	return 0;
+}
+
+static inline void sdhci_update_power_policy(struct sdhci_host *host,
+		enum sdhci_power_policy policy)
+{
+	host->power_policy = policy;
+}
+
+static int sdhci_notify_load(struct mmc_host *mmc, enum mmc_load state)
+{
+	int err = 0;
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	switch (state) {
+	case MMC_LOAD_HIGH:
+		sdhci_update_power_policy(host, SDHCI_PERFORMANCE_MODE);
+		break;
+	case MMC_LOAD_LOW:
+		sdhci_update_power_policy(host, SDHCI_POWER_SAVE_MODE);
+		break;
+	default:
+		err = -EINVAL;
+		break;
+	}
+
+	return err;
 }
 
 static void sdhci_pre_req(struct mmc_host *mmc, struct mmc_request *mrq,
@@ -1453,19 +1540,19 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	/* If polling, assume that the card is always present. */
 	if (host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION)
-	#ifdef CONFIG_MACH_LGE
-	/* LGE_UPDATE, 2013/07/19, G2-FS@lge.com
-	 * When sd doesn't exist physically, do finish tasklet-schedule.
-	 */
+#ifdef CONFIG_MACH_LGE
+	/*                                      
+                                                                 
+  */
 		{
-			if(mmc->index==2)
+			if (mmc->index == 2)
 				present = mmc_cd_get_status(mmc);
 			else
 				present = true;
 		}
-	#else
+#else
 		present = true;
-	#endif
+#endif
 	else
 		present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
 				SDHCI_CARD_PRESENT;
@@ -1576,7 +1663,8 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		unsigned int clock;
 
 		/* In case of UHS-I modes, set High Speed Enable */
-		if ((ios->timing == MMC_TIMING_MMC_HS200) ||
+		if ((ios->timing == MMC_TIMING_MMC_HS400) ||
+		    (ios->timing == MMC_TIMING_MMC_HS200) ||
 		    (ios->timing == MMC_TIMING_UHS_SDR50) ||
 		    (ios->timing == MMC_TIMING_UHS_SDR104) ||
 		    (ios->timing == MMC_TIMING_UHS_DDR50) ||
@@ -1631,7 +1719,9 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 			ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 			/* Select Bus Speed Mode for host */
 			ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
-			if (ios->timing == MMC_TIMING_MMC_HS200)
+			if (ios->timing == MMC_TIMING_MMC_HS400)
+				ctrl_2 |= SDHCI_CTRL_HS_SDR200;
+			else if (ios->timing == MMC_TIMING_MMC_HS200)
 				ctrl_2 |= SDHCI_CTRL_HS_SDR200;
 			else if (ios->timing == MMC_TIMING_UHS_SDR12)
 				ctrl_2 |= SDHCI_CTRL_UHS_SDR12;
@@ -1877,10 +1967,10 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 			host->ops->check_power_status(host, REQ_BUS_OFF);
 
 		#ifdef CONFIG_MACH_LGE
-		/* LGU_UPDATE, 2013/07/17, G2-FS@lge.com
-		 * It maybe need more time.
-		 */
-		 usleep_range(10000, 15000);
+		/*                                      
+                             
+   */
+		usleep_range(10000, 15000);
 		#else
 		/* Wait for 1ms as per the spec */
 		usleep_range(1000, 1500);
@@ -1911,10 +2001,10 @@ static int sdhci_start_signal_voltage_switch(struct mmc_host *mmc,
 	err = sdhci_do_start_signal_voltage_switch(host, ios);
 
 	#ifdef CONFIG_MACH_LGE
-	/* LGE_UPDATE, 2013/07/17, G2-FS@lge.com
-	 * When err is -EAGAIN, baby one more time.
-	 */
-	if(err == -EAGAIN )
+	/*                                      
+                                            
+  */
+	if (err == -EAGAIN)
 	{
 		usleep_range(5000, 5500);
 		err = sdhci_do_start_signal_voltage_switch(host, ios);
@@ -1948,12 +2038,13 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	 * The Host Controller needs tuning only in case of SDR104 mode
 	 * and for SDR50 mode when Use Tuning for SDR50 is set in the
 	 * Capabilities register.
-	 * If the Host Controller supports the HS200 mode then the
+	 * If the Host Controller supports the HS400/HS200 mode then the
 	 * tuning function has to be executed.
 	 */
 	if ((((ctrl & SDHCI_CTRL_UHS_MASK) == SDHCI_CTRL_UHS_SDR50) &&
 	    (host->flags & SDHCI_SDR50_NEEDS_TUNING)) ||
-	     (host->flags & SDHCI_HS200_NEEDS_TUNING))
+	     (host->flags & SDHCI_HS200_NEEDS_TUNING) ||
+	     (host->flags & SDHCI_HS400_NEEDS_TUNING))
 		requires_tuning_nonuhs = true;
 
 	if (((ctrl & SDHCI_CTRL_UHS_MASK) == SDHCI_CTRL_UHS_SDR104) ||
@@ -1969,7 +2060,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	if (host->ops->execute_tuning) {
 		spin_unlock(&host->lock);
 		enable_irq(host->irq);
-		host->ops->execute_tuning(host, opcode);
+		err = host->ops->execute_tuning(host, opcode);
 		disable_irq(host->irq);
 		spin_lock(&host->lock);
 		goto out;
@@ -2016,7 +2107,8 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		 * block to the Host Controller. So we set the block size
 		 * to 64 here.
 		 */
-		if (cmd.opcode == MMC_SEND_TUNING_BLOCK_HS200) {
+		if ((cmd.opcode == MMC_SEND_TUNING_BLOCK_HS400) ||
+		    (cmd.opcode == MMC_SEND_TUNING_BLOCK_HS200)) {
 			if (mmc->ios.bus_width == MMC_BUS_WIDTH_8)
 				sdhci_writew(host, SDHCI_MAKE_BLKSZ(7, 128),
 					     SDHCI_BLOCK_SIZE);
@@ -2176,10 +2268,13 @@ static int sdhci_stop_request(struct mmc_host *mmc)
 	struct sdhci_host *host = mmc_priv(mmc);
 	unsigned long flags;
 	struct mmc_data *data;
+	int ret = 0;
 
 	spin_lock_irqsave(&host->lock, flags);
-	if (!host->mrq || !host->data)
+	if (!host->mrq || !host->data) {
+		ret = MMC_BLK_NO_REQ_TO_STOP;
 		goto out;
+	}
 
 	data = host->data;
 
@@ -2205,7 +2300,7 @@ static int sdhci_stop_request(struct mmc_host *mmc)
 	host->data = NULL;
 out:
 	spin_unlock_irqrestore(&host->lock, flags);
-	return 0;
+	return ret;
 }
 
 static unsigned int sdhci_get_xfer_remain(struct mmc_host *mmc)
@@ -2233,6 +2328,7 @@ static const struct mmc_host_ops sdhci_ops = {
 	.disable	= sdhci_disable,
 	.stop_request = sdhci_stop_request,
 	.get_xfer_remain = sdhci_get_xfer_remain,
+	.notify_load	= sdhci_notify_load,
 };
 
 /*****************************************************************************\
@@ -2327,6 +2423,7 @@ static void sdhci_tasklet_finish(unsigned long param)
 	host->mrq = NULL;
 	host->cmd = NULL;
 	host->data = NULL;
+	host->auto_cmd_err_sts = 0;
 
 #ifndef SDHCI_USE_LEDS_CLASS
 	sdhci_deactivate_led(host);
@@ -2349,9 +2446,11 @@ static void sdhci_timeout_timer(unsigned long data)
 	spin_lock_irqsave(&host->lock, flags);
 
 	if (host->mrq) {
-		pr_err("%s: Timeout waiting for hardware "
-			"interrupt.\n", mmc_hostname(host->mmc));
-		sdhci_dumpregs(host);
+		if (!host->mrq->cmd->ignore_timeout) {
+			pr_err("%s: Timeout waiting for hardware interrupt.\n",
+			       mmc_hostname(host->mmc));
+			sdhci_dumpregs(host);
+		}
 
 		if (host->data) {
 			pr_info("%s: bytes to transfer: %d transferred: %d\n",
@@ -2397,6 +2496,7 @@ static void sdhci_tuning_timer(unsigned long data)
 
 static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 {
+	u16 auto_cmd_status;
 	BUG_ON(intmask == 0);
 
 	if (!host->cmd) {
@@ -2413,8 +2513,23 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 			SDHCI_INT_INDEX))
 		host->cmd->error = -EILSEQ;
 
+	if (intmask & SDHCI_INT_AUTO_CMD_ERR) {
+		auto_cmd_status = host->auto_cmd_err_sts;
+		pr_err("%s: %s: AUTO CMD err sts 0x%08x\n",
+			mmc_hostname(host->mmc), __func__, auto_cmd_status);
+		if (auto_cmd_status & (SDHCI_AUTO_CMD12_NOT_EXEC |
+				       SDHCI_AUTO_CMD_INDEX_ERR |
+				       SDHCI_AUTO_CMD_ENDBIT_ERR))
+			host->cmd->error = -EIO;
+		else if (auto_cmd_status & SDHCI_AUTO_CMD_TIMEOUT_ERR)
+			host->cmd->error = -ETIMEDOUT;
+		else if (auto_cmd_status & SDHCI_AUTO_CMD_CRC_ERR)
+			host->cmd->error = -EILSEQ;
+	}
+
 	if (host->quirks2 & SDHCI_QUIRK2_IGNORE_CMDCRC_FOR_TUNING) {
-		if ((host->cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200) ||
+		if ((host->cmd->opcode == MMC_SEND_TUNING_BLOCK_HS400) ||
+			(host->cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200) ||
 			(host->cmd->opcode == MMC_SEND_TUNING_BLOCK)) {
 			if (intmask & SDHCI_INT_CRC) {
 				sdhci_reset(host, SDHCI_RESET_CMD);
@@ -2451,7 +2566,8 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 	}
 
 	if (host->quirks2 & SDHCI_QUIRK2_IGNORE_CMDCRC_FOR_TUNING) {
-		if ((host->cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200) ||
+		if ((host->cmd->opcode == MMC_SEND_TUNING_BLOCK_HS400) ||
+			(host->cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200) ||
 			(host->cmd->opcode == MMC_SEND_TUNING_BLOCK)) {
 			if (intmask & SDHCI_INT_CRC) {
 				sdhci_finish_command(host);
@@ -2499,7 +2615,8 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 	if (intmask & SDHCI_INT_DATA_AVAIL) {
 		command = SDHCI_GET_CMD(sdhci_readw(host, SDHCI_COMMAND));
 		if (command == MMC_SEND_TUNING_BLOCK ||
-		    command == MMC_SEND_TUNING_BLOCK_HS200) {
+		    command == MMC_SEND_TUNING_BLOCK_HS200 ||
+		    command == MMC_SEND_TUNING_BLOCK_HS400) {
 			host->tuning_done = 1;
 			wake_up(&host->buf_ready_int);
 			return;
@@ -2548,20 +2665,21 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		    (host->quirks2 & SDHCI_QUIRK2_IGNORE_CMDCRC_FOR_TUNING)) {
 			command = SDHCI_GET_CMD(sdhci_readw(host,
 							    SDHCI_COMMAND));
-			if ((command != MMC_SEND_TUNING_BLOCK_HS200) &&
+			if ((command != MMC_SEND_TUNING_BLOCK_HS400) &&
+			    (command != MMC_SEND_TUNING_BLOCK_HS200) &&
 			    (command != MMC_SEND_TUNING_BLOCK))
 				pr_msg = true;
 		} else {
 			pr_msg = true;
 		}
 		if (pr_msg) {
-			#ifdef CONFIG_MACH_LGE
-			if(intmask & SDHCI_INT_DATA_CRC)
+#ifdef CONFIG_MACH_LGE
+			if (intmask & SDHCI_INT_DATA_CRC)
 				printk(KERN_INFO "[LGE][MMC][%-18s( )]intmask is SDHCI_INT_DATA_CRC\n", __func__);
 
-			if(intmask & SDHCI_INT_DATA_TIMEOUT)
+			if (intmask & SDHCI_INT_DATA_TIMEOUT)
 				printk(KERN_INFO "[LGE][MMC][%-18s( )]intmask is SDHCI_INT_DATA_TIMEOUT\n", __func__);
-			#endif
+#endif
 
 			pr_err("%s: data txfr (0x%08x) error: %d after %lld ms\n",
 			       mmc_hostname(host->mmc), intmask,
@@ -2669,6 +2787,9 @@ again:
 	}
 
 	if (intmask & SDHCI_INT_CMD_MASK) {
+		if (intmask & SDHCI_INT_AUTO_CMD_ERR)
+			host->auto_cmd_err_sts = sdhci_readw(host,
+					SDHCI_AUTO_CMD_ERR);
 		sdhci_writel(host, intmask & SDHCI_INT_CMD_MASK,
 			SDHCI_INT_STATUS);
 		if ((host->quirks2 & SDHCI_QUIRK2_SLOW_INT_CLR) &&
@@ -3188,6 +3309,10 @@ int sdhci_add_host(struct sdhci_host *host)
 	if (mmc->caps2 & MMC_CAP2_HS200)
 		host->flags |= SDHCI_HS200_NEEDS_TUNING;
 
+	/* Does the host need tuning for HS400? */
+	if (mmc->caps2 & MMC_CAP2_HS400)
+		host->flags |= SDHCI_HS400_NEEDS_TUNING;
+
 	/* Driver Type(s) (A, C, D) supported by the host */
 	if (caps[1] & SDHCI_DRIVER_TYPE_A)
 		mmc->caps |= MMC_CAP_DRIVER_TYPE_A;
@@ -3399,9 +3524,22 @@ int sdhci_add_host(struct sdhci_host *host)
 
 	mmiowb();
 
-	if (host->cpu_dma_latency_us)
+	if (host->cpu_dma_latency_us) {
+		host->pm_qos_timeout_us = 10000; /* default value */
 		pm_qos_add_request(&host->pm_qos_req_dma,
 				PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+
+		host->pm_qos_tout.show = show_sdhci_pm_qos_tout;
+		host->pm_qos_tout.store = store_sdhci_pm_qos_tout;
+		sysfs_attr_init(&host->pm_qos_tout.attr);
+		host->pm_qos_tout.attr.name = "pm_qos_unvote_delay";
+		host->pm_qos_tout.attr.mode = S_IRUGO | S_IWUSR;
+		ret = device_create_file(mmc_dev(mmc), &host->pm_qos_tout);
+		if (ret)
+			pr_err("%s: cannot create pm_qos_unvote_delay %d\n",
+					mmc_hostname(mmc), ret);
+	}
+
 	mmc_add_host(mmc);
 
 	pr_info("%s: SDHCI controller on %s [%s] using %s\n",

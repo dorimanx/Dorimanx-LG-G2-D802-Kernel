@@ -41,10 +41,10 @@
 #include <linux/iopoll.h>
 
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/* LGE_CHANGE
- * For adjustable drive strength value on user level
- * but, it doesn't operate in user build image
- * 2013-06-17, G2-FS@lge.com
+/*           
+                                                    
+                                              
+                            
  */
 #include <linux/debugfs.h>
 #endif
@@ -54,6 +54,7 @@
 #define SDHCI_VER_100		0x2B
 #define CORE_HC_MODE		0x78
 #define HC_MODE_EN		0x1
+#define FF_CLK_SW_RST_DIS	(1 << 13)
 
 #define CORE_POWER		0x0
 #define CORE_SW_RST		(1 << 7)
@@ -76,20 +77,57 @@
 #define INT_MASK		0xF
 #define MAX_PHASES		16
 
-#define CORE_DLL_LOCK		(1 << 7)
+#define CORE_DLL_CONFIG		0x100
+#define CORE_CMD_DAT_TRACK_SEL	(1 << 0)
 #define CORE_DLL_EN		(1 << 16)
 #define CORE_CDR_EN		(1 << 17)
 #define CORE_CK_OUT_EN		(1 << 18)
 #define CORE_CDR_EXT_EN		(1 << 19)
 #define CORE_DLL_PDN		(1 << 29)
 #define CORE_DLL_RST		(1 << 30)
-#define CORE_DLL_CONFIG		0x100
-#define CORE_DLL_TEST_CTL	0x104
+
 #define CORE_DLL_STATUS		0x108
+#define CORE_DLL_LOCK		(1 << 7)
 
 #define CORE_VENDOR_SPEC	0x10C
 #define CORE_CLK_PWRSAVE	(1 << 1)
+#define CORE_HC_MCLK_SEL_DFLT	(2 << 8)
+#define CORE_HC_MCLK_SEL_HS400	(3 << 8)
+#define CORE_HC_MCLK_SEL_MASK	(3 << 8)
 #define CORE_IO_PAD_PWR_SWITCH	(1 << 16)
+#define CORE_HC_SELECT_IN_EN	(1 << 18)
+#define CORE_HC_SELECT_IN_HS400	(6 << 19)
+#define CORE_HC_SELECT_IN_MASK	(7 << 19)
+
+#define CORE_VENDOR_SPEC_ADMA_ERR_ADDR0	0x114
+#define CORE_VENDOR_SPEC_ADMA_ERR_ADDR1	0x118
+
+#define CORE_CSR_CDC_CTLR_CFG0		0x130
+#define CORE_SW_TRIG_FULL_CALIB		(1 << 16)
+#define CORE_HW_AUTOCAL_ENA		(1 << 17)
+
+#define CORE_CSR_CDC_CTLR_CFG1		0x134
+#define CORE_CSR_CDC_CAL_TIMER_CFG0	0x138
+#define CORE_TIMER_ENA			(1 << 16)
+
+#define CORE_CSR_CDC_CAL_TIMER_CFG1	0x13C
+#define CORE_CSR_CDC_REFCOUNT_CFG	0x140
+#define CORE_CSR_CDC_COARSE_CAL_CFG	0x144
+#define CORE_CDC_OFFSET_CFG		0x14C
+#define CORE_CSR_CDC_DELAY_CFG		0x150
+#define CORE_CDC_SLAVE_DDA_CFG		0x160
+#define CORE_CSR_CDC_STATUS0		0x164
+#define CORE_CALIBRATION_DONE		(1 << 0)
+
+#define CORE_CDC_ERROR_CODE_MASK	0x7000000
+
+#define CORE_CSR_CDC_GEN_CFG		0x178
+#define CORE_CDC_SWITCH_BYPASS_OFF	(1 << 0)
+#define CORE_CDC_SWITCH_RC_EN		(1 << 1)
+
+#define CORE_DDR_200_CFG		0x184
+#define CORE_CDC_T4_DLY_SEL		(1 << 0)
+#define CORE_START_CDC_TRAFFIC		(1 << 6)
 
 #define CORE_MCI_DATA_CTRL	0x2C
 #define CORE_MCI_DPSM_ENABLE	(1 << 0)
@@ -97,6 +135,9 @@
 #define CORE_TESTBUS_CONFIG	0x0CC
 #define CORE_TESTBUS_ENA	(1 << 3)
 #define CORE_TESTBUS_SEL2	(1 << 4)
+
+#define CORE_MCI_VERSION	0x050
+#define CORE_VERSION_310	0x10000011
 
 /*
  * Waiting until end of potential AHB access for data:
@@ -119,6 +160,10 @@
 /* 8KB descriptors */
 #define SDHCI_MSM_MAX_SEGMENTS  (1 << 13)
 #define SDHCI_MSM_MMC_CLK_GATE_DELAY	200 /* msecs */
+
+#define CORE_FREQ_100MHZ	(100 * 1000 * 1000)
+
+#define INVALID_TUNING_PHASE	-1
 
 static const u32 tuning_block_64[] = {
 	0x00FF0FFF, 0xCCC3CCFF, 0xFFCC3CC3, 0xEFFEFFFE,
@@ -161,6 +206,7 @@ struct sdhci_msm_reg_data {
 	bool is_always_on;
 	/* is low power mode setting required for this regulator? */
 	bool lpm_sup;
+	bool set_voltage_sup;
 };
 
 /*
@@ -265,6 +311,8 @@ struct sdhci_msm_host {
 	struct clk	 *clk;     /* main SD/MMC bus clock */
 	struct clk	 *pclk;    /* SDHC peripheral bus clock */
 	struct clk	 *bus_clk; /* SDHC bus voter clock */
+	struct clk	 *ff_clk; /* CDC calibration fixed feedback clock */
+	struct clk	 *sleep_clk; /* CDC calibration sleep clock */
 	atomic_t clks_on; /* Set if clocks are enabled */
 	struct sdhci_msm_pltfm_data *pdata;
 	struct mmc_host  *mmc;
@@ -273,7 +321,11 @@ struct sdhci_msm_host {
 	u32 curr_io_level;
 	struct completion pwr_irq_completion;
 	struct sdhci_msm_bus_vote msm_bus_vote;
+	struct device_attribute	polling;
 	u32 clk_rate; /* Keeps track of current clock rate that is set */
+	bool tuning_done;
+	bool calibration_done;
+	u8 saved_tuning_phase;
 };
 
 enum vdd_io_level {
@@ -289,10 +341,10 @@ enum vdd_io_level {
 };
 
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/* LGE_CHANGE
- * For adjustable drive strength value on user level
- * but, it doesn't operate in user build image
- * 2013-06-17, G2-FS@lge.com
+/*           
+                                                    
+                                              
+                            
  */
 static void msmsdhci_dbg_createhost(struct sdhci_msm_host *);
 #endif
@@ -386,8 +438,8 @@ out:
  * Find out the greatest range of consecuitive selected
  * DLL clock output phases that can be used as sampling
  * setting for SD3.0 UHS-I card read operation (in SDR104
- * timing mode) or for eMMC4.5 card read operation (in HS200
- * timing mode).
+ * timing mode) or for eMMC4.5 card read operation (in
+ * HS400/HS200 timing mode).
  * Select the 3/4 of the range and configure the DLL with the
  * selected DLL clock output phase.
  */
@@ -530,19 +582,25 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 	int rc = 0;
 	unsigned long flags;
 	u32 wait_cnt;
+	bool prev_pwrsave, curr_pwrsave;
 
 	pr_debug("%s: Enter %s\n", mmc_hostname(mmc), __func__);
 	spin_lock_irqsave(&host->lock, flags);
-
+	prev_pwrsave = !!(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) &
+			  CORE_CLK_PWRSAVE);
+	curr_pwrsave = prev_pwrsave;
 	/*
 	 * Make sure that clock is always enabled when DLL
 	 * tuning is in progress. Keeping PWRSAVE ON may
 	 * turn off the clock. So let's disable the PWRSAVE
 	 * here and re-enable it once tuning is completed.
 	 */
-	writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
-			& ~CORE_CLK_PWRSAVE),
-			host->ioaddr + CORE_VENDOR_SPEC);
+	if (prev_pwrsave) {
+		writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
+				& ~CORE_CLK_PWRSAVE),
+				host->ioaddr + CORE_VENDOR_SPEC);
+		curr_pwrsave = false;
+	}
 
 	/* Write 1 to DLL_RST bit of DLL_CONFIG register */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
@@ -585,54 +643,211 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 	}
 
 out:
-	/* re-enable PWRSAVE */
-	writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) |
-			CORE_CLK_PWRSAVE),
-			host->ioaddr + CORE_VENDOR_SPEC);
+	/* Restore the correct PWRSAVE state */
+	if (prev_pwrsave ^ curr_pwrsave) {
+		u32 reg = readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC);
+
+		if (prev_pwrsave)
+			reg |= CORE_CLK_PWRSAVE;
+		else
+			reg &= ~CORE_CLK_PWRSAVE;
+
+		writel_relaxed(reg, host->ioaddr + CORE_VENDOR_SPEC);
+	}
+
 	spin_unlock_irqrestore(&host->lock, flags);
 	pr_debug("%s: Exit %s\n", mmc_hostname(mmc), __func__);
 	return rc;
 }
 
+static int sdhci_msm_cdclp533_calibration(struct sdhci_host *host)
+{
+	u32 wait_cnt;
+	int ret = 0;
+	int cdc_err = 0;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	pr_debug("%s: Enter %s\n", mmc_hostname(host->mmc), __func__);
+
+	/*
+	 * Retuning in HS400 (DDR mode) will fail, just reset the
+	 * tuning block and restore the saved tuning phase.
+	 */
+	ret = msm_init_cm_dll(host);
+	if (ret)
+		goto out;
+
+	/* Set the selected phase in delay line hw block */
+	ret = msm_config_cm_dll_phase(host, msm_host->saved_tuning_phase);
+	if (ret)
+		goto out;
+
+	/* Write 1 to CMD_DAT_TRACK_SEL field in DLL_CONFIG */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
+			| CORE_CMD_DAT_TRACK_SEL),
+			host->ioaddr + CORE_DLL_CONFIG);
+
+	/* Write 0 to CDC_T4_DLY_SEL field in VENDOR_SPEC_DDR200_CFG */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DDR_200_CFG)
+			& ~CORE_CDC_T4_DLY_SEL),
+			host->ioaddr + CORE_DDR_200_CFG);
+
+	/* Write 0 to CDC_SWITCH_BYPASS_OFF field in CORE_CSR_CDC_GEN_CFG */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_CSR_CDC_GEN_CFG)
+			& ~CORE_CDC_SWITCH_BYPASS_OFF),
+			host->ioaddr + CORE_CSR_CDC_GEN_CFG);
+
+	/* Write 1 to CDC_SWITCH_RC_EN field in CORE_CSR_CDC_GEN_CFG */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_CSR_CDC_GEN_CFG)
+			| CORE_CDC_SWITCH_RC_EN),
+			host->ioaddr + CORE_CSR_CDC_GEN_CFG);
+
+	/* Write 0 to START_CDC_TRAFFIC field in CORE_DDR200_CFG */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DDR_200_CFG)
+			& ~CORE_START_CDC_TRAFFIC),
+			host->ioaddr + CORE_DDR_200_CFG);
+
+	/*
+	 * Perform CDC Register Initialization Sequence
+	 *
+	 * CORE_CSR_CDC_CTLR_CFG0	0x11800EC
+	 * CORE_CSR_CDC_CTLR_CFG1	0x3011111
+	 * CORE_CSR_CDC_CAL_TIMER_CFG0	0x1201000
+	 * CORE_CSR_CDC_CAL_TIMER_CFG1	0x4
+	 * CORE_CSR_CDC_REFCOUNT_CFG	0xCB732020
+	 * CORE_CSR_CDC_COARSE_CAL_CFG	0xB19
+	 * CORE_CSR_CDC_DELAY_CFG	0x3AC
+	 * CORE_CDC_OFFSET_CFG		0x0
+	 * CORE_CDC_SLAVE_DDA_CFG	0x16334
+	 */
+
+	writel_relaxed(0x11800EC, host->ioaddr + CORE_CSR_CDC_CTLR_CFG0);
+	writel_relaxed(0x3011111, host->ioaddr + CORE_CSR_CDC_CTLR_CFG1);
+	writel_relaxed(0x1201000, host->ioaddr + CORE_CSR_CDC_CAL_TIMER_CFG0);
+	writel_relaxed(0x4, host->ioaddr + CORE_CSR_CDC_CAL_TIMER_CFG1);
+	writel_relaxed(0xCB732020, host->ioaddr + CORE_CSR_CDC_REFCOUNT_CFG);
+	writel_relaxed(0xB19, host->ioaddr + CORE_CSR_CDC_COARSE_CAL_CFG);
+	writel_relaxed(0x3AC, host->ioaddr + CORE_CSR_CDC_DELAY_CFG);
+	writel_relaxed(0x0, host->ioaddr + CORE_CDC_OFFSET_CFG);
+	writel_relaxed(0x16334, host->ioaddr + CORE_CDC_SLAVE_DDA_CFG);
+
+	/* CDC HW Calibration */
+
+	/* Write 1 to SW_TRIG_FULL_CALIB field in CORE_CSR_CDC_CTLR_CFG0 */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_CSR_CDC_CTLR_CFG0)
+			| CORE_SW_TRIG_FULL_CALIB),
+			host->ioaddr + CORE_CSR_CDC_CTLR_CFG0);
+
+	/* Write 0 to SW_TRIG_FULL_CALIB field in CORE_CSR_CDC_CTLR_CFG0 */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_CSR_CDC_CTLR_CFG0)
+			& ~CORE_SW_TRIG_FULL_CALIB),
+			host->ioaddr + CORE_CSR_CDC_CTLR_CFG0);
+
+	/* Write 1 to HW_AUTOCAL_ENA field in CORE_CSR_CDC_CTLR_CFG0 */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_CSR_CDC_CTLR_CFG0)
+			| CORE_HW_AUTOCAL_ENA),
+			host->ioaddr + CORE_CSR_CDC_CTLR_CFG0);
+
+	/* Write 1 to TIMER_ENA field in CORE_CSR_CDC_CAL_TIMER_CFG0 */
+	writel_relaxed((readl_relaxed(host->ioaddr +
+			CORE_CSR_CDC_CAL_TIMER_CFG0) | CORE_TIMER_ENA),
+			host->ioaddr + CORE_CSR_CDC_CAL_TIMER_CFG0);
+
+	mb();
+
+	/* Poll on CALIBRATION_DONE field in CORE_CSR_CDC_STATUS0 to be 1 */
+	wait_cnt = 50;
+	while (!(readl_relaxed(host->ioaddr + CORE_CSR_CDC_STATUS0)
+			& CORE_CALIBRATION_DONE)) {
+		/* max. wait for 50us sec for CALIBRATION_DONE bit to be set */
+		if (--wait_cnt == 0) {
+			pr_err("%s: %s: CDC Calibration was not completed\n",
+				mmc_hostname(host->mmc), __func__);
+			ret = -ETIMEDOUT;
+			goto out;
+		}
+		/* wait for 1us before polling again */
+		udelay(1);
+	}
+
+	/* Verify CDC_ERROR_CODE field in CORE_CSR_CDC_STATUS0 is 0 */
+	cdc_err = readl_relaxed(host->ioaddr + CORE_CSR_CDC_STATUS0)
+			& CORE_CDC_ERROR_CODE_MASK;
+	if (cdc_err) {
+		pr_err("%s: %s: CDC Error Code %d\n",
+			mmc_hostname(host->mmc), __func__, cdc_err);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/* Write 1 to START_CDC_TRAFFIC field in CORE_DDR200_CFG */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DDR_200_CFG)
+			| CORE_START_CDC_TRAFFIC),
+			host->ioaddr + CORE_DDR_200_CFG);
+out:
+	pr_debug("%s: Exit %s, ret:%d\n", mmc_hostname(host->mmc),
+			__func__, ret);
+	return ret;
+}
+
 int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	unsigned long flags;
+	int tuning_seq_cnt = 3;
 	u8 phase, *data_buf, tuned_phases[16], tuned_phase_cnt = 0;
 	const u32 *tuning_block_pattern = tuning_block_64;
 	int size = sizeof(tuning_block_64); /* Tuning pattern size in bytes */
 	int rc;
 	struct mmc_host *mmc = host->mmc;
 	struct mmc_ios	ios = host->mmc->ios;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 
 	/*
-	 * Tuning is required for SDR104 and HS200 cards and if clock frequency
-	 * is greater than 100MHz in these modes.
+	 * Tuning is required for SDR104, HS200 and HS400 cards and
+	 * if clock frequency is greater than 100MHz in these modes.
 	 */
-	if (host->clock <= (100 * 1000 * 1000) ||
-		!(ios.timing == MMC_TIMING_MMC_HS200 ||
-		ios.timing == MMC_TIMING_UHS_SDR104))
+	if (host->clock <= CORE_FREQ_100MHZ ||
+		!((ios.timing == MMC_TIMING_MMC_HS400) ||
+		(ios.timing == MMC_TIMING_MMC_HS200) ||
+		(ios.timing == MMC_TIMING_UHS_SDR104)))
 		return 0;
 
 	pr_debug("%s: Enter %s\n", mmc_hostname(mmc), __func__);
+
+	/* CDCLP533 HW calibration is only required for HS400 mode*/
+	if (msm_host->tuning_done && !msm_host->calibration_done &&
+		(mmc->ios.timing == MMC_TIMING_MMC_HS400)) {
+		rc = sdhci_msm_cdclp533_calibration(host);
+		spin_lock_irqsave(&host->lock, flags);
+		if (!rc)
+			msm_host->calibration_done = true;
+		spin_unlock_irqrestore(&host->lock, flags);
+		goto out;
+	}
+
 	spin_lock_irqsave(&host->lock, flags);
 
-	if ((opcode == MMC_SEND_TUNING_BLOCK_HS200) &&
+	if (((opcode == MMC_SEND_TUNING_BLOCK_HS400) ||
+		(opcode == MMC_SEND_TUNING_BLOCK_HS200)) &&
 		(mmc->ios.bus_width == MMC_BUS_WIDTH_8)) {
 		tuning_block_pattern = tuning_block_128;
 		size = sizeof(tuning_block_128);
 	}
 	spin_unlock_irqrestore(&host->lock, flags);
 
-	/* first of all reset the tuning block */
-	rc = msm_init_cm_dll(host);
-	if (rc)
-		goto out;
-
 	data_buf = kmalloc(size, GFP_KERNEL);
 	if (!data_buf) {
 		rc = -ENOMEM;
 		goto out;
 	}
+
+retry:
+	/* first of all reset the tuning block */
+	rc = msm_init_cm_dll(host);
+	if (rc)
+		goto kfree;
 
 	phase = 0;
 	do {
@@ -687,19 +902,26 @@ int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode)
 		rc = msm_config_cm_dll_phase(host, phase);
 		if (rc)
 			goto kfree;
+		msm_host->saved_tuning_phase = phase;
 		pr_debug("%s: %s: finally setting the tuning phase to %d\n",
 				mmc_hostname(mmc), __func__, phase);
 	} else {
+		if (--tuning_seq_cnt)
+			goto retry;
 		/* tuning failed */
 		pr_err("%s: %s: no tuning point found\n",
 			mmc_hostname(mmc), __func__);
-		rc = -EAGAIN;
+		rc = -EIO;
 	}
 
 kfree:
 	kfree(data_buf);
 out:
-	pr_debug("%s: Exit %s\n", mmc_hostname(mmc), __func__);
+	spin_lock_irqsave(&host->lock, flags);
+	if (!rc)
+		msm_host->tuning_done = true;
+	spin_unlock_irqrestore(&host->lock, flags);
+	pr_debug("%s: Exit %s, err(%d)\n", mmc_hostname(mmc), __func__, rc);
 	return rc;
 }
 
@@ -798,7 +1020,7 @@ static int sdhci_msm_dt_get_array(struct device *dev, const char *prop_name,
 		goto out;
 	}
 	sz = *len = *len / sizeof(*arr);
-	if (sz <= 0 || (size > 0 && (sz != size))) {
+	if (sz <= 0 || (size > 0 && (sz > size))) {
 		dev_err(dev, "%s invalid size\n", prop_name);
 		ret = -EINVAL;
 		goto out;
@@ -835,8 +1057,7 @@ static int sdhci_msm_dt_parse_vreg_info(struct device *dev,
 
 	snprintf(prop_name, MAX_PROP_SIZE, "%s-supply", vreg_name);
 	if (!of_parse_phandle(np, prop_name, 0)) {
-		dev_err(dev, "No vreg data found for %s\n", vreg_name);
-		ret = -EINVAL;
+		dev_info(dev, "No vreg data found for %s\n", vreg_name);
 		return ret;
 	}
 
@@ -925,9 +1146,9 @@ static int sdhci_msm_dt_get_pad_pull_info(struct device *dev, int id,
 		ret = -ENOMEM;
 		goto out;
 	}
-	pull_data->size = 3; /* array size for clk, cmd, data */
+	pull_data->size = 4; /* array size for clk, cmd, data and rclk */
 
-	/* Allocate on, off configs for clk, cmd, data */
+	/* Allocate on, off configs for clk, cmd, data and rclk */
 	pull = devm_kzalloc(dev, 2 * pull_data->size *\
 			sizeof(struct sdhci_msm_pad_pull), GFP_KERNEL);
 	if (!pull) {
@@ -1210,7 +1431,11 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 		if (!name)
 			continue;
 
-		if (!strncmp(name, "HS200_1p8v", sizeof("HS200_1p8v")))
+		if (!strncmp(name, "HS400_1p8v", sizeof("HS400_1p8v")))
+			pdata->caps2 |= MMC_CAP2_HS400_1_8V;
+		else if (!strncmp(name, "HS400_1p2v", sizeof("HS400_1p2v")))
+			pdata->caps2 |= MMC_CAP2_HS400_1_2V;
+		else if (!strncmp(name, "HS200_1p8v", sizeof("HS200_1p8v")))
 			pdata->caps2 |= MMC_CAP2_HS200_1_8V_SDR;
 		else if (!strncmp(name, "HS200_1p2v", sizeof("HS200_1p2v")))
 			pdata->caps2 |= MMC_CAP2_HS200_1_2V_SDR;
@@ -1474,11 +1699,14 @@ static int sdhci_msm_vreg_init_reg(struct device *dev,
 		goto out;
 	}
 
-	/* sanity check */
-	if (!vreg->high_vol_level || !vreg->hpm_uA) {
-		pr_err("%s: %s invalid constraints specified\n",
-		       __func__, vreg->name);
-		ret = -EINVAL;
+	if (regulator_count_voltages(vreg->reg) > 0) {
+		vreg->set_voltage_sup = true;
+		/* sanity check */
+		if (!vreg->high_vol_level || !vreg->hpm_uA) {
+			pr_err("%s: %s invalid constraints specified\n",
+			       __func__, vreg->name);
+			ret = -EINVAL;
+		}
 	}
 
 out:
@@ -1500,9 +1728,10 @@ static int sdhci_msm_vreg_set_optimum_mode(struct sdhci_msm_reg_data
 	 * regulators that do not support regulator_set_voltage also
 	 * do not support regulator_set_optimum_mode
 	 */
-	ret = regulator_set_optimum_mode(vreg->reg, uA_load);
-	if (ret < 0)
-		pr_err("%s: regulator_set_optimum_mode(reg=%s,uA_load=%d) failed. ret=%d\n",
+	if (vreg->set_voltage_sup) {
+		ret = regulator_set_optimum_mode(vreg->reg, uA_load);
+		if (ret < 0)
+			pr_err("%s: regulator_set_optimum_mode(reg=%s,uA_load=%d) failed. ret=%d\n",
 			       __func__, vreg->name, uA_load, ret);
 		else
 			/*
@@ -1510,6 +1739,7 @@ static int sdhci_msm_vreg_set_optimum_mode(struct sdhci_msm_reg_data
 			 * value even for success case.
 			 */
 			ret = 0;
+	}
 	return ret;
 }
 
@@ -1517,12 +1747,13 @@ static int sdhci_msm_vreg_set_voltage(struct sdhci_msm_reg_data *vreg,
 					int min_uV, int max_uV)
 {
 	int ret = 0;
-
-	ret = regulator_set_voltage(vreg->reg, min_uV, max_uV);
-	if (ret) {
-		pr_err("%s: regulator_set_voltage(%s)failed. min_uV=%d,max_uV=%d,ret=%d\n",
+	if (vreg->set_voltage_sup) {
+		ret = regulator_set_voltage(vreg->reg, min_uV, max_uV);
+		if (ret) {
+			pr_err("%s: regulator_set_voltage(%s)failed. min_uV=%d,max_uV=%d,ret=%d\n",
 			       __func__, vreg->name, min_uV, max_uV, ret);
 		}
+	}
 
 	return ret;
 }
@@ -1842,6 +2073,42 @@ static unsigned int sdhci_msm_get_vreg_vdd_max_current(struct sdhci_msm_host
 	else
 		return 0;
 }
+
+static ssize_t
+show_polling(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	int poll;
+	unsigned long flags;
+
+	spin_lock_irqsave(&host->lock, flags);
+	poll = !!(host->mmc->caps & MMC_CAP_NEEDS_POLL);
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", poll);
+}
+
+static ssize_t
+store_polling(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	int value;
+	unsigned long flags;
+
+	if (!kstrtou32(buf, 0, &value)) {
+		spin_lock_irqsave(&host->lock, flags);
+		if (value) {
+			host->mmc->caps |= MMC_CAP_NEEDS_POLL;
+			mmc_detect_change(host->mmc, 0);
+		} else {
+			host->mmc->caps &= ~MMC_CAP_NEEDS_POLL;
+		}
+		spin_unlock_irqrestore(&host->lock, flags);
+	}
+	return count;
+}
+
 static ssize_t
 show_sdhci_max_bus_bw(struct device *dev, struct device_attribute *attr,
 			char *buf)
@@ -1998,6 +2265,22 @@ static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 				mmc_hostname(host->mmc), __func__, rc);
 			goto disable_pclk;
 		}
+		if (!IS_ERR(msm_host->ff_clk)) {
+			rc = clk_prepare_enable(msm_host->ff_clk);
+			if (rc) {
+				pr_err("%s: %s: failed to enable the ff_clk with error %d\n",
+					mmc_hostname(host->mmc), __func__, rc);
+				goto disable_clk;
+			}
+		}
+		if (!IS_ERR(msm_host->sleep_clk)) {
+			rc = clk_prepare_enable(msm_host->sleep_clk);
+			if (rc) {
+				pr_err("%s: %s: failed to enable the sleep_clk with error %d\n",
+					mmc_hostname(host->mmc), __func__, rc);
+				goto disable_ff_clk;
+			}
+		}
 		mb();
 
 	} else if (!enable && atomic_read(&msm_host->clks_on)) {
@@ -2005,6 +2288,10 @@ static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 				mmc_hostname(host->mmc));
 		sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
 		mb();
+		if (!IS_ERR_OR_NULL(msm_host->sleep_clk))
+			clk_disable_unprepare(msm_host->sleep_clk);
+		if (!IS_ERR_OR_NULL(msm_host->ff_clk))
+			clk_disable_unprepare(msm_host->ff_clk);
 		clk_disable_unprepare(msm_host->clk);
 		if (!IS_ERR(msm_host->pclk))
 			clk_disable_unprepare(msm_host->pclk);
@@ -2015,6 +2302,12 @@ static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 	}
 	atomic_set(&msm_host->clks_on, enable);
 	goto out;
+disable_ff_clk:
+	if (!IS_ERR_OR_NULL(msm_host->ff_clk))
+		clk_disable_unprepare(msm_host->ff_clk);
+disable_clk:
+	if (!IS_ERR_OR_NULL(msm_host->clk))
+		clk_disable_unprepare(msm_host->clk);
 disable_pclk:
 	if (!IS_ERR_OR_NULL(msm_host->pclk))
 		clk_disable_unprepare(msm_host->pclk);
@@ -2035,6 +2328,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	struct mmc_ios	curr_ios = host->mmc->ios;
 	u32 sup_clock, ddr_clock;
+	bool curr_pwrsave;
 
 	if (!clock) {
 		sdhci_msm_prepare_clocks(host, false);
@@ -2046,18 +2340,96 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	if (rc)
 		return;
 
+	curr_pwrsave = !!(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) &
+			  CORE_CLK_PWRSAVE);
+	if ((clock > 400000) &&
+	    !curr_pwrsave && mmc_host_may_gate_card(host->mmc->card))
+		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
+				| CORE_CLK_PWRSAVE,
+				host->ioaddr + CORE_VENDOR_SPEC);
+	/*
+	 * Disable pwrsave for a newly added card if doesn't allow clock
+	 * gating.
+	 */
+	else if (curr_pwrsave && !mmc_host_may_gate_card(host->mmc->card))
+		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
+				& ~CORE_CLK_PWRSAVE,
+				host->ioaddr + CORE_VENDOR_SPEC);
+
 	sup_clock = sdhci_msm_get_sup_clk_rate(host, clock);
-	if (curr_ios.timing == MMC_TIMING_UHS_DDR50) {
+	if ((curr_ios.timing == MMC_TIMING_UHS_DDR50) ||
+		(curr_ios.timing == MMC_TIMING_MMC_HS400)) {
 		/*
 		 * The SDHC requires internal clock frequency to be double the
 		 * actual clock that will be set for DDR mode. The controller
-		 * uses the faster clock(100MHz) for some of its parts and send
-		 * the actual required clock (50MHz) to the card.
+		 * uses the faster clock(100/400MHz) for some of its parts and
+		 * send the actual required clock (50/200MHz) to the card.
 		 */
 		ddr_clock = clock * 2;
 		sup_clock = sdhci_msm_get_sup_clk_rate(host,
 				ddr_clock);
 	}
+
+	/*
+	 * In general all timing modes are controlled via UHS mode select in
+	 * Host Control2 register. eMMC specific HS200/HS400 doesn't have
+	 * their respective modes defined here, hence we use these values.
+	 *
+	 * HS200 - SDR104 (Since they both are equivalent in functionality)
+	 * HS400 - This involves multiple configurations
+	 *		Initially SDR104 - when tuning is required as HS200
+	 *		Then when switching to DDR @ 400MHz (HS400) we use
+	 *		the vendor specific HC_SELECT_IN to control the mode.
+	 *
+	 * In addition to controlling the modes we also need to select the
+	 * correct input clock for DLL depending on the mode.
+	 *
+	 * HS400 - divided clock (free running MCLK/2)
+	 * All other modes - default (free running MCLK)
+	 */
+	if (curr_ios.timing == MMC_TIMING_MMC_HS400) {
+		/* Select the divided clock (free running MCLK/2) */
+		writel_relaxed(((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
+					& ~CORE_HC_MCLK_SEL_MASK)
+					| CORE_HC_MCLK_SEL_HS400),
+					host->ioaddr + CORE_VENDOR_SPEC);
+		/*
+		 * Select HS400 mode using the HC_SELECT_IN from VENDOR SPEC
+		 * register
+		 */
+		if (msm_host->tuning_done && !msm_host->calibration_done) {
+			/*
+			 * Write 0x6 to HC_SELECT_IN and 1 to HC_SELECT_IN_EN
+			 * field in VENDOR_SPEC_FUNC
+			 */
+			writel_relaxed((readl_relaxed(host->ioaddr + \
+					CORE_VENDOR_SPEC)
+					| CORE_HC_SELECT_IN_HS400
+					| CORE_HC_SELECT_IN_EN),
+					host->ioaddr + CORE_VENDOR_SPEC);
+		}
+	} else {
+		/* Select the default clock (free running MCLK) */
+		writel_relaxed(((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
+					& ~CORE_HC_MCLK_SEL_MASK)
+					| CORE_HC_MCLK_SEL_DFLT),
+					host->ioaddr + CORE_VENDOR_SPEC);
+
+		/*
+		 * Disable HC_SELECT_IN to be able to use the UHS mode select
+		 * configuration from Host Control2 register for all other
+		 * modes.
+		 *
+		 * Write 0 to HC_SELECT_IN and HC_SELECT_IN_EN field
+		 * in VENDOR_SPEC_FUNC
+		 */
+		writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
+				& ~CORE_HC_SELECT_IN_EN
+				& ~CORE_HC_SELECT_IN_MASK),
+				host->ioaddr + CORE_VENDOR_SPEC);
+	}
+	mb();
+
 	if (sup_clock != msm_host->clk_rate) {
 		pr_debug("%s: %s: setting clk rate to %u\n",
 				mmc_hostname(host->mmc), __func__, sup_clock);
@@ -2081,12 +2453,16 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 static int sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 					unsigned int uhs)
 {
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	u16 ctrl_2;
 
 	ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 	/* Select Bus Speed Mode for host */
 	ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
-	if (uhs == MMC_TIMING_MMC_HS200)
+	if (uhs == MMC_TIMING_MMC_HS400)
+		ctrl_2 |= SDHCI_CTRL_UHS_SDR104;
+	else if (uhs == MMC_TIMING_MMC_HS200)
 		ctrl_2 |= SDHCI_CTRL_UHS_SDR104;
 	else if (uhs == MMC_TIMING_UHS_SDR12)
 		ctrl_2 |= SDHCI_CTRL_UHS_SDR12;
@@ -2104,11 +2480,36 @@ static int sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 	 * provide feedback clock, the mode selection can be any value less
 	 * than 3'b011 in bits [2:0] of HOST CONTROL2 register.
 	 */
-	if (host->clock <= (100 * 1000 * 1000) &&
-			(uhs == MMC_TIMING_MMC_HS200 ||
-			uhs == MMC_TIMING_UHS_SDR104))
-		ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
+	if (host->clock <= CORE_FREQ_100MHZ) {
+		if ((uhs == MMC_TIMING_MMC_HS400) ||
+		    (uhs == MMC_TIMING_MMC_HS200) ||
+		    (uhs == MMC_TIMING_UHS_SDR104))
+			ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
 
+		/*
+		 * Make sure DLL is disabled when not required
+		 *
+		 * Write 1 to DLL_RST bit of DLL_CONFIG register
+		 */
+		writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
+				| CORE_DLL_RST),
+				host->ioaddr + CORE_DLL_CONFIG);
+
+		/* Write 1 to DLL_PDN bit of DLL_CONFIG register */
+		writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
+				| CORE_DLL_PDN),
+				host->ioaddr + CORE_DLL_CONFIG);
+		mb();
+
+		/*
+		 * The DLL needs to be restored and CDCLP533 recalibrated
+		 * when the clock frequency is set back to 400MHz.
+		 */
+		msm_host->calibration_done = false;
+	}
+
+	pr_debug("%s: %s-clock:%u uhs mode:%u ctrl_2:0x%x\n",
+		mmc_hostname(host->mmc), __func__, host->clock, uhs, ctrl_2);
 	sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
 
 	return 0;
@@ -2133,6 +2534,12 @@ static void sdhci_msm_disable_data_xfer(struct sdhci_host *host)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	u32 value;
 	int ret;
+	u32 version;
+
+	version = readl_relaxed(msm_host->core_mem + CORE_MCI_VERSION);
+	/* Core version 3.1.0 doesn't need this workaround */
+	if (version == CORE_VERSION_310)
+		return;
 
 	value = readl_relaxed(msm_host->core_mem + CORE_MCI_DATA_CTRL);
 	value &= ~(u32)CORE_MCI_DPSM_ENABLE;
@@ -2269,9 +2676,27 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->clk_rate = sdhci_msm_get_min_clock(host);
 	atomic_set(&msm_host->clks_on, 1);
 
+	/* Setup CDC calibration fixed feedback clock */
+	msm_host->ff_clk = devm_clk_get(&pdev->dev, "cal_clk");
+	if (!IS_ERR(msm_host->ff_clk)) {
+		ret = clk_prepare_enable(msm_host->ff_clk);
+		if (ret)
+			goto clk_disable;
+	}
+
+	/* Setup CDC calibration sleep clock */
+	msm_host->sleep_clk = devm_clk_get(&pdev->dev, "sleep_clk");
+	if (!IS_ERR(msm_host->sleep_clk)) {
+		ret = clk_prepare_enable(msm_host->sleep_clk);
+		if (ret)
+			goto ff_clk_disable;
+	}
+
+	msm_host->saved_tuning_phase = INVALID_TUNING_PHASE;
+
 	ret = sdhci_msm_bus_register(msm_host, pdev);
 	if (ret)
-		goto clk_disable;
+		goto sleep_clk_disable;
 
 	if (msm_host->msm_bus_vote.client_handle)
 		INIT_DELAYED_WORK(&msm_host->msm_bus_vote.vote_work,
@@ -2297,6 +2722,9 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 		goto vreg_deinit;
 	}
 
+	/* Unset HC_MODE_EN bit in HC_MODE register */
+	writel_relaxed(0, (msm_host->core_mem + CORE_HC_MODE));
+
 	/* Set SW_RST bit in POWER register (Offset 0x0) */
 	writel_relaxed(readl_relaxed(msm_host->core_mem + CORE_POWER) |
 			CORE_SW_RST, msm_host->core_mem + CORE_POWER);
@@ -2315,6 +2743,10 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	}
 	/* Set HC_MODE_EN bit in HC_MODE register */
 	writel_relaxed(HC_MODE_EN, (msm_host->core_mem + CORE_HC_MODE));
+
+	/* Set FF_CLK_SW_RST_DIS bit in HC_MODE register */
+	writel_relaxed(readl_relaxed(msm_host->core_mem + CORE_HC_MODE) |
+			FF_CLK_SW_RST_DIS, msm_host->core_mem + CORE_HC_MODE);
 
 	/*
 	 * CORE_SW_RST above may trigger power irq if previous status of PWRCTL
@@ -2413,9 +2845,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 		msm_host->mmc->caps |= MMC_CAP_SET_XPC_180 |
 					MMC_CAP_SET_XPC_300|
 					MMC_CAP_SET_XPC_330;
-#ifndef CONFIG_MACH_MSM8974_EMMC_HW_RESET
-	msm_host->mmc->caps |= MMC_CAP_HW_RESET;
-#endif
+
 	msm_host->mmc->caps2 |= msm_host->pdata->caps2;
 	msm_host->mmc->caps2 |= MMC_CAP2_CORE_RUNTIME_PM;
 	msm_host->mmc->caps2 |= MMC_CAP2_PACKED_WR;
@@ -2426,14 +2856,16 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc->caps2 |= MMC_CAP2_CACHE_CTRL;
 	#ifdef CONFIG_MACH_LGE
 	/*
-	2013-06-05, g2-fs@lge.com
-	enable BKOPS feature since it has been disabled by default
-	*/
+                          
+                                                           
+ */
 	msm_host->mmc->caps2 |= MMC_CAP2_INIT_BKOPS;
 	#endif
 	msm_host->mmc->caps2 |= MMC_CAP2_POWEROFF_NOTIFY;
 	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
 	msm_host->mmc->caps2 |= MMC_CAP2_STOP_REQUEST;
+	msm_host->mmc->caps2 |= MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE;
+	msm_host->mmc->pm_caps |= MMC_PM_KEEP_POWER;
 
 	if (msm_host->pdata->nonremovable)
 		msm_host->mmc->caps |= MMC_CAP_NONREMOVABLE;
@@ -2451,6 +2883,10 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 			goto vreg_deinit;
 		}
 	}
+
+    #ifdef CONFIG_MACH_LGE
+	irq_set_irq_wake(host->mmc->hotplug.irq, 1);
+    #endif
 
 	if (dma_supported(mmc_dev(host->mmc), DMA_BIT_MASK(32))) {
 		host->dma_mask = DMA_BIT_MASK(32);
@@ -2475,6 +2911,16 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	if (ret)
 		goto remove_host;
 
+	if (!gpio_is_valid(msm_host->pdata->status_gpio)) {
+		msm_host->polling.show = show_polling;
+		msm_host->polling.store = store_polling;
+		sysfs_attr_init(&msm_host->polling.attr);
+		msm_host->polling.attr.name = "polling";
+		msm_host->polling.attr.mode = S_IRUGO | S_IWUSR;
+		ret = device_create_file(&pdev->dev, &msm_host->polling);
+		if (ret)
+			goto remove_max_bus_bw_file;
+	}
 	ret = pm_runtime_set_active(&pdev->dev);
 	if (ret)
 		pr_err("%s: %s: pm_runtime_set_active failed: err: %d\n",
@@ -2485,16 +2931,18 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	/* Successful initialization */
 
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/* LGE_CHANGE
- * For adjustable drive strength value on user level
- * but, it doesn't operate in user image
- * 2013-06-17, G2-FS@lge.com
+/*           
+                                                    
+                                        
+                            
  */
     msmsdhci_dbg_createhost(msm_host);
 #endif
 
 	goto out;
 
+remove_max_bus_bw_file:
+	device_remove_file(&pdev->dev, &msm_host->msm_bus_vote.max_bus_bw);
 remove_host:
 	dead = (readl_relaxed(host->ioaddr + SDHCI_INT_STATUS) == 0xffffffff);
 	sdhci_remove_host(host, dead);
@@ -2507,6 +2955,12 @@ bus_unregister:
 	if (msm_host->msm_bus_vote.client_handle)
 		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
 	sdhci_msm_bus_unregister(msm_host);
+sleep_clk_disable:
+	if (!IS_ERR(msm_host->sleep_clk))
+		clk_disable_unprepare(msm_host->sleep_clk);
+ff_clk_disable:
+	if (!IS_ERR(msm_host->ff_clk))
+		clk_disable_unprepare(msm_host->ff_clk);
 clk_disable:
 	if (!IS_ERR(msm_host->clk))
 		clk_disable_unprepare(msm_host->clk);
@@ -2533,6 +2987,8 @@ static int __devexit sdhci_msm_remove(struct platform_device *pdev)
 			0xffffffff);
 
 	pr_debug("%s: %s\n", dev_name(&pdev->dev), __func__);
+	if (!gpio_is_valid(msm_host->pdata->status_gpio))
+		device_remove_file(&pdev->dev, &msm_host->polling);
 	device_remove_file(&pdev->dev, &msm_host->msm_bus_vote.max_bus_bw);
 	sdhci_remove_host(host, dead);
 	pm_runtime_disable(&pdev->dev);
@@ -2592,12 +3048,18 @@ static int sdhci_msm_runtime_resume(struct device *dev)
 static int sdhci_msm_suspend(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
+
+    #ifndef CONFIG_MACH_LGE
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+    #endif
+
 	int ret = 0;
 
+    #ifndef CONFIG_MACH_LGE
 	if (gpio_is_valid(msm_host->pdata->status_gpio))
 		mmc_cd_gpio_free(msm_host->mmc);
+    #endif
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: already runtime suspended\n",
@@ -2613,10 +3075,15 @@ out:
 static int sdhci_msm_resume(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
+
+    #ifndef CONFIG_MACH_LGE
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+    #endif
+
 	int ret = 0;
 
+    #ifndef CONFIG_MACH_LGE
 	if (gpio_is_valid(msm_host->pdata->status_gpio)) {
 		ret = mmc_cd_gpio_request(msm_host->mmc,
 				msm_host->pdata->status_gpio);
@@ -2624,6 +3091,7 @@ static int sdhci_msm_resume(struct device *dev)
 			pr_err("%s: %s: Failed to request card detection IRQ %d\n",
 					mmc_hostname(host->mmc), __func__, ret);
 	}
+    #endif
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: runtime suspended, defer system resume\n",
@@ -2671,203 +3139,205 @@ MODULE_DESCRIPTION("Qualcomm Secure Digital Host Controller Interface driver");
 MODULE_LICENSE("GPL v2");
 
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/* LGE_CHANGE
- * For adjustable drive strength value on user level
- * but, it doesn't operate in user image
- * 2013-06-17, G2-FS@lge.com
+/*           
+                                                    
+                                        
+                            
  */
-static int gpio_to_value(int cfg) {
-    switch (cfg) {
-        case GPIO_CFG_2MA:
-            return 2;
-            break;
-        case GPIO_CFG_4MA:
-            return 4;
-            break;
-        case GPIO_CFG_6MA:
-            return 6;
-            break;
-        case GPIO_CFG_8MA:
-            return 8;
-            break;
-        case GPIO_CFG_10MA:
-            return 10;
-            break;
-        case GPIO_CFG_12MA:
-            return 12;
-            break;
-        case GPIO_CFG_14MA:
-            return 14;
-            break;
-        case GPIO_CFG_16MA:
-            return 16;
-            break;
-    }
-    return -1;
+static int gpio_to_value(int cfg)
+{
+	switch (cfg) {
+	case GPIO_CFG_2MA:
+		return 2;
+		break;
+	case GPIO_CFG_4MA:
+		return 4;
+		break;
+	case GPIO_CFG_6MA:
+		return 6;
+		break;
+	case GPIO_CFG_8MA:
+		return 8;
+		break;
+	case GPIO_CFG_10MA:
+		return 10;
+		break;
+	case GPIO_CFG_12MA:
+		return 12;
+		break;
+	case GPIO_CFG_14MA:
+		return 14;
+		break;
+	case GPIO_CFG_16MA:
+		return 16;
+		break;
+	}
+	return -1;
 }
 
-static int value_to_gpio(int value) {
-    switch (value) {
-        case 2:
-            return GPIO_CFG_2MA;
-            break;
-        case 4:
-            return GPIO_CFG_4MA;
-            break;
-        case 6:
-            return GPIO_CFG_6MA;
-            break;
-        case 8:
-            return GPIO_CFG_8MA;
-            break;
-        case 10:
-            return GPIO_CFG_10MA;
-            break;
-        case 12:
-            return GPIO_CFG_12MA;
-            break;
-        case 14:
-            return GPIO_CFG_14MA;
-            break;
-        case 16:
-            return GPIO_CFG_16MA;
-            break;
-    }
-    return -1;
+static int value_to_gpio(int value)
+{
+	switch (value) {
+	case 2:
+		return GPIO_CFG_2MA;
+		break;
+	case 4:
+		return GPIO_CFG_4MA;
+		break;
+	case 6:
+		return GPIO_CFG_6MA;
+		break;
+	case 8:
+		return GPIO_CFG_8MA;
+		break;
+	case 10:
+		return GPIO_CFG_10MA;
+		break;
+	case 12:
+		return GPIO_CFG_12MA;
+		break;
+	case 14:
+		return GPIO_CFG_14MA;
+		break;
+	case 16:
+		return GPIO_CFG_16MA;
+		break;
+	}
+	return -1;
 }
 
 static int msmsdhci_dbg_strength_open(struct inode *inode, struct file *filp)
 {
-    filp->private_data = inode->i_private;
-    return 0;
+	filp->private_data = inode->i_private;
+	return 0;
 }
 
 static int msmsdhci_dbg_strength_read(struct file *filp, char __user *ubuf,
-        size_t cnt, loff_t *ppos)
+		size_t cnt, loff_t *ppos)
 {
-    char buf[512] = {0, };
-    int i = 0;
-    struct sdhci_msm_host *host = filp->private_data;
-    struct sdhci_msm_pad_data *curr;
-    struct sdhci_msm_gpio_data *gpio_curr;
-    int clk = -1, cmd = -1, data = -1;
+	char buf[512] = {0, };
+	int i = 0;
+	struct sdhci_msm_host *host = filp->private_data;
+	struct sdhci_msm_pad_data *curr;
+	struct sdhci_msm_gpio_data *gpio_curr;
+	int clk = -1, cmd = -1, data = -1;
 
-    if (!host || !host->pdata || !host->pdata->pin_data)
-        return 0;
-    if (host->pdata->pin_data->is_gpio) {
-        gpio_curr = host->pdata->pin_data->gpio_data;
-        sprintf(buf, "%s : gpio\n", host->mmc ? mmc_hostname(host->mmc) : "unknown");
-        for (i = 0; i < gpio_curr->size; i++) {
-            if (gpio_is_valid(gpio_curr->gpio[i].no)) {
-                sprintf(buf, "%s%s: %d\n", buf,
-                        gpio_curr->gpio[i].name,
-                        gpio_curr->gpio[i].no);
-            }
-        }
-        return simple_read_from_buffer(ubuf, cnt, ppos, buf, 128);
-    }
+	if (!host || !host->pdata || !host->pdata->pin_data)
+		return 0;
+	if (host->pdata->pin_data->is_gpio) {
+		gpio_curr = host->pdata->pin_data->gpio_data;
+		sprintf(buf, "%s : gpio\n", host->mmc ? mmc_hostname(host->mmc) : "unknown");
+		for (i = 0; i < gpio_curr->size; i++) {
+			if (gpio_is_valid(gpio_curr->gpio[i].no)) {
+				sprintf(buf, "%s%s: %d\n", buf,
+						gpio_curr->gpio[i].name,
+						gpio_curr->gpio[i].no);
+			}
+		}
+		return simple_read_from_buffer(ubuf, cnt, ppos, buf, 128);
+	}
 
-    curr = host->pdata->pin_data->pad_data;
-    for (i = 0; i < curr->drv->size; i++) {
-        switch (curr->drv->on[i].no) {
-            case TLMM_HDRV_SDC1_CLK:
-            case TLMM_HDRV_SDC2_CLK:
-            case TLMM_HDRV_SDC3_CLK:
-            case TLMM_HDRV_SDC4_CLK:
-                clk = gpio_to_value(curr->drv->on[i].val);
-                break;
-            case TLMM_HDRV_SDC1_CMD:
-            case TLMM_HDRV_SDC2_CMD:
-            case TLMM_HDRV_SDC3_CMD:
-            case TLMM_HDRV_SDC4_CMD:
-                cmd = gpio_to_value(curr->drv->on[i].val);
-                break;
-            case TLMM_HDRV_SDC1_DATA:
-            case TLMM_HDRV_SDC2_DATA:
-            case TLMM_HDRV_SDC3_DATA:
-            case TLMM_HDRV_SDC4_DATA:
-                data = gpio_to_value(curr->drv->on[i].val);
-                break;
-            default:
-                continue;
-        }
-    }
-    sprintf(buf, "%d %d %d\n", clk, cmd, data);
+	curr = host->pdata->pin_data->pad_data;
+	for (i = 0; i < curr->drv->size; i++) {
+		switch (curr->drv->on[i].no) {
+		case TLMM_HDRV_SDC1_CLK:
+		case TLMM_HDRV_SDC2_CLK:
+		case TLMM_HDRV_SDC3_CLK:
+		case TLMM_HDRV_SDC4_CLK:
+			clk = gpio_to_value(curr->drv->on[i].val);
+			break;
+		case TLMM_HDRV_SDC1_CMD:
+		case TLMM_HDRV_SDC2_CMD:
+		case TLMM_HDRV_SDC3_CMD:
+		case TLMM_HDRV_SDC4_CMD:
+			cmd = gpio_to_value(curr->drv->on[i].val);
+			break;
+		case TLMM_HDRV_SDC1_DATA:
+		case TLMM_HDRV_SDC2_DATA:
+		case TLMM_HDRV_SDC3_DATA:
+		case TLMM_HDRV_SDC4_DATA:
+			data = gpio_to_value(curr->drv->on[i].val);
+			break;
+		default:
+			continue;
+		}
+	}
+	sprintf(buf, "%d %d %d\n", clk, cmd, data);
 
-    return simple_read_from_buffer(ubuf, cnt, ppos, buf, 512);
+	return simple_read_from_buffer(ubuf, cnt, ppos, buf, 512);
 }
 
 static int msmsdhci_dbg_strength_write(struct file *filp,
-        const char __user *ubuf, size_t cnt,
-        loff_t *ppos)
+		const char __user *ubuf, size_t cnt,
+		loff_t *ppos)
 {
-    struct sdhci_msm_host *host = filp->private_data;
-    struct sdhci_msm_pad_data *curr;
-    int i;
-    int clk, cmd, data, value;
+	struct sdhci_msm_host *host = filp->private_data;
+	struct sdhci_msm_pad_data *curr;
+	int i;
+	int clk, cmd, data, value;
 
-    if (!host || !host->pdata || !host->pdata->pin_data)
-        return 0;
-    if (host->pdata->pin_data->is_gpio)
-        return 0;
+	if (!host || !host->pdata || !host->pdata->pin_data)
+		return 0;
+	if (host->pdata->pin_data->is_gpio)
+		return 0;
 
-    if (sscanf(ubuf, "%d %d %d", &clk, &cmd, &data) != 3)
-        return 0;
+	if (sscanf(ubuf, "%d %d %d", &clk, &cmd, &data) != 3)
+		return 0;
 
-    curr = host->pdata->pin_data->pad_data;
-    for (i = 0; i < curr->drv->size; i++) {
-        switch (curr->drv->on[i].no) {
-            case TLMM_HDRV_SDC1_CLK:
-            case TLMM_HDRV_SDC2_CLK:
-            case TLMM_HDRV_SDC3_CLK:
-            case TLMM_HDRV_SDC4_CLK:
-                value = value_to_gpio(clk);
-                if (value == -1)
-                    continue;
-                curr->drv->on[i].val = value;
-                break;
-            case TLMM_HDRV_SDC1_CMD:
-            case TLMM_HDRV_SDC2_CMD:
-            case TLMM_HDRV_SDC3_CMD:
-            case TLMM_HDRV_SDC4_CMD:
-                value = value_to_gpio(cmd);
-                if (value == -1)
-                    continue;
-                curr->drv->on[i].val = value;
-                break;
-            case TLMM_HDRV_SDC1_DATA:
-            case TLMM_HDRV_SDC2_DATA:
-            case TLMM_HDRV_SDC3_DATA:
-            case TLMM_HDRV_SDC4_DATA:
-                value = value_to_gpio(data);
-                if (value == -1)
-                    continue;
-                curr->drv->on[i].val = value;
-                break;
-            default:
-                continue;
-        }
-        msm_tlmm_set_hdrive(curr->drv->on[i].no,
-                curr->drv->on[i].val);
-    }
-    return cnt;
+	curr = host->pdata->pin_data->pad_data;
+	for (i = 0; i < curr->drv->size; i++) {
+		switch (curr->drv->on[i].no) {
+		case TLMM_HDRV_SDC1_CLK:
+		case TLMM_HDRV_SDC2_CLK:
+		case TLMM_HDRV_SDC3_CLK:
+		case TLMM_HDRV_SDC4_CLK:
+			value = value_to_gpio(clk);
+			if (value == -1)
+				continue;
+			curr->drv->on[i].val = value;
+			break;
+		case TLMM_HDRV_SDC1_CMD:
+		case TLMM_HDRV_SDC2_CMD:
+		case TLMM_HDRV_SDC3_CMD:
+		case TLMM_HDRV_SDC4_CMD:
+			value = value_to_gpio(cmd);
+			if (value == -1)
+				continue;
+			curr->drv->on[i].val = value;
+			break;
+		case TLMM_HDRV_SDC1_DATA:
+		case TLMM_HDRV_SDC2_DATA:
+		case TLMM_HDRV_SDC3_DATA:
+		case TLMM_HDRV_SDC4_DATA:
+			value = value_to_gpio(data);
+			if (value == -1)
+				continue;
+			curr->drv->on[i].val = value;
+			break;
+		default:
+			continue;
+		}
+		msm_tlmm_set_hdrive(curr->drv->on[i].no,
+				curr->drv->on[i].val);
+	}
+	return cnt;
 }
 
 static const struct file_operations msmsdhci_dbg_strength_fops = {
-    .open = msmsdhci_dbg_strength_open,
-    .read = msmsdhci_dbg_strength_read,
-    .write = msmsdhci_dbg_strength_write,
+	.open = msmsdhci_dbg_strength_open,
+	.read = msmsdhci_dbg_strength_read,
+	.write = msmsdhci_dbg_strength_write,
 };
 
 static void msmsdhci_dbg_createhost(struct sdhci_msm_host *host)
 {
-    struct mmc_host *mmc = host->mmc;
+	struct mmc_host *mmc = host->mmc;
 
-    if (!mmc || ! mmc->debugfs_root)
-        return;
+	if (!mmc || !mmc->debugfs_root)
+		return;
 
-    debugfs_create_file("strength",
-        S_IROTH | S_IWOTH | S_IRGRP | S_IWGRP | S_IRUSR | S_IWUSR,
-        mmc->debugfs_root, host, &msmsdhci_dbg_strength_fops);
+	debugfs_create_file("strength",
+			S_IROTH | S_IWOTH | S_IRGRP | S_IWGRP | S_IRUSR | S_IWUSR,
+			mmc->debugfs_root, host, &msmsdhci_dbg_strength_fops);
 }
 #endif /*CONFIG_MMC_MSM_DEBUGFS*/

@@ -204,9 +204,11 @@ static int mmc_runtime_idle(struct device *dev)
 
 	if (mmc_use_core_runtime_pm(card->host)) {
 		ret = pm_schedule_suspend(dev, card->idle_timeout);
-		if (ret) {
-			pr_err("%s: %s: pm_schedule_suspend failed: err: %d\n",
-			       mmc_hostname(host), __func__, ret);
+		if ((ret < 0) && (dev->power.runtime_error ||
+				  dev->power.disable_depth > 0)) {
+			pr_err("%s: %s: %s: pm_schedule_suspend failed: err: %d\n",
+			       mmc_hostname(host), __func__, dev_name(dev),
+			       ret);
 			return ret;
 		}
 	}
@@ -397,20 +399,21 @@ int mmc_add_card(struct mmc_card *card)
 			mmc_card_ddr_mode(card) ? "DDR " : "",
 			type);
 	} else {
-		pr_info("%s: new %s%s%s%s%s card at address %04x\n",
+		pr_info("%s: new %s%s%s%s%s%s card at address %04x\n",
 			mmc_hostname(card->host),
 			mmc_card_uhs(card) ? "ultra high speed " :
 			(mmc_card_highspeed(card) ? "high speed " : ""),
+			(mmc_card_hs400(card) ? "HS400 " : ""),
 			(mmc_card_hs200(card) ? "HS200 " : ""),
 			mmc_card_ddr_mode(card) ? "DDR " : "",
 			uhs_bus_speed_mode, type, card->rca);
 	}
 
 #ifdef CONFIG_MACH_LGE
-	/* LGE_CHANGE
-	* Adding Print
-	* 2013/03/06, G2-FS@lge.com
-	*/
+	/*           
+               
+                            
+ */
 	printk(KERN_INFO "[LGE][MMC][%-18s( )] mmc_hostname:%s, type:%s\n", __func__, mmc_hostname(card->host), type);
 #endif
 
@@ -424,17 +427,16 @@ int mmc_add_card(struct mmc_card *card)
 		if (ret)
 			pr_err("%s: %s: failed setting runtime active: ret: %d\n",
 			       mmc_hostname(card->host), __func__, ret);
-		else
+		else if (!mmc_card_sdio(card))
 			pm_runtime_enable(&card->dev);
 	}
 
 	ret = device_add(&card->dev);
-
 #ifdef CONFIG_MACH_LGE
-	/* LGE_CHANGE
-	* Adding Print
-	* 2013/03/06, G2-FS@lge.com
-	*/
+	/*           
+               
+                            
+ */
 	if (ret) {
 		printk(KERN_INFO "[LGE][MMC][%-18s( )] device_add & uevent posting fail!, ret:%d \n", __func__, ret);
 		return ret;
@@ -446,7 +448,7 @@ int mmc_add_card(struct mmc_card *card)
 		return ret;
 #endif
 
-	if (mmc_use_core_runtime_pm(card->host)) {
+	if (mmc_use_core_runtime_pm(card->host) && !mmc_card_sdio(card)) {
 		card->rpm_attrib.show = show_rpm_delay;
 		card->rpm_attrib.store = store_rpm_delay;
 		sysfs_attr_init(&card->rpm_attrib.attr);

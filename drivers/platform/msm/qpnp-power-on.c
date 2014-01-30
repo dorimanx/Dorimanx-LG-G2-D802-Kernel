@@ -874,6 +874,7 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 	struct device_node *itr = NULL;
 	u32 delay = 0;
 	int rc, sys_reset;
+	int disable = 0;
 
 	pon = devm_kzalloc(&spmi->dev, sizeof(struct qpnp_pon),
 							GFP_KERNEL);
