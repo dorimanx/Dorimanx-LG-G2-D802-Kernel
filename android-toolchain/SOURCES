@@ -1,50 +1,51 @@
-Sources for this prebuilt toolchain can be downloaded from Android Opensource
-Project GIT repository git://android.googlesource.com/toolchain.
+Using built-in specs.
+COLLECT_GCC=/tmp/android-eabi-4.8-2013-11-04/toolchains/arm-eabi-4.8/prebuilt/linux-x86_64/bin/arm-eabi-gcc
+COLLECT_LTO_WRAPPER=/tmp/android-eabi-4.8-2013-11-04/toolchains/arm-eabi-4.8/prebuilt/linux-x86_64/bin/../libexec/gcc/arm-eabi/4.8/lto-wrapper
+Target: arm-eabi
+Configured with: /tmp/AOSP-toolchain/build/../gcc/gcc-4.8/configure --prefix=/tmp/toolchain-build-eabi/prefix --target=arm-eabi --host=x86_64-linux-gnu --build=x86_64-linux-gnu --with-gnu-as --with-gnu-ld --enable-languages=c,c++ --with-gmp=/tmp/toolchain-build-eabi/temp-install --with-mpfr=/tmp/toolchain-build-eabi/temp-install --with-mpc=/tmp/toolchain-build-eabi/temp-install --with-cloog=/tmp/toolchain-build-eabi/temp-install --with-isl=/tmp/toolchain-build-eabi/temp-install --with-ppl=/tmp/toolchain-build-eabi/temp-install --disable-ppl-version-check --disable-cloog-version-check --disable-isl-version-check --enable-cloog-backend=isl --with-host-libstdcxx='-static-libgcc -Wl,-Bstatic,-lstdc++,-Bdynamic -lm' --disable-libssp --enable-threads --disable-nls --disable-libmudflap --disable-libgomp --disable-libstdc__-v3 --disable-sjlj-exceptions --disable-shared --disable-tls --disable-libitm --with-float=soft --with-fpu=vfp --with-arch=armv5te --enable-target-optspace --with-abi=aapcs --enable-initfini-array --disable-nls --prefix=/tmp/toolchain-build-eabi/prefix --with-sysroot=/tmp/toolchain-build-eabi/prefix/sysroot --with-binutils-version=2.23 --with-mpfr-version=3.1.1 --with-mpc-version=1.0.1 --with-gmp-version=5.0.5 --with-gcc-version=4.8 --with-gdb-version=7.6 --with-gxx-include-dir=/tmp/toolchain-build-eabi/prefix/include/c++/4.8 --with-bugurl=http://source.android.com/source/report-bugs.html --disable-bootstrap --disable-libquadmath --enable-plugins --enable-libgomp --disable-libsanitizer --enable-gold --enable-graphite=yes --with-cloog-version=0.18.0 --with-isl-version=0.11.1 --enable-eh-frame-hdr-for-static --with-arch=armv5te --disable-gold --disable-libgomp --program-transform-name='s&^&arm-eabi-&'
+Thread model: single
+gcc version 4.8 (GCC) 
 
-Configure options:
-export CC="gcc -m64"
-export CXX="g++ -m64"
-export ABI=64
-path/to/build/configure --target=arm-eabi \
-	--host=x86_64-linux-gnu --build=x86_64-linux-gnu \
-	--with-gcc-version=4.6 --with-binutils-version=2.21 \
-	--with-gmp-version=4.2.4 --with-mpfr-version=2.4.1 \
-	--with-gdb-version=7.3.x --with-arch=armv5te \
-	--with-sysroot=[ics generic sysroot] \
-	--with-gold-version=2.21 --disable-gold \
-	--disable-multilib
+gcc:
+commit 325a57a9cceb570741de8b68c40f4a72136cc35d
+Merge: 5605fa8 12b4a6e
+Author: Ben Cheng <bccheng@google.com>
 
-gcc/ synced to
-	commit 872d5db7c3471a9d7fa78a290f84eb13b13f587a
-	Author: Jing Yu <jingyu@google.com>
-	Date:   Mon Mar 26 11:12:29 2012 -0700
+    Merge "[4.8] Backport revision 204203 to fix 3.4 kernel compilation."
 
-binutils/ synced to
-	commit 4f7a86c0b53a80a21dae1015f6d6b857ed6e02ed
-	Author: Jing Yu <jingyu@google.com>
-	Date:   Mon Apr 9 10:57:02 2012 -0700
+binutils:
+commit 9ddab0875454b0b5a8329a63c01b71880170575e
+Author: Pavel Chupin <pavel.v.chupin@intel.com>
 
-gdb/ synced to
-	commit d3fbc74c42021bf9d385a3d3b8813d0d91318137
-	Author: Jing Yu <jingyu@google.com>
-	Date:   Wed Feb 15 16:23:30 2012 -0800
+    [2.23] Use relative relocation for R_X86_64_32 on x32
 
-gmp/ synced to
-	commit 9fb242a79dd122d7fbf867daf5620dba6927bd2e
-	Author: Jing Yu <jingyu@google.com>
-	Date:   Thu Nov 5 17:43:59 2009 -0800
+gdb:
+commit 2f1caff8ab3e6f7d34c8e58bd199ef518cfd2202
+Author: Andrew Hsieh <andrewhsieh@google.com>
 
-mpfr/ synced to
-	commit da6dfde986af1b56f0f41e9f5de61d093fa8af90
-	Author: Jing Yu <jingyu@google.com>
-	Date:   Thu Nov 5 17:50:13 2009 -0800
+    [7.3.x] Add one clue to find prebuilt python for Android platform debugging
 
-build/ synced to
-	commit bdb501d14ede0c21cd6bd73699b01ec027637d5f
-	Author: Jing Yu <jingyu@google.com>
-	Date:   Fri Apr 20 15:18:24 2012 -0700
+gmp:
+commit e6b9669dafc6a5f83c80b4b4176359b78bccdc90
+Author: David 'Digit' Turner <digit@google.com>
 
-expat/ synced to
-	commit 40172a0ae9d40a068f1e1a48ffcf6a1ccf765ed5
-	Author: Jing Yu <jingyu@google.com>
-	Date:   Wed Feb 15 16:16:33 2012 -0800
+    Add gmp-5.0.5.tar.bz2
+
+mpfr:
+commit bfcf1bfa38469208aaad8873cd4c68781061d90f
+Author: Andrew Hsieh <andrewhsieh@google.com>
+
+    add mpfr-3.1.1.tar.bz2
+
+build:
+commit 2f00bce0ef2fe4bd07ade43c4abc0fd4c498bdc4
+Author: Ben Cheng <bccheng@google.com>
+
+    Change the triplet to aarch64-linux-android for aarch64-gcc.
+
+expat:
+commit 40172a0ae9d40a068f1e1a48ffcf6a1ccf765ed5
+Author: Jing Yu <jingyu@google.com>
+
+    expat package for building gdb-7.3
+
