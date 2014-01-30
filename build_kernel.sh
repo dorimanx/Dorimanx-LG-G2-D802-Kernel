@@ -31,14 +31,10 @@ export HOST=`uname -n`;
 
 # begin by ensuring the required directory structure is complete, and empty
 echo "Initialising................."
-if [ -e ../LG-G2-D802-Ramdisk/lib/modules ]; then
-	rm -rf ../LG-G2-D802-Ramdisk/lib/modules
-fi;
 rm -rf $KERNELDIR/READY-KERNEL/boot
 rm -f $KERNELDIR/READY-KERNEL/*.zip
 rm -f $KERNELDIR/READY-KERNEL/*.img
 mkdir -p $KERNELDIR/READY-KERNEL/boot
-mkdir -p ../LG-G2-D802-Ramdisk/lib/modules/
 
 if [ -d ../ramdisk-tmp ]; then
 	rm -rf ../ramdisk-tmp/*
@@ -59,10 +55,11 @@ export PATH=$PATH:tools/lz4demo
 BUILD_800=0
 BUILD_801=0
 BUILD_802=0
+BUILD_803=0
 BUILD_LS_980=0
 BUILD_VS_980=0
 
-read -t 20 -p "What to build? 800,801,802(805/6),ls980,vs980 timeout to build 802 20sec!==";
+read -t 20 -p "What to build? 800,801,802,803,ls980,vs980 timeout to build 802 20sec!==";
 if [ "$REPLY" == "800" ]; then
 	export KERNEL_CONFIG=dorimanx_d800_defconfig
 	KERNEL_CONFIG_FILE=dorimanx_d800_defconfig
@@ -75,6 +72,10 @@ elif [ "$REPLY" == "802" ]; then
 	export KERNEL_CONFIG=dorimanx_d802_defconfig
 	KERNEL_CONFIG_FILE=dorimanx_d802_defconfig
 	BUILD_802=1
+elif [ "$REPLY" == "803" ]; then
+	export KERNEL_CONFIG=dorimanx_d803_defconfig
+	KERNEL_CONFIG_FILE=dorimanx_d803_defconfig
+	BUILD_803=1
 elif [ "$REPLY" == "ls980" ]; then
 	export KERNEL_CONFIG=dorimanx_ls980_defconfig
 	KERNEL_CONFIG_FILE=dorimanx_ls980_defconfig
@@ -103,6 +104,8 @@ if [ ! -f $KERNELDIR/.config ]; then
 		cp arch/arm/configs/dorimanx_d801_defconfig .config
 	elif [ "$BUILD_802" -eq "1" ]; then
 		sh load_config-802.sh
+	elif [ "$BUILD_803" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_d803_defconfig .config
 	elif [ "$BUILD_LS_980" -eq "1" ]; then
 		cp arch/arm/configs/dorimanx_ls980_defconfig .config
 	elif [ "$BUILD_VS_980" -eq "1" ]; then
@@ -114,6 +117,7 @@ if [ -f $KERNELDIR/.config ]; then
 	BRANCH_800=$(grep -R "CONFIG_MACH_MSM8974_G2_ATT=y" .config | wc -l)
 	BRANCH_801=$(grep -R "CONFIG_MACH_MSM8974_G2_TMO_US=y" .config | wc -l)
 	BRANCH_802=$(grep -R "CONFIG_MACH_MSM8974_G2_OPEN_COM=y" .config | wc -l)
+	BRANCH_803=$(grep -R "CONFIG_MACH_MSM8974_G2_CA=y" .config | wc -l)
 	BRANCH_LS_980=$(grep -R "CONFIG_MACH_MSM8974_G2_SPR=y" .config | wc -l)
 	BRANCH_VS_980=$(grep -R "CONFIG_MACH_MSM8974_G2_VZW=y" .config | wc -l)
 	if [ "$BRANCH_800" -eq "0" ] && [ "$BUILD_800" -eq "1" ]; then
@@ -124,6 +128,9 @@ if [ -f $KERNELDIR/.config ]; then
 	fi;
 	if [ "$BRANCH_802" -eq "0" ] && [ "$BUILD_802" -eq "1" ]; then
 		sh load_config-802.sh
+	fi;
+	if [ "$BRANCH_803" -eq "0" ] && [ "$BUILD_803" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_d803_defconfig .config
 	fi;
 	if [ "$BRANCH_LS_980" -eq "0" ] && [ "$BUILD_LS_980" -eq "1" ]; then
 		cp arch/arm/configs/dorimanx_ls980_defconfig .config

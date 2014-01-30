@@ -1598,22 +1598,12 @@ static struct notifier_block __cpuinitdata ratelimit_nb = {
 
 static void dirty_early_suspend(struct power_suspend *handler)
 {
-	if (dirty_writeback_interval != resume_dirty_writeback_interval)
-		resume_dirty_writeback_interval = dirty_writeback_interval;
-	if (dirty_expire_interval != resume_dirty_expire_interval)
-		resume_dirty_expire_interval = dirty_expire_interval;
-
 	dirty_writeback_interval = suspend_dirty_writeback_interval;
 	dirty_expire_interval = suspend_dirty_expire_interval;
 }
 
 static void dirty_late_resume(struct power_suspend *handler)
 {
-	if (dirty_writeback_interval != suspend_dirty_writeback_interval)
-		suspend_dirty_writeback_interval = dirty_writeback_interval;
-	if (dirty_expire_interval != suspend_dirty_expire_interval)
-		suspend_dirty_expire_interval = dirty_expire_interval;
-
 	dirty_writeback_interval = resume_dirty_writeback_interval;
 	dirty_expire_interval = resume_dirty_expire_interval;
 }
