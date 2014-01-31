@@ -32,6 +32,8 @@ modules.builtin
 *.lzo
 *.patch
 *.gcno
+*.rej
+patch-3.*
 
 #
 # Top-level generic files
