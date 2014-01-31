@@ -608,6 +608,7 @@ static void reset_config(struct usb_composite_dev *cdev)
 		bitmap_zero(f->endpoints, 32);
 	}
 	cdev->config = NULL;
+	cdev->delayed_status = 0;
 #if defined(CONFIG_USB_DWC3_MSM_VZW_SUPPORT)
         lge_usb_config_finish = 0;
 #endif
