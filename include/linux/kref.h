@@ -112,7 +112,6 @@ static inline int kref_put_mutex(struct kref *kref,
 	return 0;
 }
 
-
 /**
  * kref_get_unless_zero - Increment refcount for object unless it is zero.
  * @kref: object.
