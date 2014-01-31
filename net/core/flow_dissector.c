@@ -35,13 +35,7 @@ again:
 		struct iphdr _iph;
 ip:
 		iph = skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
-/*                                                                        */
-// refer to 'https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=6f092343855a71e03b8d209815d8c45bf3a27fcd'
-/* previous code
-		if (!iph)
-*/
-        if (!iph || iph->ihl < 5)
-/*                                                                      */
+		if (!iph || iph->ihl < 5)
 			return false;
 
 		if (ip_is_fragment(iph))
@@ -139,8 +133,8 @@ ipv6:
 	if (poff >= 0) {
 		__be32 *ports, _ports;
 
-		nhoff += poff;
-		ports = skb_header_pointer(skb, nhoff, sizeof(_ports), &_ports);
+		ports = skb_header_pointer(skb, nhoff + poff,
+					   sizeof(_ports), &_ports);
 		if (ports)
 			flow->ports = *ports;
 	}
