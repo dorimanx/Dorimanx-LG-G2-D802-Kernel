@@ -46,7 +46,7 @@ static DEFINE_MUTEX(intelli_plug_mutex);
 
 struct delayed_work intelli_plug_work;
 
-static unsigned int intelli_plug_active = 1;
+static unsigned int intelli_plug_active = 0;
 module_param(intelli_plug_active, uint, 0644);
 
 static unsigned int eco_mode_active = 0;
@@ -73,7 +73,7 @@ static unsigned int nr_run_thresholds_eco[] = {
         3,  UINT_MAX /* avg run threads * 2 (e.g., 9 = 2.25 threads) */
         };
 
-static unsigned int nr_run_hysteresis = 4;  /* 0.5 thread */
+static unsigned int nr_run_hysteresis = 2;  /* 0.5 thread */
 module_param(nr_run_hysteresis, uint, 0644);
 
 static unsigned int nr_run_last;
