@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.4.20  Kernel Configuration
+# Linux/arm 3.4.30  Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -2907,7 +2907,6 @@ CONFIG_USB_STORAGE_ONETOUCH=y
 CONFIG_USB_STORAGE_KARMA=y
 CONFIG_USB_STORAGE_CYPRESS_ATACB=y
 CONFIG_USB_STORAGE_ENE_UB6250=y
-# CONFIG_USB_UAS is not set
 # CONFIG_USB_LIBUSUAL is not set
 
 #
