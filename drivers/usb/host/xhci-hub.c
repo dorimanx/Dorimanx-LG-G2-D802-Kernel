@@ -616,6 +616,31 @@ cleanup:
 	return retval;
 }
 
+/*
+ * Function for Compliance Mode Quirk.
+ *
+ * This Function verifies if all xhc USB3 ports have entered U0, if so,
+ * the compliance mode timer is deleted. A port won't enter
+ * compliance mode if it has previously entered U0.
+ */
+void xhci_del_comp_mod_timer(struct xhci_hcd *xhci, u32 status, u16 wIndex)
+{
+	u32 all_ports_seen_u0 = ((1 << xhci->num_usb3_ports)-1);
+	bool port_in_u0 = ((status & PORT_PLS_MASK) == XDEV_U0);
+
+	if (!(xhci->quirks & XHCI_COMP_MODE_QUIRK))
+		return;
+
+	if ((xhci->port_status_u0 != all_ports_seen_u0) && port_in_u0) {
+		xhci->port_status_u0 |= 1 << wIndex;
+		if (xhci->port_status_u0 == all_ports_seen_u0) {
+			del_timer_sync(&xhci->comp_mode_recovery_timer);
+			xhci_dbg(xhci, "All USB3 ports have entered U0 already!\n");
+			xhci_dbg(xhci, "Compliance Mode Recovery Timer Deleted.\n");
+		}
+	}
+}
+
 int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 		u16 wIndex, char *buf, u16 wLength)
 {
@@ -762,6 +787,11 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 		/* Update Port Link State for super speed ports*/
 		if (hcd->speed == HCD_USB3) {
 			xhci_hub_report_link_state(&status, temp);
+			/*
+			 * Verify if all USB3 Ports Have entered U0 already.
+			 * Delete Compliance Mode Timer if so.
+			 */
+			xhci_del_comp_mod_timer(xhci, temp, wIndex);
 		}
 		if (bus_state->port_c_suspend & (1 << wIndex))
 			status |= 1 << USB_PORT_FEAT_C_SUSPEND;
