@@ -25,6 +25,14 @@ config POWERSUSPEND
           Call early suspend handlers when the user requested sleep state
           changes.
 
+config HAS_WAKELOCK
+	bool
+	default y
+
+config WAKELOCK
+	bool
+	default y
+
 config HIBERNATE_CALLBACKS
 	bool
 
