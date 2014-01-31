@@ -1705,11 +1705,11 @@ static int crypt_map(struct dm_target *ti, struct bio *bio,
 	return DM_MAPIO_SUBMITTED;
 }
 
-static int crypt_status(struct dm_target *ti, status_type_t type,
-			char *result, unsigned int maxlen)
+static void crypt_status(struct dm_target *ti, status_type_t type,
+			 char *result, unsigned int maxlen)
 {
 	struct crypt_config *cc = ti->private;
-	unsigned int sz = 0;
+	unsigned i, sz = 0;
 
 	switch (type) {
 	case STATUSTYPE_INFO:
@@ -1719,17 +1719,11 @@ static int crypt_status(struct dm_target *ti, status_type_t type,
 	case STATUSTYPE_TABLE:
 		DMEMIT("%s ", cc->cipher_string);
 
-		if (cc->key_size > 0) {
-			if ((maxlen - sz) < ((cc->key_size << 1) + 1))
-				return -ENOMEM;
-
-			crypt_encode_key(result + sz, cc->key, cc->key_size);
-			sz += cc->key_size << 1;
-		} else {
-			if (sz >= maxlen)
-				return -ENOMEM;
-			result[sz++] = '-';
-		}
+		if (cc->key_size > 0)
+			for (i = 0; i < cc->key_size; i++)
+				DMEMIT("%02x", cc->key[i]);
+		else
+			DMEMIT("-");
 
 		DMEMIT(" %llu %s %llu", (unsigned long long)cc->iv_offset,
 				cc->dev->name, (unsigned long long)cc->start);
@@ -1739,7 +1733,6 @@ static int crypt_status(struct dm_target *ti, status_type_t type,
 
 		break;
 	}
-	return 0;
 }
 
 static void crypt_postsuspend(struct dm_target *ti)
