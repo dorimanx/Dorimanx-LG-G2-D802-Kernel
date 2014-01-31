@@ -45,8 +45,8 @@
 #define DEF_HIGH_GRID_STEP             		(14)
 #define DEF_MIDDLE_GRID_LOAD			(40)
 #define DEF_HIGH_GRID_LOAD			(50)
-#define DBS_SYNC_FREQ				(729600)
-#define DBS_OPTIMAL_FREQ			(729600)
+#define DBS_SYNC_FREQ				(960000)
+#define DBS_OPTIMAL_FREQ			(960000)
 #define DEF_OPTIMAL_MAX_FREQ			(2035200)
 
 /*
