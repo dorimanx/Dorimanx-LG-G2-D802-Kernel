@@ -47,7 +47,7 @@
 #define DEF_HIGH_GRID_LOAD			(50)
 #define DBS_SYNC_FREQ				(729600)
 #define DBS_OPTIMAL_FREQ			(729600)
-#define DEF_OPTIMAL_MAX_FREQ			(0)
+#define DEF_OPTIMAL_MAX_FREQ			(2035200)
 
 /*
  * The polling frequency of this governor depends on the capability of
