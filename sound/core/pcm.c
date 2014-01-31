@@ -49,6 +49,8 @@ static struct snd_pcm *snd_pcm_get(struct snd_card *card, int device)
 	struct snd_pcm *pcm;
 
 	list_for_each_entry(pcm, &snd_pcm_devices, list) {
+		if (pcm->internal)
+			continue;
 		if (pcm->card == card && pcm->device == device)
 			return pcm;
 	}
@@ -60,6 +62,8 @@ static int snd_pcm_next(struct snd_card *card, int device)
 	struct snd_pcm *pcm;
 
 	list_for_each_entry(pcm, &snd_pcm_devices, list) {
+		if (pcm->internal)
+			continue;
 		if (pcm->card == card && pcm->device > device)
 			return pcm->device;
 		else if (pcm->card->number > card->number)
@@ -651,7 +655,7 @@ int snd_pcm_new_stream(struct snd_pcm *pcm, int stream, int substream_count)
 	pstr->stream = stream;
 	pstr->pcm = pcm;
 	pstr->substream_count = substream_count;
-	if (substream_count > 0) {
+	if (substream_count > 0 && !pcm->internal) {
 		err = snd_pcm_stream_proc_init(pstr);
 		if (err < 0) {
 			snd_printk(KERN_ERR "Error in snd_pcm_stream_proc_init\n");
@@ -675,15 +679,18 @@ int snd_pcm_new_stream(struct snd_pcm *pcm, int stream, int substream_count)
 			pstr->substream = substream;
 		else
 			prev->next = substream;
-		err = snd_pcm_substream_proc_init(substream);
-		if (err < 0) {
-			snd_printk(KERN_ERR "Error in snd_pcm_stream_proc_init\n");
-			if (prev == NULL)
-				pstr->substream = NULL;
-			else
-				prev->next = NULL;
-			kfree(substream);
-			return err;
+
+		if (!pcm->internal) {
+			err = snd_pcm_substream_proc_init(substream);
+			if (err < 0) {
+				snd_printk(KERN_ERR "Error in snd_pcm_stream_proc_init\n");
+				if (prev == NULL)
+					pstr->substream = NULL;
+				else
+					prev->next = NULL;
+				kfree(substream);
+				return err;
+			}
 		}
 		substream->group = &substream->self_group;
 		spin_lock_init(&substream->self_group.lock);
@@ -713,8 +720,8 @@ EXPORT_SYMBOL(snd_pcm_new_stream);
  *
  * Returns zero if successful, or a negative error code on failure.
  */
-int snd_pcm_new(struct snd_card *card, const char *id, int device,
-		int playback_count, int capture_count,
+int _snd_pcm_new(struct snd_card *card, const char *id, int device,
+		int playback_count, int capture_count, bool internal,
 	        struct snd_pcm ** rpcm)
 {
 	struct snd_pcm *pcm;
@@ -736,6 +743,7 @@ int snd_pcm_new(struct snd_card *card, const char *id, int device,
 	}
 	pcm->card = card;
 	pcm->device = device;
+	pcm->internal = internal;
 
 	if (id)
 		strlcpy(pcm->id, id, sizeof(pcm->id));
@@ -758,6 +766,29 @@ int snd_pcm_new(struct snd_card *card, const char *id, int device,
 	return 0;
 }
 
+
+/**
+ * snd_pcm_new - create a new PCM instance
+ * @card: the card instance
+ * @id: the id string
+ * @device: the device index (zero based)
+ * @playback_count: the number of substreams for playback
+ * @capture_count: the number of substreams for capture
+ * @rpcm: the pointer to store the new pcm instance
+ *
+ * Creates a new PCM instance.
+ *
+ * The pcm operators have to be set afterwards to the new instance
+ * via snd_pcm_set_ops().
+ *
+ * Returns zero if successful, or a negative error code on failure.
+ */
+int snd_pcm_new(struct snd_card *card, const char *id, int device,
+			int playback_count, int capture_count, struct snd_pcm **rpcm)
+{
+	return _snd_pcm_new(card, id, device, playback_count, capture_count,
+			false, rpcm);
+}
 EXPORT_SYMBOL(snd_pcm_new);
 
 static int snd_pcm_new_stream_soc_be(struct snd_pcm *pcm, int stream,
@@ -1101,7 +1132,7 @@ static int snd_pcm_dev_register(struct snd_device *device)
 	}
 	for (cidx = 0; cidx < 2; cidx++) {
 		int devtype = -1;
-		if (pcm->streams[cidx].substream == NULL)
+		if (pcm->streams[cidx].substream == NULL || pcm->internal)
 			continue;
 		switch (cidx) {
 		case SNDRV_PCM_STREAM_PLAYBACK:
