@@ -26,22 +26,18 @@
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 
-#ifdef CONFIG_CPU_FREQ_GOV_LCDOFF
-#include "../../drivers/video/msm/mdss/mdss_fb.h"
-#endif
-
 /*
  * dbs is used in this file as a shortform for demandbased switching
  * It helps to keep variable names smaller, simpler
  */
 
 #define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(20)
-#define DEF_FREQUENCY_UP_THRESHOLD		(70)
+#define DEF_FREQUENCY_UP_THRESHOLD		(60)
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define MAX_SAMPLING_DOWN_FACTOR		(100000)
 #define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(5)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(75)
-#define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
+#define MICRO_FREQUENCY_UP_THRESHOLD		(80)
+#define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(5000)
 #define MIN_FREQUENCY_UP_THRESHOLD		(11)
 #define MAX_FREQUENCY_UP_THRESHOLD		(100)
 #define MIN_FREQUENCY_DOWN_DIFFERENTIAL		(1)
@@ -49,15 +45,8 @@
 #define DEF_HIGH_GRID_STEP             		(14)
 #define DEF_MIDDLE_GRID_LOAD			(40)
 #define DEF_HIGH_GRID_LOAD			(50)
-#define DEF_OPTIMAL_FREQ			(1574400)
+#define DEF_OPTIMAL_MAX_FREQ			(2496000)
 
-#ifdef CONFIG_CPU_FREQ_GOV_LCDOFF
-#define DEF_LCDOFF_MIDDLE_GRID_STEP           		(14)
-#define DEF_LCDOFF_HIGH_GRID_STEP             		(20)
-#define DEF_LCDOFF_MIDDLE_GRID_LOAD			(65)
-#define DEF_LCDOFF_HIGH_GRID_LOAD			(89)
-#define DEF_LCDOFF_OPTIMAL_FREQ			(1574400)
-#endif
 /*
  * The polling frequency of this governor depends on the capability of
  * the processor. Default polling frequency is 1000 times the transition
@@ -73,7 +62,7 @@
 static unsigned int min_sampling_rate;
 
 #define LATENCY_MULTIPLIER			(1000)
-#define MIN_LATENCY_MULTIPLIER			(20)
+#define MIN_LATENCY_MULTIPLIER			(8)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
 #define POWERSAVE_BIAS_MAXLEVEL			(1000)
@@ -92,10 +81,6 @@ struct cpufreq_governor cpufreq_gov_ondemand = {
        .max_transition_latency = TRANSITION_LATENCY_LIMIT,
        .owner                  = THIS_MODULE,
 };
-
-#ifdef CONFIG_CPU_FREQ_GOV_LCDOFF
-extern struct msm_fb_data_type *mfd_base;
-#endif
 
 /* Sampling types */
 enum {DBS_NORMAL_SAMPLE, DBS_SUB_SAMPLE};
@@ -162,13 +147,6 @@ static struct dbs_tuners {
 	unsigned int high_grid_step;
 	unsigned int middle_grid_load;
 	unsigned int high_grid_load;
-    #ifdef CONFIG_CPU_FREQ_GOV_LCDOFF
-    unsigned int lcdoff_optimal_max_freq;
-	unsigned int lcdoff_middle_grid_step;
-	unsigned int lcdoff_high_grid_step;
-	unsigned int lcdoff_middle_grid_load;
-	unsigned int lcdoff_high_grid_load;
-    #endif
 	unsigned int debug_mask;
 } dbs_tuners_ins = {
 	.up_threshold_multi_core = DEF_FREQUENCY_UP_THRESHOLD,
@@ -183,17 +161,10 @@ static struct dbs_tuners {
 	.high_grid_load = DEF_HIGH_GRID_LOAD,
 	.ignore_nice = 0,
 	.powersave_bias = 0,
-	.sync_freq = 0,
-	.optimal_freq = 0,
-	.optimal_max_freq = DEF_OPTIMAL_FREQ,
-	#ifdef CONFIG_CPU_FREQ_GOV_LCDOFF
-	.lcdoff_middle_grid_step = DEF_LCDOFF_MIDDLE_GRID_STEP,
-	.lcdoff_high_grid_step = DEF_LCDOFF_HIGH_GRID_STEP,
-	.lcdoff_middle_grid_load = DEF_LCDOFF_MIDDLE_GRID_LOAD,
-	.lcdoff_high_grid_load = DEF_LCDOFF_HIGH_GRID_LOAD,
-	.lcdoff_optimal_max_freq = DEF_LCDOFF_OPTIMAL_FREQ,
-    #endif
-    .debug_mask=0,
+	.sync_freq = 729600,
+	.optimal_freq = 729600,
+	.optimal_max_freq = DEF_OPTIMAL_MAX_FREQ,
+	.debug_mask = 0,
 };
 
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
@@ -363,13 +334,6 @@ show_one(middle_grid_load, middle_grid_load);
 show_one(high_grid_load, high_grid_load);
 show_one(sync_freq, sync_freq);
 show_one(optimal_max_freq, optimal_max_freq);
-#ifdef CONFIG_CPU_FREQ_GOV_LCDOFF
-show_one(lcdoff_middle_grid_step, lcdoff_middle_grid_step);
-show_one(lcdoff_high_grid_step, lcdoff_high_grid_step);
-show_one(lcdoff_middle_grid_load, lcdoff_middle_grid_load);
-show_one(lcdoff_high_grid_load, lcdoff_high_grid_load);
-show_one(lcdoff_optimal_max_freq, lcdoff_optimal_max_freq);
-#endif
 show_one(debug_mask,debug_mask);
 
 static ssize_t show_powersave_bias
@@ -610,73 +574,6 @@ static ssize_t store_debug_mask(struct kobject *a,
 	return count;
 }
 
-#ifdef CONFIG_CPU_FREQ_GOV_LCDOFF
-static ssize_t store_lcdoff_middle_grid_step(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-
-	ret = sscanf(buf, "%u", &input);
-	if (ret != 1)
-		return -EINVAL;
-	dbs_tuners_ins.lcdoff_middle_grid_step = input;
-	return count;
-}
-
-static ssize_t store_lcdoff_high_grid_step(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-
-	ret = sscanf(buf, "%u", &input);
-	if (ret != 1)
-		return -EINVAL;
-	dbs_tuners_ins.lcdoff_high_grid_step = input;
-	return count;
-}
-
-static ssize_t store_lcdoff_optimal_max_freq(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-
-	ret = sscanf(buf, "%u", &input);
-	if (ret != 1)
-		return -EINVAL;
-	dbs_tuners_ins.lcdoff_optimal_max_freq = input;
-	return count;
-}
-
-static ssize_t store_lcdoff_middle_grid_load(struct kobject *a,
-			struct attribute *b, const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-	ret = sscanf(buf, "%u", &input);
-
-	if (ret != 1)
-		return -EINVAL;
-	dbs_tuners_ins.lcdoff_middle_grid_load = input;
-	return count;
-}
-
-static ssize_t store_lcdoff_high_grid_load(struct kobject *a,
-			struct attribute *b, const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-	ret = sscanf(buf, "%u", &input);
-
-	if (ret != 1)
-		return -EINVAL;
-	dbs_tuners_ins.lcdoff_high_grid_load = input;
-	return count;
-}
-#endif
-
 static ssize_t store_down_differential(struct kobject *a, struct attribute *b,
 		const char *buf, size_t count)
 {
@@ -875,13 +772,6 @@ define_one_global_rw(middle_grid_step);
 define_one_global_rw(high_grid_step);
 define_one_global_rw(middle_grid_load);
 define_one_global_rw(high_grid_load);
-#ifdef CONFIG_CPU_FREQ_GOV_LCDOFF
-define_one_global_rw(lcdoff_optimal_max_freq);
-define_one_global_rw(lcdoff_middle_grid_step);
-define_one_global_rw(lcdoff_high_grid_step);
-define_one_global_rw(lcdoff_middle_grid_load);
-define_one_global_rw(lcdoff_high_grid_load);
-#endif
 define_one_global_rw(debug_mask);
 
 static struct attribute *dbs_attributes[] = {
@@ -902,13 +792,6 @@ static struct attribute *dbs_attributes[] = {
 	&high_grid_step.attr,
 	&middle_grid_load.attr,
 	&high_grid_load.attr,
-#ifdef CONFIG_CPU_FREQ_GOV_LCDOFF
-	&lcdoff_optimal_max_freq.attr,
-	&lcdoff_middle_grid_step.attr,
-	&lcdoff_high_grid_step.attr,
-	&lcdoff_middle_grid_load.attr,
-	&lcdoff_high_grid_load.attr,
-#endif
 	&debug_mask.attr,
 	NULL
 };
@@ -1061,7 +944,6 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		int freq_target, freq_div;
 		freq_target=0; freq_div=0;
 
-#ifndef CONFIG_CPU_FREQ_GOV_LCDOFF
 		if(load_at_max_freq > dbs_tuners_ins.high_grid_load){
 			freq_div = (policy->max * dbs_tuners_ins.high_grid_step) / 100;
 			freq_target = min(policy->max, policy->cur + freq_div);
@@ -1075,36 +957,6 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 				freq_target = dbs_tuners_ins.optimal_max_freq;
 
 		}
-#else
-                if(mfd_base != NULL && mfd_base->panel_power_on)
-                {
-                        if(load_at_max_freq > dbs_tuners_ins.high_grid_load){
-                                freq_div = (policy->max * dbs_tuners_ins.high_grid_step) / 100;
-                                freq_target = min(policy->max, policy->cur + freq_div);
-                        } else if(load_at_max_freq > dbs_tuners_ins.middle_grid_load){
-                                freq_div = (policy->max * dbs_tuners_ins.middle_grid_step) / 100;
-                                freq_target = min(policy->max, policy->cur + freq_div);
-                        } else {
-                                if(policy->max < dbs_tuners_ins.optimal_max_freq)
-                                        freq_target = policy->max;
-                                else
-                                        freq_target = dbs_tuners_ins.optimal_max_freq;
-                        }
-                }else {
-                        if(load_at_max_freq > dbs_tuners_ins.lcdoff_high_grid_load){
-                                freq_div = (policy->max * dbs_tuners_ins.lcdoff_high_grid_step) / 100;
-                                freq_target = min(policy->max, policy->cur + freq_div);
-                        } else if(load_at_max_freq > dbs_tuners_ins.lcdoff_middle_grid_load){
-                                freq_div = (policy->max * dbs_tuners_ins.lcdoff_middle_grid_step) / 100;
-                                freq_target = min(policy->max, policy->cur + freq_div);
-                        } else {
-                                if(policy->max < dbs_tuners_ins.lcdoff_optimal_max_freq)
-                                        freq_target = policy->max;
-                                else
-                                        freq_target = dbs_tuners_ins.lcdoff_optimal_max_freq;
-                        }
-                }
-#endif
 
 		/* If switching to max speed, apply sampling_down_factor */
 		if (policy->cur < policy->max)
