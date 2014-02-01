@@ -36,7 +36,7 @@ DHDCFLAGS += -DCUSTOMER_HW10
 DHDCFLAGS += -DWL_CFG80211
 # Debug
 #DHDCFLAGS += -DSIMPLE_MAC_PRINT
-DHDCFLAGS += -DDEBUGFS_CFG80211
+#DHDCFLAGS += -DDEBUGFS_CFG80211
 
 
 # Print out kernel panic point of file and line info when assertion happened
@@ -132,9 +132,9 @@ DHDCFLAGS += -DPKTPRIO_OVERRIDE
 # Used short dwell time during initial scan
 DHDCFLAGS += -DUSE_INITIAL_SHORT_DWELL_TIME
 
-ifeq ($(CONFIG_HAS_WAKELOCK),y)
-DHDCFLAGS += -DCONFIG_HAS_WAKELOCK
-endif
+#ifeq ($(CONFIG_HAS_WAKELOCK),y)
+#DHDCFLAGS += -DCONFIG_HAS_WAKELOCK
+#endif
 
 ############
 # JellyBean 
