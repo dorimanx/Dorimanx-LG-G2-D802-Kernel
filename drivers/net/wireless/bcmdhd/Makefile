@@ -72,18 +72,18 @@ DHDCFLAGS += -DDISABLE_11H_SOFTAP
 
 # HW4 specific features
 DHDCFLAGS += -DSUPPORT_PM2_ONLY
-DHDCFLAGS += -DSUPPORT_DEEP_SLEEP
+#DHDCFLAGS += -DSUPPORT_DEEP_SLEEP
 DHDCFLAGS += -DBLOCK_IPV6_PACKET
 #DHDCFLAGS += -DPASS_IPV4_SUSPEND
 
-# For special PNO Event keep wake lock for 5sec
-DHDCFLAGS += -DCUSTOM_PNO_EVENT_LOCK_xTIME=5
+# For special PNO Event keep wake lock for 3sec
+DHDCFLAGS += -DCUSTOM_PNO_EVENT_LOCK_xTIME=3
 
 # For Passing all multicast packets to host when not in suspend mode.
 DHDCFLAGS += -DPASS_ALL_MCAST_PKTS
 
 # Early suspend
-#DHDCFLAGS += -DDHD_USE_EARLYSUSPEND 
+DHDCFLAGS += -DDHD_USE_EARLYSUSPEND -DCONFIG_HAS_EARLYSUSPEND
 
 # WiFi turn off delay
 #DHDCFLAGS += -DWIFI_TURNOFF_DELAY=100
@@ -132,9 +132,9 @@ DHDCFLAGS += -DPKTPRIO_OVERRIDE
 # Used short dwell time during initial scan
 DHDCFLAGS += -DUSE_INITIAL_SHORT_DWELL_TIME
 
-#ifeq ($(CONFIG_HAS_WAKELOCK),y)
-#DHDCFLAGS += -DCONFIG_HAS_WAKELOCK
-#endif
+ifeq ($(CONFIG_HAS_WAKELOCK),y)
+DHDCFLAGS += -DCONFIG_HAS_WAKELOCK
+endif
 
 ############
 # JellyBean 
@@ -152,7 +152,7 @@ DHDCFLAGS += -DWL_SUPPORT_BACKPORTED_KPATCHES
 #################
 # Kitkat
 #################
-DHDCFLAGS += -DWL_IFACE_COMB_NUM_CHANNELS
+#DHDCFLAGS += -DWL_IFACE_COMB_NUM_CHANNELS
 
 
 ##########################
