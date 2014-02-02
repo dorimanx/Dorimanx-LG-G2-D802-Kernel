@@ -59,36 +59,41 @@ BUILD_803=0
 BUILD_LS_980=0
 BUILD_VS_980=0
 
-read -t 20 -p "What to build? 800,801,802,803,ls980,vs980 timeout to build 802 20sec!==";
-if [ "$REPLY" == "800" ]; then
-	export KERNEL_CONFIG=dorimanx_d800_defconfig
-	KERNEL_CONFIG_FILE=dorimanx_d800_defconfig
-	BUILD_800=1
-elif [ "$REPLY" == "801" ]; then
-	export KERNEL_CONFIG=dorimanx_d801_defconfig
-	KERNEL_CONFIG_FILE=dorimanx_d801_defconfig
-	BUILD_801=1
-elif [ "$REPLY" == "802" ]; then
-	export KERNEL_CONFIG=dorimanx_d802_defconfig
-	KERNEL_CONFIG_FILE=dorimanx_d802_defconfig
-	BUILD_802=1
-elif [ "$REPLY" == "803" ]; then
-	export KERNEL_CONFIG=dorimanx_d803_defconfig
-	KERNEL_CONFIG_FILE=dorimanx_d803_defconfig
-	BUILD_803=1
-elif [ "$REPLY" == "ls980" ]; then
-	export KERNEL_CONFIG=dorimanx_ls980_defconfig
-	KERNEL_CONFIG_FILE=dorimanx_ls980_defconfig
-	BUILD_LS_980=1
-elif [ "$REPLY" == "vs980" ]; then
-	export KERNEL_CONFIG=dorimanx_vs980_defconfig
-	KERNEL_CONFIG_FILE=dorimanx_vs980_defconfig
-	BUILD_VS_980=1
-else
-	export KERNEL_CONFIG=dorimanx_d802_defconfig
-	KERNEL_CONFIG_FILE=dorimanx_d802_defconfig
-	BUILD_802=1
-fi;
+echo "What to cook for you?!";
+select CHOICE in D800 D801 D802 D803 LS980 VS980; do
+	case "$CHOICE" in
+		"D800")
+			export KERNEL_CONFIG=dorimanx_d800_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_d800_defconfig
+			BUILD_800=1;
+			break;;
+		"D801")
+			export KERNEL_CONFIG=dorimanx_d801_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_d801_defconfig
+			BUILD_801=1;
+			break;;
+		"D802")
+			export KERNEL_CONFIG=dorimanx_d802_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_d802_defconfig
+			BUILD_802=1;
+			break;;
+		"D803")
+			export KERNEL_CONFIG=dorimanx_d803_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_d803_defconfig
+			BUILD_803=1
+			break;;
+		"LS980")
+			export KERNEL_CONFIG=dorimanx_ls980_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_ls980_defconfig
+			BUILD_LS_980=1;
+			break;;
+		"VS980")
+			export KERNEL_CONFIG=dorimanx_vs980_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_vs980_defconfig
+			BUILD_VS_980=1;
+			break;;
+	esac;
+done;
 
 if [ -e /usr/bin/python3 ]; then
 	rm /usr/bin/python
