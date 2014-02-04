@@ -834,6 +834,7 @@ int subsystem_restart_dev(struct subsys_device *dev)
 		__subsystem_restart_dev(dev);
 		break;
 	case RESET_SOC:
+		notify_each_subsys_device(&dev, 1, SUBSYS_SOC_RESET, NULL);
 #ifdef CONFIG_LGE_HANDLE_PANIC
 		lge_set_magic_subsystem(name, LGE_ERR_SUB_RST);
 #endif
