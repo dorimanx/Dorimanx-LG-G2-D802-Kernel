@@ -353,12 +353,14 @@ CC		= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
-CFLAGS_MODULE   = -fno-pic -munaligned-access -mcpu=cortex-a15 \
-		  -mtune=cortex-a15 -march=armv7-a -mfpu=neon-vfpv4
+
+CFLAGS_MODULE   = -DMODULE -fno-pic -mcpu=cortex-a15 -mtune=cortex-a15 \
+		  -march=armv7-a -marm -mfpu=neon-vfpv4 \
+		  -mvectorize-with-neon-quad
 AFLAGS_MODULE   =
 LDFLAGS_MODULE  =
-CFLAGS_KERNEL	= -munaligned-access -mcpu=cortex-a15 -mtune=cortex-a15 \
-		  -march=armv7-a -mfpu=neon-vfpv4
+CFLAGS_KERNEL	= -mcpu=cortex-a15 -mtune=cortex-a15 -march=armv7-a \
+		  -marm -mfpu=neon-vfpv4 -mvectorize-with-neon-quad
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
@@ -376,8 +378,10 @@ KBUILD_CFLAGS   := -w -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
+		   -Wno-maybe-uninitialized \
+		   -Wno-sizeof-pointer-memaccess \
 		   -fno-delete-null-pointer-checks \
-		   -march=armv7-a -mfpu=neon-vfpv4
+		   -march=armv7-a -marm -mfpu=neon-vfpv4
 
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
