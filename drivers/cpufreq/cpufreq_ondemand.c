@@ -738,9 +738,9 @@ skip_this_cpu:
 
 			if (dbs_info->cur_policy) {
 				/* cpu using ondemand, cancel dbs timer */
-				mutex_lock(&dbs_info->timer_mutex);
 				dbs_timer_exit(dbs_info);
 
+				mutex_lock(&dbs_info->timer_mutex);
 				ondemand_powersave_bias_setspeed(
 					dbs_info->cur_policy,
 					NULL,
@@ -921,21 +921,6 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 		if (max_load_other_cpu < j_dbs_info->max_load)
 			max_load_other_cpu = j_dbs_info->max_load;
-		/*
-		 * The other cpu could be running at higher frequency
-		 * but may not have completed it's sampling_down_factor.
-		 * For that case consider other cpu is loaded so that
-		 * frequency imbalance does not occur.
-		 */
-
-		if ((j_dbs_info->cur_policy != NULL)
-			&& (j_dbs_info->cur_policy->cur ==
-					j_dbs_info->cur_policy->max)) {
-
-			if (policy->cur >= dbs_tuners_ins.optimal_freq)
-				max_load_other_cpu =
-				dbs_tuners_ins.up_threshold_any_cpu_load;
-		}
 	}
 
 	/* calculate the scaled load across CPU */
@@ -1132,10 +1117,6 @@ static void dbs_refresh_callback(struct work_struct *work)
 	struct cpu_dbs_info_s *this_dbs_info;
 	struct dbs_work_struct *dbs_work;
 	unsigned int cpu;
-#ifdef CONFIG_MACH_MSM8974_G2_DCM
-	extern int boo;
-	int def_touch_boost_freq = 2265600;
-#endif
 
 	dbs_work = container_of(work, struct dbs_work_struct, work);
 	cpu = dbs_work->cpu;
@@ -1152,40 +1133,6 @@ static void dbs_refresh_callback(struct work_struct *work)
 		goto bail_incorrect_governor;
 	}
 
-#ifdef CONFIG_MACH_MSM8974_G2_DCM
-	if(boo) {
-	    def_touch_boost_freq = 1190400;
-	} else {
-	    def_touch_boost_freq = 2265600;
-	}
-
-	if (policy->cur <= policy->max) {
-		if (policy->max >= def_touch_boost_freq) {
-			/*
-			 * Arch specific cpufreq driver may fail.
-			 * Don't update governor frequency upon failure.
-			 */
-			if (__cpufreq_driver_target(policy, def_touch_boost_freq,
-						CPUFREQ_RELATION_L) >= 0)
-				policy->cur = def_touch_boost_freq;
-
-			this_dbs_info->prev_cpu_idle = get_cpu_idle_time(cpu,
-					&this_dbs_info->prev_cpu_wall);
-		}
-		else {
-			/*
-			 * Arch specific cpufreq driver may fail.
-			 * Don't update governor frequency upon failure.
-			 */
-			if (__cpufreq_driver_target(policy, policy->max,
-						CPUFREQ_RELATION_L) >= 0)
-				policy->cur = policy->max;
-
-			this_dbs_info->prev_cpu_idle = get_cpu_idle_time(cpu,
-					&this_dbs_info->prev_cpu_wall);
-		}
-	}
-#else
 	if (policy->cur < policy->max) {
 		/*
 		 * Arch specific cpufreq driver may fail.
@@ -1198,8 +1145,6 @@ static void dbs_refresh_callback(struct work_struct *work)
 		this_dbs_info->prev_cpu_idle = get_cpu_idle_time(cpu,
 				&this_dbs_info->prev_cpu_wall);
 	}
-
-#endif
 
 bail_incorrect_governor:
 	unlock_policy_rwsem_write(cpu);
