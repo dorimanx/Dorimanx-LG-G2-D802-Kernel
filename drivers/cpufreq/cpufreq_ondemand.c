@@ -31,12 +31,12 @@
  * It helps to keep variable names smaller, simpler
  */
 
-#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(20)
-#define DEF_FREQUENCY_UP_THRESHOLD		(70)
+#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(40)
+#define DEF_FREQUENCY_UP_THRESHOLD		(80)
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define MAX_SAMPLING_DOWN_FACTOR		(100000)
 #define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(5)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(95)
+#define MICRO_FREQUENCY_UP_THRESHOLD		(90)
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(5000)
 #define MIN_FREQUENCY_UP_THRESHOLD		(11)
 #define MAX_FREQUENCY_UP_THRESHOLD		(100)
@@ -47,7 +47,7 @@
 #define DEF_HIGH_GRID_LOAD			(50)
 #define DBS_SYNC_FREQ				(960000)
 #define DBS_OPTIMAL_FREQ			(960000)
-#define DEF_OPTIMAL_MAX_FREQ			(2035200)
+#define DEF_OPTIMAL_MAX_FREQ			(1958400)
 
 /*
  * The polling frequency of this governor depends on the capability of
@@ -64,7 +64,7 @@
 static unsigned int min_sampling_rate;
 
 #define LATENCY_MULTIPLIER			(1000)
-#define MIN_LATENCY_MULTIPLIER			(10)
+#define MIN_LATENCY_MULTIPLIER			(20)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
 #define POWERSAVE_BIAS_MAXLEVEL			(1000)
@@ -166,7 +166,7 @@ static struct dbs_tuners {
 	.sync_freq = DBS_SYNC_FREQ,
 	.optimal_freq = DBS_OPTIMAL_FREQ,
 	.optimal_max_freq = DEF_OPTIMAL_MAX_FREQ,
-	.sampling_rate = (MICRO_FREQUENCY_MIN_SAMPLE_RATE * 5),
+	.sampling_rate = (MICRO_FREQUENCY_MIN_SAMPLE_RATE * 8),
 	.debug_mask = 0,
 };
 
