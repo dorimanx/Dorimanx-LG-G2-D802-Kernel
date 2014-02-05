@@ -149,7 +149,6 @@ static struct dbs_tuners {
 	unsigned int high_grid_step;
 	unsigned int middle_grid_load;
 	unsigned int high_grid_load;
-	unsigned int debug_mask;
 	unsigned int input_boost;
 } dbs_tuners_ins = {
 	.up_threshold_multi_core = DEF_FREQUENCY_UP_THRESHOLD,
@@ -168,7 +167,6 @@ static struct dbs_tuners {
 	.optimal_freq = DBS_OPTIMAL_FREQ,
 	.optimal_max_freq = DEF_OPTIMAL_MAX_FREQ,
 	.sampling_rate = (MICRO_FREQUENCY_MIN_SAMPLE_RATE * 8),
-	.debug_mask = 0,
 	.input_boost = 0,
 };
 
@@ -339,7 +337,6 @@ show_one(middle_grid_load, middle_grid_load);
 show_one(high_grid_load, high_grid_load);
 show_one(sync_freq, sync_freq);
 show_one(optimal_max_freq, optimal_max_freq);
-show_one(debug_mask,debug_mask);
 show_one(input_boost, input_boost);
 
 static ssize_t show_powersave_bias
@@ -579,19 +576,6 @@ static ssize_t store_high_grid_load(struct kobject *a,
 	return count;
 }
 
-static ssize_t store_debug_mask(struct kobject *a,
-			struct attribute *b, const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-	ret = sscanf(buf, "%u", &input);
-
-	if (ret != 1)
-		return -EINVAL;
-	dbs_tuners_ins.debug_mask= input;
-	return count;
-}
-
 static ssize_t store_down_differential(struct kobject *a, struct attribute *b,
 		const char *buf, size_t count)
 {
@@ -790,7 +774,6 @@ define_one_global_rw(middle_grid_step);
 define_one_global_rw(high_grid_step);
 define_one_global_rw(middle_grid_load);
 define_one_global_rw(high_grid_load);
-define_one_global_rw(debug_mask);
 define_one_global_rw(input_boost);
 
 static struct attribute *dbs_attributes[] = {
@@ -811,7 +794,6 @@ static struct attribute *dbs_attributes[] = {
 	&high_grid_step.attr,
 	&middle_grid_load.attr,
 	&high_grid_load.attr,
-	&debug_mask.attr,
 	&input_boost.attr,
 	NULL
 };
