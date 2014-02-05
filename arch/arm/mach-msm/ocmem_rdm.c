@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -148,52 +148,6 @@ static irqreturn_t ocmem_dm_irq_handler(int irq, void *dev_id)
 	}
 	return IRQ_HANDLED;
 }
-
-#ifdef CONFIG_MSM_OCMEM_NONSECURE
-int ocmem_clear(unsigned long start, unsigned long size)
-{
-#if 1 //                                    
-	int retry_count = 5 ;
-retry_entry:
-#endif
-	INIT_COMPLETION(dm_clear_event);
-	/* Clear DM Mask */
-	ocmem_write(DM_MASK_RESET, dm_base + DM_INTR_MASK);
-	/* Clear DM Interrupts */
-	ocmem_write(DM_INTR_RESET, dm_base + DM_INTR_CLR);
-	/* DM CLR offset */
-	ocmem_write(start, dm_base + DM_CLR_OFFSET);
-	/* DM CLR size */
-	ocmem_write(size, dm_base + DM_CLR_SIZE);
-	/* Wipe out memory as "OCMM" */
-	ocmem_write(0x4D4D434F, dm_base + DM_CLR_PATTERN);
-	/* The offset, size and pattern for clearing must be set
-	 * before triggering the clearing engine
-	 */
-	mb();
-	/* Trigger Data Clear */
-	ocmem_write(DM_CLR_ENABLE, dm_base + DM_CLR_TRIGGER);
-
-#if 0 //                                    
-	wait_for_completion(&dm_clear_event);
-
-#else
-	if( !wait_for_completion_timeout(&dm_clear_event, msecs_to_jiffies(1000)) ) {
-		printk(KERN_ERR "%s : dm_clear_event is delayed %d\n",__func__,retry_count);
-		if( --retry_count )
-			goto retry_entry;
-		else
-			panic("%s : Dm_clear_event is ran over\n",__func__) ;
-	}
-#endif
-	return 0;
-}
-#else
-int ocmem_clear(unsigned long start, unsigned long size)
-{
-	return 0;
-}
-#endif
 
 /* Lock during transfers */
 int ocmem_rdm_transfer(int id, struct ocmem_map_list *clist,
