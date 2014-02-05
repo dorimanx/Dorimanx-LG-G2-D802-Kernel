@@ -12,6 +12,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/mutex.h>
 
 #include <mach/scm.h>
 
