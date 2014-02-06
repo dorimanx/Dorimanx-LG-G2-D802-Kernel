@@ -180,7 +180,7 @@
 		qcom,lpm-level@4 {
 			reg = <0x4>;
 			qcom,mode = "pc";
-			qcom,l2 = "l2_cache_gdhs"; /* LGE Temporary: GDHS */
+			qcom,l2 = "l2_cache_pc";
 			qcom,latency-us = <30000>;
 			qcom,ss-power = <110>;
 			qcom,energy-overhead = <1250300>;
