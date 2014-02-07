@@ -30,7 +30,6 @@
 #include <linux/kernel_stat.h>
 #include <linux/tick.h>
 #include <asm/smp_plat.h>
-#include "acpuclock.h"
 #include <linux/suspend.h>
 
 #define MAX_LONG_SIZE 24
@@ -192,7 +191,7 @@ static int cpu_hotplug_handler(struct notifier_block *nb,
 	switch (val) {
 	case CPU_ONLINE:
 		if (!this_cpu->cur_freq)
-			this_cpu->cur_freq = acpuclk_get_rate(cpu);
+			this_cpu->cur_freq = cpufreq_quick_get(cpu) * 1000;
 	case CPU_ONLINE_FROZEN:
 		this_cpu->avg_load_maxfreq = 0;
 	}
@@ -410,7 +409,7 @@ static int __init msm_rq_stats_init(void)
 		cpufreq_get_policy(&cpu_policy, i);
 		pcpu->policy_max = cpu_policy.cpuinfo.max_freq;
 		if (cpu_online(i))
-			pcpu->cur_freq = acpuclk_get_rate(i);
+			pcpu->cur_freq = cpufreq_quick_get(i) * 1000;
 		cpumask_copy(pcpu->related_cpus, cpu_policy.cpus);
 #ifdef CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL
 		pcpu->prev_cpu_wall = ktime_to_us(ktime_get());
