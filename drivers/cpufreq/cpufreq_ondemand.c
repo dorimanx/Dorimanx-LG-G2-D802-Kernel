@@ -34,19 +34,19 @@
  */
 
 #define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(30)
-#define DEF_FREQUENCY_UP_THRESHOLD		(80)
+#define DEF_FREQUENCY_UP_THRESHOLD		(75)
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define MAX_SAMPLING_DOWN_FACTOR		(100000)
 #define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(90)
+#define MICRO_FREQUENCY_UP_THRESHOLD		(95)
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(5000)
 #define MIN_FREQUENCY_UP_THRESHOLD		(11)
 #define MAX_FREQUENCY_UP_THRESHOLD		(100)
 #define MIN_FREQUENCY_DOWN_DIFFERENTIAL		(1)
 #define DEF_MIDDLE_GRID_STEP           		(14)
 #define DEF_HIGH_GRID_STEP             		(20)
-#define DEF_MIDDLE_GRID_LOAD			(65)
-#define DEF_HIGH_GRID_LOAD			(89)
+#define DEF_MIDDLE_GRID_LOAD			(40)
+#define DEF_HIGH_GRID_LOAD			(60)
 #define DBS_SYNC_FREQ				(960000)
 #define DBS_OPTIMAL_FREQ			(960000)
 #define DEF_OPTIMAL_MAX_FREQ			(1958400)
@@ -174,7 +174,7 @@ static struct dbs_tuners {
 	.optimal_freq = DBS_OPTIMAL_FREQ,
 	.input_boost = 0,
 	.optimal_max_freq = DEF_OPTIMAL_MAX_FREQ,
-	.sampling_rate = (MICRO_FREQUENCY_MIN_SAMPLE_RATE * 8),
+	.sampling_rate = (MICRO_FREQUENCY_MIN_SAMPLE_RATE * 5),
 };
 
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
@@ -942,7 +942,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	/* Check for frequency increase */
 	if (max_load_freq > dbs_tuners_ins.up_threshold * policy->cur) {
 		int freq_target, freq_div;
-		freq_target=0; freq_div=0;
+		freq_target = 0; freq_div = 0;
 
 		if(load_at_max_freq > dbs_tuners_ins.high_grid_load){
 			freq_div = (policy->max * dbs_tuners_ins.high_grid_step) / 100;
