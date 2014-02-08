@@ -104,6 +104,8 @@ struct cpufreq_policy {
 	unsigned int            util;  /* CPU utilization at max frequency */
 	unsigned int		policy; /* see above */
 	struct cpufreq_governor	*governor; /* see below */
+        void                    *governor_data;
+        bool                    governor_enabled; /* governor start/stop flag */
 
 	struct work_struct	update; /* if update_policy() needs to be
 					 * called, but you're in IRQ context */
@@ -172,9 +174,12 @@ static inline unsigned long cpufreq_scale(unsigned long old, u_int div, u_int mu
 #define CPUFREQ_GOV_START  1
 #define CPUFREQ_GOV_STOP   2
 #define CPUFREQ_GOV_LIMITS 3
+#define CPUFREQ_GOV_POLICY_INIT 4
+#define CPUFREQ_GOV_POLICY_EXIT 5
 
 struct cpufreq_governor {
 	char	name[CPUFREQ_NAME_LEN];
+    int     initialized;
 	int	(*governor)	(struct cpufreq_policy *policy,
 				 unsigned int event);
 	ssize_t	(*show_setspeed)	(struct cpufreq_policy *policy,
@@ -381,6 +386,15 @@ extern struct cpufreq_governor cpufreq_gov_intellidemand;
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMANDPLUS)
 extern struct cpufreq_governor cpufreq_gov_ondemandplus;
 #define CPUFREQ_DEFAULT_GOVERNOR  (&cpufreq_gov_ondemandplus)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_NIGHTMARE)
+extern struct cpufreq_governor cpufreq_gov_nightmare;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_nightmare)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_HYPER)
+extern struct cpufreq_governor cpufreq_gov_HYPER;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_HYPER)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_PEGASUSQ)
+extern struct cpufreq_governor cpufreq_gov_pegasusq;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_pegasusq)
 #endif
 
 /*********************************************************************

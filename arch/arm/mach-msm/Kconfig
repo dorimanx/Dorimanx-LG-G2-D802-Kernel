@@ -1924,6 +1924,12 @@ config INTELLI_PLUG
 	help
 	  Generic Intelli-plug cpu hotplug driver for ARM SOCs
 
+config ALUCARD_HOTPLUG
+	bool "Enable alucard-hotplug cpu hotplug driver"
+	default n
+	help
+	  Generic Alucard-hotplug cpu hotplug driver for ARM SOCs
+
 config MSM_AVS_HW
 	bool "Enable Adaptive Voltage Scaling (AVS)"
 	default n
