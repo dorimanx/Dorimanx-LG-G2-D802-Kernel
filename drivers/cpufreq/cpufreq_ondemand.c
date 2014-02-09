@@ -33,23 +33,27 @@
  * It helps to keep variable names smaller, simpler
  */
 
-#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(30)
-#define DEF_FREQUENCY_UP_THRESHOLD		(75)
+/* User tunabble controls */
+#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
+#define DEF_FREQUENCY_UP_THRESHOLD		(70)
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
-#define MAX_SAMPLING_DOWN_FACTOR		(100000)
-#define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(95)
+#define DEF_SAMPLING_RATE			(40000)
+#define MICRO_FREQUENCY_UP_THRESHOLD		(70)
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(5000)
-#define MIN_FREQUENCY_UP_THRESHOLD		(11)
-#define MAX_FREQUENCY_UP_THRESHOLD		(100)
-#define MIN_FREQUENCY_DOWN_DIFFERENTIAL		(1)
-#define DEF_MIDDLE_GRID_STEP           		(14)
-#define DEF_HIGH_GRID_STEP             		(20)
+#define DEF_MIDDLE_GRID_STEP			(14)
 #define DEF_MIDDLE_GRID_LOAD			(40)
+#define DEF_HIGH_GRID_STEP			(20)
 #define DEF_HIGH_GRID_LOAD			(60)
 #define DBS_SYNC_FREQ				(960000)
 #define DBS_OPTIMAL_FREQ			(960000)
-#define DEF_OPTIMAL_MAX_FREQ			(1958400)
+#define DEF_OPTIMAL_MAX_FREQ			(2265600)
+
+/* Kernel tunabble controls */
+#define MAX_SAMPLING_DOWN_FACTOR		(100000)
+#define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
+#define MIN_FREQUENCY_UP_THRESHOLD		(11)
+#define MAX_FREQUENCY_UP_THRESHOLD		(100)
+#define MIN_FREQUENCY_DOWN_DIFFERENTIAL		(1)
 
 /*
  * The polling frequency of this governor depends on the capability of
@@ -146,6 +150,7 @@ static struct dbs_tuners {
 	unsigned int down_differential_multi_core;
 	unsigned int optimal_freq;
 	unsigned int up_threshold_any_cpu_load;
+	unsigned int micro_freq_up_threshold;
 	unsigned int sync_freq;
 	unsigned int ignore_nice;
 	unsigned int sampling_down_factor;
@@ -155,8 +160,8 @@ static struct dbs_tuners {
 	unsigned int input_boost;
 	unsigned int optimal_max_freq;
 	unsigned int middle_grid_step;
-	unsigned int high_grid_step;
 	unsigned int middle_grid_load;
+	unsigned int high_grid_step;
 	unsigned int high_grid_load;
 } dbs_tuners_ins = {
 	.up_threshold_multi_core = DEF_FREQUENCY_UP_THRESHOLD,
@@ -165,9 +170,10 @@ static struct dbs_tuners {
 	.down_differential = DEF_FREQUENCY_DOWN_DIFFERENTIAL,
 	.down_differential_multi_core = MICRO_FREQUENCY_DOWN_DIFFERENTIAL,
 	.up_threshold_any_cpu_load = DEF_FREQUENCY_UP_THRESHOLD,
+	.micro_freq_up_threshold = MICRO_FREQUENCY_UP_THRESHOLD,
 	.middle_grid_step = DEF_MIDDLE_GRID_STEP,
-	.high_grid_step = DEF_HIGH_GRID_STEP,
 	.middle_grid_load = DEF_MIDDLE_GRID_LOAD,
+	.high_grid_step = DEF_HIGH_GRID_STEP,
 	.high_grid_load = DEF_HIGH_GRID_LOAD,
 	.ignore_nice = 0,
 	.powersave_bias = 0,
@@ -176,7 +182,7 @@ static struct dbs_tuners {
 	.enable_turbo_mode = 1,
 	.input_boost = 0,
 	.optimal_max_freq = DEF_OPTIMAL_MAX_FREQ,
-	.sampling_rate = (MICRO_FREQUENCY_MIN_SAMPLE_RATE * 5),
+	.sampling_rate = DEF_SAMPLING_RATE,
 };
 
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
@@ -340,9 +346,10 @@ show_one(sampling_down_factor, sampling_down_factor);
 show_one(ignore_nice_load, ignore_nice);
 show_one(optimal_freq, optimal_freq);
 show_one(up_threshold_any_cpu_load, up_threshold_any_cpu_load);
+show_one(micro_freq_up_threshold, micro_freq_up_threshold);
 show_one(middle_grid_step, middle_grid_step);
-show_one(high_grid_step, high_grid_step);
 show_one(middle_grid_load, middle_grid_load);
+show_one(high_grid_step, high_grid_step);
 show_one(high_grid_load, high_grid_load);
 show_one(sync_freq, sync_freq);
 show_one(enable_turbo_mode, enable_turbo_mode);
@@ -518,6 +525,19 @@ static ssize_t store_up_threshold_any_cpu_load(struct kobject *a,
 		return -EINVAL;
 	}
 	dbs_tuners_ins.up_threshold_any_cpu_load = input;
+	return count;
+}
+
+static ssize_t store_micro_freq_up_threshold(struct kobject *a,
+			struct attribute *b, const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.micro_freq_up_threshold = input;
 	return count;
 }
 
@@ -801,13 +821,14 @@ define_one_global_rw(powersave_bias);
 define_one_global_rw(up_threshold_multi_core);
 define_one_global_rw(optimal_freq);
 define_one_global_rw(up_threshold_any_cpu_load);
+define_one_global_rw(micro_freq_up_threshold);
 define_one_global_rw(sync_freq);
 define_one_global_rw(enable_turbo_mode);
 define_one_global_rw(input_boost);
 define_one_global_rw(optimal_max_freq);
 define_one_global_rw(middle_grid_step);
-define_one_global_rw(high_grid_step);
 define_one_global_rw(middle_grid_load);
+define_one_global_rw(high_grid_step);
 define_one_global_rw(high_grid_load);
 
 static struct attribute *dbs_attributes[] = {
@@ -823,12 +844,13 @@ static struct attribute *dbs_attributes[] = {
 	&optimal_freq.attr,
 	&optimal_max_freq.attr,
 	&up_threshold_any_cpu_load.attr,
+	&micro_freq_up_threshold.attr,
 	&sync_freq.attr,
 	&enable_turbo_mode.attr,
 	&input_boost.attr,
 	&middle_grid_step.attr,
-	&high_grid_step.attr,
 	&middle_grid_load.attr,
+	&high_grid_step.attr,
 	&high_grid_load.attr,
 	NULL
 };
@@ -1529,7 +1551,7 @@ static int __init cpufreq_gov_dbs_init(void)
 	put_cpu();
 	if (idle_time != -1ULL) {
 		/* Idle micro accounting is supported. Use finer thresholds */
-		dbs_tuners_ins.up_threshold = MICRO_FREQUENCY_UP_THRESHOLD;
+		dbs_tuners_ins.up_threshold = dbs_tuners_ins.micro_freq_up_threshold;
 		dbs_tuners_ins.down_differential =
 					MICRO_FREQUENCY_DOWN_DIFFERENTIAL;
 		/*
