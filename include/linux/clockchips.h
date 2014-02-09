@@ -197,6 +197,7 @@ static inline int clockevents_notify(unsigned long reason, void *arg) { return 0
 #else /* CONFIG_GENERIC_CLOCKEVENTS_BUILD */
 
 static inline int clockevents_notify(unsigned long reason, void *arg) { return 0; }
+static inline void tick_setup_hrtimer_broadcast(void) {};
 
 #endif
 
