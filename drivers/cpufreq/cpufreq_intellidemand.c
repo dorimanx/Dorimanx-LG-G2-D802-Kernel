@@ -89,7 +89,7 @@ typedef struct{
         unsigned int freq_idx;
         unsigned int freq_value;
 } freq_table_idx;
-freq_table_idx pre_freq_idx[SUP_CORE_NUM] = {};
+static freq_table_idx pre_freq_idx[SUP_CORE_NUM] = {};
 
 #endif
 
@@ -105,14 +105,14 @@ typedef struct {
         unsigned int hist_load_cnt;
 } history_load;
 static void reset_hist(history_load *hist_load);
-history_load hist_load[SUP_CORE_NUM] = {};
+static history_load hist_load[SUP_CORE_NUM] = {};
 
 typedef struct {
         unsigned int hist_max_load[SUP_HIGH_SLOW_UP_DUR];
         unsigned int hist_load_cnt;
 } history_load_high;
 static void reset_hist_high(history_load_high *hist_load);
-history_load_high hist_load_high[SUP_CORE_NUM] = {};
+static history_load_high hist_load_high[SUP_CORE_NUM] = {};
 
 #endif
 
