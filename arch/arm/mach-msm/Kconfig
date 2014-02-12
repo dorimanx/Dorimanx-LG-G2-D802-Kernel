@@ -1931,6 +1931,12 @@ config ALUCARD_HOTPLUG
 	help
 	  Generic Alucard-hotplug cpu hotplug driver for ARM SOCs
 
+config CPU_UNDERCLOCK
+	bool "Enable CPU Underclocking option"
+	default n
+	help
+	  Krait underclocking to 96Mhz
+
 config MSM_AVS_HW
 	bool "Enable Adaptive Voltage Scaling (AVS)"
 	default n
