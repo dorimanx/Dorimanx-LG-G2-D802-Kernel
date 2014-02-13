@@ -47,12 +47,12 @@ static struct hotplug_tuners {
 } hotplug_tuners_ins = {
 	.hotplug_sampling_rate = ATOMIC_INIT(60000),
 	.hotplug_enable = ATOMIC_INIT(0),
-	.cpu_up_rate = ATOMIC_INIT(10),
-	.cpu_down_rate = ATOMIC_INIT(20),
+	.cpu_up_rate = ATOMIC_INIT(2),
+	.cpu_down_rate = ATOMIC_INIT(2),
 	.maxcoreslimit = ATOMIC_INIT(NR_CPUS),
 };
 
-#define MAX_HOTPLUG_RATE		(40)
+#define MAX_HOTPLUG_RATE	(40)
 #define DOWN_INDEX		(0)
 #define UP_INDEX		(1)
 
@@ -170,9 +170,9 @@ static atomic_t hotplug_load[4][2] = {
 	{ATOMIC_INIT(30), ATOMIC_INIT(0)}
 };
 static atomic_t hotplug_rq[4][2] = {
-	{ATOMIC_INIT(0), ATOMIC_INIT(200)}, 
-	{ATOMIC_INIT(200), ATOMIC_INIT(200)}, 
-	{ATOMIC_INIT(200), ATOMIC_INIT(300)}, 
+	{ATOMIC_INIT(0), ATOMIC_INIT(100)},
+	{ATOMIC_INIT(100), ATOMIC_INIT(200)},
+	{ATOMIC_INIT(200), ATOMIC_INIT(300)},
 	{ATOMIC_INIT(300), ATOMIC_INIT(0)}
 };
 
@@ -382,7 +382,7 @@ static ssize_t store_hotplug_sampling_rate(struct kobject *a, struct attribute *
 		return -EINVAL;
 
 	input = max(input,10000);
-	
+
 	if (input == atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate))
 		return count;
 
@@ -402,7 +402,7 @@ static ssize_t store_hotplug_enable(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = input > 0; 
+	input = input > 0;
 
 	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) == input)
 		return count;
@@ -468,7 +468,7 @@ static ssize_t store_maxcoreslimit(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(input > NR_CPUS ? NR_CPUS : input, 1); 
+	input = max(input > NR_CPUS ? NR_CPUS : input, 1);
 
 	if (atomic_read(&hotplug_tuners_ins.maxcoreslimit) == input)
 		return count;
@@ -543,7 +543,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 	if (hotplug_enable) {
 		/* set hotplugging_rate used */
 		++hotplugging_rate;
- 		check_up = (hotplugging_rate % up_rate == 0);
+		check_up = (hotplugging_rate % up_rate == 0);
 		check_down = (hotplugging_rate % down_rate == 0);
 		rq_avg = get_nr_run_avg();
 
@@ -599,7 +599,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 			if (wall_time >= idle_time) { /*if wall_time < idle_time, evaluate cpu load next time*/
 					cur_load = wall_time > idle_time ? (100 * (wall_time - idle_time)) / wall_time : 0;/*if wall_time is equal to idle_time cpu_load is equal to 0*/
 					cur_freq = cpufreq_quick_get(cpu);
-				
+
 					up_load = atomic_read(&hotplug_load[cpu][UP_INDEX]);
 					down_load = atomic_read(&hotplug_load[cpu][DOWN_INDEX]);
 					up_freq = atomic_read(&hotplug_freq[cpu][UP_INDEX]);
@@ -610,7 +610,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 					/*printk(KERN_ERR "U CPU[%u], cur_freq[%u], up_freq[%u], cur_load[%d], up_load[%d], offline_cpu[%d], schedule_up_cpu[%d]\n",cpu, cur_freq, up_freq, cur_load, up_load, offline_cpu, schedule_up_cpu);
 					printk(KERN_ERR "D CPU[%u], cur_freq[%u], down_freq[%u], cur_load[%d], down_load[%d], schedule_down_cpu[%d]\n",cpu, cur_freq, down_freq, cur_load, down_load, schedule_down_cpu);*/
 
-					if (check_up 
+					if (check_up
 						&& online_cpus < upmaxcoreslimit
 						&& per_cpu(od_hotplug_cpuinfo, cpu).up_cpu > 0
 						&& schedule_up_cpu > 0
@@ -630,7 +630,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 						&& cpu != offline_cpu
 						&& cur_load >= 0) {
 							if (cur_load < down_load
-								|| (cur_freq <= down_freq 
+								|| (cur_freq <= down_freq
 									&& rq_avg <= down_rq)) {
 									--schedule_down_cpu;
 									per_cpu(od_hotplug_cpuinfo, cpu).online = false;
@@ -689,7 +689,7 @@ int __init alucard_hotplug_init(void)
 	for_each_possible_cpu(cpu) {
 		per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_idle = get_cpu_idle_time_us(cpu, NULL);
 		per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_idle += get_cpu_iowait_time_us(cpu, &per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_wall);
-		
+
 		per_cpu(od_hotplug_cpuinfo, cpu).up_cpu = 1;
 		per_cpu(od_hotplug_cpuinfo, cpu).online = cpu_online(cpu);
 		per_cpu(od_hotplug_cpuinfo, cpu).up_by_cpu = -1;
