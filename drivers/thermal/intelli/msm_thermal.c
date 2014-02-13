@@ -43,11 +43,11 @@ static int enabled;
 static struct msm_thermal_data msm_thermal_info = {
 	.sensor_id = 0,
 	.poll_ms = 250,
-	.limit_temp_degC = 75,
+	.limit_temp_degC = 70,
 	.temp_hysteresis_degC = 10,
 	.freq_step = 2,
-	.freq_control_mask = 0xf,
-	.core_limit_temp_degC = 85,
+	.freq_control_mask = 0x1f,
+	.core_limit_temp_degC = 75,
 	.core_temp_hysteresis_degC = 10,
 	.core_control_mask = 0xe,
 };
@@ -69,12 +69,10 @@ module_param_named(limit_temp_degC, msm_thermal_info.limit_temp_degC,
 			int, 0664);
 module_param_named(core_limit_temp_degC, msm_thermal_info.core_limit_temp_degC,
 			int, 0664);
-#if 0
 module_param_named(freq_control_mask, msm_thermal_info.freq_control_mask,
 			uint, 0664);
 module_param_named(core_control_mask, msm_thermal_info.core_control_mask,
 			uint, 0664);
-#endif
 
 module_param_named(thermal_limit_high, limit_idx_high, int, 0644);
 module_param_named(thermal_limit_low, limit_idx_low, int, 0644);
@@ -129,7 +127,6 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 	return ret;
 }
 
-#ifdef CONFIG_SMP
 static void __ref do_core_control(long temp)
 {
 	int i = 0;
@@ -178,12 +175,6 @@ static void __ref do_core_control(long temp)
 	}
 	mutex_unlock(&core_control_mutex);
 }
-#else
-static void do_core_control(long temp)
-{
-	return;
-}
-#endif
 
 static void __ref do_freq_control(long temp)
 {
@@ -200,7 +191,7 @@ static void __ref do_freq_control(long temp)
 			limit_idx = limit_idx_low;
 		max_freq = table[limit_idx].frequency;
 	} else if (temp < msm_thermal_info.limit_temp_degC -
-		 msm_thermal_info.temp_hysteresis_degC) {
+			msm_thermal_info.temp_hysteresis_degC) {
 		if (limit_idx == limit_idx_high)
 			return;
 
@@ -215,7 +206,6 @@ static void __ref do_freq_control(long temp)
 	if (max_freq == limited_max_freq)
 		return;
 
-	
 	for_each_possible_cpu(cpu) {
 		if (!(msm_thermal_info.freq_control_mask & BIT(cpu)))
 			continue;
@@ -417,7 +407,6 @@ done_stat_nodes:
 	return ret;
 }
 
-#ifdef CONFIG_SMP
 /* Call with core_control_mutex locked */
 static int __ref update_offline_cores(int val)
 {
@@ -440,12 +429,6 @@ static int __ref update_offline_cores(int val)
 	}
 	return ret;
 }
-#else
-static int update_offline_cores(int val)
-{
-	return 0;
-}
-#endif
 
 static ssize_t show_cc_enabled(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
