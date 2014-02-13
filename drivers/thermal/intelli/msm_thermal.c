@@ -27,7 +27,7 @@
 #include <linux/msm_thermal.h>
 #include <mach/cpufreq.h>
 
-#define DEFAULT_POLLING_MS	250
+#define DEFAULT_POLLING_MS	200
 /* last 3 minutes based on 250ms polling cycle */
 #define MAX_HISTORY_SZ		((3*60*1000) / DEFAULT_POLLING_MS)
 
@@ -42,14 +42,14 @@ static struct msm_thermal_stat_data msm_thermal_stats;
 static int enabled;
 static struct msm_thermal_data msm_thermal_info = {
 	.sensor_id = 0,
-	.poll_ms = 250,
-	.limit_temp_degC = 70,
+	.poll_ms = 200,
+	.limit_temp_degC = 85,
 	.temp_hysteresis_degC = 10,
 	.freq_step = 2,
 	.freq_control_mask = 0x1f,
-	.core_limit_temp_degC = 75,
+	.core_limit_temp_degC = 83,
 	.core_temp_hysteresis_degC = 10,
-	.core_control_mask = 0xe,
+	.core_control_mask = 0xc,
 };
 static uint32_t limited_max_freq = MSM_CPUFREQ_NO_LIMIT;
 static struct delayed_work check_temp_work;
@@ -74,8 +74,8 @@ module_param_named(freq_control_mask, msm_thermal_info.freq_control_mask,
 module_param_named(core_control_mask, msm_thermal_info.core_control_mask,
 			uint, 0664);
 
-module_param_named(thermal_limit_high, limit_idx_high, int, 0644);
-module_param_named(thermal_limit_low, limit_idx_low, int, 0644);
+module_param_named(thermal_limit_high, limit_idx_high, int, 0664);
+module_param_named(thermal_limit_low, limit_idx_low, int, 0664);
 
 static int msm_thermal_get_freq_table(void)
 {
@@ -115,6 +115,7 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 		pr_info("%s: Max frequency reset for cpu%d\n",
 				KBUILD_MODNAME, cpu);
 
+	get_online_cpus();
 	if (cpu_online(cpu)) {
 		struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
 		if (!policy)
@@ -123,6 +124,7 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 				CPUFREQ_RELATION_H);
 		cpufreq_cpu_put(policy);
 	}
+	put_online_cpus();
 
 	return ret;
 }
@@ -267,9 +269,11 @@ static int __ref msm_thermal_cpu_callback(struct notifier_block *nfb,
 		if (core_control_enabled &&
 			(msm_thermal_info.core_control_mask & BIT(cpu)) &&
 			(cpus_offlined & BIT(cpu))) {
+#if 0
 			pr_info(
 			"%s: Preventing cpu%d from coming online.\n",
 				KBUILD_MODNAME, cpu);
+#endif
 			return NOTIFY_BAD;
 		}
 	}
@@ -328,7 +332,7 @@ static struct kernel_param_ops module_ops = {
 	.get = param_get_bool,
 };
 
-module_param_cb(enabled, &module_ops, &enabled, 0644);
+module_param_cb(enabled, &module_ops, &enabled, 0664);
 MODULE_PARM_DESC(enabled, "enforce thermal limit on cpu");
 
 static ssize_t show_thermal_stats(struct kobject *kobj,
@@ -502,10 +506,10 @@ done_cc:
 }
 
 static __refdata struct kobj_attribute cc_enabled_attr =
-__ATTR(enabled, 0644, show_cc_enabled, store_cc_enabled);
+__ATTR(enabled, 0664, show_cc_enabled, store_cc_enabled);
 
 static __refdata struct kobj_attribute cpus_offlined_attr =
-__ATTR(cpus_offlined, 0644, show_cpus_offlined, store_cpus_offlined);
+__ATTR(cpus_offlined, 0664, show_cpus_offlined, store_cpus_offlined);
 
 static __refdata struct attribute *cc_attrs[] = {
 	&cc_enabled_attr.attr,
