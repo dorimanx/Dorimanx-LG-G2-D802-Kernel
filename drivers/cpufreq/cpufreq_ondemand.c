@@ -34,19 +34,19 @@
  */
 
 /* User tunabble controls */
-#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(30)
-#define DEF_FREQUENCY_UP_THRESHOLD		(75)
+#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
+#define DEF_FREQUENCY_UP_THRESHOLD		(80)
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
-#define DEF_SAMPLING_RATE			(7000)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(75)
-#define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(7000)
+#define DEF_SAMPLING_RATE			(30000)
+#define MICRO_FREQUENCY_UP_THRESHOLD		(90)
+#define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
 #define DEF_MIDDLE_GRID_STEP			(14)
-#define DEF_MIDDLE_GRID_LOAD			(40)
+#define DEF_MIDDLE_GRID_LOAD			(60)
 #define DEF_HIGH_GRID_STEP			(20)
-#define DEF_HIGH_GRID_LOAD			(60)
-#define DBS_SYNC_FREQ				(960000)
-#define DBS_OPTIMAL_FREQ			(960000)
-#define DEF_OPTIMAL_MAX_FREQ			(2265600)
+#define DEF_HIGH_GRID_LOAD			(90)
+#define DBS_SYNC_FREQ				(2265600)
+#define DBS_OPTIMAL_FREQ			(0)
+#define DEF_OPTIMAL_MAX_FREQ			(960000)
 
 /* Kernel tunabble controls */
 #define MAX_SAMPLING_DOWN_FACTOR		(100000)
@@ -146,10 +146,10 @@ static struct dbs_tuners {
 	unsigned int sampling_rate;
 	unsigned int up_threshold;
 	unsigned int up_threshold_multi_core;
+	unsigned int up_threshold_any_cpu_load;
 	unsigned int down_differential;
 	unsigned int down_differential_multi_core;
 	unsigned int optimal_freq;
-	unsigned int up_threshold_any_cpu_load;
 	unsigned int micro_freq_up_threshold;
 	unsigned int sync_freq;
 	unsigned int ignore_nice;
@@ -166,10 +166,10 @@ static struct dbs_tuners {
 } dbs_tuners_ins = {
 	.up_threshold_multi_core = DEF_FREQUENCY_UP_THRESHOLD,
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
+	.up_threshold_any_cpu_load = DEF_FREQUENCY_UP_THRESHOLD,
 	.sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR,
 	.down_differential = DEF_FREQUENCY_DOWN_DIFFERENTIAL,
 	.down_differential_multi_core = MICRO_FREQUENCY_DOWN_DIFFERENTIAL,
-	.up_threshold_any_cpu_load = DEF_FREQUENCY_UP_THRESHOLD,
 	.micro_freq_up_threshold = MICRO_FREQUENCY_UP_THRESHOLD,
 	.middle_grid_step = DEF_MIDDLE_GRID_STEP,
 	.middle_grid_load = DEF_MIDDLE_GRID_LOAD,
@@ -341,12 +341,12 @@ show_one(sampling_rate, sampling_rate);
 show_one(io_is_busy, io_is_busy);
 show_one(up_threshold, up_threshold);
 show_one(up_threshold_multi_core, up_threshold_multi_core);
+show_one(up_threshold_any_cpu_load, up_threshold_any_cpu_load);
 show_one(down_differential, down_differential);
 show_one(sampling_down_factor, sampling_down_factor);
 show_one(ignore_nice_load, ignore_nice);
 show_one(down_differential_multi_core, down_differential_multi_core);
 show_one(optimal_freq, optimal_freq);
-show_one(up_threshold_any_cpu_load, up_threshold_any_cpu_load);
 show_one(micro_freq_up_threshold, micro_freq_up_threshold);
 show_one(middle_grid_step, middle_grid_step);
 show_one(middle_grid_load, middle_grid_load);
@@ -832,14 +832,14 @@ static ssize_t store_enable_turbo_mode(struct kobject *a,
 define_one_global_rw(sampling_rate);
 define_one_global_rw(io_is_busy);
 define_one_global_rw(up_threshold);
+define_one_global_rw(up_threshold_multi_core);
+define_one_global_rw(up_threshold_any_cpu_load);
 define_one_global_rw(down_differential);
 define_one_global_rw(sampling_down_factor);
 define_one_global_rw(ignore_nice_load);
 define_one_global_rw(powersave_bias);
-define_one_global_rw(up_threshold_multi_core);
 define_one_global_rw(down_differential_multi_core);
 define_one_global_rw(optimal_freq);
-define_one_global_rw(up_threshold_any_cpu_load);
 define_one_global_rw(micro_freq_up_threshold);
 define_one_global_rw(sync_freq);
 define_one_global_rw(enable_turbo_mode);
@@ -854,16 +854,16 @@ static struct attribute *dbs_attributes[] = {
 	&sampling_rate_min.attr,
 	&sampling_rate.attr,
 	&up_threshold.attr,
+	&up_threshold_multi_core.attr,
+	&up_threshold_any_cpu_load.attr,
 	&down_differential.attr,
 	&sampling_down_factor.attr,
 	&ignore_nice_load.attr,
 	&powersave_bias.attr,
 	&io_is_busy.attr,
-	&up_threshold_multi_core.attr,
 	&down_differential_multi_core.attr,
 	&optimal_freq.attr,
 	&optimal_max_freq.attr,
-	&up_threshold_any_cpu_load.attr,
 	&micro_freq_up_threshold.attr,
 	&sync_freq.attr,
 	&enable_turbo_mode.attr,
@@ -906,8 +906,6 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 	this_dbs_info->freq_lo = 0;
 	policy = this_dbs_info->cur_policy;
-	if (policy == NULL)
-		return;
 
 	/*
 	 * Every sampling_rate, we check, if current idle time is less
@@ -982,8 +980,6 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		j_dbs_info->max_load  = max(cur_load, j_dbs_info->prev_load);
 		j_dbs_info->prev_load = cur_load;
 		freq_avg = __cpufreq_driver_getavg(policy, j);
-		if (policy == NULL)
-			return;
 		if (freq_avg <= 0)
 			freq_avg = policy->cur;
 
