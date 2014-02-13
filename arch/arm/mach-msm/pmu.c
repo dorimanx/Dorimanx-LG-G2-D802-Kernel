@@ -101,9 +101,11 @@ static int __init msm_pmu_init(void)
 	 * Defaults to unicore API {request,free}_irq().
 	 * See arch/arm/kernel/perf_event.c
 	 */
+#ifdef CONFIG_PERF_EVENTS
 #if defined(CONFIG_ARCH_MSM_KRAITMP) || defined(CONFIG_ARCH_MSM_SCORPIONMP) \
 	|| (defined(CONFIG_ARCH_MSM_CORTEX_A5) && !defined(CONFIG_MSM_VIC))
 	cpu_pmu_device.dev.platform_data = &multicore_data;
+#endif
 #endif
 
 	/*
