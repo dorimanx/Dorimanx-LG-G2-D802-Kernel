@@ -26,15 +26,15 @@ clear
 #----------system/
 
 # location
-KERNELDIR=`readlink -f .`;
-export HOST=`uname -n`;
+KERNELDIR=$(readlink -f .);
+export HOST=$(uname -n);
 
 # begin by ensuring the required directory structure is complete, and empty
 echo "Initialising................."
-rm -rf $KERNELDIR/READY-KERNEL/boot
-rm -f $KERNELDIR/READY-KERNEL/*.zip
-rm -f $KERNELDIR/READY-KERNEL/*.img
-mkdir -p $KERNELDIR/READY-KERNEL/boot
+rm -rf "$KERNELDIR"/READY-KERNEL/boot
+rm -f "$KERNELDIR"/READY-KERNEL/*.zip
+rm -f "$KERNELDIR"/READY-KERNEL/*.img
+mkdir -p "$KERNELDIR"/READY-KERNEL/boot
 
 if [ -d ../ramdisk-tmp ]; then
 	rm -rf ../ramdisk-tmp/*
@@ -102,7 +102,7 @@ fi;
 
 # move into the kernel directory and compile the main image
 echo "Compiling Kernel.............";
-if [ ! -f $KERNELDIR/.config ]; then
+if [ ! -f "$KERNELDIR"/.config ]; then
 	if [ "$BUILD_800" -eq "1" ]; then
 		cp arch/arm/configs/dorimanx_d800_defconfig .config
 	elif [ "$BUILD_801" -eq "1" ]; then
@@ -118,7 +118,7 @@ if [ ! -f $KERNELDIR/.config ]; then
 	fi;
 fi;
 
-if [ -f $KERNELDIR/.config ]; then
+if [ -f "$KERNELDIR"/.config ]; then
 	BRANCH_800=$(grep -R "CONFIG_MACH_MSM8974_G2_ATT=y" .config | wc -l)
 	BRANCH_801=$(grep -R "CONFIG_MACH_MSM8974_G2_TMO_US=y" .config | wc -l)
 	BRANCH_802=$(grep -R "CONFIG_MACH_MSM8974_G2_OPEN_COM=y" .config | wc -l)
@@ -149,10 +149,10 @@ fi;
 GETVER=$(grep 'Kernel-.*-V' .config |sed 's/Kernel-//g' | sed 's/.*".//g' | sed 's/-L.*//g');
 GETBRANCH=$(grep '.*-LG' .config |sed 's/Kernel-Dorimanx-V//g' | sed 's/[1-9].*-LG-//g' | sed 's/.*".//g' | sed 's/-PWR.*//g');
 
-cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/"$KERNEL_CONFIG_FILE";
+cp "$KERNELDIR"/.config "$KERNELDIR"/arch/arm/configs/"$KERNEL_CONFIG_FILE";
 
 # remove all old modules before compile
-for i in $(find $KERNELDIR/ -name "*.ko"); do
+for i in $(find "$KERNELDIR"/ -name "*.ko"); do
         rm -f "$i";
 done;
 
@@ -168,9 +168,9 @@ fi;
 # build zImage
 time make -j ${NR_CPUS}
 
-cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/"$KERNEL_CONFIG_FILE";
+cp "$KERNELDIR"/.config "$KERNELDIR"/arch/arm/configs/"$KERNEL_CONFIG_FILE";
 
-stat $KERNELDIR/arch/arm/boot/zImage || exit 1;
+stat "$KERNELDIR"/arch/arm/boot/zImage || exit 1;
 
 # compile the modules, and depmod to create the final zImage
 echo "Compiling Modules............"
@@ -182,13 +182,18 @@ echo "Move compiled objects........"
 cp -a ../LG-G2-D802-Ramdisk/* ../ramdisk-tmp/
 rm -rf ../ramdisk-tmp/.git
 
-for i in $(find $KERNELDIR -name '*.ko'); do
+for i in $(find "$KERNELDIR" -name '*.ko'); do
         cp -av "$i" ../ramdisk-tmp/lib/modules/;
 done;
 
 chmod 755 ../ramdisk-tmp/lib/modules/*
 
-if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
+# remove empty directory placeholders from tmp-initramfs
+for i in $(find ../ramdisk-tmp/ -name EMPTY_DIRECTORY); do
+	rm -f "$i";
+done;
+
+if [ -e "$KERNELDIR"/arch/arm/boot/zImage ]; then
 
 	cp arch/arm/boot/zImage READY-KERNEL/boot
 
@@ -207,7 +212,7 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 	fi;
 
 	# add kernel config to kernle zip for other devs
-	cp $KERNELDIR/.config READY-KERNEL/
+	cp "$KERNELDIR"/.config READY-KERNEL/
 
 	# build the final boot.img ready for inclusion in flashable zip
 	echo "Build boot.img..............."
@@ -227,9 +232,9 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 
 	# create the flashable zip file from the contents of the output directory
 	echo "Make flashable zip..........."
-	zip -r Kernel-${GETVER}-`date +"[%H-%M]-[%d-%m]-LG-${GETBRANCH}-PWR-CORE"`.zip * >/dev/null
+	zip -r Kernel-"${GETVER}"-"$(date +"[%H-%M]-[%d-%m]-LG-${GETBRANCH}-PWR-CORE")".zip * >/dev/null
 	stat boot.img
-	rm -f *.img
+	rm -f ./*.img
 	cd ..
 else
 	if [ -e /usr/bin/python3 ]; then
