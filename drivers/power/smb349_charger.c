@@ -38,10 +38,6 @@
 #include <linux/switch.h>
 #include <linux/qpnp-misc.h>
 
-#ifdef CONFIG_FORCE_FAST_CHARGE
-#include <linux/fastchg.h>
-#endif
-
 #ifdef CONFIG_WIRELESS_CHARGER
 #ifdef CONFIG_BQ51053B_CHARGER
 #include <linux/power/bq51053b_charger.h>
@@ -722,17 +718,8 @@ static int smb349_get_prop_charge_type(struct smb349_struct *smb349_chg)
 
 	ret = smb349_read_reg(client, STATUS_C_REG, &status_c);
 	if (ret) {
-#ifdef CONFIG_FORCE_FAST_CHARGE
-		if (force_fast_charge == 1)
-			return POWER_SUPPLY_CHARGE_TYPE_FAST;
-		else {
-			pr_err("failed to read STATUS_C_REG. return charge unknown\n");
-			return POWER_SUPPLY_CHARGE_TYPE_UNKNOWN;
-		}
-#else
 		pr_err("failed to read STATUS_C_REG. return charge unknown\n");
 		return POWER_SUPPLY_CHARGE_TYPE_UNKNOWN;
-#endif
 	}
 
 	chg_enabled = (bool) (status_c & 0x01);
@@ -754,10 +741,6 @@ static int smb349_get_prop_charge_type(struct smb349_struct *smb349_chg)
 
 	if (status == SMB_CHG_STATUS_NONE)
 		chg_type = POWER_SUPPLY_CHARGE_TYPE_NONE;
-#ifdef CONFIG_FORCE_FAST_CHARGE
-	else if (force_fast_charge == 1)
-		chg_type = POWER_SUPPLY_CHARGE_TYPE_FAST;
-#endif
 	else if (status == SMB_CHG_STATUS_FAST_CHARGE) /* constant current */
 		chg_type = POWER_SUPPLY_CHARGE_TYPE_FAST;
 	else if (status == SMB_CHG_STATUS_TAPER_CHARGE) /* constant voltage */
