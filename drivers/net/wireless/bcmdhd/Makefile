@@ -76,8 +76,8 @@ DHDCFLAGS += -DSUPPORT_PM2_ONLY
 DHDCFLAGS += -DBLOCK_IPV6_PACKET
 #DHDCFLAGS += -DPASS_IPV4_SUSPEND
 
-# For special PNO Event keep wake lock for 3sec
-DHDCFLAGS += -DCUSTOM_PNO_EVENT_LOCK_xTIME=3
+# For special PNO Event keep wake lock for 10sec
+DHDCFLAGS += -DCUSTOM_PNO_EVENT_LOCK_xTIME=10
 
 # For Passing all multicast packets to host when not in suspend mode.
 DHDCFLAGS += -DPASS_ALL_MCAST_PKTS
