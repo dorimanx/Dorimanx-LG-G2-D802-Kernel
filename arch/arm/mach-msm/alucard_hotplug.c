@@ -698,9 +698,9 @@ int __init alucard_hotplug_init(void)
 	mutex_unlock(&alucard_hotplug_mutex);
 
 	delay = usecs_to_jiffies(atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate));
-	/*if (num_online_cpus() > 1) {
+	if (num_online_cpus() > 1) {
 		delay -= jiffies % delay;
-	}*/
+	}
 	INIT_DELAYED_WORK(&alucard_hotplug_work, hotplug_work_fn);
 	schedule_delayed_work_on(0, &alucard_hotplug_work, delay);
 
