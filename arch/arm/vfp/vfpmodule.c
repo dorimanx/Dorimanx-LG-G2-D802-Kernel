@@ -844,6 +844,6 @@ static int __init vfp_bounce_proc_entry(void)
 #endif
 	return 0;
 }
-rootfs_initcall(vfp_bounce_proc_entry);
 
 core_initcall(vfp_init);
+rootfs_initcall(vfp_bounce_proc_entry);
