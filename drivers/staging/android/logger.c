@@ -79,8 +79,8 @@ static LIST_HEAD(log_list);
  * @log:	The associated log
  * @list:	The associated entry in @logger_log's list
  * @r_off:	The current read head offset.
- * @r_all:	The reader can read all entries.
- * @r_ver:	The reader ABI version.
+ * @r_all:	Reader can read all entries
+ * @r_ver:	Reader ABI version
  *
  * This object lives from open to release, so we don't need additional
  * reference counting. The structure is protected by log->mutex.
@@ -465,6 +465,20 @@ static ssize_t do_write_log_from_user(struct logger_log *log,
 			 */
 			return -EFAULT;
 
+	/* print as kernel log if the log string starts with "!@" */
+	if (count >= 2) {
+		if (log->buffer[log->w_off] == '!'
+		    && log->buffer[logger_offset(log, log->w_off + 1)] == '@') {
+			char tmp[256];
+			int i;
+			for (i = 0; i < min(count, sizeof(tmp) - 1); i++)
+				tmp[i] =
+				    log->buffer[logger_offset(log, log->w_off + i)];
+			tmp[i] = '\0';
+			printk("%s\n", tmp);
+		}
+	}
+
 	log->w_off = logger_offset(log, log->w_off + count);
 
 	return count;
@@ -472,7 +486,7 @@ static ssize_t do_write_log_from_user(struct logger_log *log,
 
 static void log_early_suspend(struct power_suspend *handler)
 {
-	if (log_enabled)
+	if (log_enabled && !log_always_on)
 		log_enabled = 0;
 }
 
