@@ -48,7 +48,7 @@ extern u8 mb_enable_debug;
 		}							\
 	} while (0)
 #else
-#define mb_debug(n, fmt, a...)
+#define mb_debug(n, fmt, a...)		no_printk(fmt, ## a)
 #endif
 
 #define EXT4_MB_HISTORY_ALLOC		1	/* allocation */
