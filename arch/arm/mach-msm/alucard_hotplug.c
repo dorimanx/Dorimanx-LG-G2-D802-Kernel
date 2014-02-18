@@ -312,9 +312,9 @@ static void __cpuinit cpus_hotplugging(bool state) {
 		}
 		hotplugging_rate = 0;
 		delay = usecs_to_jiffies(atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate));
-		/*if (num_online_cpus() > 1) {
+		if (num_online_cpus() > 1) {
 			delay -= jiffies % delay;
-		}*/
+		}
 		schedule_delayed_work_on(0, &alucard_hotplug_work, delay);
 	} else {
 		stop_rq_work();
@@ -650,9 +650,9 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 		}
 
 		delay = usecs_to_jiffies(atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate));
-		/*if (num_online_cpus() > 1) {
+		if (num_online_cpus() > 1) {
 			delay -= jiffies % delay;
-		} */
+		}
 
 		if (num_online_cpus() == 1) {
 			per_cpu(od_hotplug_cpuinfo, 0).up_cpu = 1;
