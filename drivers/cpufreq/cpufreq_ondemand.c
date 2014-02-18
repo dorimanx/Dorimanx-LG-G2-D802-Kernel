@@ -34,23 +34,29 @@
  */
 
 /* User tunabble controls */
-#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
+#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(20)
+#define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
+
 #define DEF_FREQUENCY_UP_THRESHOLD		(80)
-#define DEF_SAMPLING_DOWN_FACTOR		(1)
-#define DEF_SAMPLING_RATE			(40000)
+#define DEF_FREQUENCY_UP_THRESHOLD_ANY_CPU	(80)
+#define DEF_FREQUENCY_UP_THRESHOLD_MULTI_CORE	(90)
 #define MICRO_FREQUENCY_UP_THRESHOLD		(90)
-#define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
+
+#define DEF_SAMPLING_DOWN_FACTOR		(3)
+#define DEF_SAMPLING_RATE			(40000)
+
 #define DEF_MIDDLE_GRID_STEP			(14)
 #define DEF_MIDDLE_GRID_LOAD			(60)
 #define DEF_HIGH_GRID_STEP			(20)
 #define DEF_HIGH_GRID_LOAD			(90)
-#define DBS_SYNC_FREQ				(2265600)
-#define DBS_OPTIMAL_FREQ			(0)
+
+#define DBS_SYNC_FREQ				(1574400)
+#define DBS_OPTIMAL_FREQ			(300000)
 #define DEF_OPTIMAL_MAX_FREQ			(960000)
 
 /* Kernel tunabble controls */
+#define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
 #define MAX_SAMPLING_DOWN_FACTOR		(100000)
-#define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
 #define MIN_FREQUENCY_UP_THRESHOLD		(11)
 #define MAX_FREQUENCY_UP_THRESHOLD		(100)
 #define MIN_FREQUENCY_DOWN_DIFFERENTIAL		(1)
@@ -70,7 +76,7 @@
 static unsigned int min_sampling_rate;
 
 #define LATENCY_MULTIPLIER			(1000)
-#define MIN_LATENCY_MULTIPLIER			(20)
+#define MIN_LATENCY_MULTIPLIER			(10)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
 #define POWERSAVE_BIAS_MAXLEVEL			(1000)
@@ -164,9 +170,9 @@ static struct dbs_tuners {
 	unsigned int high_grid_step;
 	unsigned int high_grid_load;
 } dbs_tuners_ins = {
-	.up_threshold_multi_core = DEF_FREQUENCY_UP_THRESHOLD,
+	.up_threshold_multi_core = DEF_FREQUENCY_UP_THRESHOLD_MULTI_CORE,
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
-	.up_threshold_any_cpu_load = DEF_FREQUENCY_UP_THRESHOLD,
+	.up_threshold_any_cpu_load = DEF_FREQUENCY_UP_THRESHOLD_ANY_CPU,
 	.sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR,
 	.down_differential = DEF_FREQUENCY_DOWN_DIFFERENTIAL,
 	.down_differential_multi_core = MICRO_FREQUENCY_DOWN_DIFFERENTIAL,
@@ -1570,7 +1576,7 @@ static int __init cpufreq_gov_dbs_init(void)
 		/* Idle micro accounting is supported. Use finer thresholds */
 		dbs_tuners_ins.up_threshold = dbs_tuners_ins.micro_freq_up_threshold;
 		dbs_tuners_ins.down_differential =
-					MICRO_FREQUENCY_DOWN_DIFFERENTIAL;
+					dbs_tuners_ins.down_differential_multi_core;
 		/*
 		 * In nohz/micro accounting case we set the minimum frequency
 		 * not depending on HZ, but fixed (very low). The deferred
