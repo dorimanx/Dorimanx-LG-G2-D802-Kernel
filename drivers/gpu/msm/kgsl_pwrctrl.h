@@ -103,7 +103,6 @@ struct kgsl_pwrctrl {
 	uint32_t pcl;
 	unsigned int idle_needed;
 	const char *irq_name;
-	bool irq_last;
 	struct kgsl_clk_stats clk_stats;
 	struct pm_qos_request pm_qos_req_dma;
 	unsigned int pm_qos_active_latency;
