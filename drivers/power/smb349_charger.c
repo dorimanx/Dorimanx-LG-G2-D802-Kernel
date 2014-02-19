@@ -3165,6 +3165,7 @@ static int smb349_input_current_limit_set(struct smb349_struct *smb349_chg, int 
 	if (force_fast_charge == 1) {
 		i = 4;
 		custom_ma = FAST_CHARGE_1200;
+		icl_ma = custom_ma;
 	} else if (force_fast_charge == 2) {
 		switch (fast_charge_level) {
 			case FAST_CHARGE_500:
@@ -3184,13 +3185,13 @@ static int smb349_input_current_limit_set(struct smb349_struct *smb349_chg, int 
 				custom_ma = FAST_CHARGE_1500;
 				break;
 			case FAST_CHARGE_2000:
-				i = 10;
+				i = 0xA;
 				custom_ma = FAST_CHARGE_2000;
 				break;
 			default:
 				break;
 		}
-
+		icl_ma = custom_ma;
 	}
 	temp = icl_ma_table[i].value;
 #else
