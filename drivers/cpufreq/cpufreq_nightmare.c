@@ -89,7 +89,7 @@ static struct nightmare_tuners {
 	atomic_t freq_step_dec;
 	atomic_t freq_step_dec_at_max_freq;
 } nightmare_tuners_ins = {
-	.sampling_rate = ATOMIC_INIT(40000),
+	.sampling_rate = ATOMIC_INIT(80000),
 	.inc_cpu_load_at_min_freq = ATOMIC_INIT(40),
 	.inc_cpu_load = ATOMIC_INIT(70),
 	.dec_cpu_load = ATOMIC_INIT(50),
