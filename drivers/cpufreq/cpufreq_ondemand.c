@@ -53,7 +53,7 @@
 
 #define DBS_SYNC_FREQ				(300000)
 #define DBS_OPTIMAL_FREQ			(300000)
-#define DEF_OPTIMAL_MAX_FREQ			(1267200)
+#define DEF_OPTIMAL_MAX_FREQ			(1574400)
 
 /* Kernel tunabble controls */
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
