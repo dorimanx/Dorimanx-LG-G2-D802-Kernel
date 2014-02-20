@@ -4342,7 +4342,7 @@ int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
 {
 	int ret;
 #ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
-        int val;
+	int val;
 #endif
 	struct wcd9xxx *wcd9xxx = codec->control_data;
 
@@ -4361,13 +4361,13 @@ int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
 #ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
 	if (!snd_hax_reg_access(reg)) {
 		if (!((val = snd_hax_cache_read(reg)) != -1)) {
-			val = wcd9xxx_reg_read_safe(codec->control_data, reg);
+			val = wcd9xxx_reg_read_safe(&wcd9xxx->core_res, reg);
 		}
 	} else {
 		snd_hax_cache_write(reg, value);
 		val = value;
 	}
-	return wcd9xxx_reg_write(codec->control_data, reg, val);
+	return wcd9xxx_reg_write(&wcd9xxx->core_res, reg, val);
 #else
 	return wcd9xxx_reg_write(&wcd9xxx->core_res, reg, value);
 #endif
