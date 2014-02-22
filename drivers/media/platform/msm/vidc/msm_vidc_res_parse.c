@@ -68,8 +68,8 @@ static size_t get_u32_array_num_elements(struct platform_device *pdev,
 	int len;
 	size_t num_elements = 0;
 	if (!of_get_property(np, name, &len)) {
-		dprintk(VIDC_ERR, "Failed to read %s from device tree\n",
-			name);
+	//	dprintk(VIDC_ERR, "Failed to read %s from device tree\n",
+	//		name);
 		goto fail_read;
 	}
 

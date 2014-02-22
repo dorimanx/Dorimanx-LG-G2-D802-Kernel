@@ -3339,9 +3339,9 @@ static int taiko_hphl_dac_event(struct snd_soc_dapm_widget *w,
 					&impedl, &impedr);
 		if (!ret)
 			wcd9xxx_clsh_imped_config(codec, impedl);
-		else
-			dev_err(codec->dev, "Failed to get mbhc impedance %d\n",
-						ret);
+		//else
+		//	dev_err(codec->dev, "Failed to get mbhc impedance %d\n",
+		//				ret);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		snd_soc_update_bits(codec, TAIKO_A_CDC_CLK_RDAC_CLK_EN_CTL,
