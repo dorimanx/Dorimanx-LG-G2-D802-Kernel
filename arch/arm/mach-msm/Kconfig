@@ -3096,4 +3096,11 @@ config FORCE_FAST_CHARGE
 	  A simple sysfs interface to force adapters that
 	  are detected as USB to charge as AC.
 
+config ACTIVE_CORE_MANAGER
+	bool "User control of offlined cores"
+	default n
+	help
+	  This driver allows the user to have control
+	  of active or offline cores.
+
 endif
