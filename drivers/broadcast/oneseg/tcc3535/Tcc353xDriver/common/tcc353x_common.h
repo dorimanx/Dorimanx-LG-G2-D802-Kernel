@@ -512,6 +512,12 @@ typedef struct {
  * Seg12-13seg_2=    Seg12-13seg_2 =     Seg1--1seg_7     =
  *
  ---------------------------------------------------------------------*/
+
+typedef enum {
+	ENUM_NO_LNA_GAIN_CONTROL = -1,
+	ENUM_LNA_GAIN_LOW,
+	ENUM_LNA_GAIN_HIGH
+} EnumTcc353xLnaGainStatus;
  
 #ifdef __cplusplus
 	};

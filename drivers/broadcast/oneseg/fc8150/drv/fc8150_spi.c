@@ -1,8 +1,8 @@
 /*****************************************************************************
  Copyright(c) 2012 FCI Inc. All Rights Reserved
- 
+
  File name : fc8150_spi.c
- 
+
  Description : fc8150 host interface
 
 *******************************************************************************/
@@ -172,7 +172,7 @@ static struct spi_driver fc8150_spi_driver = {
 static int fc8150_spi_write_then_read(struct spi_device *spi, u8 *txbuf, u16 tx_length, u8 *rxbuf, u16 rx_length)
 {
 	int res = 0;
-	
+
 	struct spi_message	message;
 	struct spi_transfer	x;
 
@@ -180,9 +180,9 @@ static int fc8150_spi_write_then_read(struct spi_device *spi, u8 *txbuf, u16 tx_
 	memset(&x, 0, sizeof x);
 
 	spi_message_add_tail(&x, &message);
-	
+
 	memcpy(&wdata_buf[0], txbuf, tx_length);
-	
+
 	x.tx_buf=&wdata_buf[0];
 	x.rx_buf=&rdata_buf[0];
 	x.len = tx_length + rx_length;
@@ -192,7 +192,7 @@ static int fc8150_spi_write_then_read(struct spi_device *spi, u8 *txbuf, u16 tx_
 	//PRINTF(0, "fc8150_spi_write_then_read x.len : %d res: %d\n", x.len, res);
 
 	memcpy(rxbuf, x.rx_buf + tx_length, rx_length);
-	
+
 	return res;
 }
 
@@ -213,7 +213,7 @@ static int spi_bulkread(HANDLE hDevice, u16 addr, u8 command, u8 *data, u16 leng
 		PRINTF(0, "fc8150_spi_bulkread fail : %d\n", res);
 		return BBM_NOK;
 	}
-	
+
 	return BBM_OK;
 }
 
@@ -227,7 +227,7 @@ static int spi_bulkwrite(HANDLE hDevice, u16 addr, u8 command, u8* data, u16 len
 	tx_data[2] = (command & 0xf0) | CHIPID | ((length >> 16) & 0x07);
 	tx_data[3] = (length >> 8) & 0xff;
 	tx_data[4] = length & 0xff;
-	
+
 	for(i=0;i<length;i++)
 	{
 		tx_data[5+i] = data[i];
@@ -247,7 +247,7 @@ static int spi_bulkwrite(HANDLE hDevice, u16 addr, u8 command, u8* data, u16 len
 static int spi_dataread(HANDLE hDevice, u16 addr, u8 command, u8* data, u32 length)
 {
 	int res;
-	
+
 	tx_data[0] = addr & 0xff;
 	tx_data[1] = (addr >> 8) & 0xff;
 	tx_data[2] = (command & 0xf0) | CHIPID | ((length >> 16) & 0x07);
@@ -255,7 +255,7 @@ static int spi_dataread(HANDLE hDevice, u16 addr, u8 command, u8* data, u32 leng
 	tx_data[4] = length & 0xff;
 
 	res = fc8150_spi_write_then_read(fc8150_spi, &tx_data[0], 5, data, length);
-	
+
 	if(res)
 	{
 		PRINTF(0, "fc8150_spi_dataread fail : %d\n", res);
@@ -281,20 +281,20 @@ int fc8150_spi_init(HANDLE hDevice, u16 param1, u16 param2)
 	int res = 0;
 
 	PRINTF(0, "fc8150_spi_init : %d\n", res);
-	
+
 	res = spi_register_driver(&fc8150_spi_driver);
-	
+
 	if(res)
 	{
 		PRINTF(0, "fc8150_spi register fail : %d\n", res);
 		return BBM_NOK;
 	}
-	
+
 #ifdef QUP_GSBI_SPI_USE_DMOV
 	wdata_buf = (u8*)(((u32)wx_data_buf +31)&~31);
 	rdata_buf = (u8*)(((u32)rx_data_buf +31)&~31);
 #endif
-	
+
 	return res;
 }
 
@@ -306,7 +306,7 @@ int fc8150_spi_byteread(HANDLE hDevice, u16 addr, u8 *data)
 	mutex_lock(&lock);
 	res = spi_bulkread(hDevice, addr, command, data, 1);
 	mutex_unlock(&lock);
-	
+
 	return res;
 }
 
@@ -318,7 +318,7 @@ int fc8150_spi_wordread(HANDLE hDevice, u16 addr, u16 *data)
 	mutex_lock(&lock);
 	res = spi_bulkread(hDevice, addr, command, (u8*)data, 2);
 	mutex_unlock(&lock);
-	
+
 	return res;
 }
 
@@ -330,7 +330,7 @@ int fc8150_spi_longread(HANDLE hDevice, u16 addr, u32 *data)
 	mutex_lock(&lock);
 	res = spi_bulkread(hDevice, addr, command, (u8*)data, 4);
 	mutex_unlock(&lock);
-	
+
 	return res;
 }
 
@@ -339,10 +339,10 @@ int fc8150_spi_bulkread(HANDLE hDevice, u16 addr, u8 *data, u16 length)
 	int res;
 	u8 command = SPI_READ | SPI_AINC;
 
-	mutex_lock(&lock);	
+	mutex_lock(&lock);
 	res = spi_bulkread(hDevice, addr, command, data, length);
 	mutex_unlock(&lock);
-	
+
 	return res;
 }
 
@@ -351,10 +351,10 @@ int fc8150_spi_bytewrite(HANDLE hDevice, u16 addr, u8 data)
 	int res;
 	u8 command = SPI_WRITE;
 
-	mutex_lock(&lock);	
+	mutex_lock(&lock);
 	res = spi_bulkwrite(hDevice, addr, command, (u8*)&data, 1);
 	mutex_unlock(&lock);
-	
+
 	return res;
 }
 
@@ -366,7 +366,7 @@ int fc8150_spi_wordwrite(HANDLE hDevice, u16 addr, u16 data)
 	mutex_lock(&lock);
 	res = spi_bulkwrite(hDevice, addr, command, (u8*)&data, 2);
 	mutex_unlock(&lock);
-	
+
 	return res;
 }
 
@@ -374,11 +374,11 @@ int fc8150_spi_longwrite(HANDLE hDevice, u16 addr, u32 data)
 {
 	int res;
 	u8 command = SPI_WRITE | SPI_AINC;
-	
+
 	mutex_lock(&lock);
 	res = spi_bulkwrite(hDevice, addr, command, (u8*)&data, 4);
 	mutex_unlock(&lock);
-	
+
 	return res;
 }
 
@@ -390,7 +390,7 @@ int fc8150_spi_bulkwrite(HANDLE hDevice, u16 addr, u8* data, u16 length)
 	mutex_lock(&lock);
 	res = spi_bulkwrite(hDevice, addr, command, data, length);
 	mutex_unlock(&lock);
-	
+
 	return res;
 }
 
@@ -402,7 +402,7 @@ int fc8150_spi_dataread(HANDLE hDevice, u16 addr, u8* data, u32 length)
 	mutex_lock(&lock);
 	res = spi_dataread(hDevice, addr, command, data, length);
 	mutex_unlock(&lock);
-	
+
 	return res;
 }
 

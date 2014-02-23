@@ -711,7 +711,7 @@ static I32S Tcc353xApiWaitLock(I32S _moduleIndex,
 	    Tcc353xGetLockTimeOut(_moduleIndex, 3, _fastScan,
 				     _tuneOption);
 
-	/*subLockOk = 0;*/
+	subLockOk = 0;
 	tickCount = (I32S) ((timeOut+tickMs-1) / tickMs);
 
 	startTime = TcpalGetCurrentTimeCount_ms();
@@ -739,7 +739,7 @@ static I32S Tcc353xApiWaitLock(I32S _moduleIndex,
 			lock.TMCC |= lockSub.TMCC;
 		}
 		if (lock.CTO && lock.CFO && lock.TMCC) {
-			/*subLockOk = 1;*/
+			subLockOk = 1;
 			workingForFlag[_moduleIndex] = 0;
 			return TCC353X_RETURN_SUCCESS;	/* lock Success */
 		} else {

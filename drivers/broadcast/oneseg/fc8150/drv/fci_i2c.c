@@ -1,8 +1,8 @@
 /*****************************************************************************
  Copyright(c) 2012 FCI Inc. All Rights Reserved
- 
+
  File name : fci_i2c.c
- 
+
  Description : fci i2c driver
 *******************************************************************************/
 #include <linux/mutex.h>
@@ -73,7 +73,7 @@ static int WaitForXfer (HANDLE hDevice)
 
 static int fci_i2c_transfer (HANDLE hDevice, u8 cmd_type, u8 chip, u8 addr[], u8 addr_len, u8 data[], u8 data_len)
 {
-	int i;	
+	int i;
 	int result = I2C_OK;
 #ifdef FEATURE_SIMPLE_INTERFACE
 	u16 cmd;
@@ -91,7 +91,7 @@ static int fci_i2c_transfer (HANDLE hDevice, u8 cmd_type, u8 chip, u8 addr[], u8
 #endif
 			result = WaitForXfer(hDevice);
 			if(result != I2C_OK) return result;
-			
+
 			if (addr && addr_len) {
 				i = 0;
 				while ((i < addr_len) && (result == I2C_OK)) {
@@ -108,7 +108,7 @@ static int fci_i2c_transfer (HANDLE hDevice, u8 cmd_type, u8 chip, u8 addr[], u8
 					i++;
 				}
 			}
-			
+
 			i = 0;
 			while ((i < data_len) && (result == I2C_OK)) {
 #ifdef FEATURE_SIMPLE_INTERFACE
@@ -119,7 +119,7 @@ static int fci_i2c_transfer (HANDLE hDevice, u8 cmd_type, u8 chip, u8 addr[], u8
 				bbm_write(hDevice, BBM_I2C_TXR, data[i]);
 				bbm_write(hDevice, BBM_I2C_CR, I2C_CR_WR /*0x10*/);
 #endif
-				
+
 				result = WaitForXfer(hDevice);
 				if(result != I2C_OK) return result;
 				i++;
@@ -143,7 +143,7 @@ static int fci_i2c_transfer (HANDLE hDevice, u8 cmd_type, u8 chip, u8 addr[], u8
 				if(result != I2C_OK) {
 					return result;
 				}
-			
+
 				i = 0;
 				while ((i < addr_len) && (result == I2C_OK)) {
 #ifdef FEATURE_SIMPLE_INTERFACE
@@ -153,7 +153,7 @@ static int fci_i2c_transfer (HANDLE hDevice, u8 cmd_type, u8 chip, u8 addr[], u8
 #else
 					bbm_write(hDevice, BBM_I2C_TXR, addr[i]);
 					bbm_write(hDevice, BBM_I2C_CR, I2C_CR_WR /*0x10*/);
-#endif	
+#endif
 					result = WaitForXfer(hDevice);
 					if(result != I2C_OK) {
 						return result;
@@ -169,11 +169,11 @@ static int fci_i2c_transfer (HANDLE hDevice, u8 cmd_type, u8 chip, u8 addr[], u8
 			bbm_write(hDevice, BBM_I2C_TXR, chip | I2C_READ);
 			bbm_write(hDevice, BBM_I2C_CR, I2C_CR_STA | I2C_CR_WR /*0x90*/); // resend start
 #endif
-			
+
 			result = WaitForXfer(hDevice);
 			if(result != I2C_OK) {
 				return result;
-			}	
+			}
 
 			i = 0;
 			while ((i < data_len) && (result == I2C_OK)) {
@@ -194,7 +194,7 @@ static int fci_i2c_transfer (HANDLE hDevice, u8 cmd_type, u8 chip, u8 addr[], u8
 				}
 				bbm_read(hDevice, BBM_I2C_RXR, &data[i]);
 				i++;
-			}	
+			}
 
 			bbm_write(hDevice, BBM_I2C_CR, I2C_CR_STO /*0x40*/);		// send stop
 			result = WaitForXfer(hDevice);
@@ -247,7 +247,7 @@ int fci_i2c_write(HANDLE hDevice, u8 chip, u8 addr, u8 alen, u8 *data, u8 len)
 	mutex_lock(&fci_tuner_lock);
 	ret = fci_i2c_transfer(hDevice, I2C_WRITE, chip << 1, paddr, alen, data, len);
 	mutex_unlock(&fci_tuner_lock);
-	
+
 	if(ret != I2C_OK) {
 		PRINTF(hDevice, "fci_i2c_write() result=%d, addr= %x, data=%x\n", ret, addr, *data);
 	}

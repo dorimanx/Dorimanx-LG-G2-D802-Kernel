@@ -738,7 +738,7 @@ INC_UINT16 INTERFACE_ISR(INC_UINT8 ucI2CID, INC_UINT8* pBuff)
 	/* modifying read data in remained in T3A00 FIFO BUFFER aligned 188 */
 	if( unData & 0x4000 ){
 		//bFirstLoop = 1;
-		printk("[%s]==> FIFO FULL   : 0x%X\n", __FILE__, unData );
+		INC_MSG_PRINTF(1, "[%s]==> FIFO FULL   : 0x%X \r\n", __FILE__, unData );
 	}
 	else if( !(unData & 0x3FFF ))	{
 		unData = 0;

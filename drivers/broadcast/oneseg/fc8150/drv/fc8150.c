@@ -9,8 +9,8 @@
 #include <linux/gpio.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
-#include <linux/module.h>	// add by taew00k.kang 2013-04-23
-#include <mach/board_lge.h> //to use lge_get_board_revno(), add by taew00k.kang 2013-04-23
+#include <linux/module.h>
+#include <mach/board_lge.h>
 
 #include "fc8150.h"
 #include "bbm.h"
@@ -51,7 +51,6 @@ static wait_queue_head_t isdbt_isr_wait;
 #define RING_BUFFER_SIZE	(128 * 1024)
 
 //GPIO(RESET & INTRRUPT) Setting
-//#define FC8150_NAME		"isdbt"
 #define FC8150_NAME		"broadcast1"
 
 
@@ -177,7 +176,7 @@ static irqreturn_t isdbt_irq(int irq, void *dev_id)
 {
 	if(driver_mode == ISDBT_POWEROFF) {
 		//PRINTF(0, "fc8150 isdbt_irq : abnormal Interrupt occurred fc8150 power off state.cnt : %d\n", irq_error_cnt);
-		irq_error_cnt++;		
+		irq_error_cnt++;
 	}
 	else {
 		isdbt_isr_sig++;

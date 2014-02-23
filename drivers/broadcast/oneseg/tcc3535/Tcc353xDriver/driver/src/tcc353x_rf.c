@@ -217,8 +217,7 @@ void Tcc353xRfSwitching(I32S _moduleIndex, I32S _diversityIndex,
 	I08U valueVhfL = 0x00;
 	I08U valueVhfH = 0x00;
 	I08U valueUhf = 0x00;
-	/*I32U bandIndex = _IDX_UHF_;*/
-	I32U bandIndex;
+	I32U bandIndex = _IDX_UHF_;
 
 	bandIndex = Tcc353xRfGetBandIndex(&Tcc353xHandle[_moduleIndex][0], 
 					  _frequency);
@@ -390,11 +389,10 @@ void Tcc353xRfTune(I32S _moduleIndex, I32S _diversityIndex, I32S _freq_khz,
 	I08U RCNT_RDC = 0;
 	I08U REG_VCO_DIV;
 	I32U Icp;
-	/*I32S segmentsNum = 13;*/
+	I32S segmentsNum = 13;
 	I08U i;
 	I32U rfReg[0x10];
-	/*I32U bandIdx = _IDX_UHF_;*/
-	I32U bandIdx;
+	I32U bandIdx = _IDX_UHF_;
 	I64U pllMode = 2;
 	I32U tcc353xRfReg[_RFREG_CNT_][_RFREG_FORM_];
 	I08U addressArray[0x10];
@@ -420,7 +418,7 @@ void Tcc353xRfTune(I32S _moduleIndex, I32S _diversityIndex, I32S _freq_khz,
 	case TCC353X_ISDBT_1_OF_13SEG:
 		if (_tuneOption->rfIfType != TCC353X_ZERO_IF)
 			_freq_khz += 1000;
-		/*segmentsNum = 1;*/
+		segmentsNum = 1;
 		break;
 	case TCC353X_ISDBTSB_1SEG:
 	case TCC353X_ISDBTSB_1_OF_3SEG:
@@ -430,10 +428,10 @@ void Tcc353xRfTune(I32S _moduleIndex, I32S _diversityIndex, I32S _freq_khz,
 	case TCC353X_ISDBTSB_3SEG:
 		if (_tuneOption->rfIfType != TCC353X_ZERO_IF)
 			_freq_khz += 1000;
-		/*segmentsNum = 3;*/
+		segmentsNum = 3;
 		break;
 	case TCC353X_ISDBT_13SEG:
-		/*segmentsNum = 13;*/
+		segmentsNum = 13;
 		break;
 	case TCC353X_ISDBTMM:
 		/* reserved */
@@ -451,7 +449,7 @@ void Tcc353xRfTune(I32S _moduleIndex, I32S _diversityIndex, I32S _freq_khz,
 		break;
 	default:
 		/* default full segment */
-		/*segmentsNum = 13;*/
+		segmentsNum = 13;
 		break;
 	}
 

@@ -36,6 +36,11 @@
 
 #define BROADCAST_MMBI_CHK_DEV_NUM_DEVS 	1
 
+#ifdef _MODEL_F9J_
+#define MMB_CHK_DEV_EAR_ANTENNA
+extern void isdbt_hw_set_antenna_mode(int antenna_mode);
+#endif
+
 static struct class *broadcast_mmbi_chk_dev_class;
 static dev_t broadcast_mmbi_chk_dev;
 

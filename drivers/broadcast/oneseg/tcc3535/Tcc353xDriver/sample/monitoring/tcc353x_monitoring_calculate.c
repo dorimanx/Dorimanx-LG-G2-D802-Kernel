@@ -189,11 +189,47 @@ I32U Tcc353xCalculateTsper(Tcc353xStatus_t * _dMBStatData, I32U oldTsper,
 	return TSPER;
 }
 
+#if defined (_USE_LNA_CONTROL_)
+extern I32S Lna_Gain_Status[4][4];
+#endif
+
 I32S Tcc353xCalculateRssi(I32S _moduleIndex, I32S _diversityIndex, 
 			  Tcc353xStatus_t * _isdbStatusData)
 {
 	I32S RSSI = _ISDB_MIN_RSSI_;
 
+#if defined (_MODEL_F9J_)
+#if defined (_USE_LNA_CONTROL_)
+	if(Tcc353xApiControl[0][0].tmmMode == 1) {
+		if(Lna_Gain_Status[0][0]==ENUM_LNA_GAIN_HIGH)
+			RSSI = (I32S)(
+				900 - ((I32S) _isdbStatusData->bbLoopGain) *33
+				- ((I32S) _isdbStatusData->rfLoopGain) *19);
+		else 
+			RSSI = (I32S)(
+				3000 - ((I32S) _isdbStatusData->bbLoopGain) *33
+				- ((I32S) _isdbStatusData->rfLoopGain) *19);
+	} else {
+		if(Lna_Gain_Status[0][0]==ENUM_LNA_GAIN_HIGH)
+			RSSI = (I32S)(
+				100 - ((I32S) _isdbStatusData->bbLoopGain) *33
+				- ((I32S) _isdbStatusData->rfLoopGain) *19);
+		else 
+			RSSI = (I32S)(
+				2300 - ((I32S) _isdbStatusData->bbLoopGain) *33
+				- ((I32S) _isdbStatusData->rfLoopGain) *19);
+	}
+#else
+	if(Tcc353xApiControl[0][0].tmmMode == 1)
+		RSSI = (I32S)(
+			900 - ((I32S) _isdbStatusData->bbLoopGain) *33
+			- ((I32S) _isdbStatusData->rfLoopGain) *19);
+	else
+		RSSI = (I32S)(
+			100 - ((I32S) _isdbStatusData->bbLoopGain) *33
+			- ((I32S) _isdbStatusData->rfLoopGain) *19);
+#endif
+#elif defined (_MODEL_GV_)
 	switch(Tcc353xApiControl[_moduleIndex][0].currentBbName) {
 	case BB_TCC3530:
 		RSSI = (I32S)(
@@ -215,6 +251,29 @@ I32S Tcc353xCalculateRssi(I32S _moduleIndex, I32S _diversityIndex,
 		TcpalPrintErr((I08S *) "[TCC353X] No baseband name selected\n");
 		break;
 	}
+#elif defined (_MODEL_TCC3535_)
+	switch(Tcc353xApiControl[_moduleIndex][0].currentBbName) {
+	case BB_TCC3530:
+		RSSI = (I32S)(
+			1800 - ((I32S) _isdbStatusData->bbLoopGain) *33
+			- ((I32S) _isdbStatusData->rfLoopGain) *20);
+		break;
+	case BB_TCC3531:
+	case BB_TCC3532:
+		RSSI = (I32S)(
+			1450 - ((I32S) _isdbStatusData->bbLoopGain) *33 - 
+			((I32S) _isdbStatusData->rfLoopGain) *18);
+		break;
+	case BB_TCC3535:
+		RSSI = (I32S)(
+			1800 - ((I32S) _isdbStatusData->bbLoopGain) *33
+			- ((I32S) _isdbStatusData->rfLoopGain) *20);
+		break;
+	default:
+		TcpalPrintErr((I08S *) "[TCC353X] No baseband name selected\n");
+		break;
+	}
+#endif
 
 	TcpalPrintStatus((I08S *)"[TCC353X] RSSI[%d] BB[%d] RF[%d]\n", 
 			 RSSI, (I32S) (_isdbStatusData->bbLoopGain),

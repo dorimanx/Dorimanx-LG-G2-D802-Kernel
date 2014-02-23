@@ -1792,16 +1792,18 @@ static I32S Tcc353xCodeCrcCheck(I32S _moduleIndex, I08U * _coldbootData,
 {
 	I32S i;
 	I32U destCrc, srcCrc;
-	/*Tcc353xHandle_t *handle;*/
-	/*I32S count = 1;*/
-	I32S count;
+	Tcc353xHandle_t *handle;
+	I32S count = 1;
 	I32S ret = TCC353X_RETURN_SUCCESS;
 	I08U data[4];
 
 	count = Tcc353xCurrentDiversityCount[_moduleIndex];
 
 	for (i = count - 1; i >= 0; i--) {
-		Tcc353xHandle_t *handle;
+#if !defined (_MODEL_TCC3535_)
+		Tcc353xHandle[_moduleIndex][i].currentAddress =
+		    Tcc353xHandle[_moduleIndex][i].originalAddress;
+#endif
 		handle = &Tcc353xHandle[_moduleIndex][i];
 
 		Tcc353xGetRegDmaCrc32(handle, &data[0]);
@@ -1841,14 +1843,26 @@ static I32S Tcc353xInitBroadcasting(I32S _moduleIndex,
 	I32U i;
 	I32S subret;
 	I08U remapPc[3];
-	/*I32S broadcastingFlag = 0;*/
+	I32S broadcastingFlag = 0;
 	I16U plls = PLL_ISDB_T_FULLSEG;
 
 	/* broad casting write */
-	/*
 	if (Tcc353xCurrentDiversityCount[_moduleIndex] > 1) {
 		broadcastingFlag = 1;
-	}*/
+#if !defined (_MODEL_TCC3535_)
+		if (Tcc353xHandle[_moduleIndex][0].
+		    options.commandInterface == TCC353X_IF_I2C)
+			Tcc353xHandle[_moduleIndex][0].currentAddress =
+			    0xA0;
+		else if (Tcc353xHandle[_moduleIndex][0].
+			 options.commandInterface == TCC353X_IF_TCCSPI)
+			Tcc353xHandle[_moduleIndex][0].currentAddress =
+			    (0xA0 >> 1);
+		else
+			Tcc353xHandle[_moduleIndex][0].currentAddress =
+			    0xA0;
+#endif
+	}
 
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++)
 		TcpalSemaphoreLock(&Tcc353xOpMailboxSema[_moduleIndex][i]);
@@ -1887,6 +1901,27 @@ static I32S Tcc353xInitBroadcasting(I32S _moduleIndex,
 	/* asm code download and roll-back current address */
 	if (_coldbootData == NULL) {
 		subret = TCC353X_RETURN_SUCCESS;
+#if !defined (_MODEL_TCC3535_)
+		if (Tcc353xCurrentDiversityCount[_moduleIndex] > 1) {
+			if (Tcc353xHandle[_moduleIndex][0].options.
+			    commandInterface == TCC353X_IF_I2C)
+				Tcc353xHandle[_moduleIndex]
+				    [0].currentAddress =
+				    Tcc353xHandle[_moduleIndex]
+				    [0].originalAddress;
+			else if (Tcc353xHandle[_moduleIndex][0].options.
+				 commandInterface == TCC353X_IF_TCCSPI)
+				Tcc353xHandle[_moduleIndex]
+				    [0].currentAddress =
+				    Tcc353xHandle[_moduleIndex]
+				    [0].originalAddress;
+			else
+				Tcc353xHandle[_moduleIndex]
+				    [0].currentAddress =
+				    Tcc353xHandle[_moduleIndex]
+				    [0].originalAddress;
+		}
+#endif
 	} else {
 		subret =
 		    Tcc353xCodeDownload(_moduleIndex, _coldbootData,
@@ -2248,7 +2283,7 @@ static void Tcc353xConnectCommandInterface(I32S _moduleIndex,
 		TcpalPrintLog((I08S *)
 			      "[TCC353X] Interface is I2C\n");
 		break;
-#if 0
+	
 	case TCC353X_IF_TCCSPI:
 		Tcc353xHandle[_moduleIndex][i].Read =
 		    Tcc353xTccspiRead;
@@ -2263,7 +2298,7 @@ static void Tcc353xConnectCommandInterface(I32S _moduleIndex,
 		TcpalPrintLog((I08S *)
 			      "[TCC353X] Interface is Tccspi\n");
 		break;
-#endif
+	
 	default:
 		TcpalPrintErr((I08S *)
 			      "[TCC353X] Driver Can't support your interface yet\n");
@@ -2386,7 +2421,7 @@ static I32S Tcc353xColdbootParserUtil(I08U * pData, I32U size,
 		if (length) {
 			colOrderDataPtr = &pData[idx];
 			BootSize[4] = length;
-			/*idx += length;*/
+			idx += length;
 		} else {
 			colOrderDataPtr = NULL;
 			BootSize[4] = 0;
@@ -2416,8 +2451,7 @@ I32U Tcc353xGetCoreVersion()
 I32S Tcc353xMailboxWrite(I32S _moduleIndex, I32S _diversityIndex,
 			 I32U _command, I32U * dataArray, I32S wordSize)
 {
-	/*I32S ret = TCC353X_RETURN_SUCCESS;*/
-	I32S ret;
+	I32S ret = TCC353X_RETURN_SUCCESS;
 	ret = Tcc353xMailboxTxOnly(&Tcc353xHandle[_moduleIndex]
 				   [_diversityIndex], _command, dataArray,
 				   wordSize);
@@ -2427,8 +2461,7 @@ I32S Tcc353xMailboxWrite(I32S _moduleIndex, I32S _diversityIndex,
 I32S Tcc353xMailboxRead(I32S _moduleIndex, I32S _diversityIndex,
 			I32U _command, mailbox_t * _mailbox)
 {
-	/*I32S ret = TCC353X_RETURN_SUCCESS;*/
-	I32S ret;
+	I32S ret = TCC353X_RETURN_SUCCESS;
 	ret = Tcc353xMailboxTxRx(&Tcc353xHandle[_moduleIndex]
 				 [_diversityIndex], _mailbox, _command,
 				 NULL, 0);
@@ -3012,8 +3045,7 @@ I32S Tcc353xGetTMCCInfo(I32S _moduleIndex, I32S _diversityIndex,
 			tmccInfo_t * _tmccInfo)
 {
 	mailbox_t mailbox;
-	/*I32S ret = TCC353X_RETURN_SUCCESS;*/
-	I32S ret;
+	I32S ret = TCC353X_RETURN_SUCCESS;
 
 	ret = Tcc353xMailboxRead(_moduleIndex, _diversityIndex,
 				 MBPARA_TMCC_RESULT, &mailbox);

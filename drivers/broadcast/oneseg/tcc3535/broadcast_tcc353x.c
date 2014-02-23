@@ -22,9 +22,11 @@
 #include "broadcast_tcc353x.h"
 
 TcpalSemaphore_t Tcc353xDrvSem;
-
+TcpalSemaphore_t Tcc353xStreamSema;
+TcpalSemaphore_t Tcc353xLnaControlSema;
+#if defined (_MODEL_F9J_)
 static struct msm_xo_voter *xo_handle_tcc;
-
+#endif
 /*#define _NOT_USE_WAKE_LOCK_*/
 
 struct broadcast_tcc3530_ctrl_data
@@ -36,6 +38,8 @@ struct broadcast_tcc3530_ctrl_data
 };
 
 static struct broadcast_tcc3530_ctrl_data  IsdbCtrlInfo;
+//static unsigned int user_stop_flg = 0;
+//static unsigned int mdelay_in_flg = 0;
 int broadcast_dmb_drv_start(void);
 
 struct i2c_client*	TCC_GET_I2C_DRIVER(void)
@@ -48,15 +52,22 @@ struct spi_device *TCC_GET_SPI_DRIVER(void)
 	return IsdbCtrlInfo.spi_dev;
 }
 
+extern void tcc353x_lnaControl_start(void);
+extern void tcc353x_lnaControl_stop(void);
+
+
 int tcc353x_power_on(void)
 {
+#if defined (_MODEL_F9J_)
+	int rc;
+#endif	
 	if(IsdbCtrlInfo.pwr_state != 1)
 	{
-		int rc;
 #ifndef _NOT_USE_WAKE_LOCK_
 		wake_lock(&IsdbCtrlInfo.wake_lock);
 #endif
 		TchalPowerOnDevice();
+#if defined (_MODEL_F9J_)
 
 		rc = msm_xo_mode_vote(xo_handle_tcc, MSM_XO_MODE_ON);
 		if(rc < 0) {
@@ -64,7 +75,7 @@ int tcc353x_power_on(void)
 			msm_xo_put(xo_handle_tcc);
 			return FALSE;
 		}
-
+#endif		
 	}
 	else
 	{
@@ -73,7 +84,9 @@ int tcc353x_power_on(void)
 
 	IsdbCtrlInfo.pwr_state = 1;
 	return OK;
+
 }
+
 
 int tcc353x_is_power_on()
 {
@@ -89,10 +102,11 @@ int tcc353x_power_off(void)
 	}
 	else
 	{
+		#if defined (_MODEL_F9J_)
 		if(xo_handle_tcc != NULL) {
 		    msm_xo_mode_vote(xo_handle_tcc, MSM_XO_MODE_OFF);
 		}
-		
+		#endif
 		TcpalPrintStatus((I08S *)"Isdb_tcc3530_power_off\n");
 		TchalPowerDownDevice();
 	}
@@ -105,6 +119,7 @@ int tcc353x_power_off(void)
 	return OK;
 }
 
+#if defined (_I2C_STS_)
 static int broadcast_Isdb_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int rc = 0;
@@ -123,15 +138,25 @@ static int broadcast_Isdb_i2c_probe(struct i2c_client *client, const struct i2c_
 
 	TcpalCreateSemaphore(&Tcc353xDrvSem,
 			     (I08S *) "Tcc353xDriverControlSemaphore", 1);
+	TcpalCreateSemaphore(&Tcc353xStreamSema,
+			     (I08S *) "StreamSemaphore", 1);
+	TcpalCreateSemaphore(&Tcc353xLnaControlSema,
+			     (I08S *) "LnaControlSemaphore", 1);
 
 	IsdbCtrlInfo.pclient = client;
 	//i2c_set_clientdata(client, (void*)&IsdbCtrlInfo.pclient);
 
 	TchalInit();
+	TcpalRegisterIrqHandler();
+	TcpalIrqDisable();
+
 #ifndef _NOT_USE_WAKE_LOCK_
 	wake_lock_init(&IsdbCtrlInfo.wake_lock, WAKE_LOCK_SUSPEND,
 					dev_name(&client->dev));	
 #endif
+
+	/* lna control task start */
+	tcc353x_lnaControl_start();
 
 	return rc;
 }
@@ -140,12 +165,18 @@ static int broadcast_Isdb_i2c_remove(struct i2c_client* client)
 {
 	int rc = 0;
 
+	/* lna control task stop */
+	tcc353x_lnaControl_stop();
+
 	TcpalPrintStatus((I08S *)"[%s]\n", __func__);
+	TcpalUnRegisterIrqHandler();
 #ifndef _NOT_USE_WAKE_LOCK_
 	wake_lock_destroy(&IsdbCtrlInfo.wake_lock);
 #endif
 	memset((unsigned char*)&IsdbCtrlInfo, 0x0, sizeof(struct broadcast_tcc3530_ctrl_data));
 	TcpalDeleteSemaphore(&Tcc353xDrvSem);
+	TcpalDeleteSemaphore(&Tcc353xStreamSema);
+	TcpalDeleteSemaphore(&Tcc353xLnaControlSema);
 	return rc;
 }
 
@@ -192,10 +223,98 @@ static struct i2c_driver broadcast_Isdb_driver = {
 	.suspend = broadcast_Isdb_i2c_suspend,
 	.resume  = broadcast_Isdb_i2c_resume,
 };
+#else
+static int broadcast_Isdb_spi_probe(struct spi_device *spi_dev)
+{
+	int rc = 0;
+
+	xo_handle_tcc = msm_xo_get(MSM_XO_TCXO_A0, id);
+	if(IS_ERR(xo_handle_tcc)) {
+		pr_err("Failed to get MSM_XO_TCXO_A2 handle for TDMB (%ld)\n", PTR_ERR(xo_handle_tcc));
+		return FALSE;
+	}
+
+	TcpalCreateSemaphore(&Tcc353xDrvSem,
+			     (I08S *) "Tcc353xDriverControlSemaphore", 1);
+	TcpalCreateSemaphore(&Tcc353xStreamSema,
+			     (I08S *) "StreamSemaphore", 1);
+	TcpalCreateSemaphore(&Tcc353xLnaControlSema,
+			     (I08S *) "LnaControlSemaphore", 1);
+
+	spi_dev->mode = SPI_MODE_0;
+	spi_dev->bits_per_word = 8;
+	spi_dev->max_speed_hz = 32*1000*1000;	/* 32 MHz	*/
+	rc = spi_setup(spi_dev);
+
+	IsdbCtrlInfo.spi_dev = spi_dev;
+	IsdbCtrlInfo.pwr_state = 0;
+	TcpalPrintStatus((I08S *)"spi : %p\n", spi_dev);
+
+	TchalInit();
+	TcpalRegisterIrqHandler();
+	TcpalIrqDisable();
+
+#ifndef _NOT_USE_WAKE_LOCK_
+	wake_lock_init(&IsdbCtrlInfo.wake_lock, WAKE_LOCK_SUSPEND,
+					dev_name(&spi_dev->dev));	
+#endif
+
+	/* lna control task start */
+	tcc353x_lnaControl_start();
+
+	return rc;
+}
+
+static int broadcast_Isdb_spi_remove(struct spi_device *spi)
+{
+	int rc = 0;
+
+	/* lna control task stop */
+	tcc353x_lnaControl_stop();
+
+	TcpalPrintStatus((I08S *)"[%s]\n", __func__);
+	TcpalUnRegisterIrqHandler();
+#ifndef _NOT_USE_WAKE_LOCK_
+	wake_lock_destroy(&IsdbCtrlInfo.wake_lock);
+#endif
+	memset((unsigned char*)&IsdbCtrlInfo, 0x0, sizeof(struct broadcast_tcc3530_ctrl_data));
+	TcpalDeleteSemaphore(&Tcc353xDrvSem);
+	TcpalDeleteSemaphore(&Tcc353xStreamSema);
+	TcpalDeleteSemaphore(&Tcc353xLnaControlSema);
+	return rc;
+}
+
+static int broadcast_Isdb_spi_suspend(struct spi_device *spi, pm_message_t mesg)
+{
+	int rc = 0;
+	TcpalPrintStatus((I08S *)"[%s]\n", __func__);
+	return rc;
+}
+
+static int broadcast_Isdb_spi_resume(struct spi_device *spi)
+{
+	int rc = 0;
+	TcpalPrintStatus((I08S *)"[%s]\n", __func__);
+	return rc;
+}
+
+static struct spi_driver broadcast_Isdb_driver = {
+	.probe = broadcast_Isdb_spi_probe,
+	.remove	= __devexit_p(broadcast_Isdb_spi_remove),
+	.suspend = broadcast_Isdb_spi_suspend,
+	.resume  = broadcast_Isdb_spi_resume,
+	.driver = {
+		.name = "isdbt_tcc3530",
+		.bus	= &spi_bus_type,
+		.owner = THIS_MODULE,
+	},
+};
+#endif
 
 int __devinit broadcast_dmb_drv_init(void)
 {
 	int rc;
+
 	TcpalPrintStatus((I08S *)"[%s]\n", __func__);
 	rc = broadcast_dmb_drv_start();	
 	if (rc) 
@@ -203,15 +322,26 @@ int __devinit broadcast_dmb_drv_init(void)
 		TcpalPrintErr((I08S *)"failed to load\n");
 		return rc;
 	}
+
+#if defined(_I2C_STS_)
 	TcpalPrintStatus((I08S *)"[%s add i2c driver]\n", __func__);
 	rc = i2c_add_driver(&broadcast_Isdb_driver);
+#else
+	TcpalPrintStatus((I08S *)"[%s add spi driver]\n", __func__);
+	rc =  spi_register_driver(&broadcast_Isdb_driver);
+#endif
+
 	TcpalPrintStatus((I08S *)"broadcast_add_driver rc = (%d)\n", rc);
 	return rc;
 }
 
 static void __exit broadcast_dmb_drv_exit(void)
 {
+#if defined(_I2C_STS_)
 	i2c_del_driver(&broadcast_Isdb_driver);
+#else
+	spi_unregister_driver(&broadcast_Isdb_driver);
+#endif
 }
 
 module_init(broadcast_dmb_drv_init);

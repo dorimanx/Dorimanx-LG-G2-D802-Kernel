@@ -12,7 +12,7 @@
 #define	__KERNEL__
 #endif
 
-//                  
+// eric0.kim@lge.com
 #if 0
 #include "radio-mb86a35-dev.h"
 #else
@@ -58,7 +58,7 @@ typedef unsigned char      boolean;
 #endif
 #endif
 
-//                               
+// eric0.kim@lge.com [2012.07.31]
 #define GPIO_ISDBT_ANT_SELECT_1 			PM8921_GPIO_PM_TO_SYS(16)	
 #define GPIO_ISDBT_ANT_SELECT_2 			PM8921_GPIO_PM_TO_SYS(17)	
 
@@ -70,7 +70,7 @@ static struct wake_lock		oneseg_wake_lock;	/* wake_lock,wake_unlock */
 
 
 static int devmajor = NODE_MAJOR;
-//                  
+// eric0.kim@lge.com
 //static char *devname = NODE_PATHNAME;
 static char *devname = "/dev/broadcast0";
 
@@ -109,7 +109,7 @@ static u8 REG30 = MB86A35_DEF_REG30;
 
 #define	MB86A35_CALB_DCOFF_WAIT		10
 
-//                  
+// eric0.kim@lge.com
 #if 1
 #define BROADCAST_MMBI_NUM_DEVS 	1 /**< support this many devices */
 
@@ -122,7 +122,7 @@ struct broadcast_mmbi_chdevice
 	wait_queue_head_t wq_read;
 	void *cookie;
 };
-//                                                
+// eric0.kim@lge.com [2012.06.19]  open/close flag
 static int mmbi_tuner_drv_open = -1;
 
 
@@ -1507,7 +1507,7 @@ int mb86a35_RF_channel(mb86a35_cmdcontrol_t * cmdctrl, u8 mode, u8 chno)
 	}
 
 		if(ui8REVID == 1) MAXVCOOUT = 0x0B;   //For CS1 chip Setting.
-//                                                                           
+// eric0.kim@lge.com [2012.06.19] must check this code. MAXVCOOUT was a 0x05 
 		else MAXVCOOUT = 0x07;  //For CS2 chip Setting.
 		
 		reg = 0x51;
@@ -1632,7 +1632,7 @@ int mb86a35_RF_channel(mb86a35_cmdcontrol_t * cmdctrl, u8 mode, u8 chno)
 		}
 		else   //For CS2 chip Setting.
 		{
-//                                                        
+// eric0.kim@lge.com [2012.06.19] must check this code.			
 #if 1
 			if(VCORG <= 0x1F) MAXVCOOUT = 0x07;
 			else if(VCORG > 0x1F && VCORG <= 0x5F ) MAXVCOOUT = 0x06;   //Value Update due to VCORG margin
@@ -4698,7 +4698,7 @@ int mb86a35_IOCTL_BER_MONIGET(mb86a35_cmdcontrol_t * cmdctrl, unsigned int cmd,
 	u8 RSBERCEFLG = 0;
 	u8 PERFLG = 0;
 	u8 CHECKFLG = 0;
-//                                                                       
+// eric0.kim@lge.com [2012.06.19] Block this code sync as the SPI driver 
 #if 0
 	int loop = 5;
 #endif
@@ -4716,7 +4716,7 @@ int mb86a35_IOCTL_BER_MONIGET(mb86a35_cmdcontrol_t * cmdctrl, unsigned int cmd,
 	if ((BER->RSBERON & PARAM_RSBERON_RSBERAUTO_A) ==
 	    PARAM_RSBERON_RSBERAUTO_A) {
 		/*** WAIT ***/
-//                                                                       
+// eric0.kim@lge.com [2012.06.19] Block this code sync as the SPI driver 
 #if 0
 		mdelay(1000);
 #endif
@@ -4777,7 +4777,7 @@ int mb86a35_IOCTL_BER_MONIGET(mb86a35_cmdcontrol_t * cmdctrl, unsigned int cmd,
 				    | PARAM_VBERXRST_VBERXRSTB_E
 				    | PARAM_VBERXRST_VBERXRSTA_E);
 	reg = MB86A35_REG_ADDR_VBERFLG;
-//                                                                           
+// eric0.kim@lge.com [2012.06.19] Block this code for sync as the SPI driver 
 #if 0
 
 	loop = 5;
@@ -4793,7 +4793,7 @@ int mb86a35_IOCTL_BER_MONIGET(mb86a35_cmdcontrol_t * cmdctrl, unsigned int cmd,
 		mdelay(5);
 	}
 #endif
-//                                                                        
+// eric0.kim@lge.com [2012.06.19] Add this code for sync as the SPI driver
 #if 1
 	rtncode = mb86a35_i2c_master_recv(reg, &BER->VBERFLG, 1);
 	if (rtncode != 0) {
@@ -4813,7 +4813,7 @@ int mb86a35_IOCTL_BER_MONIGET(mb86a35_cmdcontrol_t * cmdctrl, unsigned int cmd,
 				   | PARAM_RSBERON_RSBERB_B
 				   | PARAM_RSBERON_RSBERA_B);
 	reg = MB86A35_REG_ADDR_RSBERCEFLG;
-//                                                                           
+// eric0.kim@lge.com [2012.06.19] Block this code for sync as the SPI driver 
 #if 0
 	loop = 5;
 	while (loop--) {
@@ -4828,7 +4828,7 @@ int mb86a35_IOCTL_BER_MONIGET(mb86a35_cmdcontrol_t * cmdctrl, unsigned int cmd,
 		mdelay(5);
 	}
 #endif
-//                                                                        
+// eric0.kim@lge.com [2012.06.19] Add this code for sync as the SPI driver
 #if 1
 	rtncode = mb86a35_i2c_master_recv(reg, &BER->RSBERCEFLG, 1);
 	if (rtncode != 0) {
@@ -4846,7 +4846,7 @@ moniget_automode:
 	CHECKFLG = BER->PEREN & (PARAM_PEREN_PERENC_F
 				 | PARAM_PEREN_PERENB_F | PARAM_PEREN_PERENA_F);
 	sreg = MB86A35_REG_SUBR_PERFLG;
-//                                                                           
+// eric0.kim@lge.com [2012.06.19] Block this code for sync as the SPI driver 
 #if 0
 	loop = 5;
 	while (loop--) {
@@ -4862,7 +4862,7 @@ moniget_automode:
 		mdelay(5);
 	}
 #endif
-//                                                                        
+// eric0.kim@lge.com [2012.06.19] Add this code for sync as the SPI driver
 #if 1
 	rtncode = mb86a35_i2c_slave_recv(rega, sreg, regd, &BER->PERFLG, 1);
 	if (rtncode != 0) {
@@ -6218,7 +6218,7 @@ irq_tmccparam_reason_return:
 	return rtncode;
 }
 
-//                  
+// eric0.kim@lge.com
 #if 0
 /************************************************************************/
 /**
@@ -7635,7 +7635,7 @@ int mb86a35_IOCTL_CH_SEARCH(mb86a35_cmdcontrol_t * cmdctrl, unsigned int cmd,
 		mb86a35_i2c_master_send(reg, value);
 
 		/* WAIT */
-//                                                                           
+// eric0.kim@lge.com [2012.06.19] Block this code for sync as the SPI driver 
 #if 0
 		mdelay(100);
 #endif
@@ -9371,7 +9371,7 @@ low_up_if_return:
 	return rtncode;
 }
 
-//                                            
+// eric0.kim@lge.com [2012.06.18] TS out setup
 #if 1
 /************************************************************************/
 /**
@@ -9389,7 +9389,7 @@ static
 int mb86a35_IOCTL_STREAM_READ_CTRL(mb86a35_cmdcontrol_t * cmdctrl, unsigned int cmd, unsigned long arg)
 {
 
-//                                
+// eric0.kim@lge.com [2012.06.18] 
 // In case of tsif, block this function but must set NULL packet OFF register                            
 // Also must be implemented tsif buffer control code for MMBI
 #if 1
@@ -9460,7 +9460,7 @@ int mb86a35_IOCTL_STREAM_READ_CTRL(mb86a35_cmdcontrol_t * cmdctrl, unsigned int 
 			rtncode = -EINVAL;
 			goto stream_read_ctrl_return;
 		}
-#if 0 //   
+#if 0 //LGE
 		if (STREAM_READ_CTRL->BUF == NULL) {
 			rtncode = -EINVAL;
 			goto stream_read_ctrl_return;
@@ -9470,7 +9470,7 @@ int mb86a35_IOCTL_STREAM_READ_CTRL(mb86a35_cmdcontrol_t * cmdctrl, unsigned int 
 			rtncode =  -EFAULT;
 			goto stream_read_ctrl_return;
 		}
-#if 0 //   
+#if 0 //LGE
 		if (STREAM_READ_CTRL->BUF_SIZE % STREAM_READ_CTRL->READ_SIZE) {
 			rtncode = -EINVAL;
 			goto stream_read_ctrl_return;
@@ -9478,7 +9478,7 @@ int mb86a35_IOCTL_STREAM_READ_CTRL(mb86a35_cmdcontrol_t * cmdctrl, unsigned int 
 #endif
 
 #if 0
-		#if 0 //   
+		#if 0 //LGE
 		read_size = STREAM_READ_CTRL->READ_SIZE;
 		read_buff = STREAM_READ_CTRL->BUF;
 		buff_size = STREAM_READ_CTRL->BUF_SIZE;
@@ -9575,7 +9575,7 @@ int mb86a35_IOCTL_STREAM_READ_CTRL(mb86a35_cmdcontrol_t * cmdctrl, unsigned int 
 			goto stream_read_ctrl_return;
 		}
 		
-		#if 0 //   
+		#if 0 //LGE
 		//read_size = 0;
 		//read_buff = NULL;
 		//buff_size = 0;
@@ -9619,7 +9619,7 @@ stream_read_ctrl_return:
 static
 int mb86a35_IOCTL_TS_SETUP(mb86a35_cmdcontrol_t * cmdctrl, unsigned int cmd, unsigned long arg)
 {
-//                                                                           
+// eric0.kim@lge.com [2012.06.18] SPI specific register.. block this function
 #if 1
 	int rtncode = 0;
 	DBGPRINT(PRINT_LHEADERFMT
@@ -9899,7 +9899,7 @@ static int mb86a35_open(struct inode *inode, struct file *filp)
 	mb86a35_cmdcontrol_t *cmdctrl;
 	size_t getmemsize = sizeof(mb86a35_cmdcontrol_t);
 
-//                               
+// eric0.kim@lge.com [2012.06.19]
 	if(mmbi_tuner_drv_open == 0)
 	{
 		printk("mb86a35 already open busy\n");
@@ -9917,7 +9917,7 @@ static int mb86a35_open(struct inode *inode, struct file *filp)
 		 PRINT_LHEADER, (int)filp, (int)(filp->f_dentry),
 		 (int)(filp->f_dentry->d_inode));
 
-//                  
+// eric0.kim@lge.com
 #if 0
 	majorno = imajor(filp->f_dentry->d_inode);
 	minorno = iminor(filp->f_dentry->d_inode);
@@ -10007,10 +10007,10 @@ int mb86a35_close(struct inode *inode, struct file *filp)
 	kfree(devarea);
 
 	filp->private_data = NULL;
-//                               
+// eric0.kim@lge.com [2102.06.19]
 	mmbi_tuner_drv_open  = -1;
 	wake_unlock(&oneseg_wake_lock);
-	//                  
+	// eric0.kim@lge.com
 	isdbt_hw_deinit_fujitsu();
 	printk("\ncloseclose\n");
 
@@ -10215,7 +10215,7 @@ long mb86a35_ioctl(struct file *filp, unsigned int cmd,
 	case IOCTL_SEQ_GETSTAT:	/* get Status */
 		rtn = mb86a35_IOCTL_SEQ_GETSTAT(cmdctrl, cmd, arg);
 		break;
-//                                                                                                                         
+// eric0.kim@lge.com[2012.06.19] This was added in the SPI driver code, but not included in the original code from fujitsu.
 // not used 
 #if 1
 	case IOCTL_SEQ_SETMODE:	/* set Mode */
@@ -10292,7 +10292,7 @@ long mb86a35_ioctl(struct file *filp, unsigned int cmd,
 	case IOCTL_IRQ_TMCCPARAM_REASON:	/* IRQ : TMCC parameter Interrupt, get reason */
 		rtn = mb86a35_IOCTL_IRQ_TMCCPARAM_REASON(cmdctrl, cmd, arg);
 		break;
-//                  
+// eric0.kim@lge.com
 #if 0
 		/* C/N Monitor */
 	case IOCTL_CN_MONI:	/* C/N Monitoring (Auto / Manual) */
@@ -10383,7 +10383,7 @@ long mb86a35_ioctl(struct file *filp, unsigned int cmd,
 	case IOCTL_LOW_UP_IF:	/* LOWER UPEER IF : LOWER UPEER IF Control */
 		rtn = mb86a35_IOCTL_LOW_UP_IF(cmdctrl, cmd, arg);
 		break;			
-//                                                
+// eric0.kim@lge.com [2012.06.18] TS control setup
 #if 1
 	case IOCTL_STREAM_READ_CTRL:	/* Stream Read Control */
 		rtn = mb86a35_IOCTL_STREAM_READ_CTRL(cmdctrl, cmd, arg);
@@ -10429,7 +10429,7 @@ open:	mb86a35_open,		/* open() system call entry */
 release:mb86a35_close,		/* close() system call entry */
 };
 
-//                  
+// eric0.kim@lge.com
 #if 1
 static int broadcast_mmbi_device_init(struct broadcast_mmbi_chdevice *pbroadcast, int index)
 {
@@ -10579,7 +10579,7 @@ static int mb86a35_i2c_remove(struct i2c_client *client)
 	return 0;
 }
 
-//                  
+// eric0.kim@lge.com
 static const struct i2c_device_id mb86a35_i2c_id[] = {
 	{ "mb86a36k_i2c" , 0 },
 	{}
@@ -10646,7 +10646,7 @@ int __init proc_init_module(void)
 			memset(LOGMEM, 0, DEBUG_PRINT_MEM_SIZE);
 		}
 #endif
-	//                  
+	// eric0.kim@lge.com
 #if 0
 		if ((ret = register_chrdev(devmajor, devname, &mb86a35_fops))) {
 			printk(PRINT_LHEADERFMT
@@ -10661,7 +10661,7 @@ int __init proc_init_module(void)
 		mb86a35_probe(NULL);
 #endif
 
-	//                  
+	// eric0.kim@lge.com
 #if 1
 		mb86a35_probe(NULL);
 #endif

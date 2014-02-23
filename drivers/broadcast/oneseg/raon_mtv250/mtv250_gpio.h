@@ -44,7 +44,7 @@ static inline int mtv250_configure_gpio(void)
 
 #if defined(CONFIG_MACH_LGE_P940_EVB)
 #define MTV_PWR_EN					(42)
-#else //                                                     
+#else //after CONFIG_MACH_LGE_P940_HW_A, changed gpio pin map
 #define MTV_PWR_EN					(46)
 #endif
 #define RAONTV_IRQ_INT				(44)
@@ -64,7 +64,7 @@ static inline int mtv250_configure_gpio(void)
 
 	return 0;
 }
-//                                        
+//	taew00k.kang@lge.com	2011-11-15	[start]
 #elif defined(CONFIG_MACH_MSM8960_L_DCM)
 	/* write L configuration here*/
 //#define MTV_PWR_EN						(93)	// L_DCM rev_A will change to 55 on 2011-12-XX
@@ -92,7 +92,7 @@ static inline int mtv250_configure_gpio(void)
 
 	return 0;
 }
-//                                      
+//	taew00k.kang@lge.com	2011-11-15	[end]
 #else
 	#error "Code not present"
 #endif

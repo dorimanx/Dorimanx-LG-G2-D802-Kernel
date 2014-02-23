@@ -25,12 +25,12 @@ static unsigned char IADDR_SIZE = 1;
 
 static int i2c_bulkread(HANDLE hDevice, fci_u16 addr, fci_u8 *data, fci_u16 length)
 {
-	return 0;	//               
+	return 0;	//LGE_BROADCAST_I
 }
 
 static int i2c_bulkwrite(HANDLE hDevice, fci_u16 addr, fci_u8* data, fci_u16 length)
 {
-	return 0;	//               
+	return 0;	//LGE_BROADCAST_I
 }
 
 static int i2c_dataread(HANDLE hDevice, fci_u16 addr, fci_u8* data, fci_u16 length)

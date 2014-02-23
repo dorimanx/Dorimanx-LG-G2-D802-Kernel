@@ -1,3 +1,4 @@
+obj-y += tcc353x_pal_tccspi.o
 obj-y += tcpal_android.o
 obj-y += tcpal_i2c.o
 

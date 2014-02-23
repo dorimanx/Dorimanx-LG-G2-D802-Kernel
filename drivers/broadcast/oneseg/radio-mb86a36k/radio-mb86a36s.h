@@ -959,7 +959,7 @@ struct ioctl_select_antenna {
 };
 typedef struct ioctl_select_antenna ioctl_select_antenna_t;
 
-#if 0//              
+#if 0//LGE for using?
 u32 inline GET32(u32 * merdata)
 {
 	u32 rtncode = 0;

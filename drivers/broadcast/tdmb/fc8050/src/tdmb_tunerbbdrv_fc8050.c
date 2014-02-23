@@ -32,7 +32,7 @@
 #undef FEATURE_FIC_BER
 #define LOCK_TIME_TUNING0	/* Fast Channel Scan */
 
-//        
+// LGE ADD
 #define	FREQ_SEARCH_IN_TABLE		/* Freq conversion in Table Searching */
 #define	CH_LOW_NUM		71		/* 7A index 71 for UI */
 
@@ -50,7 +50,7 @@
 #define	CH_GAP_FREQ 		1728	/* Channel Center frequency interval between channel number */
 #define	TDMB_ENS_NUM		7		/* Korea TDMB Ensemble Number 7 ~ 13 */
 #endif
-//        
+// LGE ADD
 
 #define MAX_MSC_BER			20000
 #define MAX_VA_BER			20000
@@ -136,7 +136,7 @@ fci_u8 msc_multi_data[188*8*8];
 /*============================================================
 **    7.   Static Variables
 *============================================================*/
-//       
+//LGE ADD
 #ifdef FREQ_SEARCH_IN_TABLE
 
 	static int32 gKOREnsembleFullFreqTbl[MAX_KOREABAND_FULL_CHANNEL][2] =
@@ -206,7 +206,7 @@ int tunerbb_drv_fc8050_is_on(void)
 	return tdmb_fc8050_tdmb_is_on();
 }
 
-//        
+// LGE ADD
 static int32	tunerbb_drv_convert_chnum_to_freq(uint32 ch_num)
 {
 #ifdef FREQ_SEARCH_IN_TABLE
@@ -244,7 +244,7 @@ static int32	tunerbb_drv_convert_chnum_to_freq(uint32 ch_num)
 #endif
 }
 
-//        
+// LGE ADD
 /*======================================================= 
     Function 		: tunerbb_drv_fc8050_fic_cb
     Description		: set fic data param after ISR process
@@ -709,7 +709,7 @@ int8	tunerbb_drv_fc8050_multi_set_channel(int32 freq_num, uint8 subch_cnt, uint8
 	uint8 dmb_cnt=0;
 	int i;
 	fc8050_service_type svcType = FC8050_SERVICE_MAX;
-	unsigned short mask = 0;
+	unsigned short mask;
 
 	// Added by somesoo 20100730 for removing green block effect
 	fc8050_isr_control(0);
@@ -725,7 +725,6 @@ int8	tunerbb_drv_fc8050_multi_set_channel(int32 freq_num, uint8 subch_cnt, uint8
 	}
 
 	tunerbb_drv_fc8050_control_fic(0);
-	BBM_WORD_WRITE(NULL, BBM_BUF_ENABLE, 0x0000);
 	/* Change freq_num(channel num) to frequency */
 	freq = tunerbb_drv_convert_chnum_to_freq(freq_num);
 
@@ -758,6 +757,9 @@ int8	tunerbb_drv_fc8050_multi_set_channel(int32 freq_num, uint8 subch_cnt, uint8
 	else
 		BBM_WRITE(0, BBM_VT_CONTROL, 0x03);
 #endif
+
+	BBM_WORD_READ(NULL, BBM_BUF_ENABLE, &mask);
+	mask &= 0x100;
 
 	for(i=0;i<subch_cnt;i++)
 	{
@@ -800,7 +802,6 @@ int8	tunerbb_drv_fc8050_multi_set_channel(int32 freq_num, uint8 subch_cnt, uint8
 				break;
 			case FC8050_ENSQUERY:
 				tunerbb_drv_fc8050_control_fic(1);
-				mask |= 0x100;
 				res = BBM_OK;
 				break;
 			default:
@@ -1294,7 +1295,7 @@ static uint32 tunerbb_drv_fc8050_get_viterbi_ber(void)	//msc_ber
 
 	if(bper == 0)
 	{
-		//                
+		// LGE_INTG_090217
 		ber = MAX_MSC_BER;
 	}
 	else if(tbe == 0)
@@ -1357,7 +1358,7 @@ static uint32 tunerbb_drv_fc8050_get_rs_ber(void)	//va_ber
 
 	if(nframe == 0)
 	{
-		//                
+		// LGE_INTG_090217
 		ber = MAX_VA_BER;
 	}
 	else if((esum == 0) && (rserror == 0))
@@ -1366,7 +1367,7 @@ static uint32 tunerbb_drv_fc8050_get_rs_ber(void)	//va_ber
 	}
 	else
 	{
-		//               
+		//LGE_INTG_090217
 		#if (1)	//include corrected bit
 		ber = esum;
 		#else	//not include

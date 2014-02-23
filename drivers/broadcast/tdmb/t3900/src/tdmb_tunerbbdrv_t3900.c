@@ -58,8 +58,8 @@ typedef enum t3900_service_type
 	T3900_DMB = 2,
 	T3900_VISUAL =3,
 	T3900_DATA = 4,
-	T3900_ENSQUERY = 6,	/*           */
-	T3900_BLT_TEST = 9, /*           */
+	T3900_ENSQUERY = 6,	/* LGE Added */
+	T3900_BLT_TEST = 9, /* LGE Added */
 	T3900_SERVICE_MAX
 }t3900_service_type;
 

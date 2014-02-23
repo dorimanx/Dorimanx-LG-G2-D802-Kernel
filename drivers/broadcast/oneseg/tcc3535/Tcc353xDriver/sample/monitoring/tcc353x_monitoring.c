@@ -239,7 +239,7 @@ I32S Tcc353xMonitoringApiGetStatus(I32S _moduleIndex, I32S _diversityIndex,
 		pISDBStatData->opstat.mode = MODE_RESERVED;
 
 	pISDBStatData->opstat.ResyncCnt = (I16U)((opStatusData[1]>>18)&0x1FFF);
-	pISDBStatData->opstat.EEW = (I08U)((opStatusData[1]>>31)&0x01);
+	pISDBStatData->opstat.EEW = (I08U)((opStatusData[1]>>18)&0x1FFF);
 
 	/* get SNR */
 	if(pISDBStatData->opstat.dataState)

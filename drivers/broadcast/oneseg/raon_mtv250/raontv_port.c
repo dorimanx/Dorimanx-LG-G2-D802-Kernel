@@ -85,11 +85,11 @@ void rtvOEM_PowerOn(int on)
 #if defined(CONFIG_KS1001) || defined(CONFIG_KS1103)
 		gpio_set_value(MTV_1_2V_EN, 1);
 #endif
-//                                        
+// taew00k.kang@lge.com 2011-11-15 [start]
 #if defined(CONFIG_MACH_MSM8960_L_DCM)
 		gpio_set_value(MTV_LDO_EN, 1);
 #endif
-//                                      
+// taew00k.kang@lge.com 2011-11-15 [end]
 
 //		DMBMSG("[rtvOEM_PowerOn] 2\n");
 		
@@ -109,11 +109,11 @@ void rtvOEM_PowerOn(int on)
 #if defined(CONFIG_KS1001) || defined(CONFIG_KS1103)
 		gpio_set_value(MTV_1_2V_EN, 0);
 #endif
-//                                        
+// taew00k.kang@lge.com 2011-11-15 [start]
 #if defined(CONFIG_MACH_MSM8960_L_DCM)
 		gpio_set_value(MTV_LDO_EN, 0);
 #endif
-//                                      
+// taew00k.kang@lge.com 2011-11-15 [end]
 	}
 
 #else

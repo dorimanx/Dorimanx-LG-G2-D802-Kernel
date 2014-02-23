@@ -240,6 +240,12 @@ extern int	broadcast_drv_if_get_mode (unsigned short *mode);
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
 /* sample control functions                                                 */
+#ifdef _MODEL_F9J_
+extern int	broadcast_drv_control_1SegEarAntennaSel (unsigned int data);
+extern void isdbt_hw_antenna_switch(int ear_state);
+extern void isdbt_hw_set_rf_mode(int rf_mode);
+extern void isdbt_hw_set_antenna_mode(int antenna_mode);
+#endif
 
 /*                                                                          */
 /*--------------------------------------------------------------------------*/

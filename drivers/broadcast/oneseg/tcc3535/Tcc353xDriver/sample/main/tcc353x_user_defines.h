@@ -25,7 +25,13 @@ between Telechips and Company.
 #ifndef __TCC353X_USER_DEFINES_H__
 #define __TCC353X_USER_DEFINES_H__
 
-#if defined (_MODEL_TCC3535_)
+#if defined (_MODEL_F9J_)
+#define _USE_TMM_CSPI_ONLY_
+//#define _USE_LNA_CONTROL_
+//#define _USE_MONITORING_TASK_
+#elif defined (_MODEL_GV_)
+#define _USE_TMM_CSPI_ONLY_
+#elif defined (_MODEL_TCC3535_)
 #define _TCC3535_ROM_MASK_VER_
 #endif
 
@@ -122,5 +128,12 @@ between Telechips and Company.
 
 /* set stream speed (DLR) */
 #define TCC353X_DLR                             1
+
+#if defined (_USE_LNA_CONTROL_)
+/* lna gain control threshold */
+#define DEF_LNA_GAIN_HIGH_2_LOW_THR 	(-60)
+#define DEF_LNA_GAIN_LOW_2_HIGH_THR 	(-70)
+#define DEF_LNA_CONTROL_COUNT_THR	(1)
+#endif
 
 #endif

@@ -60,6 +60,8 @@ TCBB_FUNC void TcpaluSleep(I32S _us);
 TCBB_FUNC void TcpalmDelay(I32S _ms);
 
 /* for memory allocation, free, set */
+TCBB_FUNC void *TcpalMalloc(I32U _size);
+TCBB_FUNC I32S TcpalFree(void *_ptr);
 TCBB_FUNC void *TcpalMemset(void *_dest, I32U _data, I32U _cnt);
 TCBB_FUNC void *TcpalMemcpy(void *_dest, const void *_src, I32U _cnt);
 

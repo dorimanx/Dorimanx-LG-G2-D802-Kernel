@@ -27,6 +27,10 @@ between Telechips and Company.
 #include "tcc353x_monitoring.h"
 #include "tcc353x_user_defines.h"
 
+#if defined (_MODEL_F9J_)
+#define __USER_GPIO9_STRENGTH_MAX__
+#endif
+
 /*  [0] Tccspi [1] sts [2] spims */
 Tcc353xRegisterConfig_t Tcc353xSingle[3] = {
 	{
@@ -43,7 +47,11 @@ Tcc353xRegisterConfig_t Tcc353xSingle[3] = {
 	 /* gpioLr_0x12_07_00, gpioLr_0x12_15_08, gpioLr_0x12_23_16 */
 	 0x00, 0x00, 0x00,
 	 /* gpioDrv_0x13_07_00, gpioDrv_0x13_15_08, gpioDrv_0x13_23_16 */
+#if defined (__USER_GPIO9_STRENGTH_MAX__)
+	 TCC353X_DRV_STR_GPIO_0x13_07_00, 0x02, 0x00,
+#else
 	 TCC353X_DRV_STR_GPIO_0x13_07_00, 0x00, 0x00,
+#endif
 	 /* gpioPe_0x14_07_00, gpioPe_0x14_15_08, gpioPe_0x14_23_16 */
 	 0x00, 0x00, 0x00,
 	 /* gpioSDrv_0x15_07_00, gpioSDrv_0x15_15_08, gpioSDrv_0x15_23_16 */
@@ -103,7 +111,11 @@ Tcc353xRegisterConfig_t Tcc353xSingle[3] = {
 	 /* gpioLr_0x12_07_00, gpioLr_0x12_15_08, gpioLr_0x12_23_16 */
 	 0x00, 0x00, 0x00,
 	 /* gpioDrv_0x13_07_00, gpioDrv_0x13_15_08, gpioDrv_0x13_23_16 */
+#if defined (__USER_GPIO9_STRENGTH_MAX__)
+	 TCC353X_DRV_STR_GPIO_0x13_07_00, 0x02, 0x00,
+#else
 	 TCC353X_DRV_STR_GPIO_0x13_07_00, 0x00, 0x00,
+#endif
 	 /* gpioPe_0x14_07_00, gpioPe_0x14_15_08, gpioPe_0x14_23_16 */
 	 0x00, 0x00, 0x00,
 	 /* gpioSDrv_0x15_07_00, gpioSDrv_0x15_15_08, gpioSDrv_0x15_23_16 */
@@ -162,7 +174,11 @@ Tcc353xRegisterConfig_t Tcc353xSingle[3] = {
 	 /* gpioLr_0x12_07_00, gpioLr_0x12_15_08, gpioLr_0x12_23_16 */
 	 0x00, 0x00, 0x00,
 	 /* gpioDrv_0x13_07_00, gpioDrv_0x13_15_08, gpioDrv_0x13_23_16 */
+#if defined (__USER_GPIO9_STRENGTH_MAX__)
+	 TCC353X_DRV_STR_GPIO_0x13_07_00, 0x02, 0x00,
+#else
 	 TCC353X_DRV_STR_GPIO_0x13_07_00, 0x00, 0x00,
+#endif
 	 /* gpioPe_0x14_07_00, gpioPe_0x14_15_08, gpioPe_0x14_23_16 */
 	 0x00, 0x00, 0x00,
 	 /* gpioSDrv_0x15_07_00, gpioSDrv_0x15_15_08, gpioSDrv_0x15_23_16 */
@@ -209,7 +225,111 @@ Tcc353xRegisterConfig_t Tcc353xSingle[3] = {
 	,
 };
 
-#if defined (_MODEL_TCC3535_)
+#if defined (_MODEL_F9J_)			/* OSC 19200 Hz */
+Tcc353xOption_t Tcc353xOptionSingle = {
+	/* Baseband name            */
+	BB_TCC3530,
+
+	/* board type               */
+	TCC353X_BOARD_SINGLE,
+
+	/* select command interface */
+	TCC353X_IF_TCCSPI,
+
+	/* select stream interface  */
+	TCC353X_STREAM_IO_MAINIO,
+
+	/* current device address   */
+	/* 0xA8    (first)          */
+	/* 0xAA    (second)         */
+	/* 0xAC    (third)          */
+	/* 0xAE    (fourth)         */
+	0xA8,
+
+	/* pll option               */
+	0x00, /* use default pll */ /* 0xA214 */
+
+	/* osc clk                  */
+	19200,
+
+	/* diversity position option */
+	TCC353X_DIVERSITY_NONE,
+
+	/* Interrupt usage option (tccspi-only) */
+	1,
+
+	/* RF Switching GPIO_N */
+	/* 0 : not use, N : use GPIO_N 	*/
+	/* example use gpio [23 ,09 , 03, 04] => value is [0x80 02 18]*/
+	0x00,
+
+	/* RF Switching value of GPIO_N  */
+	/* control gpioN - 0 : off, 1: on */
+	0x00, /* rfSwitchingVhfLow */
+	0x00, /* rfSwitchingVhfHigh */
+	0x00, /* rfSwitchingUhf */
+	0x00, /* rfSwitchingReserved */
+
+	/* rf type - EnumTcc353xRfType */
+	TCC353X_DUAL_BAND_RF,
+
+	/* register config          */
+	&Tcc353xSingle[0]
+};
+
+#elif defined (_MODEL_GV_) 	/* GJ Model : OSC 38400Hz */
+Tcc353xOption_t Tcc353xOptionSingle = {
+	/* Baseband name            */
+	BB_TCC3530,
+
+	/* board type               */
+	TCC353X_BOARD_SINGLE,
+
+	/* select command interface */
+	TCC353X_IF_TCCSPI,
+
+	/* select stream interface  */
+	TCC353X_STREAM_IO_MAINIO,
+
+	/* current device address   */
+	/* 0xA8    (first)          */
+	/* 0xAA    (second)         */
+	/* 0xAC    (third)          */
+	/* 0xAE    (fourth)         */
+	0xA8,
+
+	/* pll option               */
+	0x00, /* use default pll */ /* 0xA214 */
+
+	/* osc clk                  */
+	38400,
+
+	/* diversity position option */
+	TCC353X_DIVERSITY_NONE,
+
+	/* Interrupt usage option (tccspi-only) */
+	1,
+
+	/* RF Switching GPIO_N */
+	/* 0 : not use, N : use GPIO_N 	*/
+	/* example use gpio [23 ,09 , 03, 04] => value is [0x80 02 18]*/
+	(1<<GPIO_NUM_RF_SWITCHING_TCC3530),
+
+	/* RF Switching value of GPIO_N  */
+	/* control gpioN - 0 : off, 1: on */
+	0x00, /* rfSwitchingVhfLow */
+	0x00, /* rfSwitchingVhfHigh */
+	(1<<GPIO_NUM_RF_SWITCHING_TCC3530), /* rfSwitchingUhf */
+	0x00, /* rfSwitchingReserved */
+
+	/* rf type - EnumTcc353xRfType */
+	TCC353X_DUAL_BAND_RF,
+
+	/* register config          */
+	&Tcc353xSingle[0]
+};
+
+#elif defined (_MODEL_TCC3535_)
 Tcc353xOption_t Tcc353xOptionSingle = {
 	/* Baseband name            */
 	BB_TCC3535,

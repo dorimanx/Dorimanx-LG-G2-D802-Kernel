@@ -112,6 +112,32 @@ void TcpaluSleep(I32S _us)
 }
 
 /* for memory allocation, free, set */
+void *TcpalMalloc(I32U _size)
+{
+	void *ptr = NULL;
+
+	if (!_size)
+		ptr = NULL;
+	else
+		ptr = (void *)kmalloc(_size, GFP_KERNEL);
+
+	return ptr;
+}
+
+I32S TcpalFree(void *_ptr)
+{
+	I32S error;
+	error = TCC353X_RETURN_SUCCESS;
+
+	if (_ptr == NULL) {
+		error = TCC353X_RETURN_FAIL_NULL_ACCESS;
+	} else {
+		kfree(_ptr);
+		_ptr = NULL;
+	}
+	return TCC353X_RETURN_SUCCESS;
+}
+
 void *TcpalMemset(void *_dest, I32U _data, I32U _cnt)
 {
 	void *ptr = NULL;

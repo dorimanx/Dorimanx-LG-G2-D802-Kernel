@@ -16,7 +16,7 @@
 #include <mach/gpio.h>
 
 #include <linux/time.h>
-//#include <stdlib.h>	// taew00k.kang
+//#include <stdlib.h>
 
 
 #include "fc8150_console.h"
@@ -203,34 +203,34 @@ static int isdbt_thread(void *hDevice)
 	static DEFINE_MUTEX(thread_lock);
 
 	ISDBT_INIT_INFO_T *hInit = (ISDBT_INIT_INFO_T *)hDevice;
-	
+
 	// hyewon.eum changed for better play 1seg with a bad dtv tuner chip fc8101 2011-06-08
 	//set_user_nice(current, -20);
-	
+
 	PRINTF(hInit, "isdbt_kthread enter\n");
 
 	BBM_TS_CALLBACK_REGISTER((u32)hInit, data_callback);
-	
+
 	while(1)
 	{
 		wait_event_interruptible(isdbt_isr_wait, isdbt_isr_sig || kthread_should_stop());
-		
+
 		isdbt_isr_sig=0;
-		
+
 		BBM_ISR(hInit);
-	
+
 		if (kthread_should_stop())
 			break;
 	}
 
 	BBM_TS_CALLBACK_DEREGISTER();
-	
+
 	PRINTF(hInit, "isdbt_kthread exit\n");
 
 	return 0;
 }
 
-static struct file_operations isdbt_fops = 
+static struct file_operations isdbt_fops =
 {
 	.owner		= THIS_MODULE,
 	.unlocked_ioctl		= isdbt_ioctl,
@@ -286,7 +286,7 @@ ssize_t isdbt_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
 		//PRINTF(hInit, " return 0\n");
                 return 0;
 	}
-	
+
 	if (non_blocking && (fci_ringbuffer_empty(cibuf)))
 	{
 		//PRINTF(hInit, "return EWOULDBLOCK\n");
@@ -300,22 +300,22 @@ ssize_t isdbt_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
 	}
 	#endif
 	avail = fci_ringbuffer_avail(cibuf);
-	
+
 	if (avail < 4)
 	{
 		//PRINTF(hInit, "return 00\n");
 		return 0;
 	}
-	
+
 	len = FCI_RINGBUFFER_PEEK(cibuf, 0) << 8;
 	len |= FCI_RINGBUFFER_PEEK(cibuf, 1);
-	
+
 	if (avail < len + 2 || count < len)
 	{
-		PRINTF(hInit, "return EINVAL\n");		
+		PRINTF(hInit, "return EINVAL\n");
 		return -EINVAL;
 	}
-	
+
 	FCI_RINGBUFFER_SKIP(cibuf, 2);
 
 	return fci_ringbuffer_read_user(cibuf, buf, len);
@@ -343,22 +343,22 @@ long isdbt_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 	s32 err = 0;
 	s32 size = 0;
 	ISDBT_OPEN_INFO_T *hOpen;
-	//char *freq = "performance";	// taew00k.kang
-	//static int fd = 0;		// taew00k.kang
+	//char *freq = "performance";
+	//static int fd = 0;
 
 	ioctl_info info;
 
-	if(_IOC_TYPE(cmd) != IOCTL_MAGIC) 
+	if(_IOC_TYPE(cmd) != IOCTL_MAGIC)
 		return -EINVAL;
-	if(_IOC_NR(cmd) >= IOCTL_MAXNR) 
+	if(_IOC_NR(cmd) >= IOCTL_MAXNR)
 		return -EINVAL;
 
 	hOpen = filp->private_data;
 
 	size = _IOC_SIZE(cmd);
-	PRINTF(0, "console isdbt_ioctl  0x%x\n", cmd);	
+	PRINTF(0, "console isdbt_ioctl  0x%x\n", cmd);
 
-	switch(cmd) 
+	switch(cmd)
 	{
 		case IOCTL_ISDBT_RESET:
 			res = BBM_RESET(hInit);
@@ -432,7 +432,7 @@ long isdbt_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			hOpen->isdbttype = 0;
 			break;
 		case IOCTL_ISDBT_POWER_ON:
-			PRINTF(0, "IOCTL_ISDBT_POWER_ON \n");	
+			PRINTF(0, "IOCTL_ISDBT_POWER_ON \n");
 			isdbt_hw_init();
 			break;
 		case IOCTL_ISDBT_POWER_OFF:
@@ -441,7 +441,7 @@ long isdbt_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			fd = open("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor",O_WRONLY);
 			write(fd, freq, strlen(freq));
 			close(fd);*/
-			//system("echo ondemand >/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"); 
+			//system("echo ondemand >/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor");
 
 			break;
 		default:
@@ -449,13 +449,13 @@ long isdbt_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			res = BBM_NOK;
 			break;
 	}
-	
+
 	if(err < 0)
 	{
 		PRINTF(hInit, "copy to/from user fail : %d", err);
 		res = BBM_NOK;
 	}
-	return res; 
+	return res;
 }
 
 int isdbt_init(void)
@@ -479,7 +479,7 @@ int isdbt_init(void)
 	hInit = (ISDBT_INIT_INFO_T *)kmalloc(sizeof(ISDBT_INIT_INFO_T), GFP_KERNEL);
 
 	res = BBM_HOSTIF_SELECT(hInit, BBM_SPI);
-	
+
 	if(res)
 		PRINTF(hInit, "isdbt host interface select fail!\n");
 
@@ -488,13 +488,13 @@ int isdbt_init(void)
 
 	if (!isdbt_kthread)
 	{
-		
+
 		PRINTF(hInit, "kthread run\n");
 		isdbt_kthread = kthread_run(isdbt_thread, (void*)hInit, "isdbt_thread");
 	}
-	
+
 	res = request_irq(gpio_to_irq(GPIO_ISDBT_IRQ), isdbt_irq, IRQF_DISABLED | IRQF_TRIGGER_FALLING, FC8150_NAME, NULL);
-	if(res) 
+	if(res)
 	{
 		PRINTF(hInit, "dmb rquest irq fail : %d\n", res);
 	}
@@ -509,14 +509,14 @@ void isdbt_exit(void)
 	PRINTF(hInit, "isdbt isdbt_exit \n");
 
 	free_irq(GPIO_ISDBT_IRQ, NULL);
-	
+
 	kthread_stop(isdbt_kthread);
 	isdbt_kthread = NULL;
 
 	BBM_HOSTIF_DESELECT(hInit);
 
 	isdbt_hw_deinit();
-	
+
 	misc_deregister(&fc8150_misc_device);
 
 	kfree(hInit);
