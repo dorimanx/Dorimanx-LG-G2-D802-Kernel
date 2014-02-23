@@ -116,7 +116,7 @@ out:
 	return err;
 }
 
-/*                                                                                         */
+/*2013-05-02 Hyoungtaek-Lim[hyoungtaek.lim@lge.com)[g2/vmware/vzw,att]VMware Switch [START]*/
 #ifdef CONFIG_LGE_B2B_VMWARE
 extern int _fat_fallocate(struct inode *inode, loff_t len);
 
@@ -174,7 +174,7 @@ static long fat_vmw_extend(struct file *filp, unsigned long len)
     return _fat_fallocate(inode, off);
 }
 #endif
-/*                                                                                       */
+/*2013-05-02 Hyoungtaek-Lim[hyoungtaek.lim@lge.com)[g2/vmware/vzw,att]VMware Switch [END]*/
 
 long fat_generic_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -186,12 +186,12 @@ long fat_generic_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return fat_ioctl_get_attributes(inode, user_attr);
 	case FAT_IOCTL_SET_ATTRIBUTES:
 		return fat_ioctl_set_attributes(filp, user_attr);
-/*                                                                                         */
+/*2013-05-02 Hyoungtaek-Lim[hyoungtaek.lim@lge.com)[g2/vmware/vzw,att]VMware Switch [START]*/
 #ifdef CONFIG_LGE_B2B_VMWARE
     case FAT_IOCTL_VMW_EXTEND:
         return fat_vmw_extend(filp, arg);
 #endif
-/*                                                                                       */
+/*2013-05-02 Hyoungtaek-Lim[hyoungtaek.lim@lge.com)[g2/vmware/vzw,att]VMware Switch [END]*/
 	default:
 		return -ENOTTY;	/* Inappropriate ioctl for device */
 	}

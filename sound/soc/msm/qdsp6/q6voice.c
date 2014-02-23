@@ -1519,7 +1519,11 @@ static int voice_send_cvs_register_cal_cmd(struct voice_data *v)
 
 	/* get the cvs cal data */
 	get_all_vocstrm_cal(&cal_block);
-	if (cal_block.cal_size == 0)
+// 2013-10-29 [Start] Case #01316014 QCT patch from code "aurora ASoC: msm: qdsp6v2: Fix buffer overflow in voice driver"	
+//	if (cal_block.cal_size == 0)  // original
+	if (cal_block.cal_size == 0 ||
+	    cal_block.cal_size > CVS_CAL_SIZE)
+// 2013-10-29 [Start] Case #01316014 QCT patch from code "aurora ASoC: msm: qdsp6v2: Fix buffer overflow in voice driver"
 		goto fail;
 
 	if (v == NULL) {
@@ -1928,7 +1932,12 @@ static int voice_send_cvp_register_cal_cmd(struct voice_data *v)
 
       /* get the cvp cal data */
 	get_all_vocproc_cal(&cal_block);
-	if (cal_block.cal_size == 0)
+// 2013-10-29 [Start] Case #01316014 QCT patch from code "aurora ASoC: msm: qdsp6v2: Fix buffer overflow in voice driver"
+//	if (cal_block.cal_size == 0)  //original
+	if (cal_block.cal_size == 0 ||
+    cal_block.cal_size > CVP_CAL_SIZE)
+// 2013-10-29 [End] Case #01316014 QCT patch from code "aurora ASoC: msm: qdsp6v2: Fix buffer overflow in voice driver"
+
 		goto fail;
 
 	if (v == NULL) {
@@ -2063,7 +2072,11 @@ static int voice_send_cvp_register_vol_cal_table_cmd(struct voice_data *v)
 	get_all_vocvol_cal(&vol_block);
 	get_all_vocproc_cal(&voc_block);
 
-	if (vol_block.cal_size == 0)
+// 2013-10-29 [Start] Case #01316014 QCT patch from code "aurora ASoC: msm: qdsp6v2: Fix buffer overflow in voice driver"
+//	if (vol_block.cal_size == 0)  // original
+	if (vol_block.cal_size == 0 ||
+	    vol_block.cal_size > CVP_CAL_SIZE)
+// 2013-10-29 [End] Case #01316014 QCT patch from code "aurora ASoC: msm: qdsp6v2: Fix buffer overflow in voice driver"
 		goto fail;
 
 	if (v == NULL) {

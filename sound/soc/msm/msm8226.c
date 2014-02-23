@@ -75,6 +75,9 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.micbias_enable_flags = 0,
 	.insert_detect = true,
 	.swap_gnd_mic = NULL,
+	.cs_enable_flags = (1 << MBHC_CS_ENABLE_POLLING |
+			    1 << MBHC_CS_ENABLE_INSERTION |
+			    1 << MBHC_CS_ENABLE_REMOVAL),
 };
 
 struct msm_auxpcm_gpio {
@@ -147,7 +150,6 @@ static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 		if (clk_users != 1)
 			goto exit;
 		if (codec_clk) {
-			clk_set_rate(codec_clk, TAPAN_EXT_CLK_RATE);
 			clk_prepare_enable(codec_clk);
 			tapan_mclk_enable(codec, 1, dapm);
 		} else {
@@ -647,7 +649,7 @@ void *def_tapan_mbhc_cal(void)
 	S(c[1], 124);
 	S(nc, 1);
 	S(n_meas, 5);
-	S(mbhc_nsc, 11);
+	S(mbhc_nsc, 10);
 	S(n_btn_meas, 1);
 	S(n_btn_con, 2);
 	S(num_btn, WCD9XXX_MBHC_DEF_BUTTONS);
@@ -1089,7 +1091,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 	{
 		.name = LPASS_BE_AUXPCM_RX,
 		.stream_name = "AUX PCM Playback",
-		.cpu_dai_name = "msm-dai-q6.4106",
+		.cpu_dai_name = "msm-dai-q6-auxpcm.1",
 		.platform_name = "msm-pcm-routing",
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-rx",
@@ -1104,7 +1106,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 	{
 		.name = LPASS_BE_AUXPCM_TX,
 		.stream_name = "AUX PCM Capture",
-		.cpu_dai_name = "msm-dai-q6.4107",
+		.cpu_dai_name = "msm-dai-q6-auxpcm.1",
 		.platform_name = "msm-pcm-routing",
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-tx",

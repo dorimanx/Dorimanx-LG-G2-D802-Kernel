@@ -3446,9 +3446,11 @@ restart:
 
 			sock_hold(sk);
 			spin_unlock_bh(lock);
+/* 2013-07-05 indal.choi@lge.com LGP_DATA_KERNEL_CRASHFIX_TCP_DUKE_ADDR [START] */
 #ifdef CONFIG_MACH_LGE
 			lock_sock(sk);
 #endif
+/* 2013-07-05 indal.choi@lge.com LGP_DATA_KERNEL_CRASHFIX_TCP_DUKE_ADDR [END] */
 			local_bh_disable();
 			bh_lock_sock(sk);
 			sk->sk_err = ETIMEDOUT;
@@ -3457,9 +3459,11 @@ restart:
 			tcp_done(sk);
 			bh_unlock_sock(sk);
 			local_bh_enable();
+/* 2013-07-05 indal.choi@lge.com LGP_DATA_KERNEL_CRASHFIX_TCP_DUKE_ADDR [START] */
 #ifdef CONFIG_MACH_LGE
 			release_sock(sk);
 #endif
+/* 2013-07-05 indal.choi@lge.com LGP_DATA_KERNEL_CRASHFIX_TCP_DUKE_ADDR [END] */
 			sock_put(sk);
 
 			goto restart;

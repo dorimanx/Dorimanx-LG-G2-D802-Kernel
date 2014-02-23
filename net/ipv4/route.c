@@ -2794,13 +2794,13 @@ static struct rtable *ip_route_output_slow(struct net *net, struct flowi4 *fl4)
 
 	dev_out = FIB_RES_DEV(res);
 
-	/*                                                                   */
+	/* 2012-06-16 jewon.lee@lge.com LGP_DATA_KERNEL_BUGFIX_ROUTE [START] */
 	if (dev_out == NULL) {
 		printk(KERN_DEBUG "dev_out is null\n");
 		rth = ERR_PTR(-ENETUNREACH);
 		goto out;
 	}
-	/*                                                                 */
+	/* 2012-06-16 jewon.lee@lge.com LGP_DATA_KERNEL_BUGFIX_ROUTE [END] */
 
 	fl4->flowi4_oif = dev_out->ifindex;
 
