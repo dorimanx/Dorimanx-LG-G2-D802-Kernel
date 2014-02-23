@@ -207,7 +207,7 @@ int diag_hdlc_decode(struct diag_hdlc_decode_type *hdlc)
 				}
 			} else if (src_byte == CONTROL_CHAR) {
 
-				if (len == 0) /*                              */
+				if (len == 0) /* LGE CODE for remove first 7E */
 					continue;
 
 				dest_ptr[len++] = src_byte;

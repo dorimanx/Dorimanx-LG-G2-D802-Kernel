@@ -598,4 +598,4 @@ module_exit(lge_dm_dev_tty_exit);
 MODULE_DESCRIPTION("LGE DM DEV TTY");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Seongmook Yim <seongmook.yim@lge.com>");
-#endif /*                 */
+#endif /*CONFIG_LGE_DM_DEV*/
