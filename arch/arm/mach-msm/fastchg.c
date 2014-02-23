@@ -80,6 +80,7 @@ static ssize_t charge_level_store(struct kobject *kobj,
 		case FAST_CHARGE_900:
 		case FAST_CHARGE_1200:
 		case FAST_CHARGE_1500:
+		case FAST_CHARGE_1800:
 		case FAST_CHARGE_2000:
 			fast_charge_level = new_charge_level;
 			return count;

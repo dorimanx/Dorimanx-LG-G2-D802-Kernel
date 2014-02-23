@@ -3184,6 +3184,10 @@ static int smb349_input_current_limit_set(struct smb349_struct *smb349_chg, int 
 				i = 6;
 				custom_ma = FAST_CHARGE_1500;
 				break;
+			case FAST_CHARGE_1800:
+				i = 9;
+				custom_ma = FAST_CHARGE_1800;
+				break;
 			case FAST_CHARGE_2000:
 				i = 0xA;
 				custom_ma = FAST_CHARGE_2000;

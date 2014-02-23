@@ -839,11 +839,9 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 						dwc3_otg_set_power(phy,
 							DWC3_IDEV_CHG_MAX);
 					else
-						dwc3_otg_set_power(phy,
-							IUNIT);
+						dwc3_otg_set_power(phy, IUNIT);
 #else
-					dwc3_otg_set_power(phy,
-								IUNIT);
+					dwc3_otg_set_power(phy, IUNIT);
 #endif
 #ifdef CONFIG_LGE_PM
 					if (!slimport_is_connected()) {
