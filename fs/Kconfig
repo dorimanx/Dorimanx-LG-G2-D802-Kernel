@@ -312,8 +312,7 @@ config RESTRICT_ROOTFS_SLAVE
 	  previous behavior of marking the entire filesystem hierarchy as slave.
 
 config ASYNC_FSYNC
-	bool
-	string "asynchronous fsync"
+	bool "asynchronous fsync"
 	default y
 
 endmenu
