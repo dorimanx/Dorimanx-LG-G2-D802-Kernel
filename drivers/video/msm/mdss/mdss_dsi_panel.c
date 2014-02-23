@@ -1184,14 +1184,18 @@ struct syscore_ops panel_syscore_ops = {
 static int read_local_on_cmds(char *buf, size_t cmd)
 {
 	int i, len = 0;
-	int dlen;
+	int dlen, offset = 0;
+	bool rgb;
 
-	dlen = local_pdata->on_cmds.cmds[cmd].dchdr.dlen - 1;
+	rgb = local_pdata->on_cmds.cmds[cmd].dchdr.dlen == 0x19;
+	if (rgb)
+		offset = 1;
+
+	dlen = local_pdata->on_cmds.cmds[cmd].dchdr.dlen - offset;
 	if (!dlen)
 		return -ENOMEM;
 
-	/* don't print first and last bits */
-	for (i = 1; i < dlen; i++)
+	for (i = offset; i < dlen; i++)
 		len += sprintf(buf + len, "%d ",
 			       local_pdata->on_cmds.cmds[cmd].payload[i]);
 
@@ -1206,8 +1210,9 @@ static int write_local_on_cmds(struct device *dev, const char *buf,
 			       size_t cmd)
 {
 	int i, rc = 0;
-	int dlen;
 	unsigned int val;
+	int dlen, offset = 0;
+	bool rgb;
 	char tmp[3];
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
 	struct mdss_panel_common_pdata *prev_local_data;
@@ -1225,18 +1230,18 @@ static int write_local_on_cmds(struct device *dev, const char *buf,
 	ctrl = container_of(cmds_panel_data, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	/*
-	 * Last bit is not written because it's either fixed at 0x00 for
-	 * RGB or a duplicate of the previous bit for the white point.
-	 */
-	dlen = local_pdata->on_cmds.cmds[cmd].dchdr.dlen - 1;
+	rgb = local_pdata->on_cmds.cmds[cmd].dchdr.dlen == 0x19;
+	if (rgb)
+		offset = 1;
+
+	dlen = local_pdata->on_cmds.cmds[cmd].dchdr.dlen - offset;
 	if (!dlen)
 		return -EINVAL;
 
 	prev_local_data = local_pdata;
 
-	for (i = 1; i < dlen; i++) {
-		rc = sscanf(buf, "%u", &val);
+	for (i = offset; i < dlen; i++) {
+		rc = sscanf(buf, "%d", &val);
 		if (rc != 1)
 			return -EINVAL;
 
@@ -1247,16 +1252,14 @@ static int write_local_on_cmds(struct device *dev, const char *buf,
 		}
 
 		local_pdata->on_cmds.cmds[cmd].payload[i] = val;
-		/* white point value must be duplicated */
-		if (cmd == 5)
-			local_pdata->on_cmds.cmds[cmd].payload[i + 1] = val;
+		if (rgb)
+			local_pdata->on_cmds.cmds[cmd + 2].payload[i] = val;
 
 		sscanf(buf, "%s", tmp);
 		buf += strlen(tmp) + 1;
 		cnt = strlen(tmp);
 	}
 
-	/* send commands */
 	if (local_pdata->on_cmds.cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, &local_pdata->on_cmds);
 
@@ -1274,13 +1277,17 @@ static ssize_t read_##file_name					\
 	return read_local_on_cmds(buf, cmd);			\
 }
 
-read_one(kgamma_w,   5);
 read_one(kgamma_rp,  7);
 read_one(kgamma_rn,  9);
 read_one(kgamma_gp, 11);
 read_one(kgamma_gn, 13);
 read_one(kgamma_bp, 15);
 read_one(kgamma_bn, 17);
+read_one(kgamma_1,   1);
+read_one(kgamma_3,   3);
+read_one(kgamma_w,   5);
+read_one(kgamma_20, 20);
+read_one(kgamma_22, 22);
 
 #define write_one(file_name, cmd)				\
 static ssize_t write_##file_name				\
@@ -1290,33 +1297,45 @@ static ssize_t write_##file_name				\
 	return write_local_on_cmds(dev, buf, cmd);		\
 }
 
-write_one(kgamma_w,   5);
 write_one(kgamma_rp,  7);
 write_one(kgamma_rn,  9);
 write_one(kgamma_gp, 11);
 write_one(kgamma_gn, 13);
 write_one(kgamma_bp, 15);
 write_one(kgamma_bn, 17);
+write_one(kgamma_1,   1);
+write_one(kgamma_3,   3);
+write_one(kgamma_w,   5);
+write_one(kgamma_20, 20);
+write_one(kgamma_22, 22);
 
 #define define_one_rw(_name)					\
 static DEVICE_ATTR(_name, 0644, read_##_name, write_##_name);
 
-define_one_rw(kgamma_w);
 define_one_rw(kgamma_rp);
 define_one_rw(kgamma_rn);
 define_one_rw(kgamma_gp);
 define_one_rw(kgamma_gn);
 define_one_rw(kgamma_bp);
 define_one_rw(kgamma_bn);
+define_one_rw(kgamma_1);
+define_one_rw(kgamma_3);
+define_one_rw(kgamma_w);
+define_one_rw(kgamma_20);
+define_one_rw(kgamma_22);
 
 static struct attribute *dsi_panel_attributes[] = {
-	&dev_attr_kgamma_w.attr,
 	&dev_attr_kgamma_rp.attr,
 	&dev_attr_kgamma_rn.attr,
 	&dev_attr_kgamma_gp.attr,
 	&dev_attr_kgamma_gn.attr,
 	&dev_attr_kgamma_bp.attr,
 	&dev_attr_kgamma_bn.attr,
+	&dev_attr_kgamma_1.attr,
+	&dev_attr_kgamma_3.attr,
+	&dev_attr_kgamma_w.attr,
+	&dev_attr_kgamma_20.attr,
+	&dev_attr_kgamma_22.attr,
 	NULL
 };
 
