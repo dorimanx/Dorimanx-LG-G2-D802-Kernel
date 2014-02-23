@@ -21,7 +21,7 @@
  * 11/18/2013 - port my N4's vertical sweep to N5
  * 		Paul Reioux <reioux@gmail.com>
  */
-
+ 
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/types.h>
@@ -36,36 +36,36 @@
 #include <linux/powersuspend.h>
 #endif
 #include <linux/hrtimer.h>
-
+ 
 /* uncomment since no touchscreen defines android touch, do that here */
 //#define ANDROID_TOUCH_DECLARED
-
+ 
 /* Version, author, desc, etc */
 #define DRIVER_AUTHOR "Dennis Rassmann <showp1984@gmail.com>"
 #define DRIVER_DESCRIPTION "Sweep2wake for almost any device"
-#define DRIVER_VERSION "1.5"
+#define DRIVER_VERSION "1.5-Modded for G2 as sweep2sleep only by Ayysir"
 #define LOGTAG "[sweep2wake]: "
-
+ 
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESCRIPTION);
 MODULE_VERSION(DRIVER_VERSION);
 MODULE_LICENSE("GPLv2");
-
+ 
 /* Tuneables */
 #define S2W_DEBUG		0
 #define S2W_DEFAULT		0
-#define S2W_S2SONLY_DEFAULT	0
+#define S2S_DEFAULT	0
 #define S2W_PWRKEY_DUR          60
-
+ 
 #define DEFAULT_S2W_Y_MAX               1920
 #define DEFAULT_S2W_X_MAX               1080
 #define DEFAULT_S2W_Y_LIMIT             DEFAULT_S2W_Y_MAX-130
 #define DEFAULT_S2W_X_B1                400
 #define DEFAULT_S2W_X_B2                700
 #define DEFAULT_S2W_X_FINAL             250
-
+ 
 /* Resources */
-int s2w_switch = S2W_DEFAULT, s2w_s2sonly = S2W_S2SONLY_DEFAULT;
+int s2w_switch = S2W_DEFAULT, s2s = S2S_DEFAULT;
 static int touch_x = 0, touch_y = 0;
 static bool touch_x_called = false, touch_y_called = false;
 static bool scr_suspended = false, exec_count = true;
@@ -75,15 +75,15 @@ static struct input_dev * sweep2wake_pwrdev;
 static DEFINE_MUTEX(pwrkeyworklock);
 static struct workqueue_struct *s2w_input_wq;
 static struct work_struct s2w_input_work;
-
+ 
 static int s2w_start_posn = DEFAULT_S2W_X_B1;
 static int s2w_mid_posn = DEFAULT_S2W_X_B2;
 static int s2w_end_posn = (DEFAULT_S2W_X_MAX - DEFAULT_S2W_X_FINAL);
 static int s2w_threshold = DEFAULT_S2W_X_FINAL;
 //static int s2w_max_posn = DEFAULT_S2W_X_MAX;
-
+ 
 static int s2w_swap_coord = 0;
-
+ 
 /* Read cmdline for s2w */
 static int __init read_s2w_cmdline(char *s2w)
 {
@@ -102,7 +102,7 @@ static int __init read_s2w_cmdline(char *s2w)
 	return 1;
 }
 __setup("s2w=", read_s2w_cmdline);
-
+ 
 /* PowerKey work func */
 static void sweep2wake_presspwr(struct work_struct * sweep2wake_presspwr_work) {
 	if (!mutex_trylock(&pwrkeyworklock))
@@ -117,13 +117,13 @@ static void sweep2wake_presspwr(struct work_struct * sweep2wake_presspwr_work) {
 	return;
 }
 static DECLARE_WORK(sweep2wake_presspwr_work, sweep2wake_presspwr);
-
+ 
 /* PowerKey trigger */
 static void sweep2wake_pwrtrigger(void) {
 	schedule_work(&sweep2wake_presspwr_work);
         return;
 }
-
+ 
 /* reset on finger release */
 static void sweep2wake_reset(void) {
 	exec_count = true;
@@ -131,7 +131,7 @@ static void sweep2wake_reset(void) {
 	barrier[1] = false;
 	scr_on_touch = false;
 }
-
+ 
 /* Sweep2wake main function */
 static void detect_sweep2wake(int sweep_coord, int sweep_height, bool st)
 {
@@ -146,11 +146,11 @@ static void detect_sweep2wake(int sweep_coord, int sweep_height, bool st)
 		//swap the coordinate system
 		swap_temp1 = sweep_coord;
 		swap_temp2 = sweep_height;
-
+ 
 		sweep_height = swap_temp1;
 		sweep_coord = swap_temp2;
 	}
-
+ 
 	//power on
 	if ((single_touch) && (scr_suspended == true) && (s2w_switch > 0)) {
 		prev_coord = 0;
@@ -183,11 +183,11 @@ static void detect_sweep2wake(int sweep_coord, int sweep_height, bool st)
 			//swap back for off scenario ONLY
 			swap_temp1 = sweep_coord;
 			swap_temp2 = sweep_height;
-
+ 
 			sweep_height = swap_temp1;
 			sweep_coord = swap_temp2;
 		}
-
+ 
 		scr_on_touch=true;
 		prev_coord = (DEFAULT_S2W_X_MAX - DEFAULT_S2W_X_FINAL);
 		next_coord = DEFAULT_S2W_X_B2;
@@ -218,14 +218,14 @@ static void detect_sweep2wake(int sweep_coord, int sweep_height, bool st)
 		}
 	}
 }
-
+ 
 /****************** SYSFS INTERFACE (START) ********************/
 static ssize_t s2w_start_posn_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%i\n", s2w_start_posn);
 }
-
+ 
 static ssize_t s2w_start_posn_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
@@ -236,13 +236,13 @@ static ssize_t s2w_start_posn_store(struct kobject *kobj,
 		pr_info("%s: unknown input!\n", __FUNCTION__);
 	return count;
 }
-
+ 
 static ssize_t s2w_mid_posn_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%i\n", s2w_mid_posn);
 }
-
+ 
 static ssize_t s2w_mid_posn_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
@@ -253,13 +253,13 @@ static ssize_t s2w_mid_posn_store(struct kobject *kobj,
 		pr_info("%s: unknown input!\n", __FUNCTION__);
 	return count;
 }
-
+ 
 static ssize_t s2w_end_posn_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%i\n", s2w_end_posn);
 }
-
+ 
 static ssize_t s2w_end_posn_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
@@ -270,13 +270,13 @@ static ssize_t s2w_end_posn_store(struct kobject *kobj,
 		pr_info("%s: unknown input!\n", __FUNCTION__);
 	return count;
 }
-
+ 
 static ssize_t s2w_threshold_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%i\n", s2w_threshold);
 }
-
+ 
 static ssize_t s2w_threshold_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
@@ -287,13 +287,13 @@ static ssize_t s2w_threshold_store(struct kobject *kobj,
 		pr_info("%s: unknown input!\n", __FUNCTION__);
 	return count;
 }
-
+ 
 static ssize_t s2w_swap_coord_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%i\n", s2w_swap_coord);
 }
-
+ 
 static ssize_t s2w_swap_coord_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
@@ -304,37 +304,37 @@ static ssize_t s2w_swap_coord_store(struct kobject *kobj,
 		pr_info("%s: unknown input!\n", __FUNCTION__);
 	return count;
 }
-
+ 
 static struct kobj_attribute s2w_start_posn_attribute =
 	__ATTR(s2w_start_posn,
 		0666,
 		s2w_start_posn_show,
 		s2w_start_posn_store);
-
+ 
 static struct kobj_attribute s2w_mid_posn_attribute =
 	__ATTR(s2w_mid_posn,
 		0666,
 		s2w_mid_posn_show,
 		s2w_mid_posn_store);
-
+ 
 static struct kobj_attribute s2w_end_posn_attribute =
 	__ATTR(s2w_end_posn,
 		0666,
 		s2w_end_posn_show,
 		s2w_end_posn_store);
-
+ 
 static struct kobj_attribute s2w_threshold_attribute =
 	__ATTR(s2w_threshold,
 		0666,
 		s2w_threshold_show,
 		s2w_threshold_store);
-
+ 
 static struct kobj_attribute s2w_swap_coord_attribute =
 	__ATTR(s2w_swap_coord,
 		0666,
 		s2w_swap_coord_show,
 		s2w_swap_coord_store);
-
+ 
 static struct attribute *s2w_parameters_attrs[] =
 	{
 		&s2w_start_posn_attribute.attr,
@@ -344,23 +344,23 @@ static struct attribute *s2w_parameters_attrs[] =
 		&s2w_swap_coord_attribute.attr,
 		NULL,
 	};
-
+ 
 static struct attribute_group s2w_parameters_attr_group =
 	{
 		.attrs = s2w_parameters_attrs,
 	};
-
+ 
 static struct kobject *s2w_parameters_kobj;
 /****************** SYSFS INTERFACE (END) ********************/
-
-
+ 
+ 
 static void s2w_input_callback(struct work_struct *unused) {
-
+ 
 	detect_sweep2wake(touch_x, touch_y, true);
-
+ 
 	return;
 }
-
+ 
 static void s2w_input_event(struct input_handle *handle, unsigned int type,
 				unsigned int code, int value) {
 #if S2W_DEBUG
@@ -374,29 +374,29 @@ static void s2w_input_event(struct input_handle *handle, unsigned int type,
 		sweep2wake_reset();
 		return;
 	}
-
+ 
 	if (code == ABS_MT_TRACKING_ID && value == -1) {
 		sweep2wake_reset();
 		return;
 	}
-
+ 
 	if (code == ABS_MT_POSITION_X) {
 		touch_x = value;
 		touch_x_called = true;
 	}
-
+ 
 	if (code == ABS_MT_POSITION_Y) {
 		touch_y = value;
 		touch_y_called = true;
 	}
-
+ 
 	if (touch_x_called && touch_y_called) {
 		touch_x_called = false;
 		touch_y_called = false;
 		queue_work_on(0, s2w_input_wq, &s2w_input_work);
 	}
 }
-
+ 
 static int input_dev_filter(struct input_dev *dev) {
 	if (strstr(dev->name, "touch") ||
 	    strstr(dev->name, "lge_touch_core")) {
@@ -405,31 +405,31 @@ static int input_dev_filter(struct input_dev *dev) {
 		return 1;
 	}
 }
-
+ 
 static int s2w_input_connect(struct input_handler *handler,
 				struct input_dev *dev, const struct input_device_id *id) {
 	struct input_handle *handle;
 	int error;
-
+ 
 	if (input_dev_filter(dev))
 		return -ENODEV;
-
+ 
 	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
 	if (!handle)
 		return -ENOMEM;
-
+ 
 	handle->dev = dev;
 	handle->handler = handler;
 	handle->name = "s2w";
-
+ 
 	error = input_register_handle(handle);
 	if (error)
 		goto err2;
-
+ 
 	error = input_open_device(handle);
 	if (error)
 		goto err1;
-
+ 
 	return 0;
 err1:
 	input_unregister_handle(handle);
@@ -437,18 +437,18 @@ err2:
 	kfree(handle);
 	return error;
 }
-
+ 
 static void s2w_input_disconnect(struct input_handle *handle) {
 	input_close_device(handle);
 	input_unregister_handle(handle);
 	kfree(handle);
 }
-
+ 
 static const struct input_device_id s2w_ids[] = {
 	{ .driver_info = 1 },
 	{ },
 };
-
+ 
 static struct input_handler s2w_input_handler = {
 	.event		= s2w_input_event,
 	.connect	= s2w_input_connect,
@@ -456,134 +456,112 @@ static struct input_handler s2w_input_handler = {
 	.name		= "s2w_inputreq",
 	.id_table	= s2w_ids,
 };
-
+ 
 #ifdef CONFIG_POWERSUSPEND
 static void s2w_power_suspend(struct power_suspend *h) {
 	scr_suspended = true;
 }
-
+ 
 static void s2w_power_resume(struct power_suspend *h) {
 	scr_suspended = false;
 }
-
+ 
 static struct power_suspend s2w_power_suspend_handler = {
 	.suspend = s2w_power_suspend,
 	.resume = s2w_power_resume,
 };
 #endif
-
+ 
 /*
  * SYSFS stuff below here
  */
-static ssize_t s2w_sweep2wake_show(struct device *dev,
+static ssize_t s2w_sweep2sleep_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	size_t count = 0;
-
+ 
 	count += sprintf(buf, "%d\n", s2w_switch);
-
+ 
 	return count;
 }
-
-static ssize_t s2w_sweep2wake_dump(struct device *dev,
+ 
+static ssize_t s2w_sweep2sleep_dump(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	if (buf[0] >= '0' && buf[0] <= '1' && buf[1] == '\n')
                 if (s2w_switch != buf[0] - '0')
 		        s2w_switch = buf[0] - '0';
-
+ 
 	return count;
 }
-
-static DEVICE_ATTR(sweep2wake, (S_IWUSR|S_IRUGO),
-	s2w_sweep2wake_show, s2w_sweep2wake_dump);
-
-static ssize_t s2w_s2w_s2sonly_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	size_t count = 0;
-
-	count += sprintf(buf, "%d\n", s2w_s2sonly);
-
-	return count;
-}
-
-static ssize_t s2w_s2w_s2sonly_dump(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	if (buf[0] >= '0' && buf[0] <= '1' && buf[1] == '\n')
-                if (s2w_s2sonly != buf[0] - '0')
-		        s2w_s2sonly = buf[0] - '0';
-
-	return count;
-}
-
-static DEVICE_ATTR(s2w_s2sonly, (S_IWUSR|S_IRUGO),
-	s2w_s2w_s2sonly_show, s2w_s2w_s2sonly_dump);
-
+ 
+static DEVICE_ATTR(sweep2sleep, (S_IWUSR|S_IRUGO),
+	s2w_sweep2sleep_show, s2w_sweep2sleep_dump);
+ 
+ 
 static ssize_t s2w_version_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	size_t count = 0;
-
+ 
 	count += sprintf(buf, "%s\n", DRIVER_VERSION);
-
+ 
 	return count;
 }
-
+ 
 static ssize_t s2w_version_dump(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	return count;
 }
-
+ 
 static DEVICE_ATTR(sweep2wake_version, (S_IWUSR|S_IRUGO),
 	s2w_version_show, s2w_version_dump);
-
+ 
 /*
  * INIT / EXIT stuff below here
  */
 #ifdef ANDROID_TOUCH_DECLARED
-extern struct kobject *android_touch_kobj;
+extern struct kobject *sweep2sleep_kobj;
 #else
-struct kobject *android_touch_kobj;
-EXPORT_SYMBOL_GPL(android_touch_kobj);
+struct kobject *sweep2sleep_kobj;
+EXPORT_SYMBOL_GPL(sweep2sleep_kobj);
 #endif
-
+ 
 static int __init sweep2wake_init(void)
 {
 	int rc = 0;
 	int sysfs_result;
-
+ 
 	s2w_parameters_kobj = kobject_create_and_add("s2w_parameters", kernel_kobj);
 	if (!s2w_parameters_kobj) {
 		pr_err("%s kobject create failed!\n", __FUNCTION__);
 		return -ENOMEM;
         }
-
+ 
 	sysfs_result = sysfs_create_group(s2w_parameters_kobj, &s2w_parameters_attr_group);
-
+ 
     if (sysfs_result) {
 		pr_info("%s sysfs create failed!\n", __FUNCTION__);
 		kobject_put(s2w_parameters_kobj);
 	}
-
+ 
 	sweep2wake_pwrdev = input_allocate_device();
 	if (!sweep2wake_pwrdev) {
 		pr_err("Can't allocate suspend autotest power button\n");
 		goto err_alloc_dev;
 	}
-
+ 
 	input_set_capability(sweep2wake_pwrdev, EV_KEY, KEY_POWER);
 	sweep2wake_pwrdev->name = "s2w_pwrkey";
 	sweep2wake_pwrdev->phys = "s2w_pwrkey/input0";
-
+ 
 	rc = input_register_device(sweep2wake_pwrdev);
 	if (rc) {
 		pr_err("%s: input_register_device err=%d\n", __func__, rc);
 		goto err_input_dev;
 	}
-
+ 
 	s2w_input_wq = create_workqueue("s2wiwq");
 	if (!s2w_input_wq) {
 		pr_err("%s: Failed to create s2wiwq workqueue\n", __func__);
@@ -593,42 +571,38 @@ static int __init sweep2wake_init(void)
 	rc = input_register_handler(&s2w_input_handler);
 	if (rc)
 		pr_err("%s: Failed to register s2w_input_handler\n", __func__);
-
+ 
 #ifdef CONFIG_POWERSUSPEND
 	register_power_suspend(&s2w_power_suspend_handler);
 #endif
-
+ 
 #ifndef ANDROID_TOUCH_DECLARED
-	android_touch_kobj = kobject_create_and_add("android_touch", NULL) ;
-	if (android_touch_kobj == NULL) {
-		pr_warn("%s: android_touch_kobj create_and_add failed\n", __func__);
+	sweep2sleep_kobj = kobject_create_and_add("sweep2sleep", NULL) ;
+	if (sweep2sleep_kobj == NULL) {
+		pr_warn("%s: sweep2sleep_kobj create_and_add failed\n", __func__);
 	}
 #endif
-	rc = sysfs_create_file(android_touch_kobj, &dev_attr_sweep2wake.attr);
+	rc = sysfs_create_file(sweep2sleep_kobj, &dev_attr_sweep2sleep.attr);
 	if (rc) {
 		pr_warn("%s: sysfs_create_file failed for sweep2wake\n", __func__);
 	}
-	rc = sysfs_create_file(android_touch_kobj, &dev_attr_s2w_s2sonly.attr);
-	if (rc) {
-		pr_warn("%s: sysfs_create_file failed for s2w_s2sonly\n", __func__);
-	}
-	rc = sysfs_create_file(android_touch_kobj, &dev_attr_sweep2wake_version.attr);
+	rc = sysfs_create_file(sweep2sleep_kobj, &dev_attr_sweep2wake_version.attr);
 	if (rc) {
 		pr_warn("%s: sysfs_create_file failed for sweep2wake_version\n", __func__);
 	}
-
+ 
 err_input_dev:
 	input_free_device(sweep2wake_pwrdev);
 err_alloc_dev:
 	pr_info(LOGTAG"%s done\n", __func__);
-
+ 
 	return 0;
 }
-
+ 
 static void __exit sweep2wake_exit(void)
 {
 #ifndef ANDROID_TOUCH_DECLARED
-	kobject_del(android_touch_kobj);
+	kobject_del(sweep2sleep_kobj);
 #endif
 	input_unregister_handler(&s2w_input_handler);
 	destroy_workqueue(s2w_input_wq);
@@ -636,6 +610,6 @@ static void __exit sweep2wake_exit(void)
 	input_free_device(sweep2wake_pwrdev);
 	return;
 }
-
+ 
 module_init(sweep2wake_init);
 module_exit(sweep2wake_exit);
