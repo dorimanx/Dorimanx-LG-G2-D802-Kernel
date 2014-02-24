@@ -193,10 +193,24 @@ void wcd9xxx_nested_irq_unlock(struct wcd9xxx *wcd9xxx)
 	mutex_unlock(&wcd9xxx->nested_irq_lock);
 }
 
-static void wcd9xxx_irq_dispatch(struct wcd9xxx *wcd9xxx, int irqbit)
+static bool wcd9xxx_is_mbhc_irq(struct wcd9xxx *wcd9xxx, int irqbit)
 {
 	if ((irqbit <= WCD9XXX_IRQ_MBHC_INSERTION) &&
-	    (irqbit >= WCD9XXX_IRQ_MBHC_REMOVAL)) {
+	    (irqbit >= WCD9XXX_IRQ_MBHC_REMOVAL))
+		return true;
+	else if (wcd9xxx->codec_type->id_major == TAIKO_MAJOR &&
+		 irqbit == WCD9320_IRQ_MBHC_JACK_SWITCH)
+		return true;
+	else if (wcd9xxx->codec_type->id_major == TAPAN_MAJOR &&
+		 irqbit == WCD9306_IRQ_MBHC_JACK_SWITCH)
+		return true;
+	else
+		return false;
+}
+
+static void wcd9xxx_irq_dispatch(struct wcd9xxx *wcd9xxx, int irqbit)
+{
+	if (wcd9xxx_is_mbhc_irq(wcd9xxx, irqbit)) {
 		wcd9xxx_nested_irq_lock(wcd9xxx);
 		wcd9xxx_reg_write(wcd9xxx, WCD9XXX_A_INTR_CLEAR0 +
 					   BIT_BYTE(irqbit),
@@ -428,14 +442,7 @@ int wcd9xxx_irq_init(struct wcd9xxx *wcd9xxx)
 			wcd9xxx->irq, ret);
 	else {
 		ret = enable_irq_wake(wcd9xxx->irq);
-		if (ret == 0) {
-			ret = device_init_wakeup(wcd9xxx->dev, 1);
-			if (ret) {
-				dev_err(wcd9xxx->dev, "Failed to init device"
-					"wakeup : %d\n", ret);
-				disable_irq_wake(wcd9xxx->irq);
-			}
-		} else
+		if (ret)
 			dev_err(wcd9xxx->dev, "Failed to set wake interrupt on"
 				" IRQ %d: %d\n", wcd9xxx->irq, ret);
 		if (ret)
@@ -475,12 +482,13 @@ int wcd9xxx_request_irq(struct wcd9xxx *wcd9xxx, int irq, irq_handler_t handler,
 
 void wcd9xxx_irq_exit(struct wcd9xxx *wcd9xxx)
 {
+	dev_dbg(wcd9xxx->dev, "%s: Cleaning up irq %d\n", __func__,
+		wcd9xxx->irq);
 	if (wcd9xxx->irq) {
 		disable_irq_wake(wcd9xxx->irq);
 		free_irq(wcd9xxx->irq, wcd9xxx);
 		/* Release parent's of node */
 		wcd9xxx_irq_put_upstream_irq(wcd9xxx);
-		device_init_wakeup(wcd9xxx->dev, 0);
 	}
 	mutex_destroy(&wcd9xxx->irq_lock);
 	mutex_destroy(&wcd9xxx->nested_irq_lock);
