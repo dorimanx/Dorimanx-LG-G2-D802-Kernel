@@ -134,8 +134,6 @@ static void update_dl_migration(struct dl_rq *dl_rq)
 
 static void inc_dl_migration(struct sched_dl_entity *dl_se, struct dl_rq *dl_rq)
 {
-	dl_rq = &rq_of_dl_rq(dl_rq)->dl;
-
 	if (dl_se->nr_cpus_allowed > 1)
 		dl_rq->dl_nr_migratory++;
 
@@ -144,8 +142,6 @@ static void inc_dl_migration(struct sched_dl_entity *dl_se, struct dl_rq *dl_rq)
 
 static void dec_dl_migration(struct sched_dl_entity *dl_se, struct dl_rq *dl_rq)
 {
-	dl_rq = &rq_of_dl_rq(dl_rq)->dl;
-
 	if (dl_se->nr_cpus_allowed > 1)
 		dl_rq->dl_nr_migratory--;
 
