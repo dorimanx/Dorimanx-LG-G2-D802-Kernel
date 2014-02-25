@@ -725,11 +725,11 @@ int security_file_permission(struct file *file, int mask)
 	return fsnotify_perm(file, mask);
 }
 
-/*                                                                                         */
+/*2013-05-02 Hyoungtaek-Lim[hyoungtaek.lim@lge.com)[g2/vmware/vzw,att]VMware Switch [START]*/
 #ifdef CONFIG_LGE_B2B_VMWARE
 EXPORT_SYMBOL_GPL(security_file_permission);
 #endif
-/*                                                                                       */
+/*2013-05-02 Hyoungtaek-Lim[hyoungtaek.lim@lge.com)[g2/vmware/vzw,att]VMware Switch [END]*/
 
 int security_file_alloc(struct file *file)
 {
