@@ -52,8 +52,7 @@
 			ti,vbat-max-mv = <4352>;
 			ti,pre-chg-current-ma = <256>;
 			ti,sys-vmin-mv = <3500>;
-			ti,vin-limit-mv = <4600>;
-			ti,icl-vbus-mv = <4652>;
+			ti,vin-limit-mv = <4652>;
 
 			lge,no-init-cable = <0 0 0>;
 			lge,cable-mhl-1k = <5000 500 500>;
@@ -399,13 +398,6 @@
 		};
 	};
 
-	rpm-regulator-ldoa19 {
-		pm8941_l19: regulator-l19 {
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			qcom,init-voltage = <3300000>;
-		};
-	};
 	rpm-regulator-ldoa18 {
 		status = "okay";
 		pm8941_l18: regulator-l18 {

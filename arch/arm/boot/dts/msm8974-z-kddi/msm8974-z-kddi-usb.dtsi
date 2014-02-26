@@ -20,7 +20,6 @@
 
 &usb3 {
 	qcom,otg-capability;
-	qcom,usb3_rx_eq = <0x3>;
 };
 
 &rpm_bus {

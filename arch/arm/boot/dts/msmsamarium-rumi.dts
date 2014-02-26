@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,31 +10,16 @@
  * GNU General Public License for more details.
  */
 
-/include/ "msm-iommu-v1.dtsi"
+/dts-v1/;
 
-&jpeg_iommu {
-	status = "ok";
-	vdd-supply = <&gdsc_jpeg>;
+/include/ "msmsamarium.dtsi"
+
+/ {
+	model = "Qualcomm MSM SAMARIUM RUMI";
+	compatible = "qcom,msmsamarium-rumi", "qcom,msmsamarium", "qcom,rumi";
+	qcom,msm-id = <195 0 0>;
 };
 
-&mdp_iommu {
+&uartblsp0dm2{
 	status = "ok";
-	vdd-supply = <&gdsc_mdss>;
-};
-
-&venus_iommu {
-	status = "ok";
-	vdd-supply = <&gdsc_venus>;
-};
-
-&kgsl_iommu {
-	status = "ok";
-	qcom,needs-alt-core-clk;
-	vdd-supply = <&gdsc_oxili_cx>;
-	qcom,alt-vdd-supply = <&gdsc_oxili_gx>;
-};
-
-&vfe_iommu {
-	status = "ok";
-	vdd-supply = <&gdsc_vfe>;
 };

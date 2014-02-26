@@ -10,21 +10,15 @@
  * GNU General Public License for more details.
  */
 
-/*
- * Only 8926-specific property overrides should be placed inside this
- * file. Device definitions should be placed inside the msm8226.dtsi
- * file.
- */
+/dts-v1/;
 
-/include/ "msm8226.dtsi"
+/include/ "msm8974-v2.2.dtsi"
+/include/ "msm8974-fluid.dtsi"
 
 / {
-	model = "Qualcomm MSM 8926";
-	compatible = "qcom,msm8926";
-};
-
-&soc {
-	qcom,mss@fc880000 {
-		vdd_mss-supply = <&pm8226_s5>;
-	};
+	model = "Qualcomm MSM 8974v2.2 FLUID";
+	compatible = "qcom,msm8974-fluid", "qcom,msm8974", "qcom,fluid";
+	qcom,msm-id = <126 3 0x20002>,
+		      <185 3 0x20002>,
+		      <186 3 0x20002>;
 };

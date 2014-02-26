@@ -96,24 +96,24 @@
 			qcom,vddmax-mv = <4350>;
 			qcom,vddsafe-mv = <4380>;
 			qcom,bpd-detection = "bpd_thm";
-			qcom,duty-cycle-100p = <1>;
+
 			otg-parent-supply = <&pm8941_boost>;
 
 			lge,no-init-cable = <0 0 0>;
 			lge,cable-mhl-1k = <5000 500 500>;
-			lge,cable-u-28p7k = <5500 1600 500>;
-			lge,cable-28p7k = <6000 1600 500>;
+			lge,cable-u-28p7k = <5500 1800 500>;
+			lge,cable-28p7k = <6000 1800 500>;
 			lge,cable-56k = <200000 1500 1500>;
-			lge,cable-100k = <239000 1600 500>;
+			lge,cable-100k = <239000 1800 500>;
 			lge,cable-130k = <340000 1500 1500>;
-			lge,cable-180k = <400000 1600 500>;
-			lge,cable-200k = <410000 1600 500>;
-			lge,cable-220k = <485000 1600 500>;
-			lge,cable-270k = <560000 1600 500>;
-			lge,cable-330k = <735000 1600 500>;
-			lge,cable-620k = <955000 1600 500>;
+			lge,cable-180k = <400000 1800 500>;
+			lge,cable-200k = <410000 1800 500>;
+			lge,cable-220k = <485000 1800 500>;
+			lge,cable-270k = <560000 1800 500>;
+			lge,cable-330k = <735000 1800 500>;
+			lge,cable-620k = <955000 1800 500>;
 			lge,cable-910k = <1140000 1500 1500>;
-			lge,cable-none = <1900000 1600  500>;
+			lge,cable-none = <1900000 1800  500>;
 
 			qcom,chgr@1000 {
 				status = "ok";
@@ -173,11 +173,6 @@
 		pm8941_mvs1: regulator@8300 {
 			parent-supply = <&pm8941_chg_otg>;
 		};
-
-		qcom,leds@e200 {
-			status = "disabled";
-		};
-
 	};
 };
 

@@ -24,8 +24,7 @@
 		interrupts = <0 102 0>;
 		interrupt-names = "qup_err_intr";
 		qcom,i2c-bus-freq = <400000>;
-/*Source clock frequency must be 50MHZ for MSM8974 V2 80-NE436-1_F_Configure_BLSPs_LA_MSM8974_MSM8x26_MDM9x25 */
-		qcom,i2c-src-freq = <50000000>;
+		qcom,i2c-src-freq = <24000000>;
 	};
 
 	i2c@f9964000 {

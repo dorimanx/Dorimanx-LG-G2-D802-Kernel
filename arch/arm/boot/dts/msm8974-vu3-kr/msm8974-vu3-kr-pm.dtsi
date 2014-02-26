@@ -15,8 +15,6 @@
 		max17048@36 {
 			status =  "ok";
 			max17048,rcomp = <96>;
-			max17048,empty_lgc = <310>;     /* 3.3 Cut-off 3.1%  */
-			max17048,empty_tocad = <484>;   /* 3.3 Cut-off 4.84% */
 			max17048,temp_co_hot = <25>;
 			max17048,temp_co_cold = <7400>;
 			max17048,full_design = <2540>;
@@ -74,7 +72,6 @@
 				status = "ok";
 				regulator-min-microvolt = <5000000>;
 				regulator-max-microvolt = <5000000>;
-				regulator-name = "flash_boost";
 			};
 
 			qcom,chg-misc@1600 {
@@ -110,11 +107,6 @@
 	                    status = "disable";
 	            };
 	    };
-
-		qcom,leds@d300 {
-			flash_boost-supply = <&pm8941_chg_boost>;
-		};
-
 		qcom,leds@e200 {
 			status = "okay";
 			qcom,kpdbl1 {

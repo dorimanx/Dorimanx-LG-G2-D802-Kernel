@@ -11,20 +11,26 @@
  */
 
 /*
- * Only 8926-specific property overrides should be placed inside this
- * file. Device definitions should be placed inside the msm8226.dtsi
- * file.
+ * As a general rule, only version-specific property overrides should be placed
+ * inside this file. However, device definitions should be placed inside the
+ * msm8974.dtsi file.
  */
 
-/include/ "msm8226.dtsi"
+/include/ "msm8974-v2.dtsi"
 
-/ {
-	model = "Qualcomm MSM 8926";
-	compatible = "qcom,msm8926";
+&gdsc_venus {
+	qcom,skip-logic-collapse;
+	qcom,retain-periph;
+	qcom,retain-mem;
 };
 
-&soc {
-	qcom,mss@fc880000 {
-		vdd_mss-supply = <&pm8226_s5>;
-	};
+&gdsc_mdss {
+	qcom,skip-logic-collapse;
+	qcom,retain-periph;
+	qcom,retain-mem;
+};
+
+&gdsc_oxili_gx {
+	qcom,retain-mem;
+	qcom,retain-periph;
 };

@@ -35,8 +35,7 @@
 			ti,vbat-max-mv = <4352>;
 			ti,pre-chg-current-ma = <256>;
 			ti,sys-vmin-mv = <3500>;
-			ti,vin-limit-mv = <4600>;
-			ti,icl-vbus-mv = <4652>;
+			ti,vin-limit-mv = <4652>;
 
 			lge,no-init-cable = <0 0 0>;
 			lge,cable-mhl-1k = <5000 500 500>;
@@ -61,6 +60,17 @@
 &spmi_bus {
 	qcom,pm8941@0 {
 		vadc@3100 {
+			chan@13 {
+				status = "ok";
+				label = "pcb_revision";
+				reg = <0x13>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
 			chan@14 {
 				status = "ok";
 				label = "lcd_maker_id";
