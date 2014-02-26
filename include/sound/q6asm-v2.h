@@ -93,7 +93,7 @@
 #define READDONE_IDX_SEQ_ID 10
 
 #define SOFT_PAUSE_PERIOD       30   /* ramp up/down for 30ms    */
-#define SOFT_PAUSE_STEP         0 /* Step value ms or 0us */
+#define SOFT_PAUSE_STEP         0 /* Step value 0ms or 0us */
 enum {
 	SOFT_PAUSE_CURVE_LINEAR = 0,
 	SOFT_PAUSE_CURVE_EXP,

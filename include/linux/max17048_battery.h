@@ -25,7 +25,7 @@
 #endif
 #define CONFIG_MAX17048_CUSTOM
 
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#ifdef CONFIG_MACH_MSM8974_G2_KR
 enum cell_type{
  LGC_LLL,
  TCD_AAC
@@ -38,7 +38,7 @@ enum cell_type{
 #endif
 
 struct max17048_battery_model {
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#ifdef CONFIG_MACH_MSM8974_G2_KR
 	int empty;
 #endif
 #ifdef CONFIG_LGE_PM
