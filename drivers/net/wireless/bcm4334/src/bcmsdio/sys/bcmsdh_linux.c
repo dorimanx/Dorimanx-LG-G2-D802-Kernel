@@ -184,11 +184,11 @@ int bcmsdh_probe(struct device *dev)
 	irq_flags =
 		IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE;
 #else 
-//                                                                           
+//LGE_CHANGE_S, moon-wifi@lge.com by wo0ngs 2012-11-02 for SW OOB default set
  	 //irq_flags = IRQF_TRIGGER_FALLING;
 	irq_flags =
 	 IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE | IORESOURCE_IRQ_SHAREABLE;
-//                                                               
+//LGE_CHANGE_E, moon-wifi@lge.com by wo0ngs 2012-11-02 for SW OOB
 #endif /* HW_OOB */
 
 	/* Get customer specific OOB IRQ parametres: IRQ number as IRQ type */

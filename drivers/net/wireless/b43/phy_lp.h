@@ -319,22 +319,22 @@
 #define B2062_N_PDN_CTL4			B43_LP_NORTH(0x014) /* PDN Control 4 (north) */
 #define B2062_N_GEN_CTL0			B43_LP_NORTH(0x015) /* GEN Control 0 (north) */
 #define B2062_N_IQ_CALIB			B43_LP_NORTH(0x016) /* IQ Calibration (north) */
-#define B2062_N_LGENC				B43_LP_NORTH(0x017) /*               */
-#define B2062_N_LGENA_LPF			B43_LP_NORTH(0x018) /*                   */
-#define B2062_N_LGENA_BIAS0			B43_LP_NORTH(0x019) /*                      */
+#define B2062_N_LGENC				B43_LP_NORTH(0x017) /* LGENC (north) */
+#define B2062_N_LGENA_LPF			B43_LP_NORTH(0x018) /* LGENA LPF (north) */
+#define B2062_N_LGENA_BIAS0			B43_LP_NORTH(0x019) /* LGENA Bias 0 (north) */
 #define B2062_N_LGNEA_BIAS1			B43_LP_NORTH(0x01A) /* LGNEA Bias 1 (north) */
-#define B2062_N_LGENA_CTL0			B43_LP_NORTH(0x01B) /*                         */
-#define B2062_N_LGENA_CTL1			B43_LP_NORTH(0x01C) /*                         */
-#define B2062_N_LGENA_CTL2			B43_LP_NORTH(0x01D) /*                         */
-#define B2062_N_LGENA_TUNE0			B43_LP_NORTH(0x01E) /*                      */
-#define B2062_N_LGENA_TUNE1			B43_LP_NORTH(0x01F) /*                      */
-#define B2062_N_LGENA_TUNE2			B43_LP_NORTH(0x020) /*                      */
-#define B2062_N_LGENA_TUNE3			B43_LP_NORTH(0x021) /*                      */
-#define B2062_N_LGENA_CTL3			B43_LP_NORTH(0x022) /*                         */
-#define B2062_N_LGENA_CTL4			B43_LP_NORTH(0x023) /*                         */
-#define B2062_N_LGENA_CTL5			B43_LP_NORTH(0x024) /*                         */
-#define B2062_N_LGENA_CTL6			B43_LP_NORTH(0x025) /*                         */
-#define B2062_N_LGENA_CTL7			B43_LP_NORTH(0x026) /*                         */
+#define B2062_N_LGENA_CTL0			B43_LP_NORTH(0x01B) /* LGENA Control 0 (north) */
+#define B2062_N_LGENA_CTL1			B43_LP_NORTH(0x01C) /* LGENA Control 1 (north) */
+#define B2062_N_LGENA_CTL2			B43_LP_NORTH(0x01D) /* LGENA Control 2 (north) */
+#define B2062_N_LGENA_TUNE0			B43_LP_NORTH(0x01E) /* LGENA Tune 0 (north) */
+#define B2062_N_LGENA_TUNE1			B43_LP_NORTH(0x01F) /* LGENA Tune 1 (north) */
+#define B2062_N_LGENA_TUNE2			B43_LP_NORTH(0x020) /* LGENA Tune 2 (north) */
+#define B2062_N_LGENA_TUNE3			B43_LP_NORTH(0x021) /* LGENA Tune 3 (north) */
+#define B2062_N_LGENA_CTL3			B43_LP_NORTH(0x022) /* LGENA Control 3 (north) */
+#define B2062_N_LGENA_CTL4			B43_LP_NORTH(0x023) /* LGENA Control 4 (north) */
+#define B2062_N_LGENA_CTL5			B43_LP_NORTH(0x024) /* LGENA Control 5 (north) */
+#define B2062_N_LGENA_CTL6			B43_LP_NORTH(0x025) /* LGENA Control 6 (north) */
+#define B2062_N_LGENA_CTL7			B43_LP_NORTH(0x026) /* LGENA Control 7 (north) */
 #define B2062_N_RXA_CTL0			B43_LP_NORTH(0x027) /* RXA Control 0 (north) */
 #define B2062_N_RXA_CTL1			B43_LP_NORTH(0x028) /* RXA Control 1 (north) */
 #define B2062_N_RXA_CTL2			B43_LP_NORTH(0x029) /* RXA Control 2 (north) */
@@ -428,18 +428,18 @@
 #define B2062_S_BG_CTL0				B43_LP_SOUTH(0x014) /* BG Control 0 (south) */
 #define B2062_S_BG_CTL1				B43_LP_SOUTH(0x015) /* BG Control 1 (south) */
 #define B2062_S_BG_CTL2				B43_LP_SOUTH(0x016) /* BG Control 2 (south) */
-#define B2062_S_LGENG_CTL0			B43_LP_SOUTH(0x017) /*                          */
-#define B2062_S_LGENG_CTL1			B43_LP_SOUTH(0x018) /*                          */
-#define B2062_S_LGENG_CTL2			B43_LP_SOUTH(0x019) /*                          */
-#define B2062_S_LGENG_CTL3			B43_LP_SOUTH(0x01A) /*                          */
-#define B2062_S_LGENG_CTL4			B43_LP_SOUTH(0x01B) /*                          */
-#define B2062_S_LGENG_CTL5			B43_LP_SOUTH(0x01C) /*                          */
-#define B2062_S_LGENG_CTL6			B43_LP_SOUTH(0x01D) /*                          */
-#define B2062_S_LGENG_CTL7			B43_LP_SOUTH(0x01E) /*                          */
-#define B2062_S_LGENG_CTL8			B43_LP_SOUTH(0x01F) /*                          */
-#define B2062_S_LGENG_CTL9			B43_LP_SOUTH(0x020) /*                          */
-#define B2062_S_LGENG_CTL10			B43_LP_SOUTH(0x021) /*                          */
-#define B2062_S_LGENG_CTL11			B43_LP_SOUTH(0x022) /*                          */
+#define B2062_S_LGENG_CTL0			B43_LP_SOUTH(0x017) /* LGENG Control 00 (south) */
+#define B2062_S_LGENG_CTL1			B43_LP_SOUTH(0x018) /* LGENG Control 01 (south) */
+#define B2062_S_LGENG_CTL2			B43_LP_SOUTH(0x019) /* LGENG Control 02 (south) */
+#define B2062_S_LGENG_CTL3			B43_LP_SOUTH(0x01A) /* LGENG Control 03 (south) */
+#define B2062_S_LGENG_CTL4			B43_LP_SOUTH(0x01B) /* LGENG Control 04 (south) */
+#define B2062_S_LGENG_CTL5			B43_LP_SOUTH(0x01C) /* LGENG Control 05 (south) */
+#define B2062_S_LGENG_CTL6			B43_LP_SOUTH(0x01D) /* LGENG Control 06 (south) */
+#define B2062_S_LGENG_CTL7			B43_LP_SOUTH(0x01E) /* LGENG Control 07 (south) */
+#define B2062_S_LGENG_CTL8			B43_LP_SOUTH(0x01F) /* LGENG Control 08 (south) */
+#define B2062_S_LGENG_CTL9			B43_LP_SOUTH(0x020) /* LGENG Control 09 (south) */
+#define B2062_S_LGENG_CTL10			B43_LP_SOUTH(0x021) /* LGENG Control 10 (south) */
+#define B2062_S_LGENG_CTL11			B43_LP_SOUTH(0x022) /* LGENG Control 11 (south) */
 #define B2062_S_REFPLL_CTL0			B43_LP_SOUTH(0x023) /* REFPLL Control 00 (south) */
 #define B2062_S_REFPLL_CTL1			B43_LP_SOUTH(0x024) /* REFPLL Control 01 (south) */
 #define B2062_S_REFPLL_CTL2			B43_LP_SOUTH(0x025) /* REFPLL Control 02 (south) */

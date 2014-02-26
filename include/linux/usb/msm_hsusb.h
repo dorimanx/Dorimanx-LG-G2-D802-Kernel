@@ -410,11 +410,20 @@ struct msm_otg {
 	unsigned int current_max;
 };
 
+/**
+ * struct msm_hsic_host_platform_data - platform device data
+ *              for msm_hsic_host driver.
+ * @phy_sof_workaround: Enable ALL PHY SOF bug related workarounds for
+		SUSPEND, RESET and RESUME.
+ * @phy_susp_sof_workaround: Enable PHY SOF workaround only for SUSPEND.
+ *
+ */
 struct msm_hsic_host_platform_data {
 	unsigned strobe;
 	unsigned data;
 	bool ignore_cal_pad_config;
 	bool phy_sof_workaround;
+	bool phy_susp_sof_workaround;
 	int strobe_pad_offset;
 	int data_pad_offset;
 
@@ -497,6 +506,7 @@ static inline void msm_hw_bam_disable(bool bam_disable)
 #ifdef CONFIG_USB_DWC3_MSM
 int msm_ep_config(struct usb_ep *ep);
 int msm_ep_unconfig(struct usb_ep *ep);
+void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enable);
 int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size,
 	u8 dst_pipe_idx);
 
@@ -521,6 +531,12 @@ static inline int msm_ep_unconfig(struct usb_ep *ep)
 }
 
 static inline void msm_dwc3_restart_usb_session(void)
+{
+	return;
+}
+
+static inline void dwc3_tx_fifo_resize_request(
+					struct usb_ep *ep, bool qdss_enable)
 {
 	return;
 }

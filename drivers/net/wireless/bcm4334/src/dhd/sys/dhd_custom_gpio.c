@@ -204,7 +204,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 /* Table should be filled out based on custom platform regulatory requirement */
 #ifdef EXAMPLE_TABLE
 	{"",   "XY", 4},  /* Universal if Country code is unknown or empty */
-#if 0  //                                                      
+#if 0  //LGE_CHANGE_S, moon-wifi@lge.com by wo0ngs 2012-12-20 	
 	{"US", "US", 69}, /* input ISO "US" to : US regrev 69 */
 	{"CA", "US", 69}, /* input ISO "CA" to : US regrev 69 */
 	{"EU", "EU", 5},  /* European union countries to : EU regrev 05 */
@@ -248,7 +248,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"NO", "NO", 0},
 #else
 
-#if defined(CONFIG_MACH_APQ8064_GVAR_CMCC) //                                                                    
+#if defined(CONFIG_MACH_APQ8064_GVAR_CMCC) //S, moon-wifi@lge.com by wo0ngs 2013-04-03 for gk cmcc 2.4GHz fw Only
 	{"AD", "IL", 10}, //Andorra
 	{"AE", "IL", 10}, //UAE
 	{"AF", "IL" , 10}, //Afghanistan
@@ -712,8 +712,8 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"ZA", "GB", 0}, //South Africa
 	{"ZM", "RU", 1}, //Zambia
 	{"ZW", "BR", 0}, //Zimbabwe
-#endif //                                                                 
-#endif //                                                      
+#endif //E, moon-wifi@lge.com by wo0ngs 2013-04-03 for gk cmcc 2.4GHz Only
+#endif //LGE_CHANGE_E, moon-wifi@lge.com by wo0ngs 2012-12-20 	
 #endif /* EXMAPLE_TABLE */
 };
 
@@ -724,7 +724,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 */
 void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 {
-//                                                    
+//LGE_CHANGE, moon-wifi@lge.com by wo0ngs 2012-12-20, 
 #if defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39)) && !defined(CUSTOMER_HW10) 
 
 	struct cntry_locales_custom *cloc_ptr;
@@ -761,7 +761,7 @@ void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 			return;
 		}
 	}
-//                                                                                     
+//LGE_CHANGE_S, moon-wifi@lge.com by wo0ngs 2012-12-20, use default config country code
 #if 0
 #ifdef EXAMPLE_TABLE
 	/* if no country code matched return first universal code from translate_custom_table */
@@ -769,7 +769,7 @@ void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 	cspec->rev = translate_custom_table[0].custom_locale_rev;
 #endif /* EXMAPLE_TABLE */
 #endif
-//                                                                                     
+//LGE_CHANGE_E, moon-wifi@lge.com by wo0ngs 2012-12-20, use default config country code
 	return;
 #endif /* defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)) */
 }

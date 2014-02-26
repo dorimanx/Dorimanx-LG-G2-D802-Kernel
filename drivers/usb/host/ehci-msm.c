@@ -47,11 +47,15 @@ static int ehci_msm_reset(struct usb_hcd *hcd)
 		return retval;
 
 	/* bursts of unspecified length. */
-	writel(0, USB_AHBBURST);
+	writel_relaxed(0, USB_AHBBURST);
 	/* Use the AHB transactor */
 	writel_relaxed(0x08, USB_AHBMODE);
 	/* Disable streaming mode and select host mode */
 	writel(0x13, USB_USBMODE);
+
+	/* Disable ULPI_TX_PKT_EN_CLR_FIX which is valid only for HSIC */
+	writel_relaxed(readl_relaxed(USB_GENCONFIG2) & ~(1<<19),
+					USB_GENCONFIG2);
 
 	ehci_port_power(ehci, 1);
 	return 0;
@@ -103,6 +107,7 @@ static struct hc_driver msm_hc_driver = {
 	.bus_resume		= ehci_bus_resume,
 };
 
+static u64 msm_ehci_dma_mask = DMA_BIT_MASK(64);
 static int ehci_msm_probe(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd;
@@ -110,6 +115,11 @@ static int ehci_msm_probe(struct platform_device *pdev)
 	int ret;
 
 	dev_dbg(&pdev->dev, "ehci_msm proble\n");
+
+	if (!pdev->dev.dma_mask)
+		pdev->dev.dma_mask = &msm_ehci_dma_mask;
+	if (!pdev->dev.coherent_dma_mask)
+		pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 
 	hcd = usb_create_hcd(&msm_hc_driver, &pdev->dev, dev_name(&pdev->dev));
 	if (!hcd) {

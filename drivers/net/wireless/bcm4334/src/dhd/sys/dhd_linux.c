@@ -374,7 +374,7 @@ module_param(op_mode, int, 0644);
 extern int wl_control_wl_start(struct net_device *dev);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 struct semaphore dhd_registration_sem;
-#ifndef CUSTOMER_HW10 //                                                           
+#ifndef CUSTOMER_HW10 //moon-wifi@lge.com by kwisuk.kwon 20120208 : F260S TD 302818
 struct semaphore dhd_chipup_sem;
 #endif
 int dhd_registration_check = FALSE;
@@ -3072,7 +3072,7 @@ dhd_osl_detach(osl_t *osh)
 #if 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 	dhd_registration_check = FALSE;
 	up(&dhd_registration_sem);
-#ifndef CUSTOMER_HW10	//                                                           
+#ifndef CUSTOMER_HW10	//moon-wifi@lge.com by kwisuk.kwon 20120208 : F260S TD 302818
 #if	defined(BCMLXSDMMC)
 	up(&dhd_chipup_sem);
 #endif
@@ -3595,7 +3595,7 @@ bool dhd_is_concurrent_mode(dhd_pub_t *dhd)
 }
 
 
-/*                                     */
+/* LGE_patch : S : config file setting */
 #if defined(CONFIG_LGE_BCM433X_PATCH)
 #include <linux/fs.h>
 #include <linux/ctype.h>
@@ -3847,8 +3847,8 @@ err:
 	ret = -1;
 	goto out;
 }
-#endif /*                          */
-/*                                     */
+#endif /* CONFIG_LGE_BCM433X_PATCH */
+/* LGE_patch : E : config file setting */
 
 #if !defined(AP) && defined(WLP2P)
 /* From Android JerryBean release, the concurrent mode is enabled by default and the firmware
@@ -4404,9 +4404,9 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
 #endif /* ENABLE_BCN_LI_BCN_WAKEUP */
 
-#if defined(CONFIG_LGE_BCM433X_PATCH)	/*                                 */
+#if defined(CONFIG_LGE_BCM433X_PATCH)	/* LGE_patch : config file setting */
 	dhd_preinit_config(dhd, 0);
-#endif /*                          */
+#endif /* CONFIG_LGE_BCM433X_PATCH */
 
 	/* query for 'ver' to get version info from firmware */
 	memset(buf, 0, sizeof(buf));
@@ -4971,7 +4971,7 @@ dhd_module_init(void)
 {
 	int error = 0;
 
-//                                                           
+//moon-wifi@lge.com by kwisuk.kwon 20120208 : F260S TD 302818
 //#if 1 && defined(BCMLXSDMMC) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 #if !defined(CUSTOMER_HW10) && defined(BCMLXSDMMC) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 	int retry = POWERUP_MAX_RETRY;
@@ -4998,7 +4998,7 @@ dhd_module_init(void)
 	} while (0);
 #endif 
 
-//                                                           
+//moon-wifi@lge.com by kwisuk.kwon 20120208 : F260S TD 302818
 //#if 1 && defined(BCMLXSDMMC) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 #if !defined(CUSTOMER_HW10) && defined(BCMLXSDMMC) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 	do {

@@ -47,7 +47,7 @@
 #include "tspdrv.h"
 #include "ImmVibeSPI.c"
 #if defined(VIBE_DEBUG) && defined(VIBE_RECORD)
-#include <tspdrvRecorder.c>
+#include "tspdrvRecorder.c"
 #endif
 
 /* Device name and version information */

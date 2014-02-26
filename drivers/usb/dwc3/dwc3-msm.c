@@ -57,6 +57,7 @@
 #include "dwc3_otg.h"
 #include "core.h"
 #include "gadget.h"
+#include "debug.h"
 
 /* ADC threshold values */
 #ifdef CONFIG_MACH_LGE
@@ -155,7 +156,9 @@ extern int debug_pmic_register_for_usb(void);
  *
  */
 #define QSCRATCH_REG_OFFSET	(0x000F8800)
+#define QSCRATCH_CTRL_REG	(QSCRATCH_REG_OFFSET + 0x04)
 #define QSCRATCH_GENERAL_CFG	(QSCRATCH_REG_OFFSET + 0x08)
+#define QSCRATCH_RAM1_REG	(QSCRATCH_REG_OFFSET + 0x0C)
 #define HS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x10)
 #define PARAMETER_OVERRIDE_X_REG (QSCRATCH_REG_OFFSET + 0x14)
 #define CHARGING_DET_CTRL_REG	(QSCRATCH_REG_OFFSET + 0x18)
@@ -172,6 +175,8 @@ extern int debug_pmic_register_for_usb(void);
 #define SS_CR_PROTOCOL_CAP_DATA_REG (QSCRATCH_REG_OFFSET + 0x48)
 #define SS_CR_PROTOCOL_READ_REG     (QSCRATCH_REG_OFFSET + 0x4C)
 #define SS_CR_PROTOCOL_WRITE_REG    (QSCRATCH_REG_OFFSET + 0x50)
+#define PWR_EVNT_IRQ_STAT_REG    (QSCRATCH_REG_OFFSET + 0x58)
+#define PWR_EVNT_IRQ_MASK_REG    (QSCRATCH_REG_OFFSET + 0x5C)
 
 struct dwc3_msm_req_complete {
 	struct list_head list_item;
@@ -243,11 +248,13 @@ struct dwc3_msm {
 	unsigned int		vdd_no_vol_level;
 	unsigned int		vdd_low_vol_level;
 	unsigned int		vdd_high_vol_level;
+	unsigned int		tx_fifo_size;
+	unsigned int		qdss_tx_fifo_size;
 	bool			vbus_active;
 	bool			ext_inuse;
 	enum dwc3_id_state	id_state;
 	unsigned long		lpm_flags;
-#define MDWC3_CORECLK_OFF		BIT(0)
+#define MDWC3_PHY_REF_AND_CORECLK_OFF	BIT(0)
 #define MDWC3_TCXO_SHUTDOWN		BIT(1)
 
 	struct mutex            dwc3_clk_mutex;
@@ -428,6 +435,37 @@ static u32 dwc3_msm_ssusb_read_phycreg(void *base, u32 addr)
 		cpu_relax();
 
 	return ioread32(base + SS_CR_PROTOCOL_DATA_OUT_REG);
+}
+
+/**
+ * Dump all QSCRATCH registers.
+ *
+ */
+static void dwc3_msm_dump_phy_info(struct dwc3_msm *mdwc)
+{
+
+	dbg_print_reg("SSPHY_CTRL_REG", dwc3_msm_read_reg(mdwc->base,
+						SS_PHY_CTRL_REG));
+	dbg_print_reg("HSPHY_CTRL_REG", dwc3_msm_read_reg(mdwc->base,
+						HS_PHY_CTRL_REG));
+	dbg_print_reg("QSCRATCH_CTRL_REG", dwc3_msm_read_reg(mdwc->base,
+						QSCRATCH_CTRL_REG));
+	dbg_print_reg("QSCRATCH_GENERAL_CFG", dwc3_msm_read_reg(mdwc->base,
+						QSCRATCH_GENERAL_CFG));
+	dbg_print_reg("PARAMETER_OVERRIDE_X_REG", dwc3_msm_read_reg(mdwc->base,
+						PARAMETER_OVERRIDE_X_REG));
+	dbg_print_reg("HS_PHY_IRQ_STAT_REG", dwc3_msm_read_reg(mdwc->base,
+						HS_PHY_IRQ_STAT_REG));
+	dbg_print_reg("SS_PHY_PARAM_CTRL_1", dwc3_msm_read_reg(mdwc->base,
+						SS_PHY_PARAM_CTRL_1));
+	dbg_print_reg("SS_PHY_PARAM_CTRL_2", dwc3_msm_read_reg(mdwc->base,
+						SS_PHY_PARAM_CTRL_2));
+	dbg_print_reg("QSCRATCH_RAM1_REG", dwc3_msm_read_reg(mdwc->base,
+						QSCRATCH_RAM1_REG));
+	dbg_print_reg("PWR_EVNT_IRQ_STAT_REG", dwc3_msm_read_reg(mdwc->base,
+						PWR_EVNT_IRQ_STAT_REG));
+	dbg_print_reg("PWR_EVNT_IRQ_MASK_REG", dwc3_msm_read_reg(mdwc->base,
+						PWR_EVNT_IRQ_MASK_REG));
 }
 
 /**
@@ -1007,6 +1045,19 @@ int msm_ep_unconfig(struct usb_ep *ep)
 }
 EXPORT_SYMBOL(msm_ep_unconfig);
 
+void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enabled)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	if (qdss_enabled)
+		dwc->tx_fifo_size = mdwc->qdss_tx_fifo_size;
+	else
+		dwc->tx_fifo_size = mdwc->tx_fifo_size;
+}
+EXPORT_SYMBOL(dwc3_tx_fifo_resize_request);
+
 static void dwc3_restart_usb_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
@@ -1430,8 +1481,14 @@ static void dwc3_msm_ss_phy_reg_init(struct dwc3_msm *msm)
 }
 
 /* Initialize QSCRATCH registers for HSPHY and SSPHY operation */
-static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *msm)
+static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *msm,
+						unsigned event_status)
 {
+	if (event_status == DWC3_CONTROLLER_POST_RESET_EVENT) {
+		dwc3_msm_ss_phy_reg_init(msm);
+		return;
+	}
+
 	/* SSPHY Initialization: Use ref_clk from pads and set its parameters */
 	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210002);
 	msleep(30);
@@ -1442,7 +1499,7 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *msm)
 	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210002);
 	usleep_range(2000, 2200);
 	/* Ref clock must be stable now, enable ref clock for HS mode */
-	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210102);
+	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x11210102);
 	usleep_range(2000, 2200);
 	/*
 	 * HSPHY Initialization: Enable UTMI clock and clamp enable HVINTs,
@@ -1450,8 +1507,8 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *msm)
 	 */
 	dwc3_msm_write_reg(msm->base, HS_PHY_CTRL_REG, 0x5220bb2);
 	usleep_range(2000, 2200);
-	/* Disable (bypass) VBUS and ID filters */
-	dwc3_msm_write_reg(msm->base, QSCRATCH_GENERAL_CFG, 0x78);
+	/* Set XHCI_REV bit (2) to 1 - XHCI version 1.0 */
+	dwc3_msm_write_reg(msm->base, QSCRATCH_GENERAL_CFG, 0x4);
 	/*
 	 * write HSPHY init value to QSCRATCH reg to set HSPHY parameters like
 	 * VBUS valid threshold, disconnect valid threshold, DC voltage level,
@@ -1464,20 +1521,43 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *msm)
 					PARAMETER_OVERRIDE_X_REG, 0x03FFFFFF,
 					msm->hsphy_init_seq & 0x03FFFFFF);
 
-	/* Enable master clock for RAMs to allow BAM to access RAMs when
-	 * RAM clock gating is enabled via DWC3's GCTL. Otherwise, issues
+	/*
+	 * Enable master clock for RAMs to allow BAM to access RAMs when
+	 * RAM clock gating is enabled via DWC3's GCTL. Otherwise issues
 	 * are seen where RAM clocks get turned OFF in SS mode
 	 */
 	dwc3_msm_write_reg(msm->base, CGCTL_REG,
 		dwc3_msm_read_reg(msm->base, CGCTL_REG) | 0x18);
+}
 
-	dwc3_msm_ss_phy_reg_init(msm);
+static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	switch (event) {
+	case DWC3_CONTROLLER_ERROR_EVENT:
+		dev_info(mdwc->dev, "DWC3_CONTROLLER_ERROR_EVENT received\n");
+		dwc3_msm_dump_phy_info(mdwc);
+		break;
+	case DWC3_CONTROLLER_RESET_EVENT:
+		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_RESET_EVENT received\n");
+		dwc3_msm_qscratch_reg_init(mdwc, DWC3_CONTROLLER_RESET_EVENT);
+		break;
+	case DWC3_CONTROLLER_POST_RESET_EVENT:
+		dev_dbg(mdwc->dev,
+				"DWC3_CONTROLLER_POST_RESET_EVENT received\n");
+		dwc3_msm_qscratch_reg_init(mdwc,
+					DWC3_CONTROLLER_POST_RESET_EVENT);
+		dwc->tx_fifo_size = mdwc->tx_fifo_size;
+		break;
+	default:
+		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
+		break;
+	}
 }
 
 static void dwc3_msm_block_reset(bool core_reset)
 {
-
-	struct dwc3_msm *mdwc = context;
 	int ret  = 0;
 
 	if (core_reset) {
@@ -1491,9 +1571,6 @@ static void dwc3_msm_block_reset(bool core_reset)
 			return;
 
 		usleep_range(10000, 12000);
-
-		/* Reinitialize QSCRATCH registers after block reset */
-		dwc3_msm_qscratch_reg_init(mdwc);
 	}
 
 	/* Reset the DBM */
@@ -1620,7 +1697,8 @@ static const char *chg_to_string(enum dwc3_chg_type chg_type)
 	case DWC3_DCP_CHARGER:		return "USB_DCP_CHARGER";
 	case DWC3_CDP_CHARGER:		return "USB_CDP_CHARGER";
 	case DWC3_PROPRIETARY_CHARGER:	return "USB_PROPRIETARY_CHARGER";
-	default:			return "INVALID_CHARGER";
+	case DWC3_FLOATED_CHARGER:	return "USB_FLOATED_CHARGER";
+	default:			return "UNKNOWN_CHARGER";
 	}
 }
 
@@ -1746,6 +1824,7 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, chg_work.work);
 	bool is_dcd = false, tmout, vout;
+	static bool dcd;
 	unsigned long delay;
 
 	dev_dbg(mdwc->dev, "chg detection work\n");
@@ -1771,10 +1850,14 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 		is_dcd = dwc3_chg_check_dcd(mdwc);
 		tmout = ++mdwc->dcd_retries == DWC3_CHG_DCD_MAX_RETRIES;
 		if (is_dcd || tmout) {
+			if (is_dcd)
+				dcd = true;
+			else
+				dcd = false;
 			dwc3_chg_disable_dcd(mdwc);
 #ifndef CONFIG_LGE_PM
+			usleep_range(1000, 1200);
 			if (dwc3_chg_det_check_linestate(mdwc)) {
-				dev_dbg(mdwc->dev, "proprietary charger\n");
 				mdwc->charger.chg_type =
 						DWC3_PROPRIETARY_CHARGER;
 				mdwc->chg_state = USB_CHG_STATE_DETECTED;
@@ -1796,7 +1879,15 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 			delay = DWC3_CHG_SECONDARY_DET_TIME;
 			mdwc->chg_state = USB_CHG_STATE_PRIMARY_DONE;
 		} else {
-			mdwc->charger.chg_type = DWC3_SDP_CHARGER;
+			/*
+			 * Detect floating charger only if propreitary
+			 * charger detection is enabled.
+			 */
+			if (!dcd && prop_chg_detect)
+				mdwc->charger.chg_type =
+						DWC3_FLOATED_CHARGER;
+			else
+				mdwc->charger.chg_type = DWC3_SDP_CHARGER;
 			mdwc->chg_state = USB_CHG_STATE_DETECTED;
 			delay = 0;
 		}
@@ -1878,6 +1969,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	bool dcp;
 	bool host_bus_suspend;
 	bool host_ss_active;
+	bool host_ss_suspend;
 
 	dev_dbg(mdwc->dev, "%s: entering lpm\n", __func__);
 
@@ -1909,8 +2001,10 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 #endif
 
 	dcp = ((mdwc->charger.chg_type == DWC3_DCP_CHARGER) ||
-	      (mdwc->charger.chg_type == DWC3_PROPRIETARY_CHARGER));
+	      (mdwc->charger.chg_type == DWC3_PROPRIETARY_CHARGER) ||
+	      (mdwc->charger.chg_type == DWC3_FLOATED_CHARGER));
 	host_bus_suspend = mdwc->host_mode == 1;
+	host_ss_suspend = host_bus_suspend && host_ss_active;
 
 	/* Sequence to put SSPHY in low power state:
 	 * 1. Clear REF_SS_PHY_EN in SS_PHY_CTRL_REG
@@ -1918,13 +2012,17 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	 * 3. Set TEST_POWERED_DOWN in SS_PHY_CTRL_REG to enable PHY retention
 	 * 4. Disable SSPHY ref clk
 	 */
-	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 8), 0x0);
-	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 28), 0x0);
-	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 26),
+	if (!host_ss_suspend) {
+		dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 8),
+									0x0);
+		dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 28),
+									0x0);
+		dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 26),
 								(1 << 26));
-
+	}
 	usleep_range(1000, 1200);
-	clk_disable_unprepare(mdwc->ref_clk);
+	if (!host_ss_suspend)
+		clk_disable_unprepare(mdwc->ref_clk);
 
 	if (host_bus_suspend) {
 		/* Sequence for host bus suspend case:
@@ -1964,9 +2062,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 	/* make sure above writes are completed before turning off clocks */
 	wmb();
-	if (!host_bus_suspend || !host_ss_active) {
+	if (!host_ss_suspend) {
 		clk_disable_unprepare(mdwc->core_clk);
-		mdwc->lpm_flags |= MDWC3_CORECLK_OFF;
+		mdwc->lpm_flags |= MDWC3_PHY_REF_AND_CORECLK_OFF;
 	}
 	clk_disable_unprepare(mdwc->iface_clk);
 
@@ -2026,6 +2124,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	int ret, rc;
 	bool dcp;
 	bool host_bus_suspend;
+	bool resume_from_core_clk_off = false;
 
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
 
@@ -2036,6 +2135,9 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	wake_lock(&mdwc->wlock);
 
+	if (mdwc->lpm_flags & MDWC3_PHY_REF_AND_CORECLK_OFF)
+		resume_from_core_clk_off = true;
+
 	if (mdwc->bus_perf_client) {
 		ret = msm_bus_scale_client_update_request(
 						mdwc->bus_perf_client, 1);
@@ -2044,7 +2146,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	}
 
 	dcp = ((mdwc->charger.chg_type == DWC3_DCP_CHARGER) ||
-	      (mdwc->charger.chg_type == DWC3_PROPRIETARY_CHARGER));
+	      (mdwc->charger.chg_type == DWC3_PROPRIETARY_CHARGER) ||
+	      (mdwc->charger.chg_type == DWC3_FLOATED_CHARGER));
 	host_bus_suspend = mdwc->host_mode == 1;
 
 	if (mdwc->lpm_flags & MDWC3_TCXO_SHUTDOWN) {
@@ -2073,13 +2176,14 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	if (!host_bus_suspend && !dcp)
 		dwc3_hsusb_config_vddcx(1);
 
-	clk_prepare_enable(mdwc->ref_clk);
+	if (mdwc->lpm_flags & MDWC3_PHY_REF_AND_CORECLK_OFF)
+		clk_prepare_enable(mdwc->ref_clk);
 	usleep_range(1000, 1200);
 
 	clk_prepare_enable(mdwc->iface_clk);
-	if (mdwc->lpm_flags & MDWC3_CORECLK_OFF) {
+	if (mdwc->lpm_flags & MDWC3_PHY_REF_AND_CORECLK_OFF) {
 		clk_prepare_enable(mdwc->core_clk);
-		mdwc->lpm_flags &= ~MDWC3_CORECLK_OFF;
+		mdwc->lpm_flags &= ~MDWC3_PHY_REF_AND_CORECLK_OFF;
 	}
 
 	if (host_bus_suspend) {
@@ -2092,10 +2196,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 		/* Disable DP and DM HV interrupt */
 		dwc3_msm_write_reg(mdwc->base, ALT_INTERRUPT_EN_REG, 0x000);
-
-		/* Clear suspend bit in GUSB2PHYCONFIG register */
-		dwc3_msm_write_readback(mdwc->base, DWC3_GUSB2PHYCFG(0),
-								0x40, 0x0);
 	} else {
 		/* Disable HV interrupt */
 		if (mdwc->otg_xceiv && (!mdwc->ext_xceiv.otg_capability))
@@ -2119,23 +2219,27 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	}
 
-	/* Assert SS PHY RESET */
-	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 7),
+	if (resume_from_core_clk_off) {
+		/* Assert SS PHY RESET */
+		dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 7),
 								(1 << 7));
-	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 28),
+		dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 28),
 								(1 << 28));
-	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 8),
+		dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 8),
 								(1 << 8));
-	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 26), 0x0);
-	/* 10usec delay required before de-asserting SS PHY RESET */
-	udelay(10);
-	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 7), 0x0);
+		dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 26),
+									0x0);
+		/* 10usec delay required before de-asserting SS PHY RESET */
+		udelay(10);
+		dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 7),
+									0x0);
 
-	/*
-	 * Reinitilize SSPHY parameters as SS_PHY RESET will reset
-	 * the internal registers to default values.
-	 */
-	dwc3_msm_ss_phy_reg_init(mdwc);
+		/*
+		 * Reinitilize SSPHY parameters as SS_PHY RESET will reset
+		 * the internal registers to default values.
+		 */
+		dwc3_msm_ss_phy_reg_init(mdwc);
+	}
 	atomic_set(&mdwc->in_lpm, 0);
 #ifdef CONFIG_USB_LGE_LPM_STATE
     set_tri_state_lpm(EXIT_LPM);
@@ -2251,7 +2355,7 @@ const struct file_operations dwc3_connect_fops = {
 
 static struct dentry *dwc3_debugfs_root;
 
-static void dwc3_debugfs_init(struct dwc3_msm *mdwc)
+static void dwc3_msm_debugfs_init(struct dwc3_msm *mdwc)
 {
 	dwc3_debugfs_root = debugfs_create_dir("msm_dwc3", NULL);
 
@@ -2340,11 +2444,6 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 
 			if (!init)
 				init = true;
-#ifdef CONFIG_MACH_MSM8974_G2_KDDI
-			mdwc->vbus_active = val->intval;
-			pr_info("%s : returned.\n", __func__);
-			return 0;
-#endif
 		}
 		mdwc->vbus_active = val->intval;
 		break;
@@ -2535,8 +2634,11 @@ static void dwc3_id_work(struct work_struct *w)
 			__func__, ret);
 
 		if (mdwc->pmic_id_irq) {
+			unsigned long flags;
+			local_irq_save(flags);
 			/* ID may have changed while IRQ disabled; update it */
 			mdwc->id_state = !!irq_read_line(mdwc->pmic_id_irq);
+			local_irq_restore(flags);
 			enable_irq(mdwc->pmic_id_irq);
 		}
 
@@ -2974,8 +3076,6 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	else if (!msm->hsphy_init_seq)
 		dev_warn(&pdev->dev, "incorrect hsphyinitseq.Using PORvalue\n");
 
-	dwc3_msm_qscratch_reg_init(msm);
-
 	pm_runtime_set_active(msm->dev);
 	pm_runtime_enable(msm->dev);
 
@@ -2995,6 +3095,17 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		goto disable_hs_ldo;
 	}
 
+	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-tx-fifo-size",
+				 &msm->tx_fifo_size))
+		dev_err(&pdev->dev,
+			"unable to read platform data tx fifo size\n");
+
+	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-qdss-tx-fifo-size",
+				 &msm->qdss_tx_fifo_size))
+		dev_err(&pdev->dev,
+			"unable to read platform data qdss tx fifo size\n");
+
+	dwc3_set_notifier(&dwc3_msm_notify_event);
 	/* usb_psy required only for vbus_notifications or charging support */
 	if (msm->ext_xceiv.otg_capability || !msm->charger.charging_disabled) {
 		msm->usb_psy.name = "usb";
@@ -3088,7 +3199,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 
 	wake_lock_init(&msm->wlock, WAKE_LOCK_SUSPEND, "msm_dwc3");
 	wake_lock(&msm->wlock);
-	dwc3_debugfs_init(msm);
+	dwc3_msm_debugfs_init(msm);
 
 	return 0;
 

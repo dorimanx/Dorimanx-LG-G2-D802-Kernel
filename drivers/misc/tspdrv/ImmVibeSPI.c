@@ -89,8 +89,6 @@ static int mmss_cc_d_max;
 static int mmss_cc_d_half;
 #if defined(CONFIG_MACH_MSM8974_VU3_KR)
 VibeInt8 previous_nForce=0;
-#elif defined(CONFIG_MACH_MSM8974_Z_KR)
-int previous_nForce=0;
 #endif
 
 struct timed_vibrator_data {
@@ -450,8 +448,6 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpDisable(VibeUInt8 nActuatorIndex
         g_bAmpEnabled = false;
 #if defined(CONFIG_MACH_MSM8974_VU3_KR)
 		previous_nForce=0;
-#elif defined(CONFIG_MACH_MSM8974_Z_KR)
-		previous_nForce=0xFFFF;
 #endif
 
     }
@@ -480,8 +476,6 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpEnable(VibeUInt8 nActuatorIndex)
         g_bAmpEnabled = true;
 #if defined(CONFIG_MACH_MSM8974_VU3_KR)
 		previous_nForce=127;
-#elif defined(CONFIG_MACH_MSM8974_Z_KR)
-		previous_nForce=0xFFFF;
 #endif
 
     }
@@ -607,7 +601,7 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_SetSamples(VibeUInt8 nActuatorIndex
             /* Unexpected bit depth */
             return VIBE_E_FAIL;
     }
-#if defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_Z_KR)
+#if defined(CONFIG_MACH_MSM8974_VU3_KR)
 	if(nForce==previous_nForce)
 		return VIBE_S_SUCCESS;
 	previous_nForce=nForce;

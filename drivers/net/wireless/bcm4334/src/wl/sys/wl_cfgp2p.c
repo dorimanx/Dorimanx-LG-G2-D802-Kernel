@@ -2381,6 +2381,12 @@ static int wl_cfgp2p_do_ioctl(struct net_device *net, struct ifreq *ifr, int cmd
 
 static int wl_cfgp2p_if_open(struct net_device *net)
 {
+#ifdef CUSTOMER_HW10
+	struct wireless_dev *wdev = net->ieee80211_ptr;
+	WL_TRACE(("Enter\n"));
+	if (!wdev)
+		return -EINVAL;
+#else
 	extern struct wl_priv *wlcfg_drv_priv;
 	struct wireless_dev *wdev = net->ieee80211_ptr;
 	struct wl_priv *wl = NULL;
@@ -2388,7 +2394,7 @@ static int wl_cfgp2p_if_open(struct net_device *net)
 	wl = wlcfg_drv_priv;
 	if (!wdev || !wl || !wl->p2p)
 		return -EINVAL;
-
+#endif
 	/* If suppose F/W download (ifconfig wlan0 up) hasn't been done by now,
 	 * do it here. This will make sure that in concurrent mode, supplicant
 	 * is not dependent on a particular order of interface initialization.

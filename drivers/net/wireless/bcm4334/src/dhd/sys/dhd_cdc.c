@@ -2758,7 +2758,7 @@ dhd_prot_hdrpush(dhd_pub_t *dhd, int ifidx, void *pktbuf)
 	h->flags2 = 0;
 	h->dataOffset = 0;
 	
-/*                                                                                                            */
+/* LGE_CHANGE_S, [moon-wifi@lge.com] by 2lee, 2012-04-29, < QoS control field 110 up (video->voice) for FMC > */
 #ifdef WIFI_DOMESTIC_SUPPORT_KT
 	        uint8 *pktdata = (uint8 *) PKTDATA(NULL, pktbuf);
 	        uint8 *ip_body = pktdata + sizeof(struct ether_header) + BDC_HEADER_LEN;
@@ -2770,7 +2770,7 @@ dhd_prot_hdrpush(dhd_pub_t *dhd, int ifidx, void *pktbuf)
 		DHD_INFO(("P:%s:(tos_tc>>IPV4_TOS_PREC_SHIFT)[0x%x] : h->priority[0x%x]\n", __FUNCTION__, (tos_tc>>IPV4_TOS_PREC_SHIFT), h->priority));
 	        }
 #endif
-/*                                                                                                            */
+/* LGE_CHANGE_E, [moon-wifi@lge.com] by 2lee, 2012-04-29, < QoS control field 110 up (video->voice) for FMC > */
 
 #endif /* BDC */
 	BDC_SET_IF_IDX(h, ifidx);
