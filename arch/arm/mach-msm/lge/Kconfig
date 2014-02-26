@@ -177,6 +177,7 @@ config MACH_MSM8974_Z_SPR
 	bool "MSM8974 Z SPR"
 	help
 	  Support for the Qualcomm MSM8974 Z Sprint device.
+
 config MACH_MSM8974_Z_TMO_US
 	depends on ARCH_MSM8974
 	select MACH_LGE

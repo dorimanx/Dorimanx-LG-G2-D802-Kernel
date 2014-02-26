@@ -41,7 +41,7 @@
 #include "ram_console.h"
 
 static int cn_arr_len = 3;
-/*                                                              */
+/* BEGIN : janghyun.baek@lge.com 2012-12-26 For cable detection */
 #ifdef CONFIG_LGE_PM
 struct chg_cable_info_table {
 	int threshhold;
@@ -61,7 +61,7 @@ struct chg_cable_info_table {
 static bool cable_type_defined;
 static struct chg_cable_info_table pm8941_acc_cable_type_data[MAX_CABLE_NUM];
 #endif
-/*                                        */
+/* END : janghyun.baek@lge.com 2012-12-26 */
 
 struct cn_prop {
 	char *name;
@@ -281,7 +281,7 @@ void __init lge_add_diag_devices(void)
 	platform_device_register(&lg_diag_cmd_device);
 }
 #endif
-/*                                                              */
+/* BEGIN : janghyun.baek@lge.com 2012-12-26 For cable detection */
 #ifdef CONFIG_LGE_PM
 void get_cable_data_from_dt(void *of_node)
 {
@@ -425,7 +425,7 @@ void lge_pm_read_cable_info(void)
 	lge_pm_get_cable_info(&lge_cable_info);
 }
 #endif
-/*                                                            */
+/* END : janghyun.baek@lge.com 2012-12-26 For cable detection */
 
 /* setting whether uart console is enalbed or disabled */
 #ifdef CONFIG_EARJACK_DEBUGGER
@@ -552,11 +552,11 @@ int __init lge_boot_mode_init(char *s)
 		lge_boot_mode = LGE_BOOT_MODE_PIFBOOT;
 	else if (!strcmp(s, "pifboot2"))
 		lge_boot_mode = LGE_BOOT_MODE_PIFBOOT2;
-	/*                            */
+	/* LGE_UPDATE_S for MINIOS2.0 */
 	else if (!strcmp(s, "miniOS"))
 		lge_boot_mode = LGE_BOOT_MODE_MINIOS;
 	printk("ANDROID BOOT MODE : %d %s\n", lge_boot_mode, s);
-	/*                            */
+	/* LGE_UPDATE_E for MINIOS2.0 */
 
 	return 1;
 }
@@ -620,9 +620,9 @@ hw_rev_type lge_get_board_revno(void)
     return lge_bd_rev;
 }
 #if defined(CONFIG_LCD_KCAL)
-/*             
-                          
-                                
+/* LGE_CHANGE_S
+* change code for LCD KCAL
+* 2013-05-08, seojin.lee@lge.com
 */
 int g_kcal_r = 255;
 int g_kcal_g = 255;
@@ -893,4 +893,4 @@ static int __init lge_boost_gpio_late_init(void)
 
 late_initcall(lge_boost_gpio_late_init);
 
-#endif /*                       */
+#endif /* CONFIG_LGE_BOOST_GPIO */

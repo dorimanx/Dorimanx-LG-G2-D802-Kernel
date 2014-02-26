@@ -23,9 +23,9 @@
 #include <mach/board_lge.h>
 
 #if defined(CONFIG_LCD_KCAL)
-/*             
-                          
-                                
+/* LGE_CHANGE_S
+* change code for LCD KCAL
+* 2013-05-08, seojin.lee@lge.com
 */
 
 static struct kcal_platform_data *kcal_pdata;

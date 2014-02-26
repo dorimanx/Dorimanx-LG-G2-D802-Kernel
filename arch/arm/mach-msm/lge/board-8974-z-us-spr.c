@@ -107,11 +107,11 @@ void __init lge_add_lcd_misc_devices(void)
  * into this category, and thus the driver should not be added here. The
  * EPROBE_DEFER can satisfy most dependency problems.
  */
-/*                                                                    */
+/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
 #if defined (CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
 extern void init_bcm_wifi(void);
 #endif
-/*                                                                    */
+/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
 
 void __init msm8974_add_drivers(void)
 {
@@ -141,11 +141,11 @@ void __init msm8974_add_drivers(void)
 #ifdef CONFIG_LGE_DIAG_ENABLE_SYSFS
     lge_add_diag_devices();
 #endif
-/*                                                                    */
+/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
 #if defined (CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
 	init_bcm_wifi();
 #endif
-/*                                                                    */
+/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
 
 #if defined(CONFIG_LGE_PM_BATTERY_ID_CHECKER)
 	lge_battery_id_devices();

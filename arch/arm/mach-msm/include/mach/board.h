@@ -182,8 +182,8 @@ struct msm_gpio_set_tbl {
 	uint32_t delay;
 };
 
-/*                                
-                                                                
+/* soojung.lim@lge.com, 2013-06-01
+ *  Fix the maximum count to use the msm_sensor_power_seq_gpio_t
  */
 struct msm_camera_gpio_num_info {
 	uint16_t gpio_num[8];
@@ -389,10 +389,10 @@ struct msm_panel_common_pdata {
 	void (*panel_config_gpio)(int);
 	int (*vga_switch)(int select_vga);
 #ifdef CONFIG_LGE_LCD_TUNING
-	/*             
-                                        
-                                    
-  */
+	/* LGE_CHANGE_S
+	 * To get init code used for LCD driver
+	 * 2012-12-03, minjong.gong@lge.com
+	 */
 	int (*read_regset)(unsigned long);
 	int (*write_regset)(unsigned long);
 #endif

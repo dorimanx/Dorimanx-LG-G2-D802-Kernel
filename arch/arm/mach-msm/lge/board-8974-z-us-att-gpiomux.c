@@ -2393,8 +2393,10 @@ if (socinfo_get_version() >= 0x20000) {
 		msm_gpiomux_install(msm_mhl_configs,
 				    ARRAY_SIZE(msm_mhl_configs));
 #ifndef CONFIG_MACH_LGE
-	msm_gpiomux_install(msm8974_pri_auxpcm_configs,
-				 ARRAY_SIZE(msm8974_pri_auxpcm_configs));
+	if (of_board_is_liquid() ||
+	    (of_board_is_dragonboard() && machine_is_apq8074()))
+		msm_gpiomux_install(msm8974_pri_ter_auxpcm_configs,
+				 ARRAY_SIZE(msm8974_pri_ter_auxpcm_configs));
 #endif
 
 #if defined(CONFIG_MACH_LGE)

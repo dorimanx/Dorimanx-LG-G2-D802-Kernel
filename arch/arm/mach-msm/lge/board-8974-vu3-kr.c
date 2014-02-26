@@ -51,9 +51,9 @@
 #include <mach/board_lge.h>
 
 #if defined(CONFIG_LCD_KCAL)
-/*             
-                          
-                                
+/* LGE_CHANGE_S
+* change code for LCD KCAL
+* 2013-05-08, seojin.lee@lge.com
 */
 #include <linux/module.h>
 #include "../../../../drivers/video/msm/mdss/mdss_fb.h"
@@ -111,9 +111,9 @@ void __init lge_add_lcd_misc_devices(void)
 #endif
 
 #if defined(CONFIG_LCD_KCAL)
-/*             
-                          
-                                
+/* LGE_CHANGE_S
+* change code for LCD KCAL
+* 2013-05-08, seojin.lee@lge.com
 */
 extern int g_kcal_r;
 extern int g_kcal_g;
@@ -184,11 +184,11 @@ void __init lge_add_lcd_kcal_devices(void)
  * into this category, and thus the driver should not be added here. The
  * EPROBE_DEFER can satisfy most dependency problems.
  */
-/*                                                                    */
+/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
 #if defined (CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
 extern void init_bcm_wifi(void);
 #endif
-/*                                                                    */
+/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
 #if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_VU3EVB)
 extern void vu3ebv_init_input(void);
 #endif
@@ -218,15 +218,15 @@ void __init msm8974_add_drivers(void)
 #ifdef CONFIG_LGE_ECO_MODE
 	lge_add_lge_kernel_devices();
 #endif
-/*                                                                    */
+/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
 #if defined (CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
 	init_bcm_wifi();
 #endif
-/*                                                                    */
+/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
 #if defined(CONFIG_LCD_KCAL)
-/*             
-                          
-                                
+/* LGE_CHANGE_S
+* change code for LCD KCAL
+* 2013-05-08, seojin.lee@lge.com
 */
 	lge_add_lcd_kcal_devices();
 #endif // CONFIG_LCD_KCAL
