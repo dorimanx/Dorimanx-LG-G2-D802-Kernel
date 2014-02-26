@@ -1384,7 +1384,7 @@ static int a2xx_create_gmem_shadow(struct adreno_device *adreno_dev,
 				&drawctxt->context_gmem_shadow);
 
 	kgsl_cache_range_op(&drawctxt->context_gmem_shadow.gmemshadow,
-			    KGSL_CACHE_OP_FLUSH);
+			    0, 0, KGSL_CACHE_OP_FLUSH);
 
 	kgsl_cffdump_syncmem(drawctxt->base.device,
 			&drawctxt->context_gmem_shadow.gmemshadow,
@@ -1478,7 +1478,7 @@ static int a2xx_drawctxt_create(struct adreno_device *adreno_dev,
 
 	/* Flush and sync the gpustate memory */
 
-	kgsl_cache_range_op(&drawctxt->gpustate,
+	kgsl_cache_range_op(&drawctxt->gpustate, 0, 0,
 			    KGSL_CACHE_OP_FLUSH);
 
 	kgsl_cffdump_syncmem(drawctxt->base.device,

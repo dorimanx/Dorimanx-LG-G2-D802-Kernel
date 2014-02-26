@@ -2341,7 +2341,7 @@ static int a3xx_create_gmem_shadow(struct adreno_device *adreno_dev,
 		&drawctxt->context_gmem_shadow);
 
 	kgsl_cache_range_op(&drawctxt->context_gmem_shadow.gmemshadow,
-		KGSL_CACHE_OP_FLUSH);
+		0, 0, KGSL_CACHE_OP_FLUSH);
 
 	return 0;
 }
