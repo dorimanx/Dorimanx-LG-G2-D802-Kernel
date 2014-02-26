@@ -75,7 +75,7 @@
 					"flash0_trigger";
 				qcom,id = <1>;
 				linux,name = "led:flash_0";
-				qcom,current = <625>;
+				qcom,current = <500>;
 			};
 
 			pm8941_flash1: qcom,flash_1 {
@@ -91,7 +91,7 @@
 				label = "flash";
 				qcom,id = <2>;
 				linux,name = "led:flash_1";
-				qcom,current = <625>;
+				qcom,current = <500>;
 			};
 
 			pm8941_torch: qcom,flash_torch {
@@ -127,44 +127,62 @@
 
 		qcom,leds@e200 {
 			status = "okay";
+
 			qcom,kpdbl1 {
 				label = "kpdbl";
-				linux,name = "button-backlight1";
-				qcom,mode = "lpg";
+				linux,name = "kpdbl-pwm-1";
+				qcom,mode = "pwm";
 				qcom,pwm-channel = <8>;
 				qcom,pwm-us = <1000>;
-				qcom,duty-pcts = [0F 0F 0F 0F 0F
-								00 00 00 00 00];
-				qcom,start-idx = <0>;
-				qcom,pause-hi = <0>;
-				qcom,pause-lo = <0>;
-				qcom,ramp-step-ms = <200>;
-				qcom,lut-flags = <1>;
 				qcom,id = <7>;
 				qcom,max-current = <20>;
-				qcom,row-src-sel-val = <0x00>;
-				qcom,row-scan-en = <0x01>;
-				qcom,row-scan-val = <0x01>;
+				qcom,row-id = <0>;
+				qcom,row-src-en;
+				qcom,always-on;
 			};
+
 			qcom,kpdbl2 {
 				label = "kpdbl";
-				linux,name = "button-backlight2";
+				linux,name = "kpdbl-lut-2";
 				qcom,mode = "lpg";
 				qcom,pwm-channel = <9>;
 				qcom,pwm-us = <1000>;
-				qcom,duty-pcts = [0F 0F 0F 0F 0F
-								00 00 00 00 00];
-				qcom,start-idx = <0>;
-				qcom,pause-hi = <0>;
-				qcom,pause-lo = <0>;
-				qcom,ramp-step-ms = <200>;
-				qcom,lut-flags = <1>;
+				qcom,start-idx = <1>;
+				qcom,duty-pcts = [00 00 00 00 64
+						64 00 00 00 00];
 				qcom,id = <7>;
 				qcom,max-current = <20>;
-				qcom,row-src-sel-val = <0x00>;
-				qcom,row-scan-en = <0x01>;
-				qcom,row-scan-val = <0x01>;
+				qcom,row-id = <1>;
+				qcom,row-src-en;
+				qcom,always-on;
 			};
+
+			qcom,kpdbl3 {
+				label = "kpdbl";
+				linux,name = "kpdbl-pwm-3";
+				qcom,mode = "pwm";
+				qcom,pwm-channel = <10>;
+				qcom,pwm-us = <1000>;
+				qcom,id = <7>;
+				qcom,max-current = <20>;
+				qcom,row-id = <2>;
+				qcom,row-src-en;
+				qcom,always-on;
+			};
+
+			qcom,kpdbl4 {
+				label = "kpdbl";
+				linux,name = "kpdbl-pwm-4";
+				qcom,mode = "pwm";
+				qcom,pwm-channel = <11>;
+				qcom,pwm-us = <1000>;
+				qcom,id = <7>;
+				qcom,max-current = <20>;
+				qcom,row-id = <3>;
+				qcom,row-src-en;
+				qcom,always-on;
+			};
+
 		};
 	};
 };
