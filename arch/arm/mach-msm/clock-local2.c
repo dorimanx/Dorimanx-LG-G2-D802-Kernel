@@ -549,19 +549,21 @@ static int branch_clk_set_flags(struct clk *c, unsigned flags)
 	u32 cbcr_val;
 	unsigned long irq_flags;
 	struct branch_clk *branch = to_branch_clk(c);
-	int ret = 0;
+	int delay_us = 0, ret = 0;
 
 	spin_lock_irqsave(&local_clock_reg_lock, irq_flags);
 	cbcr_val = readl_relaxed(CBCR_REG(branch));
 	switch (flags) {
 	case CLKFLAG_RETAIN_PERIPH:
 		cbcr_val |= BIT(13);
+		delay_us = 1;
 		break;
 	case CLKFLAG_NORETAIN_PERIPH:
 		cbcr_val &= ~BIT(13);
 		break;
 	case CLKFLAG_RETAIN_MEM:
 		cbcr_val |= BIT(14);
+		delay_us = 1;
 		break;
 	case CLKFLAG_NORETAIN_MEM:
 		cbcr_val &= ~BIT(14);
@@ -570,17 +572,11 @@ static int branch_clk_set_flags(struct clk *c, unsigned flags)
 		ret = -EINVAL;
 	}
 	writel_relaxed(cbcr_val, CBCR_REG(branch));
-	/*
-	 * 8974v2.2 has a requirement that writes to set bits 13 and 14 are
-	 * separated by at least 2 bus cycles. Cover one of these cycles by
-	 * performing an extra write here. The other cycle is covered by the
-	 * read-modify-write design of this function.
-	 */
-	writel_relaxed(cbcr_val, CBCR_REG(branch));
-	spin_unlock_irqrestore(&local_clock_reg_lock, irq_flags);
-
-	/* Make sure write is issued before returning. */
+	/* Make sure power is enabled before returning. */
 	mb();
+	udelay(delay_us);
+
+	spin_unlock_irqrestore(&local_clock_reg_lock, irq_flags);
 
 	return ret;
 }
@@ -642,6 +638,74 @@ static enum handoff local_vote_clk_handoff(struct clk *c)
 		return HANDOFF_DISABLED_CLK;
 
 	return HANDOFF_ENABLED_CLK;
+}
+
+struct frac_entry {
+	int num;
+	int den;
+};
+
+static struct frac_entry frac_table_675m[] = {	/* link rate of 270M */
+	{52, 295},	/* 119 M */
+	{11, 57},	/* 130.25 M */
+	{63, 307},	/* 138.50 M */
+	{11, 50},	/* 148.50 M */
+	{47, 206},	/* 154 M */
+	{31, 100},	/* 205.25 M */
+	{107, 269},	/* 268.50 M */
+	{0, 0},
+};
+
+static struct frac_entry frac_table_810m[] = { /* Link rate of 162M */
+	{31, 211},	/* 119 M */
+	{32, 199},	/* 130.25 M */
+	{63, 307},	/* 138.50 M */
+	{11, 60},	/* 148.50 M */
+	{50, 263},	/* 154 M */
+	{31, 120},	/* 205.25 M */
+	{119, 359},	/* 268.50 M */
+	{0, 0},
+};
+
+static int set_rate_edp_pixel(struct clk *clk, unsigned long rate)
+{
+	struct rcg_clk *rcg = to_rcg_clk(clk);
+	struct clk_freq_tbl *pixel_freq = rcg->current_freq;
+	struct frac_entry *frac;
+	int delta = 100000;
+	s64 request;
+	s64 src_rate;
+
+	src_rate = clk_get_rate(clk->parent);
+
+	if (src_rate == 810000000)
+		frac = frac_table_810m;
+	else
+		frac = frac_table_675m;
+
+	while (frac->num) {
+		request = rate;
+		request *= frac->den;
+		request = div_s64(request, frac->num);
+		if ((src_rate < (request - delta)) ||
+			(src_rate > (request + delta))) {
+			frac++;
+			continue;
+		}
+
+		pixel_freq->div_src_val &= ~BM(4, 0);
+		if (frac->den == frac->num) {
+			pixel_freq->m_val = 0;
+			pixel_freq->n_val = 0;
+		} else {
+			pixel_freq->m_val = frac->num;
+			pixel_freq->n_val = ~(frac->den - frac->num);
+			pixel_freq->d_val = ~frac->den;
+		}
+		set_rate_mnd(rcg, pixel_freq);
+		return 0;
+	}
+	return -EINVAL;
 }
 
 enum handoff byte_rcg_handoff(struct clk *clk)
@@ -796,6 +860,37 @@ static int rcg_clk_set_rate_hdmi(struct clk *c, unsigned long rate)
 	c->parent = nf->src_clk;
 out:
 	return rc;
+}
+
+static struct clk *edp_clk_get_parent(struct clk *c)
+{
+	struct rcg_clk *rcg = to_rcg_clk(c);
+	struct clk *clk;
+	struct clk_freq_tbl *freq;
+	uint32_t rate;
+	u32 cmd_rcgr_regval;
+
+	/* Is there a pending configuration? */
+	cmd_rcgr_regval = readl_relaxed(CMD_RCGR_REG(rcg));
+	if (cmd_rcgr_regval & CMD_RCGR_CONFIG_DIRTY_MASK)
+		return NULL;
+
+	/* Figure out what rate the rcg is running at */
+	for (freq = rcg->freq_tbl; freq->freq_hz != FREQ_END; freq++) {
+		clk = freq->src_clk;
+		if (clk && clk->ops->get_rate) {
+			rate = clk->ops->get_rate(clk);
+			if (rate == freq->freq_hz)
+				break;
+		}
+	}
+
+	/* No known frequency found */
+	if (freq->freq_hz == FREQ_END)
+		return NULL;
+
+	rcg->current_freq = freq;
+	return freq->src_clk;
 }
 
 
@@ -976,6 +1071,14 @@ struct clk_ops clk_ops_pixel = {
 	.handoff = pixel_rcg_handoff,
 };
 
+struct clk_ops clk_ops_edppixel = {
+	.enable = rcg_clk_prepare,
+	.set_rate = set_rate_edp_pixel,
+	.list_rate = rcg_clk_list_rate,
+	.round_rate = rcg_clk_round_rate,
+	.handoff = pixel_rcg_handoff,
+};
+
 struct clk_ops clk_ops_byte = {
 	.enable = rcg_clk_prepare,
 	.set_rate = set_rate_byte,
@@ -991,6 +1094,15 @@ struct clk_ops clk_ops_rcg_hdmi = {
 	.round_rate = rcg_clk_round_rate,
 	.handoff = rcg_clk_handoff,
 	.get_parent = rcg_clk_get_parent,
+};
+
+struct clk_ops clk_ops_rcg_edp = {
+	.enable = rcg_clk_prepare,
+	.set_rate = rcg_clk_set_rate_hdmi,
+	.list_rate = rcg_clk_list_rate,
+	.round_rate = rcg_clk_round_rate,
+	.handoff = rcg_clk_handoff,
+	.get_parent = edp_clk_get_parent,
 };
 
 struct clk_ops clk_ops_branch = {

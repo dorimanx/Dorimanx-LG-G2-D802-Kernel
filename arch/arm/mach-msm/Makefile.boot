@@ -54,12 +54,20 @@ ifeq ($(CONFIG_MACH_LGE),n)
         dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v1-mtp.dtb
         dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v1-rumi.dtb
         dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v1-sim.dtb
-        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2-cdp.dtb
-        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2-fluid.dtb
-        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2-liquid.dtb
-        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2-mtp.dtb
-        dtb-$(CONFIG_ARCH_MSM8974)	+= apq8074-v2-liquid.dtb
-        dtb-$(CONFIG_ARCH_MSM8974)	+= apq8074-v2-dragonboard.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2.0-1-cdp.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2.0-1-fluid.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2.0-1-liquid.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2.0-1-mtp.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= apq8074-v2.0-1-cdp.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= apq8074-v2.0-1-liquid.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= apq8074-v2.0-1-dragonboard.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= apq8074-v2.2-cdp.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= apq8074-v2.2-liquid.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= apq8074-v2.2-dragonboard.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2.2-cdp.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2.2-fluid.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2.2-liquid.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2.2-mtp.dtb
 else
         dtb-$(CONFIG_MACH_MSM8974_G2_ATT)	+= msm8974-g2-att.dtb
         dtb-$(CONFIG_MACH_MSM8974_G2_ATT)	+= msm8974-v2-g2-att.dtb
@@ -109,12 +117,18 @@ endif
 # MSM8226
    zreladdr-$(CONFIG_ARCH_MSM8226)	:= 0x00008000
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-sim.dtb
-        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-cdp.dtb
-        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-mtp.dtb
-        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-qrd.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-fluid.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v1-cdp.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v1-mtp.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v1-qrd.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v2-cdp.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v2-mtp.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v2-qrd.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8926-cdp.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8926-mtp.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8926-qrd.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= apq8026-xpm.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= apq8026-mtp.dtb
 
 # FSM9XXX
    zreladdr-$(CONFIG_ARCH_FSM9XXX)	:= 0x10008000
@@ -131,9 +145,12 @@ initrd_phys-$(CONFIG_ARCH_FSM9XXX)	:= 0x12000000
 
 # MSM8610
    zreladdr-$(CONFIG_ARCH_MSM8610)	:= 0x00008000
+        dtb-$(CONFIG_ARCH_MSM8610)	+= msm8610-cdp.dtb
+        dtb-$(CONFIG_ARCH_MSM8610)	+= msm8610-mtp.dtb
         dtb-$(CONFIG_ARCH_MSM8610)	+= msm8610-rumi.dtb
         dtb-$(CONFIG_ARCH_MSM8610)	+= msm8610-sim.dtb
 
 # MSMSAMARIUM
    zreladdr-$(CONFIG_ARCH_MSMSAMARIUM)	:= 0x00008000
 	dtb-$(CONFIG_ARCH_MSMSAMARIUM)	+= msmsamarium-sim.dtb
+	dtb-$(CONFIG_ARCH_MSMSAMARIUM)	+= msmsamarium-rumi.dtb

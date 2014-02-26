@@ -1159,7 +1159,7 @@ int msm_rpm_wait_for_ack(uint32_t msg_id)
 	elem = msm_rpm_get_entry_from_msg_id(msg_id);
 	if (!elem)
 		return rc;
-#if 0 /*                */
+#if 0 /* LGE Workaround */
 	wait_for_completion(&elem->ack);
 #else
 	while(!wait_for_completion_timeout(&elem->ack, HZ/20)) {

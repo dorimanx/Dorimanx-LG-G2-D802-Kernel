@@ -144,7 +144,7 @@ static struct l2_level l2_freq_tbl_v1[] __initdata = {
 	{ }
 };
 
-/*                                                      */
+/* LGE_CHANGE_S support factory process without battery */
 #ifdef CONFIG_MACH_MSM8974_VU3_KR
 #include "lge/acpuclock-vu3-factory.h"
 #else 
@@ -926,7 +926,7 @@ static struct pvs_table pvs_v2_lge_factory[NUM_SPEED_BINS][NUM_PVS] __initdata =
 	[2][7] = { acpu_freq_tbl_2p2g_pvs6_lge_factory, sizeof(acpu_freq_tbl_2p2g_pvs6_lge_factory) },
 
 };
-/*                                                      */
+/* LGE_CHANGE_S support factory process without battery */
 
 static struct acpu_level acpu_freq_tbl_v1_pvs0[] __initdata = {
 	{ 1, {  300000, PLL_0, 0,   0 }, L2(0),   825000,  73 },
@@ -1071,7 +1071,7 @@ static struct l2_level l2_freq_tbl_v2[] __initdata = {
 	[7]  = { {  806400, HFPLL, 1,  42 }, LVL_NOM,   950000, 4 },
 	[8]  = { {  883200, HFPLL, 1,  46 }, LVL_NOM,   950000, 5 },
 	[9]  = { {  960000, HFPLL, 1,  50 }, LVL_NOM,   950000, 5 },
-	[10] = { { 1036800, HFPLL, 1,  54 }, LVL_NOM,   950000, 6 },
+	[10] = { { 1036800, HFPLL, 1,  54 }, LVL_NOM,   950000, 5 },
 	[11] = { { 1113600, HFPLL, 1,  58 }, LVL_HIGH, 1050000, 6 },
 	[12] = { { 1190400, HFPLL, 1,  62 }, LVL_HIGH, 1050000, 6 },
 	[13] = { { 1267200, HFPLL, 1,  66 }, LVL_HIGH, 1050000, 6 },
@@ -1784,7 +1784,7 @@ static struct msm_bus_scale_pdata bus_scale_data __initdata = {
 	.name = "acpuclk-8974",
 };
 
-/*                                                      */
+/* LGE_CHANGE_S support factory process without battery */
 static struct acpuclk_krait_params acpuclk_8974_params_lge_factory __initdata = {
 	.scalable = scalable,
 	.scalable_size = sizeof(scalable),
@@ -1797,7 +1797,7 @@ static struct acpuclk_krait_params acpuclk_8974_params_lge_factory __initdata = 
 	.get_bin_info = get_krait_bin_format_b,
 	.stby_khz = 300000,
 };
-/*                                                      */
+/* LGE_CHANGE_S support factory process without battery */
 
 static struct acpuclk_krait_params acpuclk_8974_params __initdata = {
 	.scalable = scalable,
@@ -1822,7 +1822,7 @@ static void __init apply_v1_l2_workaround(void)
 	struct acpu_level *l;
 	int s, p;
 
-	/*                                                    */
+	/* LGE_CHANGE support factory process without battery */
 	enum lge_boot_mode_type boot_mode = lge_get_boot_mode();
 	if(boot_mode == LGE_BOOT_MODE_MINIOS || boot_mode == LGE_BOOT_MODE_FACTORY2 || boot_mode == LGE_BOOT_MODE_PIFBOOT2) {
 		for (s = 0; s < NUM_SPEED_BINS; s++)
@@ -1845,7 +1845,7 @@ static void __init apply_v1_l2_workaround(void)
 
 static int __init acpuclk_8974_probe(struct platform_device *pdev)
 {
-	/*                                                    */
+	/* LGE_CHANGE support factory process without battery */
 	enum lge_boot_mode_type boot_mode = lge_get_boot_mode();
 	if(boot_mode == LGE_BOOT_MODE_MINIOS || boot_mode == LGE_BOOT_MODE_FACTORY2 || boot_mode == LGE_BOOT_MODE_PIFBOOT2) {
 		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1) {

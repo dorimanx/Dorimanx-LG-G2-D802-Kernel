@@ -46,8 +46,8 @@
 #define PRI_SRC_SEL_HFPLL_DIV2	2
 
 /*
-                                                         
-                              
+ * added userspace interface for speed_bin & pvs_bin info
+ * 2013-06-07 fred.cho@lge.com
  */
 #ifdef CONFIG_MACH_LGE
 int g_speed_bin;
@@ -1207,8 +1207,8 @@ static struct pvs_table * __init select_freq_plan(
 	}
 
 /*
-                                                         
-                              
+ * added userspace interface for speed_bin & pvs_bin info
+ * 2013-06-07 fred.cho@lge.com
  */
 #ifdef CONFIG_MACH_LGE
 	g_speed_bin = drv.speed_bin;

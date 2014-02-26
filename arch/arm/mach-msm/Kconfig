@@ -404,6 +404,7 @@ config ARCH_MSM9625
 	select GPIO_MSM_V3
 	select MAY_HAVE_SPARSE_IRQ
 	select SPARSE_IRQ
+	select CPU_FREQ_MSM
 	select MSM_MULTIMEDIA_USE_ION
 	select MSM_RPM_STATS_LOG
 	select MSM_QDSP6_APRV2
@@ -2399,6 +2400,15 @@ config MSM_RPM_RBCPR_STATS_LOG
           memory location. These messages provide statistical information about
           RBCPR (Rapid Bridge Core Power Reduction) information . The drivers
           outputs the message via a debugfs node.
+
+config MSM_RPM_RBCPR_STATS_V2_LOG
+        tristate "MSM Resource Power Manager RPBCPR Stat Driver"
+        depends on DEBUG_FS
+          help
+          This option enables v2 of the rpmrbcpr_stats driver which reads RPM
+          memory for statistics pertaining to RPM's RBCPR(Rapid Bridge Core
+          Power Reduction) driver. The drivers outputs the message via a
+          debugfs node.
 
 config MSM_DIRECT_SCLK_ACCESS
 	bool "Direct access to the SCLK timer"

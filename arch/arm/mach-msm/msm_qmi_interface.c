@@ -440,6 +440,7 @@ int qmi_send_req_wait(struct qmi_handle *handle,
 	/* Wait for the response */
 	if (!timeout_ms) {
 		wait_event(txn_handle->wait_q,
+
 			   (txn_handle->resp_received ||
 			    handle->handle_reset ||
 			   (txn_handle->send_stat < 0)));

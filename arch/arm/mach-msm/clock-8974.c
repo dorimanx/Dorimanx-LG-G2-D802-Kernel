@@ -47,9 +47,9 @@ enum {
 
 static void __iomem *virt_bases[N_BASES];
 #ifdef CONFIG_MACH_LGE
-/*           
-                                               
-                                  
+/* LGE_CHANGE
+* This is for auto pll patch from case#01156220
+* 2013-05-25, baryun.hwang@lge.com
 */
 #define QCT_AUTO_PLL_PATCH
 #endif
@@ -540,7 +540,8 @@ static void __iomem *virt_bases[N_BASES];
 #define gpll1_hsic_source_val 4
 #define cxo_lpass_source_val 0
 #define gpll0_lpass_source_val 5
-#define edppll_270_mm_source_val 4
+#define edp_mainlink_mm_source_val 4
+#define edp_pixel_mm_source_val 5
 #define edppll_350_mm_source_val 4
 #define dsipll_750_mm_source_val 1
 #define dsipll0_byte_mm_source_val 1
@@ -581,6 +582,17 @@ static void __iomem *virt_bases[N_BASES];
 	{ \
 		.freq_hz = (f), \
 		.src_clk = &s##_clk_src, \
+		.m_val = (m), \
+		.n_val = ~((n)-(m)) * !!(n), \
+		.d_val = ~(n),\
+		.div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
+			| BVAL(10, 8, s##_mm_source_val), \
+	}
+
+#define F_EDP(f, s, div, m, n) \
+	{ \
+		.freq_hz = (f), \
+		.src_clk = &s##_clk_src.c, \
 		.m_val = (m), \
 		.n_val = ~((n)-(m)) * !!(n), \
 		.d_val = ~(n),\
@@ -796,7 +808,6 @@ static DEFINE_CLK_VOTER(pnoc_msmbus_clk, &pnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(snoc_msmbus_clk, &snoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(cnoc_msmbus_clk, &cnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_msmbus_a_clk, &pnoc_a_clk.c, LONG_MAX);
-static DEFINE_CLK_VOTER(pnoc_pm_clk, &pnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(snoc_msmbus_a_clk, &snoc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(cnoc_msmbus_a_clk, &cnoc_a_clk.c, LONG_MAX);
 
@@ -808,6 +819,7 @@ static DEFINE_CLK_VOTER(ocmemgx_msmbus_clk, &ocmemgx_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ocmemgx_msmbus_a_clk, &ocmemgx_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ocmemgx_core_clk, &ocmemgx_clk.c, LONG_MAX);
 
+static DEFINE_CLK_VOTER(pnoc_keepalive_a_clk, &pnoc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, 0);
 
 static DEFINE_CLK_BRANCH_VOTER(cxo_otg_clk, &cxo_clk_src.c);
@@ -841,7 +853,7 @@ static struct clk_freq_tbl ftbl_gcc_blsp1_2_qup1_6_spi_apps_clk[] = {
 	F(960000,     cxo, 10, 1, 2),
 	F(4800000,    cxo,  4, 0, 0),
 #if defined(CONFIG_LGE_BROADCAST_TDMB)
-	F(7207207, gpll0, 4.5, 2, 37), //                                       
+	F(7207207, gpll0, 4.5, 2, 37), //for using 7.207MHz spi clock in LGE DMB
 #endif
 	F(9600000,    cxo,  2, 0, 0),
 	F(15000000, gpll0, 10, 1, 4),
@@ -1422,8 +1434,8 @@ static struct rcg_clk ce2_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_gp_clk[] = {
-/*                                
-                                          
+/* soojung.lim@lge.com, 2013-05-23
+ * To use 24MHz GP/GCC_GP clock for V2 H/W
  */
 	 F( 4800000, cxo, 4, 0, 0),
 	 F( 6000000, cxo, 10, 1, 10),
@@ -3092,40 +3104,42 @@ static struct rcg_clk edpaux_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_mdss_edplink_clk[] = {
-	F_MDSS(162000000, edppll_270,   2,   0,   0),
-	F_MDSS(270000000, edppll_270,  11,   0,   0),
+	F_EDP(162000000, edp_mainlink,  1,   0,   0),
+	F_EDP(270000000, edp_mainlink,  1,   0,   0),
 	F_END
 };
 
 static struct rcg_clk edplink_clk_src = {
 	.cmd_rcgr_reg = EDPLINK_CMD_RCGR,
-	.set_rate = set_rate_hid,
 	.freq_tbl = ftbl_mdss_edplink_clk,
 	.current_freq = &rcg_dummy_freq,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "edplink_clk_src",
-		.ops = &clk_ops_rcg,
+		.ops = &clk_ops_rcg_edp,
 		VDD_DIG_FMAX_MAP2(LOW, 135000000, NOMINAL, 270000000),
 		CLK_INIT(edplink_clk_src.c),
 	},
 };
 
-static struct clk_freq_tbl ftbl_mdss_edppixel_clk[] = {
-	F_MDSS(138500000, edppll_350,   2,   0,   0),
-	F_MDSS(350000000, edppll_350,  11,   0,   0),
+static struct clk_freq_tbl edp_pixel_freq_tbl[] = {
+	{
+		.src_clk = &edp_pixel_clk_src.c,
+		.div_src_val = BVAL(10, 8, edp_pixel_mm_source_val)
+				| BVAL(4, 0, 0),
+	},
 	F_END
 };
 
 static struct rcg_clk edppixel_clk_src = {
 	.cmd_rcgr_reg = EDPPIXEL_CMD_RCGR,
 	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_mdss_edppixel_clk,
-	.current_freq = &rcg_dummy_freq,
+	.current_freq = edp_pixel_freq_tbl,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
+		.parent = &edp_pixel_clk_src.c,
 		.dbg_name = "edppixel_clk_src",
-		.ops = &clk_ops_rcg_mnd,
+		.ops = &clk_ops_edppixel,
 		VDD_DIG_FMAX_MAP2(LOW, 175000000, NOMINAL, 350000000),
 		CLK_INIT(edppixel_clk_src.c),
 	},
@@ -3655,6 +3669,7 @@ static struct branch_clk camss_csi3rdi_clk = {
 
 static struct branch_clk camss_csi_vfe0_clk = {
 	.cbcr_reg = CAMSS_CSI_VFE0_CBCR,
+	.bcr_reg = CAMSS_CSI_VFE0_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -3667,6 +3682,7 @@ static struct branch_clk camss_csi_vfe0_clk = {
 
 static struct branch_clk camss_csi_vfe1_clk = {
 	.cbcr_reg = CAMSS_CSI_VFE1_CBCR,
+	.bcr_reg = CAMSS_CSI_VFE1_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -3714,6 +3730,7 @@ static struct branch_clk camss_ispif_ahb_clk = {
 
 static struct branch_clk camss_jpeg_jpeg0_clk = {
 	.cbcr_reg = CAMSS_JPEG_JPEG0_CBCR,
+	.bcr_reg = CAMSS_JPEG_BCR,
 	.has_sibling = 0,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -3834,6 +3851,7 @@ static struct branch_clk camss_mclk3_clk = {
 static struct branch_clk camss_micro_ahb_clk = {
 	.cbcr_reg = CAMSS_MICRO_AHB_CBCR,
 	.has_sibling = 1,
+	.bcr_reg = CAMSS_MICRO_BCR,  //QCT_PATCH, fix the H/W reset on loading cpp, 2013-09-11, freeso.kim@lge.com
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "camss_micro_ahb_clk",
@@ -3914,6 +3932,7 @@ static struct branch_clk camss_vfe_cpp_clk = {
 
 static struct branch_clk camss_vfe_vfe0_clk = {
 	.cbcr_reg = CAMSS_VFE_VFE0_CBCR,
+	.bcr_reg = CAMSS_VFE_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -4115,6 +4134,7 @@ static struct branch_clk mdss_hdmi_clk = {
 
 static struct branch_clk mdss_mdp_clk = {
 	.cbcr_reg = MDSS_MDP_CBCR,
+	.bcr_reg = MDSS_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -4308,6 +4328,7 @@ static struct branch_clk oxilicx_axi_clk = {
 
 static struct branch_clk oxili_gfx3d_clk = {
 	.cbcr_reg = OXILI_GFX3D_CBCR,
+	.bcr_reg = OXILI_BCR,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.parent = &oxili_gfx3d_clk_src.c,
@@ -4830,17 +4851,17 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("xo",       cxo_dwc3_clk.c,                 "msm_dwc3"),
 	CLK_LOOKUP("xo",  cxo_ehci_host_clk.c,            "msm_ehci_host"),
 
-/*                                                                      */
+/*  LGE_CHANGE_S, [NFC][byunggu.kang@lge.com], 2013-02-27, NFC Bring up */
 #ifdef CONFIG_NFC_BCM2079X
 	CLK_LOOKUP("xo",	   cxo_d1_pin.c,		"nfc_nci"),
 #endif
-/*                                                                      */
+/*  LGE_CHANGE_E, [NFC][byunggu.kang@lge.com], 2013-02-27, NFC Bring up */
 
-/*                                                                     */
+/*  LGE_CHANGE_S, [NFC][minwoo.kwon@lge.com], 2013-03-13, NFC Bring up */
 #ifdef CONFIG_LGE_NFC_PN544_C3
 	CLK_LOOKUP("xo",	   cxo_d1_pin.c,			"nfc_nxp"),
 #endif
-/*                                                                     */
+/*  LGE_CHANGE_E, [NFC][minwoo.kwon@lge.com], 2013-03-13, NFC Bring up */
 
 
 #if defined(CONFIG_LGE_BROADCAST_TDMB)
@@ -4848,10 +4869,10 @@ static struct clk_lookup msm_clocks_8974[] = {
 #if defined (CONFIG_MACH_MSM8974_Z_KR) || defined (CONFIG_MACH_MSM8974_Z_US) || defined (CONFIG_MACH_MSM8974_Z_KDDI)
 	CLK_LOOKUP("xo",	cxo_a2.c,	"spi101.0"),
 #endif
-#endif /*               */ 
+#endif /* LGE_BROADCAST */ 
 #if defined(CONFIG_LGE_BROADCAST_ONESEG) && (defined(CONFIG_MACH_MSM8974_G2_KDDI) || defined(CONFIG_MACH_MSM8974_G2_DCM))
 		CLK_LOOKUP("xo",	cxo_a2.c,	"spi8.0"),
-#endif /*                      */
+#endif /* LGE_BROADCAST ONESEG */
 
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
 
@@ -4913,7 +4934,7 @@ static struct clk_lookup msm_clocks_8974[] = {
 #endif
 #if defined(CONFIG_LGE_BROADCAST_TDMB) || (defined(CONFIG_LGE_BROADCAST_ONESEG) && (defined(CONFIG_MACH_MSM8974_G2_KDDI) || defined(CONFIG_MACH_MSM8974_G2_DCM)))
 	CLK_LOOKUP("iface_clk", gcc_blsp2_ahb_clk.c, "f9964000.spi"),
-#endif /*               */
+#endif /* LGE_BROADCAST */
 #ifdef CONFIG_LGE_IRRC
 	CLK_LOOKUP("iface_clk", gcc_blsp2_ahb_clk.c, "f9962000.serial"),
 #else
@@ -4931,7 +4952,7 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("core_clk", gcc_blsp2_qup2_spi_apps_clk.c, "f9964000.spi"),
 #else
 	CLK_LOOKUP("core_clk", gcc_blsp2_qup2_spi_apps_clk.c, ""),
-#endif /*               */
+#endif /* LGE_BROADCAST */
 	CLK_LOOKUP("core_clk", gcc_blsp2_qup3_i2c_apps_clk.c, ""),
 	CLK_LOOKUP("core_clk", gcc_blsp2_qup3_spi_apps_clk.c, ""),
 	CLK_LOOKUP("core_clk", gcc_blsp2_qup4_i2c_apps_clk.c, ""),
@@ -4947,7 +4968,7 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("core_clk", gcc_blsp2_uart4_apps_clk.c, "f9960000.uart"),
 #else
 	CLK_LOOKUP("core_clk", gcc_blsp2_uart4_apps_clk.c, ""),
-#endif /*                      */
+#endif /* CONFIG_LGE_BLUETOOTH */
 	CLK_LOOKUP("core_clk", gcc_blsp2_uart5_apps_clk.c, ""),
 #ifdef CONFIG_LGE_IRRC
 	CLK_LOOKUP("core_clk", gcc_blsp2_uart6_apps_clk.c, "f9962000.serial"),
@@ -4981,6 +5002,11 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("ce_drv_iface_clk",    gcc_ce2_ahb_clk.c,     "qseecom"),
 	CLK_LOOKUP("ce_drv_bus_clk",      gcc_ce2_axi_clk.c,     "qseecom"),
 	CLK_LOOKUP("ce_drv_core_clk_src", ce2_clk_src.c,         "qseecom"),
+
+	CLK_LOOKUP("core_clk",     gcc_ce1_clk.c,         "mcd"),
+	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c,     "mcd"),
+	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c,     "mcd"),
+	CLK_LOOKUP("core_clk_src", ce1_clk_src.c,         "mcd"),
 
 	CLK_LOOKUP("core_clk",     gcc_ce1_clk.c,         "scm"),
 	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c,     "scm"),
@@ -5049,6 +5075,8 @@ static struct clk_lookup msm_clocks_8974[] = {
 #endif
 	CLK_LOOKUP("pixel_clk", mdss_pclk0_clk.c, "fd922800.qcom,mdss_dsi"),
 	CLK_LOOKUP("pixel_clk", mdss_pclk1_clk.c, "fd922e00.qcom,mdss_dsi"),
+	CLK_LOOKUP("mdp_core_clk", mdss_mdp_clk.c, "fd922800.qcom,mdss_dsi"),
+	CLK_LOOKUP("mdp_core_clk", mdss_mdp_clk.c, "fd922e00.qcom,mdss_dsi"),
 	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "fd922100.qcom,hdmi_tx"),
 	CLK_LOOKUP("alt_iface_clk", mdss_hdmi_ahb_clk.c,
 		"fd922100.qcom,hdmi_tx"),
@@ -5063,9 +5091,9 @@ static struct clk_lookup msm_clocks_8974[] = {
 	/* MM sensor clocks */
 	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6e.qcom,camera"),
 
-/*                                
-                                          
-                                                                  
+/* soojung.lim@lge.com, 2013-05-23
+ * To use 24MHz GP/GCC_GP clock for V2 H/W
+ * To use 19.2MHz MCLK, then use the below mclk0 and mclk2 setting
  */
 #ifdef CONFIG_MACH_LGE
 	CLK_LOOKUP("cam_src_clk", mmss_gp0_clk_src.c, "20.qcom,camera_rev_a"),
@@ -5220,6 +5248,53 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("ispif_ahb_clk", camss_ispif_ahb_clk.c,
 		"fda0a000.qcom,ispif"),
 
+	CLK_LOOKUP("vfe0_clk_src", vfe0_clk_src.c, "fda0a000.qcom,ispif"),
+	CLK_LOOKUP("camss_vfe_vfe0_clk", camss_vfe_vfe0_clk.c,
+			   "fda0a000.qcom,ispif"),
+	CLK_LOOKUP("camss_csi_vfe0_clk", camss_csi_vfe0_clk.c,
+			   "fda0a000.qcom,ispif"),
+	CLK_LOOKUP("vfe1_clk_src", vfe1_clk_src.c, "fda0a000.qcom,ispif"),
+	CLK_LOOKUP("camss_vfe_vfe1_clk", camss_vfe_vfe1_clk.c,
+			   "fda0a000.qcom,ispif"),
+	CLK_LOOKUP("camss_csi_vfe1_clk", camss_csi_vfe1_clk.c,
+			   "fda0a000.qcom,ispif"),
+	CLK_LOOKUP("csi0_src_clk", csi0_clk_src.c,
+			   "fda0a000.qcom,ispif"),
+	CLK_LOOKUP("csi0_clk", camss_csi0_clk.c,
+			   "fda0a000.qcom,ispif"),
+	CLK_LOOKUP("csi0_pix_clk", camss_csi0pix_clk.c,
+			   "fda0a000.qcom,ispif"),
+	CLK_LOOKUP("csi0_rdi_clk", camss_csi0rdi_clk.c,
+			   "fda0a000.qcom,ispif"),
+/* LGE_CHANGE_S, QCT patch for dual camera, 2013-11-26, jaehyun.won@lge.com */
+	CLK_LOOKUP("csi1_src_clk", csi1_clk_src.c,
+					"fda0a000.qcom,ispif"),
+	CLK_LOOKUP("csi1_clk", camss_csi1_clk.c,
+					"fda0a000.qcom,ispif"),
+	CLK_LOOKUP("csi1_pix_clk", camss_csi1pix_clk.c,
+					"fda0a000.qcom,ispif"),
+	CLK_LOOKUP("csi1_rdi_clk", camss_csi1rdi_clk.c,
+					"fda0a000.qcom,ispif"),
+
+	CLK_LOOKUP("csi2_src_clk", csi2_clk_src.c,
+					"fda0a000.qcom,ispif"),
+	CLK_LOOKUP("csi2_clk", camss_csi2_clk.c,
+					"fda0a000.qcom,ispif"),
+	CLK_LOOKUP("csi2_pix_clk", camss_csi2pix_clk.c,
+					"fda0a000.qcom,ispif"),
+	CLK_LOOKUP("csi2_rdi_clk", camss_csi2rdi_clk.c,
+					"fda0a000.qcom,ispif"),
+
+	CLK_LOOKUP("csi3_src_clk", csi3_clk_src.c,
+					"fda0a000.qcom,ispif"),
+	CLK_LOOKUP("csi3_clk", camss_csi3_clk.c,
+					"fda0a000.qcom,ispif"),
+	CLK_LOOKUP("csi3_pix_clk", camss_csi3pix_clk.c,
+					"fda0a000.qcom,ispif"),
+	CLK_LOOKUP("csi3_rdi_clk", camss_csi3rdi_clk.c,
+					"fda0a000.qcom,ispif"),
+/* LGE_CHANGE_E, QCT patch for dual camera, 2013-11-26, jaehyun.won@lge.com */
+
 	/*VFE clocks*/
 	CLK_LOOKUP("camss_top_ahb_clk", camss_top_ahb_clk.c,
 					"fda10000.qcom,vfe"),
@@ -5347,6 +5422,7 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("core_clk", gcc_prng_ahb_clk.c, "msm_rng"),
 
 	CLK_LOOKUP("dfab_clk", pnoc_sps_clk.c, "msm_sps"),
+	CLK_LOOKUP("bus_clk", pnoc_keepalive_a_clk.c, ""),
 
 	CLK_LOOKUP("bus_clk", snoc_clk.c, ""),
 	CLK_LOOKUP("bus_clk", pnoc_clk.c, ""),
@@ -5364,7 +5440,6 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("bus_clk",	snoc_msmbus_clk.c,	"msm_sys_noc"),
 	CLK_LOOKUP("bus_a_clk",	snoc_msmbus_a_clk.c,	"msm_sys_noc"),
 	CLK_LOOKUP("bus_clk",	pnoc_msmbus_clk.c,	"msm_periph_noc"),
-	CLK_LOOKUP("bus_clk",   pnoc_pm_clk.c,      "pm_8x60"),
 	CLK_LOOKUP("bus_a_clk",	pnoc_msmbus_a_clk.c,	"msm_periph_noc"),
 	CLK_LOOKUP("mem_clk",	bimc_msmbus_clk.c,	"msm_bimc"),
 	CLK_LOOKUP("mem_a_clk",	bimc_msmbus_a_clk.c,	"msm_bimc"),
@@ -5617,23 +5692,29 @@ static void __init msm8974_clock_post_init(void)
 	clk_prepare_enable(&mmssnoc_ahb_a_clk.c);
 
 	/*
+	 * Hold an active set vote for the PNOC AHB source. Sleep set vote is 0.
+	 */
+	clk_set_rate(&pnoc_keepalive_a_clk.c, 19200000);
+	clk_prepare_enable(&pnoc_keepalive_a_clk.c);
+
+	/*
 	 * Hold an active set vote for CXO; this is because CXO is expected
 	 * to remain on whenever CPUs aren't power collapsed.
 	 */
 	clk_prepare_enable(&cxo_a_clk_src.c);
 
-/*                                                                      */
+/*  LGE_CHANGE_S, [NFC][byunggu.kang@lge.com], 2013-02-27, NFC Bring up */
 #ifdef CONFIG_NFC_BCM2079X
 	clk_prepare_enable(&cxo_d1_pin.c);
 #endif
-/*                                                                      */
+/*  LGE_CHANGE_E, [NFC][byunggu.kang@lge.com], 2013-02-27, NFC Bring up */
 
 
-/*                                                                     */
+/*  LGE_CHANGE_S, [NFC][minwoo.kwon@lge.com], 2013-03-13, NFC Bring up */
 #ifdef CONFIG_LGE_NFC_PN544_C3
 	clk_prepare_enable(&cxo_d1_pin.c);
 #endif
-/*                                                                     */
+/*  LGE_CHANGE_E, [NFC][minwoo.kwon@lge.com], 2013-03-13, NFC Bring up */
 
 
 	/*

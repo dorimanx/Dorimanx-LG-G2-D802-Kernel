@@ -110,11 +110,6 @@ static int lge_gdsc_disable(struct gdsc *sc)
 
 	ret = readl_tight_poll_timeout(sc->gdscr, regval,
 				       !(regval & PWR_ON_MASK), TIMEOUT_US_LGE);
-
-	regval = readl_relaxed(sc->gdscr);
-	regval &= ~(HW_CONTROL_MASK | SW_OVERRIDE_MASK);
-	writel_relaxed(regval, sc->gdscr);
-
 	if (ret)
 		pr_err("%s: %s disable timed out\n", __func__, sc->rdesc.name);
 	return ret;
@@ -190,10 +185,6 @@ retry_enable:
 	 */
 	udelay(1);
 
-	regval = readl_relaxed(sc->gdscr);
-	regval &= ~(HW_CONTROL_MASK | SW_OVERRIDE_MASK);
-	writel_relaxed(regval, sc->gdscr);
-
 	return 0;
 }
 #endif
@@ -255,6 +246,13 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	uint32_t regval;
 	int i, ret = 0;
 
+	for (i = 0; i < sc->clock_count; i++) {
+		if (sc->toggle_mem)
+			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_MEM);
+		if (sc->toggle_periph)
+			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_PERIPH);
+	}
+
 	if (sc->toggle_logic) {
 #ifdef CONFIG_MACH_LGE
 		if (sc->use_lge_workaround)
@@ -277,13 +275,6 @@ static int gdsc_disable(struct regulator_dev *rdev)
 		for (i = 0; i < sc->clock_count; i++)
 			clk_reset(sc->clocks[i], CLK_RESET_ASSERT);
 		sc->resets_asserted = true;
-	}
-
-	for (i = 0; i < sc->clock_count; i++) {
-		if (sc->toggle_mem)
-			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_MEM);
-		if (sc->toggle_periph)
-			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_PERIPH);
 	}
 
 	return ret;
@@ -383,26 +374,15 @@ static int __devinit gdsc_probe(struct platform_device *pdev)
 
 	retain_mem = of_property_read_bool(pdev->dev.of_node,
 					    "qcom,retain-mem");
+	sc->toggle_mem = !retain_mem;
 	retain_periph = of_property_read_bool(pdev->dev.of_node,
 					    "qcom,retain-periph");
-	for (i = 0; i < sc->clock_count; i++) {
-		if (retain_mem || (regval & PWR_ON_MASK))
-			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_MEM);
-		else
-			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_MEM);
-
-		if (retain_periph || (regval & PWR_ON_MASK))
-			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_PERIPH);
-		else
-			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_PERIPH);
-	}
-	sc->toggle_mem = !retain_mem;
 	sc->toggle_periph = !retain_periph;
 	sc->toggle_logic = !of_property_read_bool(pdev->dev.of_node,
 						"qcom,skip-logic-collapse");
 	if (!sc->toggle_logic) {
 #ifdef CONFIG_MACH_LGE
-		/*                                                             */
+		/* LGE workaround is not used if a device is good pdn revision */
 		if (lge_get_board_revno() >= use_lge_workaround) {
 			regval &= ~SW_COLLAPSE_MASK;
 			writel_relaxed(regval, sc->gdscr);
@@ -436,6 +416,18 @@ static int __devinit gdsc_probe(struct platform_device *pdev)
 			return ret;
 		}
 #endif
+	}
+
+	for (i = 0; i < sc->clock_count; i++) {
+		if (retain_mem || (regval & PWR_ON_MASK))
+			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_MEM);
+		else
+			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_MEM);
+
+		if (retain_periph || (regval & PWR_ON_MASK))
+			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_PERIPH);
+		else
+			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_PERIPH);
 	}
 
 	sc->rdev = regulator_register(&sc->rdesc, &pdev->dev, init_data, sc,

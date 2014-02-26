@@ -152,7 +152,7 @@ static irqreturn_t ocmem_dm_irq_handler(int irq, void *dev_id)
 #ifdef CONFIG_MSM_OCMEM_NONSECURE
 int ocmem_clear(unsigned long start, unsigned long size)
 {
-#if 1 //                                    
+#if 1 // LGE Workaround for hang on irq wait
 	int retry_count = 5 ;
 retry_entry:
 #endif
@@ -174,7 +174,7 @@ retry_entry:
 	/* Trigger Data Clear */
 	ocmem_write(DM_CLR_ENABLE, dm_base + DM_CLR_TRIGGER);
 
-#if 0 //                                    
+#if 0 // LGE Workaround for hang on irq wait
 	wait_for_completion(&dm_clear_event);
 
 #else

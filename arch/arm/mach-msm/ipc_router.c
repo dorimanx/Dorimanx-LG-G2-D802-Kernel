@@ -2532,6 +2532,8 @@ int msm_ipc_router_send_msg(struct msm_ipc_port *src,
 	}
 
 	ret = msm_ipc_router_send_to(src, out_skb_head, dest);
+	if (ret == -EAGAIN)
+		return ret;
 	if (ret < 0) {
 		if (ret != -EAGAIN)
 			pr_err("%s: msm_ipc_router_send_to failed - ret: %d\n",
