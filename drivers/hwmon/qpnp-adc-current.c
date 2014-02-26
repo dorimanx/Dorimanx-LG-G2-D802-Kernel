@@ -153,11 +153,12 @@ struct qpnp_iadc_drv {
 	struct mutex				iadc_vadc_lock;
 	bool					iadc_mode_sel;
 	struct qpnp_iadc_comp			iadc_comp;
+	bool					skip_auto_calibrations;
 	bool					iadc_poll_eoc;
 	struct sensor_device_attribute		sens_attr[0];
 };
 
-struct qpnp_iadc_drv	*qpnp_iadc;
+static struct qpnp_iadc_drv	*qpnp_iadc;
 
 static int32_t qpnp_iadc_read_reg(uint32_t reg, u8 *data)
 {
@@ -398,8 +399,13 @@ static int32_t qpnp_iadc_comp_info(void)
 
 	rc = qpnp_iadc_read_reg(QPNP_IADC_ATE_GAIN_CALIB_OFFSET,
 						&iadc->iadc_comp.sys_gain);
-	if (rc < 0)
+	if (rc < 0) {
 		pr_err("full scale read failed with %d\n", rc);
+		return rc;
+	}
+
+	if (iadc->external_rsense)
+		iadc->iadc_comp.ext_rsense = true;
 
 	pr_debug("fab id = %u, revision = %u, sys gain = %u, external_rsense = %d\n",
 			iadc->iadc_comp.id,
@@ -526,10 +532,13 @@ static int32_t qpnp_iadc_configure(enum qpnp_iadc_channels channel,
 	return 0;
 }
 
+#define IADC_CENTER	0xC000
+#define IADC_READING_RESOLUTION_N	542535
+#define IADC_READING_RESOLUTION_D	100000
 static int32_t qpnp_convert_raw_offset_voltage(void)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
-	uint32_t num = 0;
+	s64 numerator;
 
 	if ((iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw) == 0) {
 		pr_err("raw offset errors! raw_gain:0x%x and raw_offset:0x%x\n",
@@ -537,25 +546,32 @@ static int32_t qpnp_convert_raw_offset_voltage(void)
 		return -EINVAL;
 	}
 
-	iadc->adc->calib.offset_uv = 0;
+	numerator = iadc->adc->calib.offset_raw - IADC_CENTER;
+	numerator *= IADC_READING_RESOLUTION_N;
+	iadc->adc->calib.offset_uv = div_s64(numerator,
+						IADC_READING_RESOLUTION_D);
 
-	num = iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw;
+	numerator = iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw;
+	numerator *= IADC_READING_RESOLUTION_N;
 
-	iadc->adc->calib.gain_uv = (num * QPNP_ADC_GAIN_NV)/
-		(iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw);
+	iadc->adc->calib.gain_uv = div_s64(numerator,
+						IADC_READING_RESOLUTION_D);
 
 	pr_debug("gain_uv:%d offset_uv:%d\n",
 			iadc->adc->calib.gain_uv, iadc->adc->calib.offset_uv);
 	return 0;
 }
 
-int32_t qpnp_iadc_calibrate_for_trim(void)
+int32_t qpnp_iadc_calibrate_for_trim(bool batfet_closed)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	uint8_t rslt_lsb, rslt_msb;
 	int32_t rc = 0;
 	uint16_t raw_data;
 	uint32_t mode_sel = 0;
+
+	if (!iadc || !iadc->iadc_initialized)
+		return -EPROBE_DEFER;
 
 	mutex_lock(&iadc->adc->adc_lock);
 
@@ -573,11 +589,29 @@ int32_t qpnp_iadc_calibrate_for_trim(void)
 
 	iadc->adc->calib.gain_raw = raw_data;
 
-	rc = qpnp_iadc_configure(OFFSET_CALIBRATION_CSP2_CSN2,
+	/*
+	 * there is a features in the BMS where if the batfet is opened
+	 * the BMS reads from INTERNAL_RSENSE (channel 0) actually go to
+	 * OFFSET_CALIBRATION_CSP_CSN (channel 5). Hence if batfet is opened
+	 * we have to calibrate based on OFFSET_CALIBRATION_CSP_CSN even for
+	 * internal rsense.
+	 */
+	if (!batfet_closed || iadc->external_rsense) {
+		/* external offset calculation */
+		rc = qpnp_iadc_configure(OFFSET_CALIBRATION_CSP_CSN,
 						&raw_data, mode_sel);
-	if (rc < 0) {
-		pr_err("qpnp adc result read failed with %d\n", rc);
-		goto fail;
+		if (rc < 0) {
+			pr_err("qpnp adc result read failed with %d\n", rc);
+			goto fail;
+		}
+	} else {
+		/* internal offset calculation */
+		rc = qpnp_iadc_configure(OFFSET_CALIBRATION_CSP2_CSN2,
+						&raw_data, mode_sel);
+		if (rc < 0) {
+			pr_err("qpnp adc result read failed with %d\n", rc);
+			goto fail;
+		}
 	}
 
 	iadc->adc->calib.offset_raw = raw_data;
@@ -643,13 +677,15 @@ static void qpnp_iadc_work(struct work_struct *work)
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	int rc = 0;
 
-	rc = qpnp_iadc_calibrate_for_trim();
-	if (rc)
-		pr_debug("periodic IADC calibration failed\n");
-	else
-		schedule_delayed_work(&iadc->iadc_work,
-			round_jiffies_relative(msecs_to_jiffies
-					(QPNP_IADC_CALIB_SECONDS)));
+	if (!iadc->skip_auto_calibrations) {
+		rc = qpnp_iadc_calibrate_for_trim(true);
+		if (rc)
+			pr_debug("periodic IADC calibration failed\n");
+	}
+
+	schedule_delayed_work(&iadc->iadc_work,
+		round_jiffies_relative(msecs_to_jiffies
+				(QPNP_IADC_CALIB_SECONDS)));
 	return;
 }
 
@@ -738,11 +774,12 @@ static int32_t qpnp_check_pmic_temp(void)
 		die_temp_offset = -die_temp_offset;
 
 	if (die_temp_offset > QPNP_IADC_DIE_TEMP_CALIB_OFFSET) {
-		iadc->die_temp =
-			result_pmic_therm.physical;
-		rc = qpnp_iadc_calibrate_for_trim();
-		if (rc)
-			pr_err("periodic IADC calibration failed\n");
+		iadc->die_temp = result_pmic_therm.physical;
+		if (!iadc->skip_auto_calibrations) {
+			rc = qpnp_iadc_calibrate_for_trim(true);
+			if (rc)
+				pr_err("IADC calibration failed rc = %d\n", rc);
+		}
 	}
 
 	return rc;
@@ -850,6 +887,30 @@ int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_calib *result)
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_iadc_get_gain_and_offset);
+
+int qpnp_iadc_skip_calibration(void)
+{
+	struct qpnp_iadc_drv *iadc = qpnp_iadc;
+
+	if (!iadc || !iadc->iadc_initialized)
+		return -EPROBE_DEFER;
+
+	iadc->skip_auto_calibrations = true;
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_iadc_skip_calibration);
+
+int qpnp_iadc_resume_calibration(void)
+{
+	struct qpnp_iadc_drv *iadc = qpnp_iadc;
+
+	if (!iadc || !iadc->iadc_initialized)
+		return -EPROBE_DEFER;
+
+	iadc->skip_auto_calibrations = false;
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_iadc_resume_calibration);
 
 int32_t qpnp_iadc_vadc_sync_read(
 	enum qpnp_iadc_channels i_channel, struct qpnp_iadc_result *i_result,
@@ -1053,7 +1114,7 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 	}
 	iadc->iadc_initialized = true;
 
-	rc = qpnp_iadc_calibrate_for_trim();
+	rc = qpnp_iadc_calibrate_for_trim(true);
 	if (rc)
 		dev_err(&spmi->dev, "failed to calibrate for USR trim\n");
 

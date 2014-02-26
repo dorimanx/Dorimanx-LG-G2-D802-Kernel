@@ -14,9 +14,11 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/kthread.h>
 #include <linux/mutex.h>
 #include <linux/msm_tsens.h>
 #include <linux/workqueue.h>
+#include <linux/completion.h>
 #include <linux/cpu.h>
 #include <linux/cpufreq.h>
 #include <linux/msm_tsens.h>
@@ -29,6 +31,7 @@
 #include <linux/sysfs.h>
 #include <linux/types.h>
 #include <linux/android_alarm.h>
+#include <linux/thermal.h>
 #include <mach/cpufreq.h>
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
@@ -45,7 +48,10 @@ static DEFINE_MUTEX(core_control_mutex);
 static uint32_t wakeup_ms;
 static struct alarm thermal_rtc;
 static struct kobject *tt_kobj;
+static struct kobject *cc_kobj;
 static struct work_struct timer_work;
+static struct task_struct *hotplug_task;
+static struct completion hotplug_notify_complete;
 
 static int enabled;
 static int rails_cnt;
@@ -66,6 +72,14 @@ static bool psm_probed;
 static int *tsens_id_map;
 static DEFINE_MUTEX(vdd_rstr_mutex);
 static DEFINE_MUTEX(psm_mutex);
+
+struct cpu_info {
+	uint32_t cpu;
+	bool offline;
+	bool user_offline;
+	const char *sensor_type;
+	struct sensor_threshold thresh[2];
+};
 
 struct rail {
 	const char *name;
@@ -91,6 +105,7 @@ struct psm_rail {
 
 static struct psm_rail *psm_rails;
 static struct rail *rails;
+static struct cpu_info cpus[NR_CPUS];
 
 struct vdd_rstr_enable {
 	struct kobj_attribute ko_attr;
@@ -608,7 +623,8 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 	return ret;
 }
 
-static void __cpuinit do_core_control(long temp)
+#ifdef CONFIG_SMP
+static void __ref do_core_control(long temp)
 {
 	int i = 0;
 	int ret = 0;
@@ -657,6 +673,68 @@ static void __cpuinit do_core_control(long temp)
 	}
 	mutex_unlock(&core_control_mutex);
 }
+/* Call with core_control_mutex locked */
+static int __ref update_offline_cores(int val)
+{
+	int cpu = 0;
+	int ret = 0;
+
+	if (!core_control_enabled)
+		return 0;
+
+	cpus_offlined = msm_thermal_info.core_control_mask & val;
+
+	for_each_possible_cpu(cpu) {
+		if (!(cpus_offlined & BIT(cpu)))
+			continue;
+		if (!cpu_online(cpu))
+			continue;
+		ret = cpu_down(cpu);
+		if (ret)
+			pr_err("%s: Unable to offline cpu%d\n",
+				KBUILD_MODNAME, cpu);
+	}
+	return ret;
+}
+
+static __ref int do_hotplug(void *data)
+{
+	int ret = 0;
+	int cpu = 0;
+	uint32_t mask = 0;
+
+	if (!core_control_enabled)
+		return -EINVAL;
+
+	while (!kthread_should_stop()) {
+		wait_for_completion(&hotplug_notify_complete);
+		INIT_COMPLETION(hotplug_notify_complete);
+		mask = 0;
+
+		mutex_lock(&core_control_mutex);
+		for_each_possible_cpu(cpu) {
+			if (cpus[cpu].offline || cpus[cpu].user_offline)
+				mask |= BIT(cpu);
+		}
+		if (mask != cpus_offlined)
+			update_offline_cores(mask);
+		mutex_unlock(&core_control_mutex);
+		sysfs_notify(cc_kobj, NULL, "cpus_offlined");
+	}
+
+	return ret;
+}
+#else
+static void do_core_control(long temp)
+{
+	return;
+}
+
+static __ref int do_hotplug(void *data)
+{
+	return 0;
+}
+#endif
 
 static int do_vdd_restriction(void)
 {
@@ -755,7 +833,7 @@ exit:
 	return ret;
 }
 
-static void __cpuinit do_freq_control(long temp)
+static void __ref do_freq_control(long temp)
 {
 	int ret = 0;
 	int cpu = 0;
@@ -798,7 +876,7 @@ static void __cpuinit do_freq_control(long temp)
 
 }
 
-static void __cpuinit check_temp(struct work_struct *work)
+static void __ref check_temp(struct work_struct *work)
 {
 	static int limit_init;
 	struct tsens_device tsens_dev;
@@ -832,7 +910,7 @@ reschedule:
 				msecs_to_jiffies(msm_thermal_info.poll_ms));
 }
 
-static int __cpuinit msm_thermal_cpu_callback(struct notifier_block *nfb,
+static int __ref msm_thermal_cpu_callback(struct notifier_block *nfb,
 		unsigned long action, void *hcpu)
 {
 	unsigned int cpu = (unsigned long)hcpu;
@@ -841,7 +919,7 @@ static int __cpuinit msm_thermal_cpu_callback(struct notifier_block *nfb,
 		if (core_control_enabled &&
 			(msm_thermal_info.core_control_mask & BIT(cpu)) &&
 			(cpus_offlined & BIT(cpu))) {
-			pr_info(
+			pr_debug(
 			"%s: Preventing cpu%d from coming online.\n",
 				KBUILD_MODNAME, cpu);
 			return NOTIFY_BAD;
@@ -889,12 +967,118 @@ static void thermal_rtc_callback(struct alarm *al)
 			ts.tv_sec, ts.tv_usec);
 }
 
+static int hotplug_notify(enum thermal_trip_type type, int temp, void *data)
+{
+	struct cpu_info *cpu_node = (struct cpu_info *)data;
+
+	pr_info("%s: %s reach temp threshold: %d\n", KBUILD_MODNAME,
+			cpu_node->sensor_type, temp);
+
+	if (!(msm_thermal_info.core_control_mask & BIT(cpu_node->cpu)))
+		return 0;
+	switch (type) {
+	case THERMAL_TRIP_CONFIGURABLE_HI:
+		if (!(cpu_node->offline))
+			cpu_node->offline = 1;
+		break;
+	case THERMAL_TRIP_CONFIGURABLE_LOW:
+		if (cpu_node->offline)
+			cpu_node->offline = 0;
+		break;
+	default:
+		break;
+	}
+	if (hotplug_task)
+		complete(&hotplug_notify_complete);
+	else
+		pr_err("%s: Hotplug task is not initialized\n", KBUILD_MODNAME);
+	return 0;
+}
+/* Adjust cpus offlined bit based on temperature reading. */
+static int hotplug_init_cpu_offlined(void)
+{
+	struct tsens_device tsens_dev;
+	long temp = 0;
+	int cpu = 0;
+
+	mutex_lock(&core_control_mutex);
+	for_each_possible_cpu(cpu) {
+		if (!(msm_thermal_info.core_control_mask & BIT(cpus[cpu].cpu)))
+			continue;
+		tsens_dev.sensor_num = sensor_get_id(\
+				(char *)cpus[cpu].sensor_type);
+		if (tsens_get_temp(&tsens_dev, &temp)) {
+			pr_err("%s: Unable to read TSENS sensor %d\n",
+				KBUILD_MODNAME, tsens_dev.sensor_num);
+			return -EINVAL;
+		}
+
+		if (temp >= msm_thermal_info.hotplug_temp_degC)
+			cpus[cpu].offline = 1;
+		else if (temp <= (msm_thermal_info.hotplug_temp_degC -
+			msm_thermal_info.hotplug_temp_hysteresis_degC))
+			cpus[cpu].offline = 0;
+	}
+	mutex_unlock(&core_control_mutex);
+
+	if (hotplug_task)
+		complete(&hotplug_notify_complete);
+	else {
+		pr_err("%s: Hotplug task is not initialized\n",
+					KBUILD_MODNAME);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static void hotplug_init(void)
+{
+	int cpu = 0;
+
+	if (hotplug_task)
+		return;
+
+	for_each_possible_cpu(cpu) {
+		if (!(msm_thermal_info.core_control_mask & BIT(cpus[cpu].cpu)))
+			continue;
+		cpus[cpu].cpu = (uint32_t)cpu;
+		cpus[cpu].thresh[0].temp = msm_thermal_info.hotplug_temp_degC;
+		cpus[cpu].thresh[0].trip = THERMAL_TRIP_CONFIGURABLE_HI;
+		cpus[cpu].thresh[0].notify = hotplug_notify;
+		cpus[cpu].thresh[0].data = (void *)&cpus[cpu];
+		sensor_set_trip(sensor_get_id((char *)cpus[cpu].sensor_type),
+				&cpus[cpu].thresh[0]);
+
+		cpus[cpu].thresh[1].temp = msm_thermal_info.hotplug_temp_degC -
+				msm_thermal_info.hotplug_temp_hysteresis_degC;
+		cpus[cpu].thresh[1].trip = THERMAL_TRIP_CONFIGURABLE_LOW;
+		cpus[cpu].thresh[1].notify = hotplug_notify;
+		cpus[cpu].thresh[1].data = (void *)&cpus[cpu];
+		sensor_set_trip(sensor_get_id((char *)cpus[cpu].sensor_type),
+				&cpus[cpu].thresh[1]);
+
+	}
+	init_completion(&hotplug_notify_complete);
+	hotplug_task = kthread_run(do_hotplug, NULL, "msm_thermal:hotplug");
+	if (IS_ERR(hotplug_task)) {
+		pr_err("%s: Failed to create do_hotplug thread\n",
+				KBUILD_MODNAME);
+		return;
+	}
+	/*
+	 * Adjust cpus offlined bit when hotplug intitializes so that the new
+	 * cpus offlined state is based on hotplug threshold range
+	 */
+	if (hotplug_init_cpu_offlined())
+		kthread_stop(hotplug_task);
+}
+
 /*
  * We will reset the cpu frequencies limits here. The core online/offline
  * status will be carried over to the process stopping the msm_thermal, as
  * we dont want to online a core and bring in the thermal issues.
  */
-static void __cpuinit disable_msm_thermal(void)
+static void __ref disable_msm_thermal(void)
 {
 	int cpu = 0;
 
@@ -910,14 +1094,15 @@ static void __cpuinit disable_msm_thermal(void)
 	}
 }
 
-static int __cpuinit set_enabled(const char *val, const struct kernel_param *kp)
+static int __ref set_enabled(const char *val, const struct kernel_param *kp)
 {
 	int ret = 0;
 
 	ret = param_set_bool(val, kp);
-	if (!enabled)
+	if (!enabled) {
 		disable_msm_thermal();
-	else
+		hotplug_init();
+	} else
 		pr_info("%s: no action for enabled = %d\n",
 				KBUILD_MODNAME, enabled);
 
@@ -934,43 +1119,18 @@ static struct kernel_param_ops module_ops = {
 module_param_cb(enabled, &module_ops, &enabled, 0644);
 MODULE_PARM_DESC(enabled, "enforce thermal limit on cpu");
 
-
-/* Call with core_control_mutex locked */
-static int __cpuinit update_offline_cores(int val)
-{
-	int cpu = 0;
-	int ret = 0;
-
-	cpus_offlined = msm_thermal_info.core_control_mask & val;
-	if (!core_control_enabled)
-		return 0;
-
-	for_each_possible_cpu(cpu) {
-		if (!(cpus_offlined & BIT(cpu)))
-			continue;
-		if (!cpu_online(cpu))
-			continue;
-		ret = cpu_down(cpu);
-		if (ret)
-			pr_err("%s: Unable to offline cpu%d\n",
-				KBUILD_MODNAME, cpu);
-	}
-	return ret;
-}
-
 static ssize_t show_cc_enabled(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%d\n", core_control_enabled);
 }
 
-static ssize_t __cpuinit store_cc_enabled(struct kobject *kobj,
+static ssize_t __ref store_cc_enabled(struct kobject *kobj,
 		struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	int ret = 0;
 	int val = 0;
 
-	mutex_lock(&core_control_mutex);
 	ret = kstrtoint(buf, 10, &val);
 	if (ret) {
 		pr_err("%s: Invalid input %s\n", KBUILD_MODNAME, buf);
@@ -984,14 +1144,17 @@ static ssize_t __cpuinit store_cc_enabled(struct kobject *kobj,
 	if (core_control_enabled) {
 		pr_info("%s: Core control enabled\n", KBUILD_MODNAME);
 		register_cpu_notifier(&msm_thermal_cpu_notifier);
-		update_offline_cores(cpus_offlined);
+		if (hotplug_task)
+			complete(&hotplug_notify_complete);
+		else
+			pr_err("%s: Hotplug task is not initialized\n",
+					KBUILD_MODNAME);
 	} else {
 		pr_info("%s: Core control disabled\n", KBUILD_MODNAME);
 		unregister_cpu_notifier(&msm_thermal_cpu_notifier);
 	}
 
 done_store_cc:
-	mutex_unlock(&core_control_mutex);
 	return count;
 }
 
@@ -1001,11 +1164,12 @@ static ssize_t show_cpus_offlined(struct kobject *kobj,
 	return snprintf(buf, PAGE_SIZE, "%d\n", cpus_offlined);
 }
 
-static ssize_t __cpuinit store_cpus_offlined(struct kobject *kobj,
+static ssize_t __ref store_cpus_offlined(struct kobject *kobj,
 		struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	int ret = 0;
 	uint32_t val = 0;
+	int cpu;
 
 	mutex_lock(&core_control_mutex);
 	ret = kstrtouint(buf, 10, &val);
@@ -1020,28 +1184,34 @@ static ssize_t __cpuinit store_cpus_offlined(struct kobject *kobj,
 		goto done_cc;
 	}
 
-	if (cpus_offlined == val)
-		goto done_cc;
+	for_each_possible_cpu(cpu) {
+		if (!(msm_thermal_info.core_control_mask & BIT(cpu)))
+			continue;
+		cpus[cpu].user_offline = !!(val & BIT(cpu));
+	}
 
-	update_offline_cores(val);
+	if (hotplug_task)
+		complete(&hotplug_notify_complete);
+	else
+		pr_err("%s: Hotplug task is not initialized\n", KBUILD_MODNAME);
 done_cc:
 	mutex_unlock(&core_control_mutex);
 	return count;
 }
 
-static __cpuinitdata struct kobj_attribute cc_enabled_attr =
+static __refdata struct kobj_attribute cc_enabled_attr =
 __ATTR(enabled, 0644, show_cc_enabled, store_cc_enabled);
 
-static __cpuinitdata struct kobj_attribute cpus_offlined_attr =
+static __refdata struct kobj_attribute cpus_offlined_attr =
 __ATTR(cpus_offlined, 0644, show_cpus_offlined, store_cpus_offlined);
 
-static __cpuinitdata struct attribute *cc_attrs[] = {
+static __refdata struct attribute *cc_attrs[] = {
 	&cc_enabled_attr.attr,
 	&cpus_offlined_attr.attr,
 	NULL,
 };
 
-static __cpuinitdata struct attribute_group cc_attr_group = {
+static __refdata struct attribute_group cc_attr_group = {
 	.attrs = cc_attrs,
 };
 
@@ -1079,22 +1249,21 @@ static ssize_t store_wakeup_ms(struct kobject *kobj,
 	return count;
 }
 
-static __cpuinitdata struct kobj_attribute timer_attr =
+static __refdata struct kobj_attribute timer_attr =
 __ATTR(wakeup_ms, 0644, show_wakeup_ms, store_wakeup_ms);
 
-static __cpuinitdata struct attribute *tt_attrs[] = {
+static __refdata struct attribute *tt_attrs[] = {
 	&timer_attr.attr,
 	NULL,
 };
 
-static __cpuinitdata struct attribute_group tt_attr_group = {
+static __refdata struct attribute_group tt_attr_group = {
 	.attrs = tt_attrs,
 };
 
 static __init int msm_thermal_add_cc_nodes(void)
 {
 	struct kobject *module_kobj = NULL;
-	struct kobject *cc_kobj = NULL;
 	int ret = 0;
 
 	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
@@ -1176,11 +1345,12 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 		return -EINVAL;
 
 	enabled = 1;
-	core_control_enabled = 1;
+
 	INIT_DELAYED_WORK(&check_temp_work, check_temp);
 	schedule_delayed_work(&check_temp_work, 0);
 
-	register_cpu_notifier(&msm_thermal_cpu_notifier);
+	if (num_possible_cpus() > 1)
+		register_cpu_notifier(&msm_thermal_cpu_notifier);
 
 	return ret;
 }
@@ -1498,7 +1668,7 @@ static int probe_vdd_rstr(struct device_node *node,
 				goto read_node_fail;
 		}
 
-		rails[i].curr_level = 0;
+		rails[i].curr_level = -1;
 		rails[i].reg = NULL;
 		i++;
 	}
@@ -1586,12 +1756,76 @@ read_node_fail:
 	return ret;
 }
 
+static int probe_cc(struct device_node *node, struct msm_thermal_data *data,
+		struct platform_device *pdev)
+{
+	char *key = NULL;
+	int cpu_cnt = 0;
+	int ret = 0;
+	int cpu = 0;
+
+	key = "qcom,core-limit-temp";
+	ret = of_property_read_u32(node, key, &data->core_limit_temp_degC);
+	if (ret)
+		goto read_node_fail;
+
+	key = "qcom,core-temp-hysteresis";
+	ret = of_property_read_u32(node, key, &data->core_temp_hysteresis_degC);
+	if (ret)
+		goto read_node_fail;
+
+	key = "qcom,core-control-mask";
+	ret = of_property_read_u32(node, key, &data->core_control_mask);
+	if (ret)
+		goto read_node_fail;
+
+	key = "qcom,hotplug-temp";
+	ret = of_property_read_u32(node, key, &data->hotplug_temp_degC);
+	if (ret)
+		goto read_node_fail;
+
+	key = "qcom,hotplug-temp-hysteresis";
+	ret = of_property_read_u32(node, key,
+			&data->hotplug_temp_hysteresis_degC);
+	if (ret)
+		goto read_node_fail;
+
+	key = "qcom,cpu-sensors";
+	cpu_cnt = of_property_count_strings(node, key);
+	if (cpu_cnt != num_possible_cpus()) {
+		pr_err("%s: Wrong number of cpu\n", KBUILD_MODNAME);
+		goto read_node_fail;
+	}
+
+	for_each_possible_cpu(cpu) {
+		cpus[cpu].cpu = cpu;
+		cpus[cpu].offline = 0;
+		cpus[cpu].user_offline = 0;
+		ret = of_property_read_string_index(node, key, cpu,
+				&cpus[cpu].sensor_type);
+		if (ret)
+			goto read_node_fail;
+	}
+
+	if (num_possible_cpus() > 1)
+		core_control_enabled = 1;
+
+read_node_fail:
+	if (ret) {
+		dev_info(&pdev->dev,
+			"%s:Failed reading node=%s, key=%s. KTM continues\n",
+			KBUILD_MODNAME, node->full_name, key);
+		core_control_enabled = 0;
+	}
+
+	return ret;
+}
+
 static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	char *key = NULL;
 	struct device_node *node = pdev->dev.of_node;
-
 	struct msm_thermal_data data;
 
 	memset(&data, 0, sizeof(struct msm_thermal_data));
@@ -1624,15 +1858,7 @@ static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
 	key = "qcom,freq-control-mask";
 	ret = of_property_read_u32(node, key, &data.freq_control_mask);
 
-	key = "qcom,core-limit-temp";
-	ret = of_property_read_u32(node, key, &data.core_limit_temp_degC);
-
-	key = "qcom,core-temp-hysteresis";
-	ret = of_property_read_u32(node, key, &data.core_temp_hysteresis_degC);
-
-	key = "qcom,core-control-mask";
-	ret = of_property_read_u32(node, key, &data.core_control_mask);
-
+	ret = probe_cc(node, &data, pdev);
 	/*
 	 * Probe optional properties below. Call probe_psm before
 	 * probe_vdd_rstr because rpm_regulator_get has to be called
@@ -1690,7 +1916,8 @@ int __init msm_thermal_device_init(void)
 
 int __init msm_thermal_late_init(void)
 {
-	msm_thermal_add_cc_nodes();
+	if (num_possible_cpus() > 1)
+		msm_thermal_add_cc_nodes();
 	msm_thermal_add_psm_nodes();
 	msm_thermal_add_vdd_rstr_nodes();
 	alarm_init(&thermal_rtc, ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,

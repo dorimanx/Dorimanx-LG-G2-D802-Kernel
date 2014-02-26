@@ -95,8 +95,14 @@ static int snfc_uart_control_open(struct inode *inode, struct file *fp)
                 SNFC_DEBUG_MSG("[snfc_intu_poll] gpio_request snfc_hvdd fail\n");
             }
             snfc_gpio_write(snfc_get_hvdd_gpio_num(), GPIO_HIGH_VALUE);
-
-            gpio_init = 1;
+          
+            rc = gpio_request(GPIO_SNFC_UICC_CON,"snfc_uicc");
+            if(rc){
+                SNFC_DEBUG_MSG("[snfc_intu_poll] gpio_request snfc_hvdd fail\n");
+            }  
+            snfc_gpio_write(GPIO_SNFC_UICC_CON, GPIO_LOW_VALUE);
+                        
+            gpio_init = 1;                
         }
         SNFC_DEBUG_MSG_LOW("[snfc_uart_control] snfc_uart_control_open - end \n");
 
@@ -396,13 +402,6 @@ static int snfc_uart_control_init(void)
                 SNFC_DEBUG_MSG("[snfc_uart_control] FAIL!! can not register snfc_uart_control \n");
                 return rc;
         }
-
-        rc = gpio_request(GPIO_SNFC_UICC_CON, "snfc_uicc_con");
-        if(rc){
-                SNFC_DEBUG_MSG("[snfc_driver] gpio_request snfc_uicc_con fail\n");
-        }
-
-        snfc_gpio_open(GPIO_SNFC_UICC_CON,GPIO_DIRECTION_OUT,GPIO_LOW_VALUE);
         __snfc_uart_control_set_uart_status(UART_STATUS_READY);
 
         SNFC_DEBUG_MSG_LOW("[snfc_uart_control] snfc_uart_control_init - end \n");

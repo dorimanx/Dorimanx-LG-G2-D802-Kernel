@@ -66,8 +66,7 @@
 #define QPNP_PON_RESIN_BARK_N_SET		BIT(4)
 
 #define QPNP_PON_RESET_EN			BIT(7)
-#define QPNP_PON_WARM_RESET			BIT(0)
-#define QPNP_PON_SHUTDOWN			BIT(2)
+#define QPNP_PON_POWER_OFF_MASK			0xF
 
 /* Ranges */
 #define QPNP_PON_S1_TIMER_MAX			10256
@@ -94,6 +93,7 @@ struct qpnp_pon_config {
 	u32 pull_up;
 	u32 state_irq;
 	u32 bark_irq;
+	bool old_state;
 };
 
 struct qpnp_pon {
@@ -149,14 +149,14 @@ qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
 
 /**
  * qpnp_pon_system_pwr_off - Configure system-reset PMIC for shutdown or reset
- * @reset: Configures for shutdown if 0, or reset if 1.
+ * @type: Determines the type of power off to perform - shutdown, reset, etc
  *
  * This function will only configure a single PMIC. The other PMICs in the
  * system are slaved off of it and require no explicit configuration. Once
  * the system-reset PMIC is configured properly, the MSM can drop PS_HOLD to
  * activate the specified configuration.
  */
-int qpnp_pon_system_pwr_off(bool reset)
+int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 {
 	int rc;
 	u8 reg;
@@ -193,8 +193,7 @@ int qpnp_pon_system_pwr_off(bool reset)
 	udelay(500);
 
 	rc = qpnp_pon_masked_write(pon, QPNP_PON_PS_HOLD_RST_CTL(pon->base),
-			   QPNP_PON_WARM_RESET | QPNP_PON_SHUTDOWN,
-			   reset ? QPNP_PON_WARM_RESET : QPNP_PON_SHUTDOWN);
+				   QPNP_PON_POWER_OFF_MASK, type);
 	if (rc)
 		dev_err(&pon->spmi->dev,
 			"Unable to write to addr=%x, rc(%d)\n",
@@ -205,6 +204,8 @@ int qpnp_pon_system_pwr_off(bool reset)
 	if (rc)
 		dev_err(&pon->spmi->dev,
 			"Unable to write to addr=%x, rc(%d)\n", rst_en_reg, rc);
+
+	dev_dbg(&pon->spmi->dev, "power off type = 0x%02X\n", type);
 
 	return rc;
 }
@@ -306,6 +307,7 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	int rc;
 	struct qpnp_pon_config *cfg = NULL;
 	u8 pon_rt_sts = 0, pon_rt_bit = 0;
+	u32 key_status;
 
 	cfg = qpnp_get_cfg(pon, pon_type);
 	if (!cfg)
@@ -337,12 +339,20 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 		return -EINVAL;
 	}
 
-	pr_info("%s:code(%d), value(%d)\n",
-			__func__, cfg->key_code, (pon_rt_sts & pon_rt_bit));
+	key_status = pon_rt_sts & pon_rt_bit;
 
-	input_report_key(pon->pon_input, cfg->key_code,
-					(pon_rt_sts & pon_rt_bit));
+	/* simulate press event in case release event occured
+	 * without a press event
+	 */
+	if (!cfg->old_state && !key_status) {
+		input_report_key(pon->pon_input, cfg->key_code, 1);
+		input_sync(pon->pon_input);
+	}
+
+	input_report_key(pon->pon_input, cfg->key_code, key_status);
 	input_sync(pon->pon_input);
+
+	cfg->old_state = !!key_status;
 
 	return 0;
 }

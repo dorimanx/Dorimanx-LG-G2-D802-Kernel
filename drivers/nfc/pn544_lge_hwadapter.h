@@ -14,4 +14,4 @@ void			pn544_gpio_enable(struct pn544_dev *pn544_dev);
 
 void			pn544_shutdown_cb(struct pn544_dev *pn544_dev);
 
-#endif /*                         */
+#endif /* _PN544_LGE_HWADAPTER_H_ */

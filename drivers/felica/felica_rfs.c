@@ -41,7 +41,7 @@ enum{
  */
 static int isopen = 0; // 0 : No open 1 : Open
 #ifdef FELICA_LED_SUPPORT
-static int isFelicaUsed = 0; /*                                                      */
+static int isFelicaUsed = 0; /* 2012 02 26 LGE_UPDATE_S For DCM Felica LED Blincking */
 #endif
 /*
  *   FUNCTION DEFINITION

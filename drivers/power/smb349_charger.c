@@ -1653,7 +1653,7 @@ static void smb349_chg_timeout(bool chg_en)
 	} else {
 #if !defined(CONFIG_MACH_MSM8974_G2_VZW) && !defined(CONFIG_MACH_MSM8974_G2_SPR) \
 	&& !defined(CONFIG_MACH_MSM8974_G2_TMO_US) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) \
-	&& !defined(CONFIG_MACH_MSM8974_G2_ATT) && !defined(CONFIG_MACH_MSM8974_G2_CA)
+	&& !defined(CONFIG_MACH_MSM8974_G2_ATT)
 		pr_err("enter charging timeout, disable charging and locked\n");
 		wake_lock(&the_smb349_chg->chg_timeout_lock);
 #endif
@@ -3250,7 +3250,7 @@ smb349_set_pre_chg_current(struct smb349_struct *smb349_chg, int pchg_ma)
 			PRE_CHG_CURRENT_MASK, temp);
 }
 
-#if defined(CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_G2_SPR) || defined(CONFIG_MACH_MSM8974_G2_VZW) || defined(CONFIG_MACH_MSM8974_G2_TMO_US) || defined(CONFIG_MACH_MSM8974_G2_TEL_AU) || defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_CA)
+#if defined(CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_G2_SPR) || defined(CONFIG_MACH_MSM8974_G2_VZW) || defined(CONFIG_MACH_MSM8974_G2_TMO_US)  || defined(CONFIG_MACH_MSM8974_G2_TEL_AU)  || defined(CONFIG_MACH_MSM8974_G2_OPEN_COM)
 #define HC_INPUT_CURR_LIMIT_DEFAULT 2000
 #else
 #define HC_INPUT_CURR_LIMIT_DEFAULT 3000
@@ -4081,7 +4081,7 @@ static void smb349_monitor_batt_temp(struct work_struct *work)
 		} else {
 #if !defined(CONFIG_MACH_MSM8974_G2_VZW) && !defined(CONFIG_MACH_MSM8974_G2_SPR) \
 	&& !defined(CONFIG_MACH_MSM8974_G2_TMO_US) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) \
-	&& !defined(CONFIG_MACH_MSM8974_G2_ATT) && !defined(CONFIG_MACH_MSM8974_G2_CA)
+	&& !defined(CONFIG_MACH_MSM8974_G2_ATT)
 			pr_err("escape charging timeout, charging enable and unlocked\n");
 
 			smb349_chg->chg_timeout = false;

@@ -3,17 +3,17 @@
  */
  
 #include <linux/nfc/pn544_lge.h>
-//                                                                                                           
+// seokmin.hong@lge.com    header file added for removing depedency of platform and managing LGE modification
 #include "pn544_lge_hwadapter.h"
-/*                                                                     */
+/*  LGE_CHANGE_S, [NFC][minwoo.kwon@lge.com], 2013-03-07, NFC Bring up */
 #include <linux/of_gpio.h>
-/*                                                                     */
+/*  LGE_CHANGE_E, [NFC][minwoo.kwon@lge.com], 2013-03-07, NFC Bring up */
 
 
 #ifdef CONFIG_LGE_NFC_MULTICORE_FASTBOOT
 #include <linux/kthread.h>
 #endif
-/*              */
+/* LGE_CHANGE_E */
 
 #define MAX_BUFFER_SIZE	512
 #define PN544_RESET_CMD 	0
@@ -57,7 +57,7 @@ static void pn544_disable_irq(struct pn544_dev *pn544_dev)
 	spin_lock_irqsave(&pn544_dev->irq_enabled_lock, flags);
 	if (pn544_dev->irq_enabled) {
 		disable_irq_nosync(pn544_get_irq_pin(pn544_dev));
-//                                                             
+// 20120831, jh.heo@lge.com Fix to irq interrupt in sleep mode.
 #if !defined(CONFIG_LGE_NFC_HW_QCT_MSM8660)&&!defined(CONFIG_LGE_NFC_HW_QCT_MSM8255)
 		disable_irq_wake(pn544_get_irq_pin(pn544_dev));
 #endif
@@ -281,16 +281,16 @@ void pn544_factory_standby_set(void)
 
     return;
 }
-#endif /*                                                   */
-#endif /*                           */
+#endif /* CONFIG_LGE_NFC_PN544_C2 & CONFIG_LGE_NFC_PN544_C3 */
+#endif /* CONFIG_LGE_NFC_PRESTANDBY */
 
-/*             
-   
-                                  
-                                    
-                                   
-   
-                                  
+/* LGE_CHANGE_S
+ * 
+ * do device driver initialization
+ * using multithread during booting,
+ * in order to reduce booting time.
+ * 
+ * byungchul.park@lge.com 20120328
  */
 #if defined(CONFIG_LGE_NFC_MULTICORE_FASTBOOT)&&defined(CONFIG_LGE_NFC_PRESTANDBY)
 static int pn544_factory_standby_set_thread(void *arg)
@@ -299,8 +299,8 @@ static int pn544_factory_standby_set_thread(void *arg)
 	dprintk("%s end\n", __func__);
 	return 0;
 }
-#endif /*                                                                                */
-/*              */
+#endif /* defined(CONFIG_LGE_NFC_MULTICORE_FASTBOOT)&&defined(CONFIG_LGE_NFC_PRESTANDBY) */
+/* LGE_CHANGE_E */
 
 static ssize_t pn544_dev_read(struct file *filp, char __user *buf,
 		size_t count, loff_t *offset)
@@ -331,7 +331,7 @@ static ssize_t pn544_dev_read(struct file *filp, char __user *buf,
 #ifdef LGE_NFC_READ_IRQ_MODIFY
 		do_reading=0;//DY_TEST
 #endif
-//                                                             
+// 20120831, jh.heo@lge.com Fix to irq interrupt in sleep mode.
 #if !defined(LGE_NFC_HW_QCT_MSM8660)
 			enable_irq_wake(pn544_get_irq_pin(pn544_dev));
 #endif
@@ -621,34 +621,35 @@ static int pn544_probe(struct i2c_client *client,
 	pn544_disable_irq(pn544_dev);
 	i2c_set_clientdata(client, pn544_dev);
 	dprintk(PN544_DRV_NAME ": pn544_probe() end\n");
-/*             
-   
-                                  
-                                    
-                                   
-   
-                                  
+/* LGE_CHANGE_S
+ * 
+ * do device driver initialization
+ * using multithread during booting,
+ * in order to reduce booting time.
+ * 
+ * byungchul.park@lge.com 20120328
  */
 #ifdef CONFIG_LGE_NFC_PRESTANDBY
-//
+//130509 urim.kim@lge.com To know boot mode [START]
     if (pn544_validate_boot_mode()) {
 	    dprintk("%s : get in the standbyset\n", __func__);	
 #ifdef CONFIG_LGE_NFC_MULTICORE_FASTBOOT
-	{
-		struct task_struct *th;
-		th = kthread_create(pn544_factory_standby_set_thread, NULL, "pn544_factory_standby");
-		if (IS_ERR(th)) {
-			ret = PTR_ERR(th);
-			goto err_request_irq_failed;
-		}
-		wake_up_process(th);
-	}
+    	{
+    		struct task_struct *th;
+    		th = kthread_create(pn544_factory_standby_set_thread, NULL, "pn544_factory_standby");
+    		if (IS_ERR(th)) {
+    			ret = PTR_ERR(th);
+    			goto err_request_irq_failed;
+    		}
+    		wake_up_process(th);
+    	}
 #else
-	pn544_factory_standby_set();
+    	pn544_factory_standby_set();
 #endif
+/* LGE_CHANGE_E */
     }
 #endif
-/*              */
+//130509 urim.kim@lge.com To know boot mode [END]
 	return 0;
 
 err_request_irq_failed:
@@ -667,7 +668,7 @@ err_firm:
 err_ven:
 	gpio_free(pn544_dev->ven_gpio);
 
-//                                        
+//Start	cih1234@lge.com		WBT issue modify.
 err_exit:
 	pr_err(PN544_DRV_NAME ": pn544_dev is null\n");
 
@@ -767,9 +768,9 @@ static void __exit pn544_dev_exit(void)
 }
 module_exit(pn544_dev_exit);
 
-/*                                                                    */
+/* LGE_CHANGE_S, [NFC][minwoo.kwon@lge.com], 2013-03-07, NFC Bring up */
 MODULE_DEVICE_TABLE(i2c, pn544_id);
-/*                                                                    */
+/* LGE_CHANGE_E, [NFC][minwoo.kwon@lge.com], 2013-03-07, NFC Bring up */
 MODULE_AUTHOR("Sylvain Fonteneau");
 MODULE_DESCRIPTION("NFC PN544 driver");
 MODULE_LICENSE("GPL");

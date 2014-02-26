@@ -1419,11 +1419,16 @@ int32_t qpnp_iadc_vadc_sync_read(
 	enum qpnp_iadc_channels i_channel, struct qpnp_iadc_result *i_result,
 	enum qpnp_vadc_channels v_channel, struct qpnp_vadc_result *v_result);
 /**
- * qpnp_iadc_calibrate_for_trim() - Clients can use this API to re-calibrate
- *		IADC.
- * @result:	0 on success.
+ * qpnp_iadc_calibrate_for_trim - Clients can use this API to re-calibrate
+ *		IADC. The offset and gain values are programmed in the trim
+ *		registers. The offset and the gain can be retrieved using
+ *		qpnp_iadc_get_gain_and_offset
+ * @batfet_closed: batfet is opened or closed. The IADC chooses proper
+ *			channel (internal/external) based on batfet status
+ *			for calibration.
+ * RETURNS:	0 on success.
  */
-int32_t qpnp_iadc_calibrate_for_trim(void);
+int32_t qpnp_iadc_calibrate_for_trim(bool batfet_closed);
 int32_t qpnp_iadc_comp_result(int64_t *result);
 #else
 static inline int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
@@ -1440,7 +1445,7 @@ static inline int32_t qpnp_iadc_vadc_sync_read(
 	enum qpnp_iadc_channels i_channel, struct qpnp_iadc_result *i_result,
 	enum qpnp_vadc_channels v_channel, struct qpnp_vadc_result *v_result)
 { return -ENXIO; }
-static inline int32_t qpnp_iadc_calibrate_for_trim(void)
+static inline int32_t qpnp_iadc_calibrate_for_trim(bool batfet_closed)
 { return -ENXIO; }
 static inline int32_t qpnp_iadc_comp_result(int64_t *result, int32_t sign)
 { return -ENXIO; }
@@ -1494,6 +1499,20 @@ int32_t qpnp_adc_tm_disable_chan_meas(struct qpnp_adc_tm_btm_param *param);
  *		has not occured.
  */
 int32_t	qpnp_adc_tm_is_ready(void);
+/**
+ * qpnp_iadc_skip_calibration() - Clients can use this API to ask the driver
+ *				to skip iadc calibrations
+ * @result:	0 on success and -EPROBE_DEFER when probe for the device
+ *		has not occured.
+ */
+int qpnp_iadc_skip_calibration(void);
+/**
+ * qpnp_iadc_resume_calibration() - Clients can use this API to ask the driver
+ *				to resume iadc calibrations
+ * @result:	0 on success and -EPROBE_DEFER when probe for the device
+ *		has not occured.
+ */
+int qpnp_iadc_resume_calibration(void);
 #else
 static inline int32_t qpnp_adc_tm_usbid_configure(
 			struct qpnp_adc_tm_btm_param *param)
@@ -1506,6 +1525,10 @@ static inline int32_t qpnp_adc_tm_channel_measure(
 static inline int32_t qpnp_adc_tm_disable_chan_meas(void)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_tm_is_ready(void)
+{ return -ENXIO; }
+static inline int qpnp_iadc_skip_calibration(void)
+{ return -ENXIO; }
+static inline int qpnp_iadc_resume_calibration(void);
 { return -ENXIO; }
 #endif
 

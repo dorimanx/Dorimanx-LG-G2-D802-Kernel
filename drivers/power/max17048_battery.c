@@ -116,7 +116,7 @@ int lge_power_test_flag = 1;
 #endif
 #endif
 
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#ifdef CONFIG_MACH_MSM8974_G2_KR
 /* using to cal rcomp */
 int cell_info = 0;
 #endif
@@ -220,7 +220,7 @@ static int max17048_get_capacity_from_soc(void)
 
 	/* SOC scaling for stable max SOC and changed Cut-off */
 	/*Adj SOC = (FG SOC-Emply)/(Full-Empty)*100*/
-#if defined (CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#if defined (CONFIG_MACH_MSM8974_G2_KR)
 	batt_soc = (batt_soc-((ref->model_data->empty)*100000))
 						/(9400-(ref->model_data->empty))*10000;
 #elif defined (CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI)
@@ -234,7 +234,7 @@ static int max17048_get_capacity_from_soc(void)
 		batt_soc = 100;
 	else if (batt_soc < 0)
 		batt_soc = 0;
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#ifdef CONFIG_MACH_MSM8974_G2_KR
 	/* Report 0.42%(0x300) ~ 1% to 1% */
 	/* If Full and Emplty is changed, need to modify the value, 3 */
 	else if(batt_soc == 0 && buf[0] >= 3){
@@ -420,7 +420,7 @@ static void max17048_polling_work(struct work_struct *work)
 
 		/* SOC scaling for stable max SOC and changed Cut-off */
 		/*Adj SOC = (FG SOC-Emply)/(Full-Empty)*100*/
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#if defined (CONFIG_MACH_MSM8974_G2_KR)
 		capacity = (capacity-((ref->model_data->empty)*100000))
 						/(9400-(ref->model_data->empty))*10000;
 #elif defined (CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI)
@@ -1002,7 +1002,7 @@ static int max17048_parse_dt(struct device *dev,
 	rc = of_property_read_u32(dev_node, "max17048,full_design",
 			&mdata->full_design);
 
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#ifdef CONFIG_MACH_MSM8974_G2_KR
 	if(cell_info == LGC_LLL){
 		rc = of_property_read_u32(dev_node, "max17048,empty_lgc",&mdata->empty);
 		mdata->rcomp = 96;
@@ -1037,7 +1037,7 @@ static int max17048_parse_dt(struct device *dev,
 		mdata->temp_co_cold,
 		mdata->alert_threshold,
 		mdata->full_design);
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#ifdef CONFIG_MACH_MSM8974_G2_KR
 	printk(KERN_INFO "[MAX17048] platform data : "\
 		"max17048,empty = %d\n",
 		mdata->empty);
@@ -1070,7 +1070,7 @@ static int __devinit max17048_probe(struct i2c_client *client,
 			return 0;
 		}
 
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#ifdef CONFIG_MACH_MSM8974_G2_KR
 		else if(*batt_id == BATT_DS2704_L || *batt_id == BATT_ISL6296_C){
 			cell_info = LGC_LLL; /* LGC Battery */
 		}

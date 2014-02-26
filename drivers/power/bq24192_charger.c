@@ -70,7 +70,6 @@
 /* BQ01 Power-On Configuration  Register MASK */
 #define RESET_REG_MASK		BIT(7)
 #define CHG_CONFIG_MASK 	(BIT(5)|BIT(4))
-#define OTG_ENABLE_MASK		BIT(5)
 
 //#define SYSTEM_MIN_VOLTAGE_MASK    0x0E
 #define SYS_MIN_VOL_MASK	(BIT(3)|BIT(2)|BIT(1))
@@ -121,8 +120,6 @@
 
 #define CONFIG_LGE_BATT_REMOVE_SCENARIO // for debugging
 
-#define CONFIG_LGE_ADAPTIVE_I_LIMIT
-
 enum bq24192_chg_status {
 	BQ_CHG_STATUS_NONE 		= 0,
 	BQ_CHG_STATUS_PRE_CHARGE	= 1,
@@ -159,15 +156,7 @@ struct bq24192_chip {
 	int charging_disabled;
 	int full_design;
 	bool chg_timeout;
-	int icl_vbus_mv;
-#ifdef CONFIG_LGE_ADAPTIVE_I_LIMIT
-	int icl_idx;
-	bool icl_first;
-	int icl_fail_cnt;
-	int set_icl_idx;
-	struct wake_lock icl_wake_lock;
-	struct delayed_work input_limit_work;
-#endif
+
 	enum bq24192_chg_status	chg_status;
 
 	struct delayed_work  irq_work;
@@ -624,7 +613,6 @@ static int bq24192_set_vclamp_mv(struct bq24192_chip *chip, int mv)
 			IR_COMP_VCLAMP_MASK, reg_val);
 }
 
-#define NOT_INIT_VBUS_UV 5000000
 static int bq24192_get_usbin_adc(void)
 {
 #ifdef CONFIG_SENSORS_QPNP_ADC_VOLTAGE
@@ -635,7 +623,7 @@ static int bq24192_get_usbin_adc(void)
                rc = qpnp_vadc_read(USBIN, &results);
                if (rc) {
                        pr_err("Unable to read usbin adc rc=%d\n", rc);
-                       return NOT_INIT_VBUS_UV;
+                       return -100;
                }
                else {
                        pr_debug("DC_IN voltage: %lld\n", results.physical);
@@ -643,11 +631,11 @@ static int bq24192_get_usbin_adc(void)
                }
        } else {
                pr_err("vadc is not ready yet.\n");
-               return NOT_INIT_VBUS_UV;
+               return -200;
        }
 #else
        pr_err("CONFIG_SENSORS_QPNP_ADC_VOLTAGE is not defined.\n");
-       return NOT_INIT_VBUS_UV;
+       return -300;
 #endif
 }
 
@@ -793,67 +781,6 @@ static void bq24192_chg_timeout(bool chg_en)
 		MONITOR_BATTEMP_POLLING_PERIOD);
 }
 
-#ifdef CONFIG_LGE_ADAPTIVE_I_LIMIT
-struct current_limit_entry {
-	int input_limit;
-	int chg_limit;
-};
-
-static struct current_limit_entry adap_tbl[] = {
-	{1200, 1024},
-	{2000, 1600},
-};
-
-static void bq24192_input_limit_worker(struct work_struct *work)
-{
-	struct bq24192_chip *chip = container_of(work, struct bq24192_chip,
-						input_limit_work.work);
-	int vbus_mv = 0;
-
-	vbus_mv = bq24192_get_usbin_adc();
-	vbus_mv = vbus_mv/1000;
-
-	pr_info("vbus_mv = %d\n", vbus_mv);
-
-	if (chip->icl_first && chip->icl_idx > 0) {
-		chip->icl_fail_cnt++;
-		if (chip->icl_fail_cnt > 1)
-			vbus_mv = chip->icl_vbus_mv;
-		else
-			chip->icl_idx = 0;
-	}
-	chip->icl_first = false;
-
-	if (vbus_mv > chip->icl_vbus_mv
-			&& chip->icl_idx < (ARRAY_SIZE(adap_tbl) - 1)) {
-		chip->icl_idx++;
-		bq24192_set_input_i_limit(chip,
-				adap_tbl[chip->icl_idx].input_limit);
-		bq24192_set_ibat_max(chip,
-				adap_tbl[chip->icl_idx].chg_limit);
-		schedule_delayed_work(&chip->input_limit_work,
-					msecs_to_jiffies(500));
-	} else {
-		if (chip->icl_idx > 0 && vbus_mv <= chip->icl_vbus_mv)
-			chip->icl_idx--;
-
-		bq24192_set_input_i_limit(chip,
-				adap_tbl[chip->icl_idx].input_limit);
-		bq24192_set_ibat_max(chip,
-				adap_tbl[chip->icl_idx].chg_limit);
-
-		chip->set_icl_idx = chip->icl_idx;
-
-		pr_info("optimal input i limit = %d chg limit = %d\n",
-					adap_tbl[chip->icl_idx].input_limit,
-					adap_tbl[chip->icl_idx].chg_limit);
-		chip->icl_idx = 0;
-		chip->icl_fail_cnt = 0;
-		wake_unlock(&chip->icl_wake_lock);
-	}
-}
-#endif
-
 static void bq24192_irq_worker(struct work_struct *work)
 {
 	struct bq24192_chip *chip =
@@ -948,12 +875,6 @@ static void bq24192_irq_worker(struct work_struct *work)
 			wake_lock_active(&chip->lcs_wake_lock))
 			wake_unlock(&chip->lcs_wake_lock);
 #endif
-#ifdef CONFIG_LGE_ADAPTIVE_I_LIMIT
-		if (wake_lock_active(&chip->icl_wake_lock))
-			wake_unlock(&chip->icl_wake_lock);
-		cancel_delayed_work_sync(&chip->input_limit_work);
-		chip->set_icl_idx = 0;
-#endif
 		wake_lock_timeout(&chip->uevent_wake_lock, HZ*2);
 		chip->usb_present = usb_present;
 		pr_info("notify vbus to usb_present=%d\n", usb_present);
@@ -1009,9 +930,9 @@ static int bq24192_enable_otg(struct bq24192_chip *chip, bool enable)
 	pr_info("otg enable = %d\n", enable);
 
 	ret = bq24192_masked_write(chip->client, BQ01_PWR_ON_CONF_REG,
-					OTG_ENABLE_MASK, val);
+					CHG_CONFIG_MASK, val);
 	if (ret) {
-		pr_err("failed to set OTG_ENABLE_MASK rc=%d\n", ret);
+		pr_err("failed to set CHG_CONFIG rc=%d\n", ret);
 		return ret;
 	}
 
@@ -1023,13 +944,13 @@ static bool bq24192_is_otg_mode(struct bq24192_chip *chip)
 	u8 temp;
 	int ret;
 
-	ret = bq24192_read_reg(chip->client, BQ01_PWR_ON_CONF_REG, &temp);
+	ret = bq24192_read_reg(chip->client, BQ08_SYSTEM_STATUS_REG, &temp);
 	if (ret) {
-		pr_err("failed to read OTG_ENABLE_MASK rc=%d\n", ret);
+		pr_err("failed to read BQ08_SYSTEM_STATUS_REG rc=%d\n", ret);
 		return false;
 	}
 
-	return !!(temp & OTG_ENABLE_MASK);
+	return ((temp & VBUS_STAT_MASK) == VBUS_STAT_MASK) ? true : false;
 }
 
 static bool bq24192_is_usb_2_0(void)
@@ -1183,7 +1104,7 @@ int bq24192_get_batt_temp_origin(void)
 	int rc = 0;
 	struct qpnp_vadc_result results;
 
-	if (qpnp_vadc_is_ready() == 0) {
+	if(qpnp_vadc_is_ready() == 0) {
 		rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &results);
 		if (rc) {
 			pr_debug("Unable to read batt temperature rc=%d\n", rc);
@@ -1458,19 +1379,9 @@ static void bq24192_batt_external_power_changed(struct power_supply *psy)
 		pr_info("usb is online! i_limt = %d\n", (usb20?500:900));
 	} else if (chip->ac_online &&
 			bq24192_is_charger_present(chip)) {
-#ifdef CONFIG_LGE_ADAPTIVE_I_LIMIT
-		chip->icl_first = true;
-		bq24192_set_input_i_limit(chip, adap_tbl[0].input_limit);
-		bq24192_set_ibat_max(chip, adap_tbl[0].chg_limit);
-		wake_lock(&chip->icl_wake_lock);
-		schedule_delayed_work(&chip->input_limit_work,
-					msecs_to_jiffies(200));
-		pr_info("ac is online! i_limit = %d\n",	adap_tbl[0].input_limit);
-#else
 		bq24192_set_input_i_limit(chip, INPUT_CURRENT_LIMIT_TA);
 		bq24192_set_ibat_max(chip, chip->chg_current_ma);
-		pr_info("ac is online! i_limit = %d\n", INPUT_CURRENT_LIMIT_TA);
-#endif
+		pr_info("ac is online! i_limit = %d\n",	INPUT_CURRENT_LIMIT_TA);
 	}
 	
 	chip->usb_psy->get_property(chip->usb_psy,
@@ -1768,66 +1679,6 @@ int pseudo_batt_set(struct pseudo_batt_info_type *info)
 EXPORT_SYMBOL(pseudo_batt_set);
 
 #ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
-#ifdef CONFIG_LGE_THERMALE_CHG_CONTROL
-struct charging_current_ma_entry {
-	int	ibat;
-	int 	adjust_ibat;
-};
-static struct charging_current_ma_entry adjust_ibat_ma_table[] = {
-	{100, 500},
-	{200, 1000},
-	{300, 1500},
-	{400, 2000},
-};
-static int bq24192_set_adjust_ibat(struct bq24192_chip *chip, int ma)
-{
-	int set_ibat = 0;
-	bool is_charger = bq24192_is_charger_present(chip);
-
-	if (!is_charger)
-		return 0;
-
-	if (chip->ac_online && ma < IBAT_MIN_MA) {
-		int i;
-		for (i = 0; i < ARRAY_SIZE(adjust_ibat_ma_table); i++) {
-			if (adjust_ibat_ma_table[i].ibat == ma) {
-				set_ibat = adjust_ibat_ma_table[i].adjust_ibat;
-				bq24192_set_ibat_max(chip, set_ibat);
-				if (!chip->force_ichg_20pct) {
-					bq24192_force_ichg_decrease(chip, 1);
-					chip->force_ichg_20pct = 1;
-				}
-				break;
-			}
-		}
-	}  else {
-		if (chip->ac_online && ma >= IBAT_MIN_MA) {
-#ifdef CONFIG_LGE_ADAPTIVE_I_LIMIT
-			if(ma == chip->chg_current_ma)
-				set_ibat = adap_tbl[chip->set_icl_idx].chg_limit;
-			 else
-#endif
-				set_ibat = ma;
-			bq24192_set_ibat_max(chip, set_ibat);
-			if (chip->force_ichg_20pct) {
-				bq24192_force_ichg_decrease(chip, 0);
-				chip->force_ichg_20pct = 0;
-			}
-		}
-
-		if (chip->usb_online && chip->force_ichg_20pct) {
-			bq24192_force_ichg_decrease(chip, 0);
-			chip->force_ichg_20pct = 0;
-			return 0;
-		}
-	}
-
-	pr_err("thermal-engine set_ibat = %d force_ichg_20pct = %d\n",
-			set_ibat, chip->force_ichg_20pct);
-	return 0;
-}
-#endif
-
 static int bq24192_thermal_mitigation;
 static int
 bq24192_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
@@ -1854,7 +1705,10 @@ bq24192_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 	pr_err("thermal-engine set chg current to %d\n",
 			bq24192_thermal_mitigation);
 
-	the_chip->chg_current_te = bq24192_thermal_mitigation;
+	if (bq24192_thermal_mitigation < IBAT_MIN_MA)
+		the_chip->chg_current_te = IBAT_MIN_MA;
+	else
+		the_chip->chg_current_te = bq24192_thermal_mitigation;
 
 	cancel_delayed_work_sync(&the_chip->battemp_work);
 	schedule_delayed_work(&the_chip->battemp_work, HZ*1);
@@ -1866,7 +1720,6 @@ bq24192_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 module_param_call(bq24192_thermal_mitigation, bq24192_set_thermal_chg_current_set,
 	param_get_uint, &bq24192_thermal_mitigation, 0644);
 
-#define CONFIG_BQ24192_STATUS_REG_INFO
 static int temp_before = 0;
 static void bq24192_monitor_batt_temp(struct work_struct *work)
 {
@@ -1876,10 +1729,6 @@ static void bq24192_monitor_batt_temp(struct work_struct *work)
 	struct charging_rsp res;
 	bool is_changed = false;
 	union power_supply_propval ret = {0,};
-#ifdef CONFIG_BQ24192_STATUS_REG_INFO
-	u8 sys_reg, fault_reg;
-	int dpm_status = 0;
-#endif
 
 	if (chip->chg_timeout) {
 		int ret;
@@ -1912,6 +1761,17 @@ static void bq24192_monitor_batt_temp(struct work_struct *work)
 
 	req.is_charger = bq24192_is_charger_present(chip);
 
+#ifdef CONFIG_LGE_THERMALE_CHG_CONTROL // hg.park@lge.com, test code
+	if (chip->ac_online && req.is_charger && !chip->force_ichg_20pct &&
+		(bq24192_thermal_mitigation == 400)) {
+		bq24192_force_ichg_decrease(chip, 1);
+		chip->force_ichg_20pct = 1;
+	} else if (chip->force_ichg_20pct &&
+		(bq24192_thermal_mitigation >= IBAT_MIN_MA)) {
+		bq24192_force_ichg_decrease(chip, 0);
+		chip->force_ichg_20pct = 0;
+	}
+#endif
 	lge_monitor_batt_temp(req, &res);
 
 	if (((res.change_lvl != STS_CHE_NONE) && req.is_charger) ||
@@ -1919,36 +1779,28 @@ static void bq24192_monitor_batt_temp(struct work_struct *work)
 		if (res.change_lvl == STS_CHE_NORMAL_TO_DECCUR ||
 			(res.force_update == true && res.state == CHG_BATT_DECCUR_STATE &&
 			res.dc_current != DC_CURRENT_DEF)) {
-#ifdef CONFIG_LGE_THERMALE_CHG_CONTROL
-			bq24192_set_adjust_ibat(chip, res.dc_current);
-#else
 			bq24192_set_ibat_max(chip, res.dc_current);
-#endif
 		} else if (res.change_lvl == STS_CHE_NORMAL_TO_STPCHG ||
 			(res.force_update == true &&
 			res.state == CHG_BATT_STPCHG_STATE)) {
 			wake_lock(&chip->lcs_wake_lock);
-#ifdef CONFIG_LGE_THERMALE_CHG_CONTROL
-			bq24192_set_adjust_ibat(chip, chip->chg_current_ma);
-#else
 			bq24192_set_ibat_max(chip, chip->chg_current_ma);
-#endif
 			bq24192_enable_charging(chip, !res.disable_chg);
 		} else if (res.change_lvl == STS_CHE_DECCUR_TO_NORAML) {
 #ifdef CONFIG_LGE_THERMALE_CHG_CONTROL
-			bq24192_set_adjust_ibat(chip,res.dc_current);
+			bq24192_set_ibat_max(chip,res.dc_current);
 #else
 			bq24192_set_ibat_max(chip,chip->chg_current_ma);
 #endif
 		} else if (res.change_lvl == STS_CHE_DECCUR_TO_STPCHG) {
 			wake_lock(&chip->lcs_wake_lock);
 #ifdef CONFIG_LGE_THERMALE_CHG_CONTROL
-			bq24192_set_adjust_ibat(chip,chip->chg_current_ma);
+			bq24192_set_ibat_max(chip,chip->chg_current_ma);
 #endif
 			bq24192_enable_charging(chip, !res.disable_chg);
 		} else if (res.change_lvl == STS_CHE_STPCHG_TO_NORMAL) {
 #ifdef CONFIG_LGE_THERMALE_CHG_CONTROL
-			bq24192_set_adjust_ibat(chip,res.dc_current);
+			bq24192_set_ibat_max(chip,res.dc_current);
 #endif
 			bq24192_enable_charging(chip, !res.disable_chg);
 			wake_unlock(&chip->lcs_wake_lock);
@@ -1956,7 +1808,7 @@ static void bq24192_monitor_batt_temp(struct work_struct *work)
 #ifdef CONFIG_LGE_THERMALE_CHG_CONTROL
 		else if (res.force_update == true && res.state == CHG_BATT_NORMAL_STATE &&
 			res.dc_current != DC_CURRENT_DEF) {
-			bq24192_set_adjust_ibat(chip,res.dc_current);
+			bq24192_set_ibat_max(chip,res.dc_current);
 		}
 #endif
 		chip->pseudo_ui_chg = res.pseudo_chg_ui;
@@ -1974,14 +1826,6 @@ static void bq24192_monitor_batt_temp(struct work_struct *work)
 
 	if(is_changed == true)
 		power_supply_changed(&chip->batt_psy);
-
-#ifdef CONFIG_BQ24192_STATUS_REG_INFO
-	bq24192_read_reg(chip->client, BQ08_SYSTEM_STATUS_REG, &sys_reg);
-	bq24192_read_reg(chip->client, BQ09_FAULT_REG, &fault_reg);
-	dpm_status = sys_reg & DPM_STAT_MASK;
-	pr_err("bq24192 reg 0x%x 0x%x dpm %s \n",
-		sys_reg, fault_reg, dpm_status?"on":"off");
-#endif
 
 	schedule_delayed_work(&chip->battemp_work,
 		MONITOR_BATTEMP_POLLING_PERIOD);
@@ -2228,14 +2072,6 @@ static int bq24192_parse_dt(struct device_node *dev_node,
 		pr_err("Unable to read vin-limit-mv.\n");
 		return ret;
 	}
-
-	ret = of_property_read_u32(dev_node, "ti,icl-vbus-mv",
-				   &chip->icl_vbus_mv);
-	if (ret) {
-		pr_err("Unable to read icl threshod voltage.\n");
-		return ret;
-	}
-
 out:
 	return ret;
 }
@@ -2322,7 +2158,6 @@ static int bq24192_probe(struct i2c_client *client,
 		chip->pre_chg_current_ma = pdata->pre_chg_current_ma;
 		chip->sys_vmin_mv = pdata->sys_vmin_mv;
 		chip->vin_limit_mv = pdata->vin_limit_mv;
-		chip->icl_vbus_mv = pdata->icl_vbus_mv;
 	}
 	chip->set_chg_current_ma = chip->chg_current_ma;
 
@@ -2355,10 +2190,7 @@ static int bq24192_probe(struct i2c_client *client,
 		       WAKE_LOCK_SUSPEND, "batt removed");
 	wake_lock_init(&chip->chg_timeout_lock,
 			       WAKE_LOCK_SUSPEND, "chg timeout");
-#ifdef CONFIG_LGE_ADAPTIVE_I_LIMIT
-	wake_lock_init(&chip->icl_wake_lock,
-			       WAKE_LOCK_SUSPEND, "icl_wake_lock");
-#endif
+
 	chip->batt_removed.name = "battery_removed";
 	chip->batt_removed.state = 0; /*if batt is removed, state will be set to 1 */
 	chip->batt_removed.print_name = batt_removed_print_name;
@@ -2405,9 +2237,7 @@ static int bq24192_probe(struct i2c_client *client,
 #ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
 	INIT_DELAYED_WORK(&chip->battemp_work, bq24192_monitor_batt_temp);
 #endif
-#ifdef CONFIG_LGE_ADAPTIVE_I_LIMIT
-	INIT_DELAYED_WORK(&chip->input_limit_work, bq24192_input_limit_worker);
-#endif
+
 	if (chip->irq) {
 		ret = request_irq(chip->irq, bq24192_irq,
 				IRQF_TRIGGER_FALLING,
@@ -2482,9 +2312,6 @@ err_debugfs:
 err_init_ac_psy:
 	power_supply_unregister(&chip->batt_psy);
 err_init_batt_psy:
-#ifdef CONFIG_LGE_ADAPTIVE_I_LIMIT
-	wake_lock_destroy(&chip->icl_wake_lock);
-#endif
 	wake_lock_destroy(&chip->chg_wake_lock);
 	wake_lock_destroy(&chip->uevent_wake_lock);
 #ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
@@ -2518,9 +2345,7 @@ static int bq24192_remove(struct i2c_client *client)
 	wake_lock_destroy(&chip->lcs_wake_lock);
 #endif
 	wake_lock_destroy(&chip->battgone_wake_lock);
-#ifdef CONFIG_LGE_ADAPTIVE_I_LIMIT
-	wake_lock_destroy(&chip->icl_wake_lock);
-#endif
+
 	power_supply_unregister(&chip->ac_psy);
 	power_supply_unregister(&chip->batt_psy);
 

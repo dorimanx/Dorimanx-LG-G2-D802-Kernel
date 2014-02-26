@@ -807,6 +807,7 @@ skip_this_cpu:
 					NULL,
 					input);
 				mutex_unlock(&dbs_info->timer_mutex);
+
 			}
 skip_this_cpu_bypass:
 			unlock_policy_rwsem_write(cpu);

@@ -275,7 +275,7 @@ static void button_released(struct work_struct *work)
 	int table_size = ARRAY_SIZE(max1462x_ear_3button_type_data);
 	int i;
 
-       //
+       // [AUDIO_BSP] 20130201, junday.lee, fix fake button_released return condition
        if (hi->gpio_get_value_func(hi->gpio_detect) && !atomic_read(&hi->btn_state)){
 		HSD_ERR("button_released but ear jack is plugged out already! just ignore the event.\n");
 		return;
@@ -321,7 +321,7 @@ static void insert_headset(struct hsd_info *hi)
 	irq_set_irq_wake(hi->irq_key, 1);
 	gpio_direction_output(hi->gpio_mic_en, 1);
 #ifdef CONFIG_SWITCH_MAX1462X_WA
-	#if defined (CONFIG_MACH_MSM8974_G2_TMO_US) ||defined (CONFIG_MACH_MSM8974_G2_SPR) || defined (CONFIG_MACH_MSM8974_G2_OPEN_COM)
+	#if defined (CONFIG_MACH_MSM8974_G2_TMO_US) ||defined (CONFIG_MACH_MSM8974_G2_SPR)
 		msleep(600);
 		HSD_DBG("insert delay 600\n");
 	#else
