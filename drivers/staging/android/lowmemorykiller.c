@@ -67,24 +67,24 @@ static int lowmem_minfree[6] = {
 	2 * 1024,	/* 8MB */
 	4 * 1024,	/* 16MB */
 	16 * 1024,	/* 64MB */
-	20 * 1024,	/* 80MB */
 	28 * 1024,	/* 112MB */
+	32 * 1024,	/* 131MB */
 };
 static int lowmem_minfree_screen_off[6] = {
 	3 * 512,	/* 6MB */
 	2 * 1024,	/* 8MB */
 	4 * 1024,	/* 16MB */
 	16 * 1024,	/* 64MB */
-	20 * 1024,	/* 80MB */
 	28 * 1024,	/* 112MB */
+	32 * 1024,	/* 131MB */
 };
 static int lowmem_minfree_screen_on[6] = {
 	3 * 512,	/* 6MB */
 	2 * 1024,	/* 8MB */
 	4 * 1024,	/* 16MB */
 	16 * 1024,	/* 64MB */
-	20 * 1024,	/* 80MB */
 	28 * 1024,	/* 112MB */
+	32 * 1024,	/* 131MB */
 };
 static int lowmem_minfree_size = 6;
 static int lmk_fast_run = 1;
@@ -99,17 +99,15 @@ static unsigned long lowmem_deathpending_timeout;
 
 static bool avoid_to_kill(uid_t uid)
 {
-
-	if (uid == 0 || /* root */
-		uid == 1001 || /* radio */
-		uid == 1002 || /* bluetooth */
-		uid == 1010 || /* wifi */
-		uid == 1012 || /* install */
-		uid == 1013 || /* media */
-		uid == 1014 || /* dhcp */
-		uid == 1017 || /* keystore */
-		uid == 1019)	/* drm */
-	{
+	/* uid info
+	 * uid == 0 > root
+	 * uid == 1001 > radio
+	 * uid == 1002 > bluetooth
+	 * uid == 1010 > wifi
+	 * uid == 1014 > dhcp
+	 */
+	if (uid == 0 || uid == 1001 || uid == 1002 || uid == 1010 ||
+			uid == 1014) {
 		return 1;
 	}
 	return 0;
@@ -118,9 +116,8 @@ static bool avoid_to_kill(uid_t uid)
 static bool protected_apps(char *comm)
 {
 	if (strcmp(comm, "d.process.acore") == 0 ||
-		strcmp(comm, "ndroid.systemui") == 0 ||
-		strcmp(comm, "ndroid.contacts") == 0 ||
-		strcmp(comm, "d.process.media") == 0) {
+			strcmp(comm, "ndroid.systemui") == 0 ||
+			strcmp(comm, "ndroid.contacts") == 0) {
 		return 1;
 	}
 	return 0;
@@ -389,7 +386,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		uid = pcred->uid;
 
 		if ((!avoid_to_kill(uid) && !protected_apps(p->comm)) ||
-				tasksize * (long)(PAGE_SIZE / 1024) >= 80000) {
+				tasksize * (long)(PAGE_SIZE / 1024) >= 100000) {
 			selected = p;
 			selected_tasksize = tasksize;
 			selected_oom_score_adj = oom_score_adj;
@@ -446,8 +443,8 @@ static struct power_suspend low_mem_suspend = {
 
 static int __init lowmem_init(void)
 {
-	register_power_suspend(&low_mem_suspend);
 	register_shrinker(&lowmem_shrinker);
+	register_power_suspend(&low_mem_suspend);
 	return 0;
 }
 
@@ -548,8 +545,6 @@ module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
 module_param_array_named(minfree_screen_off, lowmem_minfree_screen_off, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
-module_param_array_named(minfree_screen_on, lowmem_minfree_screen_on, uint, &lowmem_minfree_size,
-			S_IRUGO | S_IWUSR);
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
 module_param_named(lmk_fast_run, lmk_fast_run, int, S_IRUGO | S_IWUSR);
 module_param_named(auto_oom, lowmem_auto_oom, uint, S_IRUGO | S_IWUSR);
