@@ -2120,6 +2120,7 @@ config USE_OF
 	select OF
 	select OF_EARLY_FLATTREE
 	select IRQ_DOMAIN
+	select OF_RESERVED_MEM
 	help
 	  Include support for flattened device tree machine descriptions.
 
