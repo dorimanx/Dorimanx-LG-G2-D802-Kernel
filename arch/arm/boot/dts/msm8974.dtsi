@@ -1485,7 +1485,7 @@
 		compatible = "qcom,msm-thermal";
 		qcom,sensor-id = <0>;
 		qcom,poll-ms = <250>;
-		qcom,limit-temp = <75>;
+		qcom,limit-temp = <78>;
 		qcom,temp-hysteresis = <0>;
 		qcom,freq-step = <2>;
 		qcom,freq-control-mask = <0xf>;
