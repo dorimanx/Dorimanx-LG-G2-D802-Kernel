@@ -318,12 +318,6 @@ config INTELLI_MAX_INACTIVE_FREQ
         help
                 Set default max inactive frequency for intellidemand
 
-config CPUFREQ_LIMIT_MAX_FREQ
-        bool "Limit Max Freq"
-        depends on CPU_FREQ_GOV_INTELLIDEMAND
-        help
-                Limit Max Freq while screen is on for Intellidemand governor
-
 config CPU_FREQ_GOV_NIGHTMARE
 	tristate "'nightmare' cpufreq governor"
 	depends on CPU_FREQ
