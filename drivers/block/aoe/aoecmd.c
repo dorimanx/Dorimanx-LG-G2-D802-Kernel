@@ -577,7 +577,112 @@ rexmit_timer(ulong vp)
 
 	spin_unlock_irqrestore(&d->lock, flags);
 
+<<<<<<< HEAD
 	aoenet_xmit(&queue);
+=======
+static unsigned long
+rqbiocnt(struct request *r)
+{
+	struct bio *bio;
+	unsigned long n = 0;
+
+	__rq_for_each_bio(bio, r)
+		n++;
+	return n;
+}
+
+/* This can be removed if we are certain that no users of the block
+ * layer will ever use zero-count pages in bios.  Otherwise we have to
+ * protect against the put_page sometimes done by the network layer.
+ *
+ * See http://oss.sgi.com/archives/xfs/2007-01/msg00594.html for
+ * discussion.
+ *
+ * We cannot use get_page in the workaround, because it insists on a
+ * positive page count as a precondition.  So we use _count directly.
+ */
+static void
+bio_pageinc(struct bio *bio)
+{
+	struct bio_vec *bv;
+	struct page *page;
+	int i;
+
+	bio_for_each_segment(bv, bio, i) {
+		page = bv->bv_page;
+		/* Non-zero page count for non-head members of
+		 * compound pages is no longer allowed by the kernel,
+		 * but this has never been seen here.
+		 */
+		if (unlikely(PageCompound(page)))
+			if (compound_head(page) != page) {
+				pr_crit("page tail used for block I/O\n");
+				BUG();
+			}
+		atomic_inc(&page->_count);
+	}
+}
+
+static void
+bio_pagedec(struct bio *bio)
+{
+	struct bio_vec *bv;
+	int i;
+
+	bio_for_each_segment(bv, bio, i)
+		atomic_dec(&bv->bv_page->_count);
+}
+
+static void
+bufinit(struct buf *buf, struct request *rq, struct bio *bio)
+{
+	memset(buf, 0, sizeof(*buf));
+	buf->rq = rq;
+	buf->bio = bio;
+	buf->resid = bio->bi_size;
+	buf->sector = bio->bi_sector;
+	bio_pageinc(bio);
+	buf->bv = bio_iovec(bio);
+	buf->bv_resid = buf->bv->bv_len;
+	WARN_ON(buf->bv_resid == 0);
+}
+
+static struct buf *
+nextbuf(struct aoedev *d)
+{
+	struct request *rq;
+	struct request_queue *q;
+	struct buf *buf;
+	struct bio *bio;
+
+	q = d->blkq;
+	if (q == NULL)
+		return NULL;	/* initializing */
+	if (d->ip.buf)
+		return d->ip.buf;
+	rq = d->ip.rq;
+	if (rq == NULL) {
+		rq = blk_peek_request(q);
+		if (rq == NULL)
+			return NULL;
+		blk_start_request(rq);
+		d->ip.rq = rq;
+		d->ip.nxbio = rq->bio;
+		rq->special = (void *) rqbiocnt(rq);
+	}
+	buf = mempool_alloc(d->bufpool, GFP_ATOMIC);
+	if (buf == NULL) {
+		pr_err("aoe: nextbuf: unable to mempool_alloc!\n");
+		return NULL;
+	}
+	bio = d->ip.nxbio;
+	bufinit(buf, rq, bio);
+	bio = bio->bi_next;
+	d->ip.nxbio = bio;
+	if (bio == NULL)
+		d->ip.rq = NULL;
+	return d->ip.buf = buf;
+>>>>>>> def52ac... mm: close PageTail race
 }
 
 /* enters with d->lock held */
