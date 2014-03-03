@@ -982,8 +982,10 @@ static int de_thread(struct task_struct *tsk)
 		transfer_pid(leader, tsk, PIDTYPE_SID);
 
 		list_replace_rcu(&leader->tasks, &tsk->tasks);
+#ifdef CONFIG_ANDROID_LMK_ADJ_RBTREE
 		delete_from_adj_tree(leader);
 		add_2_adj_tree(tsk);
+#endif
 		list_replace_init(&leader->sibling, &tsk->sibling);
 
 		tsk->group_leader = tsk;
