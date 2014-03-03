@@ -1729,9 +1729,6 @@ static inline struct pid *task_tgid(struct task_struct *task)
 #ifdef CONFIG_ANDROID_LMK_ADJ_RBTREE
 extern void add_2_adj_tree(struct task_struct *task);
 extern void delete_from_adj_tree(struct task_struct *task);
-#else
-static inline void add_2_adj_tree(struct task_struct *task) { }
-static inline void delete_from_adj_tree(struct task_struct *task) { }
 #endif
 /*
  * Without tasklist or rcu lock it is not safe to dereference
