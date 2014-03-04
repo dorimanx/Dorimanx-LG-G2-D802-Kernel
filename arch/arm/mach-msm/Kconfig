@@ -1931,6 +1931,15 @@ config ALUCARD_HOTPLUG
 	help
 	  Generic Alucard-hotplug cpu hotplug driver for ARM SOCs
 
+config TURBO_BOOST
+	bool "Enable CPU Turbo boost option"
+	depends on CPU_OVERCLOCK
+	default y
+	help
+	  This option allows overclocking of 2 cores to higher clock rate
+	  than stock maximum.  When more than 2 cores are active, the clock
+	  is limited to stock max speeds
+
 config MSM_AVS_HW
 	bool "Enable Adaptive Voltage Scaling (AVS)"
 	default n
