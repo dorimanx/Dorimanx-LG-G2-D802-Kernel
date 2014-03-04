@@ -37,24 +37,15 @@
 #endif
 #include <linux/hrtimer.h>
 
-/* uncomment since no touchscreen defines android touch, do that here */
-//#define ANDROID_TOUCH_DECLARED
-
 /* Version, author, desc, etc */
 #define DRIVER_AUTHOR "Dennis Rassmann <showp1984@gmail.com>"
 #define DRIVER_DESCRIPTION "Sweep2wake for almost any device"
 #define DRIVER_VERSION "1.5-Modded for G2 as sweep2sleep only by Ayysir"
 #define LOGTAG "[sweep2wake]: "
 
-MODULE_AUTHOR(DRIVER_AUTHOR);
-MODULE_DESCRIPTION(DRIVER_DESCRIPTION);
-MODULE_VERSION(DRIVER_VERSION);
-MODULE_LICENSE("GPLv2");
-
 /* Tuneables */
 #define S2W_DEBUG		0
-#define S2W_DEFAULT		0
-#define S2S_DEFAULT	0
+#define S2W_DEFAULT		1
 #define S2W_PWRKEY_DUR          60
 
 #define DEFAULT_S2W_Y_MAX               1920
@@ -65,12 +56,11 @@ MODULE_LICENSE("GPLv2");
 #define DEFAULT_S2W_X_FINAL             250
 
 /* Resources */
-int s2w_switch = S2W_DEFAULT, s2s = S2S_DEFAULT;
+int s2w_switch = S2W_DEFAULT, s2w = S2W_DEFAULT;
 static int touch_x = 0, touch_y = 0;
 static bool touch_x_called = false, touch_y_called = false;
 static bool scr_suspended = false, exec_count = true;
 static bool scr_on_touch = false, barrier[2] = {false, false};
-//static struct notifier_block s2w_lcd_notif;
 static struct input_dev * sweep2wake_pwrdev;
 static DEFINE_MUTEX(pwrkeyworklock);
 static struct workqueue_struct *s2w_input_wq;
@@ -80,7 +70,6 @@ static int s2w_start_posn = DEFAULT_S2W_X_B1;
 static int s2w_mid_posn = DEFAULT_S2W_X_B2;
 static int s2w_end_posn = (DEFAULT_S2W_X_MAX - DEFAULT_S2W_X_FINAL);
 static int s2w_threshold = DEFAULT_S2W_X_FINAL;
-//static int s2w_max_posn = DEFAULT_S2W_X_MAX;
 
 static int s2w_swap_coord = 0;
 
@@ -188,7 +177,7 @@ static void detect_sweep2wake(int sweep_coord, int sweep_height, bool st)
 			sweep_coord = swap_temp2;
 		}
 
-		scr_on_touch=true;
+		scr_on_touch = true;
 		prev_coord = (DEFAULT_S2W_X_MAX - DEFAULT_S2W_X_FINAL);
 		next_coord = DEFAULT_S2W_X_B2;
 		if ((barrier[0] == true) ||
@@ -353,6 +342,20 @@ static struct attribute_group s2w_parameters_attr_group =
 static struct kobject *s2w_parameters_kobj;
 /****************** SYSFS INTERFACE (END) ********************/
 
+#ifdef CONFIG_POWERSUSPEND
+static void s2w_power_suspend(struct power_suspend *h) {
+	scr_suspended = true;
+}
+
+static void s2w_power_resume(struct power_suspend *h) {
+	scr_suspended = false;
+}
+
+static struct power_suspend s2w_power_suspend_handler = {
+	.suspend = s2w_power_suspend,
+	.resume = s2w_power_resume,
+};
+#endif
 
 static void s2w_input_callback(struct work_struct *unused) {
 
@@ -457,21 +460,6 @@ static struct input_handler s2w_input_handler = {
 	.id_table	= s2w_ids,
 };
 
-#ifdef CONFIG_POWERSUSPEND
-static void s2w_power_suspend(struct power_suspend *h) {
-	scr_suspended = true;
-}
-
-static void s2w_power_resume(struct power_suspend *h) {
-	scr_suspended = false;
-}
-
-static struct power_suspend s2w_power_suspend_handler = {
-	.suspend = s2w_power_suspend,
-	.resume = s2w_power_resume,
-};
-#endif
-
 /*
  * SYSFS stuff below here
  */
@@ -521,17 +509,17 @@ static DEVICE_ATTR(sweep2wake_version, (S_IWUSR|S_IRUGO),
 /*
  * INIT / EXIT stuff below here
  */
-#ifdef ANDROID_TOUCH_DECLARED
-extern struct kobject *sweep2sleep_kobj;
-#else
 struct kobject *sweep2sleep_kobj;
 EXPORT_SYMBOL_GPL(sweep2sleep_kobj);
-#endif
 
 static int __init sweep2wake_init(void)
 {
 	int rc = 0;
 	int sysfs_result;
+
+#ifdef CONFIG_POWERSUSPEND
+	register_power_suspend(&s2w_power_suspend_handler);
+#endif
 
 	s2w_parameters_kobj = kobject_create_and_add("s2w_parameters", kernel_kobj);
 	if (!s2w_parameters_kobj) {
@@ -541,7 +529,7 @@ static int __init sweep2wake_init(void)
 
 	sysfs_result = sysfs_create_group(s2w_parameters_kobj, &s2w_parameters_attr_group);
 
-    if (sysfs_result) {
+	if (sysfs_result) {
 		pr_info("%s sysfs create failed!\n", __FUNCTION__);
 		kobject_put(s2w_parameters_kobj);
 	}
@@ -572,16 +560,10 @@ static int __init sweep2wake_init(void)
 	if (rc)
 		pr_err("%s: Failed to register s2w_input_handler\n", __func__);
 
-#ifdef CONFIG_POWERSUSPEND
-	register_power_suspend(&s2w_power_suspend_handler);
-#endif
-
-#ifndef ANDROID_TOUCH_DECLARED
 	sweep2sleep_kobj = kobject_create_and_add("sweep2sleep", NULL) ;
 	if (sweep2sleep_kobj == NULL) {
 		pr_warn("%s: sweep2sleep_kobj create_and_add failed\n", __func__);
 	}
-#endif
 	rc = sysfs_create_file(sweep2sleep_kobj, &dev_attr_sweep2sleep.attr);
 	if (rc) {
 		pr_warn("%s: sysfs_create_file failed for sweep2wake\n", __func__);
@@ -601,9 +583,7 @@ err_alloc_dev:
 
 static void __exit sweep2wake_exit(void)
 {
-#ifndef ANDROID_TOUCH_DECLARED
 	kobject_del(sweep2sleep_kobj);
-#endif
 	input_unregister_handler(&s2w_input_handler);
 	destroy_workqueue(s2w_input_wq);
 	input_unregister_device(sweep2wake_pwrdev);
@@ -613,3 +593,8 @@ static void __exit sweep2wake_exit(void)
 
 module_init(sweep2wake_init);
 module_exit(sweep2wake_exit);
+
+MODULE_AUTHOR(DRIVER_AUTHOR);
+MODULE_DESCRIPTION(DRIVER_DESCRIPTION);
+MODULE_VERSION(DRIVER_VERSION);
+MODULE_LICENSE("GPLv2");
