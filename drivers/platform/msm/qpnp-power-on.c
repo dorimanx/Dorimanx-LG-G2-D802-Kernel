@@ -66,7 +66,8 @@
 #define QPNP_PON_RESIN_BARK_N_SET		BIT(4)
 
 #define QPNP_PON_RESET_EN			BIT(7)
-#define QPNP_PON_POWER_OFF_MASK			0xF
+#define QPNP_PON_WARM_RESET			BIT(0)
+#define QPNP_PON_SHUTDOWN			BIT(2)
 
 /* Ranges */
 #define QPNP_PON_S1_TIMER_MAX			10256
@@ -149,14 +150,14 @@ qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
 
 /**
  * qpnp_pon_system_pwr_off - Configure system-reset PMIC for shutdown or reset
- * @type: Determines the type of power off to perform - shutdown, reset, etc
+ * @reset: Configures for shutdown if 0, or reset if 1.
  *
  * This function will only configure a single PMIC. The other PMICs in the
  * system are slaved off of it and require no explicit configuration. Once
  * the system-reset PMIC is configured properly, the MSM can drop PS_HOLD to
  * activate the specified configuration.
  */
-int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
+int qpnp_pon_system_pwr_off(bool reset)
 {
 	int rc;
 	u8 reg;
@@ -193,7 +194,8 @@ int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 	udelay(500);
 
 	rc = qpnp_pon_masked_write(pon, QPNP_PON_PS_HOLD_RST_CTL(pon->base),
-				   QPNP_PON_POWER_OFF_MASK, type);
+			   QPNP_PON_WARM_RESET | QPNP_PON_SHUTDOWN,
+			   reset ? QPNP_PON_WARM_RESET : QPNP_PON_SHUTDOWN);
 	if (rc)
 		dev_err(&pon->spmi->dev,
 			"Unable to write to addr=%x, rc(%d)\n",
@@ -204,8 +206,6 @@ int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 	if (rc)
 		dev_err(&pon->spmi->dev,
 			"Unable to write to addr=%x, rc(%d)\n", rst_en_reg, rc);
-
-	dev_dbg(&pon->spmi->dev, "power off type = 0x%02X\n", type);
 
 	return rc;
 }
