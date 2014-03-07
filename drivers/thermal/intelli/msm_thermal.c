@@ -27,8 +27,8 @@
 #include <linux/msm_thermal.h>
 #include <mach/cpufreq.h>
 
-#define DEFAULT_POLLING_MS	250
-/* last 3 minutes based on 250ms polling cycle */
+#define DEFAULT_POLLING_MS	200
+/* last 3 minutes based on 200ms polling cycle */
 #define MAX_HISTORY_SZ		((3*60*1000) / DEFAULT_POLLING_MS)
 
 struct msm_thermal_stat_data {
@@ -39,16 +39,16 @@ struct msm_thermal_stat_data {
 };
 static struct msm_thermal_stat_data msm_thermal_stats;
 
-static int enabled;
+static int enabled = 0;
 static struct msm_thermal_data msm_thermal_info = {
 	.sensor_id = 0,
-	.poll_ms = 250,
-	.limit_temp_degC = 78,
-	.temp_hysteresis_degC = 0,
+	.poll_ms = 200,
+	.limit_temp_degC = 75,
+	.temp_hysteresis_degC = 2,
 	.freq_step = 2,
 	.freq_control_mask = 0xf,
-	.core_limit_temp_degC = 85,
-	.core_temp_hysteresis_degC = 10,
+	.core_limit_temp_degC = 80,
+	.core_temp_hysteresis_degC = 5,
 	.core_control_mask = 0xe,
 };
 static uint32_t limited_max_freq = MSM_CPUFREQ_NO_LIMIT;
@@ -217,7 +217,6 @@ static void __ref do_freq_control(long temp)
 			"%s: Unable to limit cpu%d max freq to %d\n",
 					KBUILD_MODNAME, cpu, max_freq);
 	}
-
 }
 
 static void __ref check_temp(struct work_struct *work)
@@ -298,7 +297,6 @@ static void __ref disable_msm_thermal(void)
 	
 	cancel_delayed_work_sync(&check_temp_work);
 	//flush_scheduled_work();
-
 
 	for_each_possible_cpu(cpu) {
 		update_cpu_max_freq(cpu, MSM_CPUFREQ_NO_LIMIT);
@@ -561,11 +559,6 @@ int __init msm_thermal_init(struct msm_thermal_data *pdata)
 {
 	int ret = 0;
 
-	//BUG_ON(!pdata);
-	//BUG_ON(pdata->sensor_id >= TSENS_MAX_SENSORS);
-	//memcpy(&msm_thermal_info, pdata, sizeof(struct msm_thermal_data));
-
-	enabled = 1;
 	if (num_possible_cpus() > 1)
 		core_control_enabled = 1;
 	INIT_DELAYED_WORK(&check_temp_work, check_temp);
