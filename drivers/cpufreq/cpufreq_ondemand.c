@@ -198,6 +198,7 @@ static struct dbs_tuners {
 	.optimal_freq = 0,
 	.enable_turbo_mode = 1,
 	.input_boost = 0,
+	.io_is_busy = 0,
 	.sampling_rate = DEF_SAMPLING_RATE,
 };
 
@@ -362,9 +363,7 @@ show_one(down_differential, down_differential);
 show_one(sampling_down_factor, sampling_down_factor);
 show_one(ignore_nice_load, ignore_nice);
 show_one(down_differential_multi_core, down_differential_multi_core);
-show_one(optimal_freq, optimal_freq);
 show_one(micro_freq_up_threshold, micro_freq_up_threshold);
-show_one(sync_freq, sync_freq);
 show_one(enable_turbo_mode, enable_turbo_mode);
 show_one(input_boost, input_boost);
 
@@ -456,19 +455,6 @@ static ssize_t store_input_boost(struct kobject *a, struct attribute *b,
 	return count;
 }
 
-static ssize_t store_sync_freq(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-
-	ret = sscanf(buf, "%u", &input);
-	if (ret != 1)
-		return -EINVAL;
-	dbs_tuners_ins.sync_freq = input;
-	return count;
-}
-
 static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
 {
@@ -492,19 +478,6 @@ static ssize_t store_down_differential_multi_core(struct kobject *a,
 	if (ret != 1)
 		return -EINVAL;
 	dbs_tuners_ins.down_differential_multi_core = input;
-	return count;
-}
-
-static ssize_t store_optimal_freq(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-
-	ret = sscanf(buf, "%u", &input);
-	if (ret != 1)
-		return -EINVAL;
-	dbs_tuners_ins.optimal_freq = input;
 	return count;
 }
 
@@ -784,9 +757,7 @@ define_one_global_rw(sampling_down_factor);
 define_one_global_rw(ignore_nice_load);
 define_one_global_rw(powersave_bias);
 define_one_global_rw(down_differential_multi_core);
-define_one_global_rw(optimal_freq);
 define_one_global_rw(micro_freq_up_threshold);
-define_one_global_rw(sync_freq);
 define_one_global_rw(enable_turbo_mode);
 define_one_global_rw(input_boost);
 
@@ -802,9 +773,7 @@ static struct attribute *dbs_attributes[] = {
 	&powersave_bias.attr,
 	&io_is_busy.attr,
 	&down_differential_multi_core.attr,
-	&optimal_freq.attr,
 	&micro_freq_up_threshold.attr,
-	&sync_freq.attr,
 	&enable_turbo_mode.attr,
 	&input_boost.attr,
 	NULL
