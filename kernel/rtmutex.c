@@ -721,7 +721,7 @@ rt_mutex_slowlock(struct rt_mutex *lock, int state,
 		  struct hrtimer_sleeper *timeout,
 		  int detect_deadlock)
 {
-	struct rt_mutex_waiter waiter;
+	struct rt_mutex_waiter waiter = { };
 	int ret = 0;
 
 	debug_rt_mutex_init_waiter(&waiter);
