@@ -120,7 +120,6 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 		pr_info("%s: Max frequency reset for cpu%d\n",
 				KBUILD_MODNAME, cpu);
 
-	get_online_cpus();
 	if (cpu_online(cpu)) {
 		struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
 		if (!policy)
@@ -129,11 +128,11 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 				CPUFREQ_RELATION_H);
 		cpufreq_cpu_put(policy);
 	}
-	put_online_cpus();
 
 	return ret;
 }
 
+#ifdef CONFIG_SMP
 static void __ref do_core_control(long temp)
 {
 	int i = 0;
@@ -182,6 +181,12 @@ static void __ref do_core_control(long temp)
 	}
 	mutex_unlock(&core_control_mutex);
 }
+#else
+static void do_core_control(long temp)
+{
+	return;
+}
+#endif
 
 static void __ref do_freq_control(long temp)
 {
@@ -302,7 +307,6 @@ static void __ref disable_msm_thermal(void)
 {
 	int cpu = 0;
 
-	
 	cancel_delayed_work_sync(&check_temp_work);
 	//flush_scheduled_work();
 
@@ -417,6 +421,7 @@ done_stat_nodes:
 	return ret;
 }
 
+#ifdef CONFIG_SMP
 /* Call with core_control_mutex locked */
 static int __ref update_offline_cores(int val)
 {
@@ -439,6 +444,12 @@ static int __ref update_offline_cores(int val)
 	}
 	return ret;
 }
+#else
+static int update_offline_cores(int val)
+{
+	return 0;
+}
+#endif
 
 static ssize_t show_cc_enabled(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
