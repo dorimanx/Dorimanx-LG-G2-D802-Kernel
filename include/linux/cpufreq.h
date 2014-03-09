@@ -345,6 +345,37 @@ static inline unsigned int cpufreq_quick_get_max(unsigned int cpu)
 }
 #endif
 
+#ifdef CONFIG_CPU_MAX_LIMIT
+enum {
+	BOOT_CPU = 0,
+};
+
+int get_max_freq(void);
+int get_min_freq(void);
+
+#define MAX_FREQ_LIMIT		get_max_freq() /* 2803200 */
+#define MIN_FREQ_LIMIT		get_min_freq() /* 300000 */
+
+#define UPDATE_NOW_BITS		0xFF
+
+enum {
+	CPU_LIMIT_NO_ID			= 0,
+
+	/* need to update now */
+	CPU_LIMIT_MIN_ID		= 0x00000001,
+	CPU_LIMIT_MAX_ID		= 0x00000002,
+
+	CPU_MAX_ID
+};
+
+int set_freq_limit(unsigned long id, unsigned int freq);
+
+unsigned int get_min_lock(void);
+unsigned int get_max_lock(void);
+void set_min_lock(int freq);
+void set_max_lock(int freq);
+
+#endif
 
 /*********************************************************************
  *                       CPUFREQ DEFAULT GOVERNOR                    *

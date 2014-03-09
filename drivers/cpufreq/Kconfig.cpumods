@@ -22,6 +22,14 @@ config TURBO_BOOST
 	  than stock maximum.  When more than 2 cores are active, the clock
 	  is limited to stock max speeds
 
+config CPU_MAX_LIMIT
+	bool "Allow to set force max/min freq"
+	default y
+	help
+	  This code is merged from Samsung DVFS code
+	  It's allow us to set hard Freq limit and provide
+	  interface for allowing OC or not!
+
 config CPU_UNDERCLOCK
 	bool "Enable CPU Underclocking option"
 	default n

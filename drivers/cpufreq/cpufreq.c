@@ -1109,6 +1109,9 @@ static int cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
 		goto err_unlock_policy;
 	}
 
+	/* related cpus should atleast have policy->cpus */
+	cpumask_or(policy->related_cpus, policy->related_cpus, policy->cpus);
+
 	/*
 	 * affected cpus must always be the one, which are online. We aren't
 	 * managing offline cpus here.
@@ -1985,6 +1988,28 @@ static int __cpuinit cpufreq_cpu_callback(struct notifier_block *nfb,
 		case CPU_ONLINE:
 		case CPU_ONLINE_FROZEN:
 			cpufreq_add_dev(dev, NULL);
+#ifdef CONFIG_CPU_MAX_LIMIT
+			/* if min or max lock is set, online cpu needs to change it's own rate immediately after addind cpufreq_dev */
+			{
+				unsigned int target_freq, min_freq, max_freq;
+				struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
+				if (policy) {
+					min_freq = get_min_lock();
+					max_freq = get_max_lock();
+
+					target_freq = policy->cur;
+					if (min_freq && target_freq < min_freq)
+						target_freq = min_freq;
+					if (max_freq && target_freq > max_freq)
+						target_freq = max_freq;
+
+					if (target_freq != policy->cur && target_freq >= policy->min && target_freq <= policy->max)
+						__cpufreq_driver_target(policy, target_freq, CPUFREQ_RELATION_L);
+
+					cpufreq_cpu_put(policy);
+				}
+			}
+#endif
 			break;
 		case CPU_DOWN_PREPARE:
 		case CPU_DOWN_PREPARE_FROZEN:

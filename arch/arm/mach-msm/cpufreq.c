@@ -65,14 +65,62 @@ static DEFINE_PER_CPU(struct cpu_freq, cpu_freq_info);
 extern int msm_turbo(int);
 #endif
 
+#ifdef CONFIG_CPU_MAX_LIMIT
+static unsigned int upper_limit_freq = 2803200;
+static unsigned int lower_limit_freq;
+static unsigned int cpuinfo_max_freq;
+static unsigned int cpuinfo_min_freq;
+
+unsigned int get_min_lock(void)
+{
+	return lower_limit_freq;
+}
+
+unsigned int get_max_lock(void)
+{
+	return upper_limit_freq;
+}
+
+void set_min_lock(int freq)
+{
+	if (freq <= MIN_FREQ_LIMIT)
+		lower_limit_freq = 0;
+	else if (freq > MAX_FREQ_LIMIT)
+		lower_limit_freq = 0;
+	else
+		lower_limit_freq = freq;
+}
+
+void set_max_lock(int freq)
+{
+	if (freq < MIN_FREQ_LIMIT)
+		upper_limit_freq = 0;
+	else if (freq >= MAX_FREQ_LIMIT)
+		upper_limit_freq = 0;
+	else
+		upper_limit_freq = freq;
+}
+
+int get_max_freq(void)
+{
+	return cpuinfo_max_freq;
+}
+
+int get_min_freq(void)
+{
+	return cpuinfo_min_freq;
+}
+#endif
 static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq)
 {
 	int ret = 0;
+	int index;
 	int saved_sched_policy = -EINVAL;
 	int saved_sched_rt_prio = -EINVAL;
 	struct cpufreq_freqs freqs;
 	struct cpu_freq *limit = &per_cpu(cpu_freq_info, policy->cpu);
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
+	struct cpufreq_frequency_table *table;
 
 	if (limit->limits_init) {
 		if (new_freq > limit->allowed_max) {
@@ -89,6 +137,34 @@ static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq)
 #ifdef CONFIG_TURBO_BOOST
 	new_freq = msm_turbo(new_freq);
 #endif
+
+#ifdef CONFIG_CPU_MAX_LIMIT
+	if (lower_limit_freq || upper_limit_freq) {
+		unsigned int t_freq = new_freq;
+
+		if (lower_limit_freq && new_freq < lower_limit_freq)
+			t_freq = lower_limit_freq;
+
+		if (upper_limit_freq && new_freq > upper_limit_freq)
+			t_freq = upper_limit_freq;
+
+		new_freq = t_freq;
+
+		if (new_freq < policy->min)
+			new_freq = policy->min;
+		if (new_freq > policy->max)
+			new_freq = policy->max;
+
+		if (new_freq == policy->cur)
+			return 0;
+	}
+#endif
+
+	/* limits applied above must be in cpufreq table */
+	table = cpufreq_frequency_get_table(policy->cpu);
+	if (cpufreq_frequency_table_target(policy, table, new_freq,
+		CPUFREQ_RELATION_H, &index))
+		return -EINVAL;
 
 	freqs.old = policy->cur;
 	freqs.new = new_freq;
@@ -286,6 +362,10 @@ static int __cpuinit msm_cpufreq_init(struct cpufreq_policy *policy)
 	policy->max = 2265600;
 #endif
 
+#ifdef CONFIG_CPU_MAX_LIMIT
+	cpuinfo_max_freq = policy->cpuinfo.max_freq;
+	cpuinfo_min_freq = policy->cpuinfo.min_freq;
+#endif
 	cur_freq = acpuclk_get_rate(policy->cpu);
 	if (cpufreq_frequency_table_target(policy, table, cur_freq,
 	    CPUFREQ_RELATION_H, &index) &&

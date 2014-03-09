@@ -18,6 +18,9 @@
 #include <linux/hrtimer.h>
 
 #include "power.h"
+#ifdef CONFIG_CPU_MAX_LIMIT
+#include <linux/cpufreq.h>
+#endif
 
 #define MAX_BUF 100
 
@@ -606,6 +609,196 @@ power_attr(wake_lock);
 power_attr(wake_unlock);
 #endif
 
+#ifdef CONFIG_CPU_MAX_LIMIT
+DEFINE_MUTEX(cpu_limit_mutex);
+static unsigned long cpu_limit_id;
+static unsigned long cpu_min_freq;
+static unsigned long cpu_max_freq;
+
+static int verify_cpufreq_target(unsigned int target)
+{
+	int i;
+	struct cpufreq_frequency_table *table;
+
+	table = cpufreq_frequency_get_table(BOOT_CPU);
+	if (table == NULL)
+		return -EFAULT;
+
+	for (i = 0; table[i].frequency != CPUFREQ_TABLE_END; i++) {
+		if (table[i].frequency < MIN_FREQ_LIMIT ||
+				table[i].frequency > MAX_FREQ_LIMIT)
+			continue;
+
+		if (target == table[i].frequency)
+			return 0;
+	}
+
+	return -EINVAL;
+}
+
+int set_freq_limit(unsigned long id, unsigned int freq)
+{
+	unsigned int min = MIN_FREQ_LIMIT;
+	unsigned int max = MAX_FREQ_LIMIT;
+
+	if (freq != 0 && freq != -1 && verify_cpufreq_target(freq))
+		return -EINVAL;
+
+	mutex_lock(&cpu_limit_mutex);
+
+	if (freq == -1)
+		cpu_limit_id &= ~id;
+	else
+		cpu_limit_id |= id;
+
+	if (id == CPU_LIMIT_MIN_ID)
+		cpu_min_freq = freq;
+	else if (id == CPU_LIMIT_MAX_ID)
+		cpu_max_freq = freq;
+
+	/* set min freq */
+	if (cpu_limit_id & CPU_LIMIT_MIN_ID && min < cpu_min_freq)
+		min = cpu_min_freq;
+
+	/* set max freq */
+	if (cpu_limit_id & CPU_LIMIT_MAX_ID && max > cpu_max_freq)
+		max = cpu_max_freq;
+
+	/* check min max*/
+	if (min > max)
+		min = max;
+
+	/* update */
+	set_min_lock(min);
+	set_max_lock(max);
+
+	pr_info("%s: 0x%lu %d, min %d, max %d\n",
+				__func__, id, freq, min, max);
+
+	/* need to update now */
+	if (id & UPDATE_NOW_BITS) {
+		int cpu;
+		unsigned int cur = 0;
+
+		for_each_online_cpu(cpu) {
+			cur = cpufreq_quick_get(cpu);
+			if (cur) {
+				struct cpufreq_policy policy;
+				policy.cpu = cpu;
+
+				if (cur < min)
+					cpufreq_driver_target(&policy,
+						min, CPUFREQ_RELATION_H);
+				else if (cur > max)
+					cpufreq_driver_target(&policy,
+						max, CPUFREQ_RELATION_L);
+			}
+		}
+	}
+
+	mutex_unlock(&cpu_limit_mutex);
+
+	return 0;
+}
+
+static ssize_t cpufreq_min_limit_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	int freq;
+
+	freq = get_min_lock();
+	if (!freq)
+		freq = -1;
+
+	return sprintf(buf, "%d\n", freq);
+}
+
+static ssize_t cpufreq_min_limit_store(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					const char *buf, size_t n)
+{
+	int freq_min_limit, ret = 0;
+
+	ret = sscanf(buf, "%d", &freq_min_limit);
+
+	if (ret != 1)
+		return -EINVAL;
+
+	set_freq_limit(CPU_LIMIT_MIN_ID, freq_min_limit);
+
+	return n;
+}
+
+static ssize_t cpufreq_max_limit_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	int freq;
+
+	freq = get_max_lock();
+	if (!freq)
+		freq = -1;
+
+	return sprintf(buf, "%d\n", freq);
+}
+
+static ssize_t cpufreq_max_limit_store(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					const char *buf, size_t n)
+{
+	int freq_max_limit, ret = 0;
+
+	ret = sscanf(buf, "%d", &freq_max_limit);
+
+	if (ret != 1)
+		return -EINVAL;
+
+	set_freq_limit(CPU_LIMIT_MAX_ID, freq_max_limit);
+
+	return n;
+}
+static ssize_t cpufreq_table_show(struct kobject *kobj,
+			struct kobj_attribute *attr, char *buf)
+{
+	ssize_t len = 0;
+	int i, count = 0;
+	unsigned int freq;
+
+	struct cpufreq_frequency_table *table;
+
+	table = cpufreq_frequency_get_table(BOOT_CPU);
+	if (table == NULL)
+		return 0;
+
+	for (i = 0; table[i].frequency != CPUFREQ_TABLE_END; i++)
+		count = i;
+
+	for (i = count; i >= 0; i--) {
+		freq = table[i].frequency;
+
+		if (freq < MIN_FREQ_LIMIT || freq > MAX_FREQ_LIMIT)
+			continue;
+
+		len += sprintf(buf + len, "%u ", freq);
+	}
+
+	len--;
+	len += sprintf(buf + len, "\n");
+
+	return len;
+}
+
+static ssize_t cpufreq_table_store(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					const char *buf, size_t n)
+{
+	pr_info("%s: Not supported\n", __func__);
+	return n;
+}
+
+power_attr(cpufreq_max_limit);
+power_attr(cpufreq_min_limit);
+power_attr(cpufreq_table);
+#endif
 static struct attribute *g[] = {
 	&state_attr.attr,
 #ifdef CONFIG_PM_TRACE
@@ -631,6 +824,11 @@ static struct attribute *g[] = {
 	&wake_lock_attr.attr,
 	&wake_unlock_attr.attr,
 #endif
+#endif
+#ifdef CONFIG_CPU_MAX_LIMIT
+	&cpufreq_min_limit_attr.attr,
+	&cpufreq_max_limit_attr.attr,
+	&cpufreq_table_attr.attr,
 #endif
 	NULL,
 };
@@ -669,6 +867,12 @@ static int __init pm_init(void)
 	power_kobj = kobject_create_and_add("power", NULL);
 	if (!power_kobj)
 		return -ENOMEM;
+
+#ifdef CONFIG_CPU_MAX_LIMIT
+	cpu_min_freq = MIN_FREQ_LIMIT;
+	cpu_max_freq = MAX_FREQ_LIMIT;
+#endif
+
 	error = sysfs_create_group(power_kobj, &attr_group);
 	if (error)
 		return error;
