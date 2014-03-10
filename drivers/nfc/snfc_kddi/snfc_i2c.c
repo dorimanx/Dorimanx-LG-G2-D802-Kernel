@@ -33,6 +33,11 @@ void __snfc_i2c_control_set_status(_e_snfc_i2c_status i2c_status)
 #endif
 	g_i2c_status = i2c_status;
 
+#ifdef FEATURE_DEBUG_MIDDLE
+	if(current_status > I2C_STATUS_READY && g_i2c_status > I2C_STATUS_READY)
+		SNFC_DEBUG_MSG("[snfc_i2c_control] i2c status %d, but other device tries to use i2c \n", current_status);
+#endif
+		
 	SNFC_DEBUG_MSG_MIDDLE("[snfc_i2c_control] i2c status %d -> %d\n", current_status, g_i2c_status );
 
 	return;
@@ -72,18 +77,25 @@ int snfc_i2c_open (void)
 			break;
 		usleep(100);
 	}
-	//while(__snfc_i2c_control_get_uart_status() == I2C_STATUS_FOR_FELICA)
-	//	usleep(100);
-	
+
 	__snfc_i2c_control_set_status(I2C_STATUS_FOR_NFC);
 
 	set_fs(KERNEL_DS);
+
+    if ( fd >= 0 ) {
+		int rc;
+
+        rc = sys_close(fd);
+//        if(rc < 0)
+//            SNFC_DEBUG_MSG("[snfc_i2c] ERROR - snfc_i2c_release : %d \n", rc);
+        fd = -1;
+    }
+    
 	fd = sys_open("/dev/i2c-0", O_RDWR|O_NONBLOCK, 0);
-	//fd = sys_open("/dev/snfc_i2c", O_RDWR|O_NONBLOCK, 0);  
 	if (fd < 0)
 	{
-		SNFC_DEBUG_MSG("[snfc_i2c] ERROR - snfc_i2c_open (/dev/snfc_i2c): %d \n", fd);
 		__snfc_i2c_control_set_status(I2C_STATUS_READY);
+		set_fs(old_fs);
 		return fd;
 	}
 
@@ -108,14 +120,14 @@ int snfc_i2c_release (void)
 	if (rc < 0)
 	{
 		SNFC_DEBUG_MSG("[snfc_i2c] ERROR - snfc_i2c_release : %d \n", rc);
-		__snfc_i2c_control_set_status(I2C_STATUS_READY);
-		return rc;
+//		__snfc_i2c_control_set_status(I2C_STATUS_READY);
 	}
+    fd = -1;
 	set_fs(old_fs);
 
 	__snfc_i2c_control_set_status(I2C_STATUS_READY);
 
-	return 0;
+	return rc;
 }
 
 /*
@@ -149,6 +161,8 @@ int snfc_i2c_set_slave_address (unsigned char slave_address)
 int snfc_i2c_read(unsigned char reg, unsigned char *buf, size_t count)
 {
 	ssize_t rc = 0;
+	ssize_t rc_rel = 0;
+	ssize_t err_ret = 0;
 	mm_segment_t old_fs = get_fs();
 	int retry;
 
@@ -167,6 +181,7 @@ int snfc_i2c_read(unsigned char reg, unsigned char *buf, size_t count)
 	}  
 	if (rc)
 	{
+		if(rc != -24)
 		SNFC_DEBUG_MSG("[snfc_i2c] ERROR - snfc_i2c_open : %d \n",rc);
 		__snfc_i2c_control_set_status(I2C_STATUS_READY);
 		return rc;
@@ -178,7 +193,8 @@ int snfc_i2c_read(unsigned char reg, unsigned char *buf, size_t count)
 	{
 		SNFC_DEBUG_MSG("[snfc_i2c] ERROR - snfc_i2c_set_slave_address : %d \n",rc);
 		__snfc_i2c_control_set_status(I2C_STATUS_READY);
-		return rc;
+		err_ret = 1;
+		goto read_exit;
 	}
 
 	/* set register address */
@@ -187,7 +203,8 @@ int snfc_i2c_read(unsigned char reg, unsigned char *buf, size_t count)
 	{
 		SNFC_DEBUG_MSG("[snfc_i2c] ERROR - sys_write : %d \n",rc);
 		__snfc_i2c_control_set_status(I2C_STATUS_READY);
-		return rc;
+		err_ret = 1;
+		goto read_exit;
 	}
 
 	/* read register data */
@@ -199,20 +216,28 @@ int snfc_i2c_read(unsigned char reg, unsigned char *buf, size_t count)
 	{
 		SNFC_DEBUG_MSG("[snfc_i2c] ERROR - sys_read : %d \n",rc);
 		__snfc_i2c_control_set_status(I2C_STATUS_READY);
-		return rc;
+		err_ret = 1;
+		goto read_exit;
 	}
 
+read_exit:
+	
 	/* release i2c */
-	rc = snfc_i2c_release();
-	if (rc)
+	rc_rel = snfc_i2c_release();
+	if (rc_rel)
 	{
-		SNFC_DEBUG_MSG("[snfc_i2c] ERROR - felica_i2c_release : %d \n",rc);
+		SNFC_DEBUG_MSG("[snfc_i2c] ERROR - felica_i2c_release : %d \n",rc_rel);
 		__snfc_i2c_control_set_status(I2C_STATUS_READY);
-		return rc;
+		set_fs(old_fs);
+		return rc_rel;
 	}
 
 	set_fs(old_fs);
-	return 0;
+	
+	if(err_ret)
+		return rc;
+	else
+		return 0;
 }
 
 
@@ -223,7 +248,8 @@ int snfc_i2c_read(unsigned char reg, unsigned char *buf, size_t count)
 */
 int snfc_i2c_write(unsigned char reg, unsigned char *buf, size_t count)
 {
-	ssize_t rc = 0;
+	ssize_t rc = 0, rc_rel =0;
+	ssize_t err_ret = 0;
 	unsigned char write_buf[2];
 	mm_segment_t old_fs = get_fs();
 
@@ -235,7 +261,8 @@ int snfc_i2c_write(unsigned char reg, unsigned char *buf, size_t count)
 	rc = snfc_i2c_open();
 	if (rc)
 	{
-		SNFC_DEBUG_MSG("[snfc_i2c] ERROR - snfc_i2c_open : %d \n",rc);
+		if(rc != -24)
+			SNFC_DEBUG_MSG("[snfc_i2c] ERROR - snfc_i2c_open : %d \n",rc);
 		__snfc_i2c_control_set_status(I2C_STATUS_READY);
 		return rc;
 	}
@@ -246,7 +273,8 @@ int snfc_i2c_write(unsigned char reg, unsigned char *buf, size_t count)
 	{
 		SNFC_DEBUG_MSG("[snfc_i2c] ERROR - snfc_i2c_set_slave_address : %d \n",rc);
 		__snfc_i2c_control_set_status(I2C_STATUS_READY);
-		return rc;
+		err_ret = 1;
+		goto write_exit;
 	}
 
 	/* set register  */  
@@ -262,20 +290,27 @@ int snfc_i2c_write(unsigned char reg, unsigned char *buf, size_t count)
 	{
 		SNFC_DEBUG_MSG("[snfc_i2c] ERROR - sys_write : %d \n",rc);
 		__snfc_i2c_control_set_status(I2C_STATUS_READY);
-		return rc;
+		err_ret = 1;
+		goto write_exit;
 	}
 
+write_exit:
+
 	/* release i2c */
-	rc = snfc_i2c_release();
-	if (rc)
+	rc_rel = snfc_i2c_release();
+	if (rc_rel)
 	{
-		SNFC_DEBUG_MSG("[snfc_i2c] ERROR - snfc_i2c_release : %d \n",rc);
+		SNFC_DEBUG_MSG("[snfc_i2c] ERROR - snfc_i2c_release : %d \n",rc_rel);
 		__snfc_i2c_control_set_status(I2C_STATUS_READY);
-		return rc;
+		set_fs(old_fs);
+		return rc_rel;		
 	}
 
 	set_fs(old_fs);
 
-	return 0;
+	if(err_ret)
+		return rc;
+	else
+		return 0;
 }
 

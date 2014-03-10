@@ -77,6 +77,10 @@ struct wake_lock nfc_wake_lock;
 static unsigned char sPowerState = NFC_POWER_OFF;
 // LGE_END byunggu.kang@lge.com 2013-07-21 Modify for IRQ Exception Handle
 
+// LGE_START byunggu.kang@lge.com 2014-01-21 Defence Code for Ghost IRQ
+static unsigned int sIrqGpioNum = 59; // Init number
+// LGE_END byunggu.kang@lge.com 2014-01-21 Defence Code for Ghost IRQ
+
 static void bcm2079x_init_stat(struct bcm2079x_dev *bcm2079x_dev)
 {
     bcm2079x_dev->count_irq = 0;
@@ -171,6 +175,15 @@ static irqreturn_t bcm2079x_dev_irq_handler(int irq, void *dev_id)
     struct bcm2079x_dev *bcm2079x_dev = dev_id;
     unsigned long flags;
 
+    // LGE_START byunggu.kang@lge.com 2014-01-21 Defence Code for Ghost IRQ
+    unsigned int irq_value = gpio_get_value(sIrqGpioNum);
+
+    if (irq_value == 0) {
+        dev_err(&bcm2079x_dev->client->dev,"%s, NFC IRQ == 0\n", __func__);
+        return 0;
+    }
+    // LGE_END byunggu.kang@lge.com 2014-01-21 Defence Code for Ghost IRQ
+
     // LGE_START byunggu.kang@lge.com 2013-07-21 Modify for IRQ Exception Handle
     if (sPowerState == NFC_POWER_ON) {
         spin_lock_irqsave(&bcm2079x_dev->irq_enabled_lock, flags);
@@ -180,10 +193,10 @@ static irqreturn_t bcm2079x_dev_irq_handler(int irq, void *dev_id)
         wake_lock(&nfc_wake_lock);
     }
     else if (sPowerState == NFC_POWER_OFF) {
-        dev_err(&bcm2079x_dev->client->dev,"NFC IRQ during NFC OFF\n");
+        dev_err(&bcm2079x_dev->client->dev,"%s, NFC IRQ during NFC OFF\n", __func__);
     }
     else {
-        dev_err(&bcm2079x_dev->client->dev,"Unknown power state\n");
+        dev_err(&bcm2079x_dev->client->dev,"%s, Unknown power state\n", __func__);
     }
     // LGE_END byunggu.kang@lge.com 2013-07-21 Modify for IRQ Exception Handle
 
@@ -217,6 +230,7 @@ static ssize_t bcm2079x_dev_read(struct file *filp, char __user *buf,
     struct bcm2079x_dev *bcm2079x_dev = filp->private_data;
     unsigned char tmp[MAX_BUFFER_SIZE];
     int total, len, ret;
+    unsigned long flags;
 
     total = 0;
     len = 0;
@@ -271,6 +285,7 @@ static ssize_t bcm2079x_dev_read(struct file *filp, char __user *buf,
     }
 
     // LGE_START byunggu.kang@lge.com 2013-07-21 Modify for IRQ Exception Handle
+    spin_lock_irqsave(&bcm2079x_dev->irq_enabled_lock, flags);
     if (bcm2079x_dev->count_irq > 0) {
         bcm2079x_dev->count_irq--;
     }
@@ -282,7 +297,7 @@ static ssize_t bcm2079x_dev_read(struct file *filp, char __user *buf,
     if (bcm2079x_dev->count_irq == 0) {
         wake_unlock(&nfc_wake_lock);
     }
-
+    spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
     return total;
 }
 
@@ -417,6 +432,9 @@ static int bcm2079x_probe(struct i2c_client *client,
         platform_data.irq_gpio = of_get_named_gpio_flags(client->dev.of_node, "bcm,gpio_irq", 0, NULL);
         platform_data.en_gpio = of_get_named_gpio_flags(client->dev.of_node, "bcm,gpio_ven", 0, NULL);
         platform_data.wake_gpio = of_get_named_gpio_flags(client->dev.of_node, "bcm,gpio_mode", 0, NULL);
+        // LGE_START byunggu.kang@lge.com 2014-01-21 Defence Code for Ghost IRQ
+        sIrqGpioNum = platform_data.irq_gpio;
+        // LGE_END byunggu.kang@lge.com 2014-01-21 Defence Code for Ghost IRQ
     }
     else{
         dev_err(&client->dev, "nfc probe of_node fail\n");
@@ -488,7 +506,8 @@ static int bcm2079x_probe(struct i2c_client *client,
     dev_info(&client->dev, "requesting IRQ %d\n", client->irq);
     bcm2079x_dev.irq_enabled = true;
     ret = request_irq(client->irq, bcm2079x_dev_irq_handler,
-              IRQF_TRIGGER_RISING, client->name, &bcm2079x_dev);
+                      IRQF_TRIGGER_RISING|IRQF_NO_SUSPEND, client->name, &bcm2079x_dev);
+
     if (ret) {
         dev_err(&client->dev, "request_irq failed\n");
         goto err_request_irq_failed;

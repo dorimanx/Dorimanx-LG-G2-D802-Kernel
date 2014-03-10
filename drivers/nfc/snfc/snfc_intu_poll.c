@@ -76,13 +76,13 @@ static int snfc_intu_poll_open (struct inode *inode, struct file *fp)
                 return rc;
         }
 
-        disable_irq_nosync(gpio_to_irq(snfc_get_intu_gpio_num()));
-
         if(isopen_snfcintu == 1)
         {
                 SNFC_DEBUG_MSG("[snfc_intu_poll] snfc_intu_poll_open - already open \n");
                 return 0;
         }
+
+	 irq_set_irq_wake(gpio_to_irq(snfc_get_intu_gpio_num()),1);
 
         init_waitqueue_head(&intuwq);
 

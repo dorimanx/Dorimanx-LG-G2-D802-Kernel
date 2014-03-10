@@ -190,7 +190,9 @@ int snfc_intu_probe(struct device_node *np)
 		return rc;
 	}
 
-	disable_irq_nosync(gpio_to_irq(snfc_gpios.gpio_intu));
+//	disable_irq_nosync(gpio_to_irq(snfc_gpios.gpio_intu));
+
+    irq_set_irq_wake(gpio_to_irq(snfc_gpios.gpio_intu),1);
 
 	init_waitqueue_head(&intuwq);
 
