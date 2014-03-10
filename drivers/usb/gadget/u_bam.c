@@ -1216,6 +1216,7 @@ const struct file_operations gbam_stats_ops = {
 	.write = gbam_reset_stats,
 };
 
+struct dentry *gbam_dent;
 static void gbam_debugfs_init(void)
 {
 	struct dentry *dent;
@@ -1230,8 +1231,13 @@ static void gbam_debugfs_init(void)
 	if (!dfile || IS_ERR(dfile))
 		debugfs_remove(dent);
 }
+static void gbam_debugfs_remove(void)
+{
+	debugfs_remove_recursive(gbam_dent);
+}
 #else
-static void gam_debugfs_init(void) { }
+static inline void gbam_debugfs_init(void) {}
+static inline void gbam_debugfs_remove(void) {}
 #endif
 
 void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
@@ -1450,6 +1456,11 @@ static int gbam_wake_cb(void *param)
 	pr_debug("%s: woken up by peer\n", __func__);
 
 	return usb_gadget_wakeup(dev->cdev->gadget);
+}
+
+void gbam_cleanup(void)
+{
+	gbam_debugfs_remove();
 }
 
 void gbam_suspend(struct grmnet *gr, u8 port_num, enum transport_type trans)

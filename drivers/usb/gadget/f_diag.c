@@ -864,11 +864,17 @@ static void fdiag_debugfs_init(void)
 
 	debugfs_create_file("status", 0444, dent_diag, 0, &debug_fdiag_ops);
 }
+
+static void fdiag_debugfs_remove(void)
+{
+	debugfs_remove_recursive(dent_diag);
+}
 #else
 static void fdiag_debugfs_init(void)
 {
 	return;
 }
+static inline void fdiag_debugfs_remove(void) {}
 #endif
 
 static void diag_cleanup(void)
@@ -877,7 +883,7 @@ static void diag_cleanup(void)
 	struct usb_diag_ch *_ch;
 	unsigned long flags;
 
-	debugfs_remove_recursive(dent_diag);
+	fdiag_debugfs_remove();
 
 	list_for_each_safe(act, tmp, &usb_diag_ch_list) {
 		_ch = list_entry(act, struct usb_diag_ch, list);

@@ -1287,8 +1287,13 @@ static void rmnet_smd_debugfs_init(struct rmnet_smd_dev *dev)
 
 	return;
 }
+static void rmnet_smd_debugfs_remove(void)
+{
+	debugfs_remove_recursive(dent_smd);
+}
 #else
 static void rmnet_smd_debugfs_init(struct rmnet_smd_dev *dev) {}
+static inline void rmnet_smd_debugfs_remove(void){}
 #endif
 
 static void
@@ -1307,7 +1312,9 @@ rmnet_smd_unbind(struct usb_configuration *c, struct usb_function *f)
 	dev->epout = dev->epin = dev->epnotify = NULL; /* release endpoints */
 
 	destroy_workqueue(dev->wq);
-	debugfs_remove_recursive(dent_smd);
+
+	rmnet_smd_debugfs_remove();
+
 	kfree(dev);
 
 }

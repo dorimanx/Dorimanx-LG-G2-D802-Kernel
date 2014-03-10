@@ -63,6 +63,7 @@ static DEFINE_SPINLOCK(gpios_lock);
 static struct dentry *debugfs_base;
 static u32 debug_suspend;
 
+#ifdef CONFIG_DEBUG_FS
 void gpio_debug_print(void)
 {
 	unsigned cfg;
@@ -155,3 +156,4 @@ int __init gpio_debug_init(void)
 	return 0;
 }
 late_initcall(gpio_debug_init);
+#endif

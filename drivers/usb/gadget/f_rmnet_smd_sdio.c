@@ -1766,8 +1766,14 @@ static void rmnet_mux_debugfs_init(struct rmnet_mux_dev *dev)
 	debugfs_create_file("status", 0444, dent_rmnet_mux, dev,
 			&rmnet_mux_svlte_debug_stats_ops);
 }
+
+static void rmnet_mux_debugfs_remove(void)
+{
+	debugfs_remove_recursive(dent_rmnet_mux);
+}
 #else
 static void rmnet_mux_debugfs_init(struct rmnet_mux_dev *dev) {}
+static inline void rmnet_mux_debugfs_remove(void) {}
 #endif
 
 int usb_rmnet_mux_ctrl_open(struct inode *inode, struct file *fp)
@@ -2037,7 +2043,7 @@ static void rmnet_smd_sdio_cleanup(void)
 	struct rmnet_mux_dev *dev = rmux_dev;
 	struct rmnet_mux_smd_dev *smd_dev = &dev->smd_dev;
 
-	debugfs_remove_recursive(dent_rmnet_mux);
+	rmnet_mux_debugfs_remove();
 	misc_deregister(&rmnet_mux_ctrl_dev);
 	smd_close(smd_dev->smd_data.ch);
 	destroy_workqueue(dev->wq);
