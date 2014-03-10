@@ -42,6 +42,11 @@ static int msm_rmnet_bam_debug_mask;
 module_param_named(debug_enable, msm_rmnet_bam_debug_mask,
 			int, S_IRUGO | S_IWUSR | S_IWGRP);
 
+static unsigned long int msm_rmnet_bam_headroom_check_failure;
+module_param(msm_rmnet_bam_headroom_check_failure, ulong, S_IRUGO);
+MODULE_PARM_DESC(msm_rmnet_bam_headroom_check_failure,
+		 "Number of packets with insufficient headroom");
+
 #define DEBUG_MASK_LVL0 (1U << 0)
 #define DEBUG_MASK_LVL1 (1U << 1)
 #define DEBUG_MASK_LVL2 (1U << 2)
@@ -55,15 +60,16 @@ module_param_named(debug_enable, msm_rmnet_bam_debug_mask,
 #define DBG2(x...) DBG(DEBUG_MASK_LVL2, x)
 
 /* Configure device instances */
-#define RMNET_DEVICE_COUNT (8)
+#define RMNET_DEVICE_COUNT  9
 
 /* allow larger frames */
 #define RMNET_DATA_LEN 2000
 
 #define DEVICE_ID_INVALID   -1
 
-#define DEVICE_INACTIVE      0
+#define DEVICE_INACTIVE      2
 #define DEVICE_ACTIVE        1
+#define DEVICE_UNINITIALIZED 0
 
 #define HEADROOM_FOR_BAM   8 /* for mux header */
 #define HEADROOM_FOR_QOS    8
@@ -85,6 +91,7 @@ struct rmnet_private {
 	u32 operation_mode; /* IOCTL specified mode (protocol, QoS header) */
 	uint8_t device_up;
 	uint8_t in_reset;
+	struct platform_driver *bam_pdev;
 };
 
 #ifdef CONFIG_MSM_RMNET_DEBUG
@@ -285,6 +292,23 @@ static void bam_recv_notify(void *dev, struct sk_buff *skb)
 			((struct net_device *)dev)->name, __func__);
 }
 
+static struct sk_buff *_rmnet_add_headroom(struct sk_buff **skb,
+					   struct net_device *dev)
+{
+	struct sk_buff *skbn;
+
+	if (skb_headroom(*skb) < dev->needed_headroom) {
+		msm_rmnet_bam_headroom_check_failure++;
+		skbn = skb_realloc_headroom(*skb, dev->needed_headroom);
+		kfree_skb(*skb);
+		*skb = skbn;
+	} else {
+		skbn = *skb;
+	}
+
+	return skbn;
+}
+
 static int _rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct rmnet_private *p = netdev_priv(dev);
@@ -293,6 +317,10 @@ static int _rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	u32 opmode;
 	unsigned long flags;
 
+	if (unlikely(!_rmnet_add_headroom(&skb, dev))) {
+		dev->stats.tx_dropped++;
+		return NETDEV_TX_OK;
+	}
 	/* For QoS mode, prepend QMI header and assign flow ID from skb->mark */
 	spin_lock_irqsave(&p->lock, flags);
 	opmode = p->operation_mode;
@@ -393,13 +421,21 @@ static int __rmnet_open(struct net_device *dev)
 
 	DBG0("[%s] __rmnet_open()\n", dev->name);
 
-	if (!p->device_up) {
+	if (p->device_up == DEVICE_UNINITIALIZED) {
 		r = msm_bam_dmux_open(p->ch_id, dev, bam_notify);
 
 		if (r < 0) {
 			DBG0("%s: ch=%d failed with rc %d\n",
 					__func__, p->ch_id, r);
 			return -ENODEV;
+		}
+
+		r = platform_driver_register(p->bam_pdev);
+		if (r) {
+			pr_err("%s: bam pdev registration failed n=%d rc=%d\n",
+					__func__, p->ch_id, r);
+			msm_bam_dmux_close(p->ch_id);
+			return r;
 		}
 	}
 
@@ -427,7 +463,7 @@ static int __rmnet_close(struct net_device *dev)
 	struct rmnet_private *p = netdev_priv(dev);
 	int rc = 0;
 
-	if (p->device_up) {
+	if (p->device_up == DEVICE_ACTIVE) {
 		/* do not close rmnet port once up,  this causes
 		   remote side to hang if tried to open again */
 		p->device_up = DEVICE_INACTIVE;
@@ -711,6 +747,11 @@ static int bam_rmnet_probe(struct platform_device *pdev)
 			break;
 	}
 
+	if (i >= RMNET_DEVICE_COUNT) {
+		pr_err("%s: wrong netdev %s\n", __func__, pdev->name);
+		return -ENODEV;
+	}
+
 	p = netdev_priv(netdevs[i]);
 	if (p->in_reset) {
 		p->in_reset = 0;
@@ -766,7 +807,7 @@ static int bam_rmnet_rev_probe(struct platform_device *pdev)
 
 	if (i >= RMNET_REV_DEVICE_COUNT) {
 		pr_err("%s: wrong netdev %s\n", __func__, pdev->name);
-		return 0;
+		return -ENODEV;
 	}
 
 	p = netdev_priv(netdevs_rev[i]);
@@ -871,8 +912,13 @@ static int __init rmnet_init(void)
 #endif
 
 	for (n = 0; n < RMNET_DEVICE_COUNT; n++) {
+		const char *dev_name = "rmnet%d";
+
+		if (n == BAM_DMUX_USB_RMNET_0)
+			dev_name = "rmnet_usb%d";
+
 		dev = alloc_netdev(sizeof(struct rmnet_private),
-				   "rmnet%d", rmnet_setup);
+				   dev_name, rmnet_setup);
 
 		if (!dev) {
 			pr_err("%s: no memory for netdev %d\n", __func__, n);
@@ -887,6 +933,7 @@ static int __init rmnet_init(void)
 		p->ch_id = n;
 		p->waiting_for_ul_skb = NULL;
 		p->in_reset = 0;
+		p->device_up = DEVICE_UNINITIALIZED;
 		spin_lock_init(&p->lock);
 		spin_lock_init(&p->tx_queue_lock);
 #ifdef CONFIG_MSM_RMNET_DEBUG
@@ -931,13 +978,7 @@ static int __init rmnet_init(void)
 									n);
 		bam_rmnet_drivers[n].driver.name = tempname;
 		bam_rmnet_drivers[n].driver.owner = THIS_MODULE;
-		ret = platform_driver_register(&bam_rmnet_drivers[n]);
-		if (ret) {
-			pr_err("%s: registration failed n=%d rc=%d\n",
-					__func__, n, ret);
-			netdevs[n] = NULL;
-			goto error;
-		}
+		p->bam_pdev = &bam_rmnet_drivers[n];
 	}
 	/*Support for new rmnet ports */
 	for (n = 0; n < RMNET_REV_DEVICE_COUNT; n++) {
@@ -958,6 +999,7 @@ static int __init rmnet_init(void)
 		p->ch_id = n+BAM_DMUX_DATA_REV_RMNET_0;
 		p->waiting_for_ul_skb = NULL;
 		p->in_reset = 0;
+		p->device_up = DEVICE_UNINITIALIZED;
 		spin_lock_init(&p->lock);
 		spin_lock_init(&p->tx_queue_lock);
 
@@ -983,13 +1025,7 @@ static int __init rmnet_init(void)
 					(n+BAM_DMUX_DATA_REV_RMNET_0));
 		bam_rmnet_rev_drivers[n].driver.name = tempname;
 		bam_rmnet_rev_drivers[n].driver.owner = THIS_MODULE;
-		ret = platform_driver_register(&bam_rmnet_rev_drivers[n]);
-		if (ret) {
-			pr_err("%s: new rev driver registration failed n=%d rc=%d\n",
-					__func__, n, ret);
-			netdevs_rev[n] = NULL;
-			goto error;
-		}
+		p->bam_pdev = &bam_rmnet_rev_drivers[n];
 	}
 	return 0;
 
