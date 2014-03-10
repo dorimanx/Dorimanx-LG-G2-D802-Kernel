@@ -1346,7 +1346,6 @@ bail_acq_sema_failed:
 	return 0;
 }
 
-#if !defined(CONFIG_CPU_MAX_LIMIT)
 static void dbs_input_event(struct input_handle *handle, unsigned int type,
 		unsigned int code, int value)
 {
@@ -1401,6 +1400,7 @@ static void dbs_input_disconnect(struct input_handle *handle)
 
 static const struct input_device_id dbs_ids[] = {
 	/* multi-touch touchscreen */
+#if 0
 	{
 		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
 			INPUT_DEVICE_ID_MATCH_ABSBIT,
@@ -1409,6 +1409,7 @@ static const struct input_device_id dbs_ids[] = {
 			BIT_MASK(ABS_MT_POSITION_X) |
 			BIT_MASK(ABS_MT_POSITION_Y) },
 	},
+#endif
 	/* touchpad */
 	{
 		.flags = INPUT_DEVICE_ID_MATCH_KEYBIT |
@@ -1432,7 +1433,6 @@ static struct input_handler dbs_input_handler = {
 	.name		= "cpufreq_ond",
 	.id_table	= dbs_ids,
 };
-#endif
 
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				   unsigned int event)
@@ -1505,10 +1505,8 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			atomic_notifier_chain_register(&migration_notifier_head,
 					&dbs_migration_nb);
 		}
-#if !defined(CONFIG_CPU_MAX_LIMIT)
 		if (!cpu)
 			rc = input_register_handler(&dbs_input_handler);
-#endif
 		mutex_unlock(&dbs_mutex);
 
 
@@ -1535,10 +1533,8 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		/* If device is being removed, policy is no longer
 		 * valid. */
 		this_dbs_info->cur_policy = NULL;
-#if !defined(CONFIG_CPU_MAX_LIMIT)
 		if (!cpu)
 			input_unregister_handler(&dbs_input_handler);
-#endif
 		if (!dbs_enable) {
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &dbs_attr_group);
