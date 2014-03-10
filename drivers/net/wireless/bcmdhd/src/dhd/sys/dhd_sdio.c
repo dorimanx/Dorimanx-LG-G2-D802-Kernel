@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_sdio.c 426658 2013-09-30 12:14:01Z $
+ * $Id: dhd_sdio.c 441512 2013-12-06 09:22:25Z $
  */
 
 #include <typedefs.h>
@@ -436,14 +436,11 @@ static bool retrydata;
 
 #ifdef BCMSPI
 /* At a watermark around 8 the spid hits underflow error. */
-static const uint watermark = 32;
-static const uint mesbusyctrl = 0;
-#elif defined(SDIO_CRC_ERROR_FIX)
-static uint watermark = 48;
-static uint mesbusyctrl = 80;
+static uint watermark = 32;
+static uint mesbusyctrl = 0;
 #else
-static const uint watermark = 8;
-static const uint mesbusyctrl = 0;
+static uint watermark = 8;
+static uint mesbusyctrl = 0;
 #endif /* BCMSPI */
 static const uint firstread = DHD_FIRSTREAD;
 
@@ -651,31 +648,42 @@ extern uint32 dhd_get_htsf(void *dhd, int ifidx);
 #endif /* WLMEDIA_HTSF */
 
 static void
-dhd_overflow_war(struct dhd_bus *bus)
+dhdsdio_tune_fifoparam(struct dhd_bus *bus)
 {
 	int err;
 	uint8 devctl, wm, mes;
 
-	/* See .ppt in PR for these recommended values */
-	if (bus->blocksize == 512) {
-		wm = OVERFLOW_BLKSZ512_WM;
-		mes = OVERFLOW_BLKSZ512_MES;
+	if (bus->sih->buscorerev >= 15) {
+		/* See .ppt in PR for these recommended values */
+		if (bus->blocksize == 512) {
+			wm = OVERFLOW_BLKSZ512_WM;
+			mes = OVERFLOW_BLKSZ512_MES;
+		} else {
+			mes = bus->blocksize/4;
+			wm = bus->blocksize/4;
+		}
+		watermark = wm;
+		mesbusyctrl = mes;
 	} else {
-		mes = bus->blocksize/4;
-		wm = bus->blocksize/4;
+		DHD_INFO(("skip fifotune: SdioRev(%d) is lower than minimal requested ver\n",
+			bus->sih->buscorerev));
+		return;
 	}
 
-
 	/* Update watermark */
-	bcmsdh_cfg_write(bus->sdh, SDIO_FUNC_1, SBSDIO_WATERMARK, wm, &err);
+	if (wm > 0) {
+		bcmsdh_cfg_write(bus->sdh, SDIO_FUNC_1, SBSDIO_WATERMARK, wm, &err);
 
-	devctl = bcmsdh_cfg_read(bus->sdh, SDIO_FUNC_1, SBSDIO_DEVICE_CTL, &err);
-	devctl |= SBSDIO_DEVCTL_F2WM_ENAB;
-	bcmsdh_cfg_write(bus->sdh, SDIO_FUNC_1, SBSDIO_DEVICE_CTL, devctl, &err);
+		devctl = bcmsdh_cfg_read(bus->sdh, SDIO_FUNC_1, SBSDIO_DEVICE_CTL, &err);
+		devctl |= SBSDIO_DEVCTL_F2WM_ENAB;
+		bcmsdh_cfg_write(bus->sdh, SDIO_FUNC_1, SBSDIO_DEVICE_CTL, devctl, &err);
+	}
 
 	/* Update MES */
-	bcmsdh_cfg_write(bus->sdh, SDIO_FUNC_1, SBSDIO_FUNC1_MESBUSYCTRL,
-		(mes | SBSDIO_MESBUSYCTRL_ENAB), &err);
+	if (mes > 0) {
+		bcmsdh_cfg_write(bus->sdh, SDIO_FUNC_1, SBSDIO_FUNC1_MESBUSYCTRL,
+			(mes | SBSDIO_MESBUSYCTRL_ENAB), &err);
+	}
 
 	DHD_INFO(("Apply overflow WAR: 0x%02x 0x%02x 0x%02x\n",
 		bcmsdh_cfg_read(bus->sdh, SDIO_FUNC_1, SBSDIO_DEVICE_CTL, &err),
@@ -884,15 +892,15 @@ dhdsdio_clk_kso_init(dhd_bus_t *bus)
 
 #define KSO_DBG(x)
 #define KSO_WAIT_US 50
+#define KSO_WAIT_MS 1
+#define KSO_SLEEP_RETRY_COUNT 20
+#define ERROR_BCME_NODEVICE_MAX 1
+
 #if defined(CUSTOMER_HW4)
 #define MAX_KSO_ATTEMPTS 64
 #else
 #define MAX_KSO_ATTEMPTS (PMU_MAX_TRANSITION_DLY/KSO_WAIT_US)
 #endif /* CUSTOMER_HW4 */
-#ifdef CUSTOMER_HW10
-#define KSO_WAIT_MS 1
-#define KSO_SLEEP_RETRY_COUNT 20
-#endif
 static int
 dhdsdio_clk_kso_enab(dhd_bus_t *bus, bool on)
 {
@@ -923,13 +931,11 @@ dhdsdio_clk_kso_enab(dhd_bus_t *bus, bool on)
 			break;
 
 		KSO_DBG(("%s> KSO wr/rd retry:%d, ERR:%x \n", __FUNCTION__, try_cnt, err));
-#ifdef CUSTOMER_HW10
+
 		if (((try_cnt + 1) % KSO_SLEEP_RETRY_COUNT) == 0) {
-			DHD_ERROR(("%s> KSO wr/rd sleep retry:%d, ERR:%x \n", __FUNCTION__, try_cnt, err));
 			OSL_SLEEP(KSO_WAIT_MS);
 		} else
-#endif
-		OSL_DELAY(KSO_WAIT_US);
+			OSL_DELAY(KSO_WAIT_US);
 
 		bcmsdh_cfg_write(bus->sdh, SDIO_FUNC_1, SBSDIO_FUNC1_SLEEPCSR, wr_val, &err);
 	} while (try_cnt++ < MAX_KSO_ATTEMPTS);
@@ -1105,13 +1111,12 @@ dhdsdio_clk_devsleep_iovar(dhd_bus_t *bus, bool on)
 				SBSDIO_FUNC1_CHIPCLKCSR, &err)) & SBSDIO_HT_AVAIL) !=
 				(SBSDIO_HT_AVAIL)), (10000));
 
-#ifdef CUSTOMER_HW10
 			DHD_TRACE(("%s: SBSDIO_FUNC1_CHIPCLKCSR : 0x%x\n", __FUNCTION__, csr));
 			if (!err && ((csr & SBSDIO_HT_AVAIL) != SBSDIO_HT_AVAIL)) {
-				DHD_ERROR(("%s:ERROR: device NOT Ready! 0x%x\n", __FUNCTION__, csr));
+				DHD_ERROR(("%s:ERROR: device NOT Ready! 0x%x\n",
+					__FUNCTION__, csr));
 				err = BCME_NODEVICE;
 			}
-#endif
 		}
 	}
 
@@ -1119,14 +1124,10 @@ dhdsdio_clk_devsleep_iovar(dhd_bus_t *bus, bool on)
 	if (err == 0)
 		bus->kso = on ? FALSE : TRUE;
 	else {
-		DHD_ERROR(("%s: Sleep request failed: kso:%d on:%d err:%d\n", __FUNCTION__, bus->kso, on, err));
-#ifdef CUSTOMER_HW10
+		DHD_ERROR(("%s: Sleep request failed: kso:%d on:%d err:%d\n",
+			__FUNCTION__, bus->kso, on, err));
 		if (!on && retry > 2)
 			bus->kso = FALSE;
-#else
-		if (!on && retry > 2)
-			bus->kso = TRUE;
-#endif
 	}
 
 	return err;
@@ -1456,10 +1457,8 @@ dhdsdio_bussleep(dhd_bus_t *bus, bool sleep)
 	          (sleep ? "SLEEP" : "WAKE"),
 	          (bus->sleeping ? "SLEEP" : "WAKE")));
 
-#ifdef CUSTOMER_HW10
 	if (bus->dhd->hang_was_sent)
 		return BCME_ERROR;
-#endif
 
 	/* Done if we're already in the requested state */
 	if (sleep == bus->sleeping)
@@ -2592,10 +2591,7 @@ dhdsdio_sendpendctl(dhd_bus_t *bus)
 int
 dhd_bus_txctl(struct dhd_bus *bus, uchar *msg, uint msglen)
 {
-#ifdef CUSTOMER_HW10
-#define ERROR_BCME_NODEVICE_MAX 1
 	static int err_nodevice = 0;
-#endif
 	uint8 *frame;
 	uint16 len;
 	uint32 swheader;
@@ -2792,14 +2788,12 @@ done:
 	if (bus->dhd->txcnt_timeout >= MAX_CNTL_TX_TIMEOUT)
 		return -ETIMEDOUT;
 
-#ifdef CUSTOMER_HW10
-	if( ret == BCME_NODEVICE ) err_nodevice++;
-	else err_nodevice = 0;
+	if (ret == BCME_NODEVICE)
+		err_nodevice++;
+	else
+		err_nodevice = 0;
 
 	return ret ? err_nodevice >= ERROR_BCME_NODEVICE_MAX ? -ETIMEDOUT : -EIO : 0;
-#endif
-
-	return ret ? -EIO : 0;
 }
 
 int
@@ -2900,10 +2894,10 @@ enum {
 	IOV_SDALIGN,
 	IOV_DEVRESET,
 	IOV_CPU,
-#if defined(SDIO_CRC_ERROR_FIX)
+#if defined(USE_SDIOFIFO_IOVAR)
 	IOV_WATERMARK,
 	IOV_MESBUSYCTRL,
-#endif /* SDIO_CRC_ERROR_FIX */
+#endif /* USE_SDIOFIFO_IOVAR */
 #ifdef SDTEST
 	IOV_PKTGEN,
 	IOV_EXTLOOP,
@@ -2966,10 +2960,10 @@ const bcm_iovar_t dhdsdio_iovars[] = {
 	{"extloop",	IOV_EXTLOOP,	0,	IOVT_BOOL,	0 },
 	{"pktgen",	IOV_PKTGEN,	0,	IOVT_BUFFER,	sizeof(dhd_pktgen_t) },
 #endif /* SDTEST */
-#if defined(SDIO_CRC_ERROR_FIX)
+#if defined(USE_SDIOFIFO_IOVAR)
 	{"watermark",	IOV_WATERMARK,	0,	IOVT_UINT32,	0 },
 	{"mesbusyctrl",	IOV_MESBUSYCTRL,	0,	IOVT_UINT32,	0 },
-#endif /* SDIO_CRC_ERROR_FIX */
+#endif /* USE_SDIOFIFO_IOVAR */
 	{"devcap", IOV_DEVCAP,	0,	IOVT_UINT32,	0 },
 	{"dngl_isolation", IOV_DONGLEISOLATION,	0,	IOVT_UINT32,	0 },
 	{"kso",	IOV_KSO,	0,	IOVT_UINT32,	0 },
@@ -4100,7 +4094,7 @@ dhdsdio_doiovar(dhd_bus_t *bus, const bcm_iovar_t *vi, uint32 actionid, const ch
 		break;
 #endif /* SDTEST */
 
-#if defined(SDIO_CRC_ERROR_FIX)
+#if defined(USE_SDIOFIFO_IOVAR)
 	case IOV_GVAL(IOV_WATERMARK):
 		int_val = (int32)watermark;
 		bcopy(&int_val, arg, val_size);
@@ -4126,7 +4120,7 @@ dhdsdio_doiovar(dhd_bus_t *bus, const bcm_iovar_t *vi, uint32 actionid, const ch
 		bcmsdh_cfg_write(bus->sdh, SDIO_FUNC_1, SBSDIO_FUNC1_MESBUSYCTRL,
 			((uint8)mesbusyctrl | 0x80), NULL);
 		break;
-#endif /* SDIO_CRC_ERROR_FIX */
+#endif 
 
 
 	case IOV_GVAL(IOV_DONGLEISOLATION):
@@ -4588,10 +4582,7 @@ dhd_bus_iovar_op(dhd_pub_t *dhdp, const char *name,
 			} else {
 				DHD_INFO(("%s: noted %s update, value now %d\n",
 				          __FUNCTION__, "sd_blocksize", bus->blocksize));
-
-				if ((bus->sih->chip == BCM4335_CHIP_ID) ||
-					(bus->sih->chip == BCM4339_CHIP_ID))
-					dhd_overflow_war(bus);
+				dhdsdio_tune_fifoparam(bus);
 			}
 		}
 		bus->roundup = MIN(max_roundup, bus->blocksize);
@@ -4859,22 +4850,11 @@ dhd_bus_init(dhd_pub_t *dhdp, bool enforce_mutex)
 		}
 #endif /* BCMSPI */
 		W_SDREG(bus->hostintmask, &bus->regs->hostintmask, retries);
-#ifdef SDIO_CRC_ERROR_FIX
-		if (bus->blocksize < 512) {
-			mesbusyctrl = watermark = bus->blocksize / 4;
-		}
-#endif /* SDIO_CRC_ERROR_FIX */
-		if (!((bus->sih->chip == BCM4335_CHIP_ID) ||
-			(bus->sih->chip == BCM4339_CHIP_ID))) {
+
+		if (bus->sih->buscorerev < 15) {
 			bcmsdh_cfg_write(bus->sdh, SDIO_FUNC_1, SBSDIO_WATERMARK,
 				(uint8)watermark, &err);
 		}
-#ifdef SDIO_CRC_ERROR_FIX
-		bcmsdh_cfg_write(bus->sdh, SDIO_FUNC_1, SBSDIO_FUNC1_MESBUSYCTRL,
-			(uint8)mesbusyctrl|0x80, &err);
-		bcmsdh_cfg_write(bus->sdh, SDIO_FUNC_1, SBSDIO_DEVICE_CTL,
-			SBSDIO_DEVCTL_EN_F2_BLK_WATERMARK, NULL);
-#endif /* SDIO_CRC_ERROR_FIX */
 
 		/* Set bus state according to enable result */
 		dhdp->busstate = DHD_BUS_DATA;
@@ -7046,10 +7026,8 @@ dhd_bus_watchdog(dhd_pub_t *dhdp)
 	if (bus->dhd->dongle_reset)
 		return FALSE;
 
-#ifdef CUSTOMER_HW10
 	if (bus->dhd->hang_was_sent)
 		return FALSE;
-#endif
 
 	/* Ignore the timer if simulating bus down */
 	if (!SLPAUTO_ENAB(bus) && bus->sleeping)
@@ -7347,7 +7325,7 @@ dhdsdio_probe(uint16 venid, uint16 devid, uint16 bus_no, uint16 slot,
 	sd1idle = TRUE;
 	dhd_readahead = TRUE;
 	retrydata = FALSE;
-#if !defined(PLATFORM_MPS) && !defined(CUSTOMER_HW4)
+#if !defined(CUSTOMER_HW4)
 	dhd_doflow = FALSE;
 #else
 	dhd_doflow = TRUE;
@@ -7557,7 +7535,7 @@ dhdsdio_probe_attach(struct dhd_bus *bus, osl_t *osh, void *sdh, void *regsva,
 		DHD_ERROR(("%s: FAILED to return to SI_ENUM_BASE\n", __FUNCTION__));
 	}
 
-#ifndef BCMSPI	    /* wake-wlan in gSPI will bring up the htavail/alpavail clocks. */
+#ifndef BCMSPI	/* wake-wlan in gSPI will bring up the htavail/alpavail clocks. */
 
 	/* Force PLL off until si_attach() programs PLL control regs */
 
@@ -7806,7 +7784,7 @@ dhdsdio_probe_init(dhd_bus_t *bus, osl_t *osh, void *sdh)
 
 #ifdef CUSTOMER_HW10
 	bus->_srenab = FALSE;
-#endif
+#endif /* CUSTOMER_HW10 */
 
 #ifdef SDTEST
 	dhdsdio_pktgen_init(bus);
@@ -7861,10 +7839,7 @@ dhdsdio_probe_init(dhd_bus_t *bus, osl_t *osh, void *sdh)
 	} else {
 		DHD_INFO(("%s: Initial value for %s is %d\n",
 		          __FUNCTION__, "sd_blocksize", bus->blocksize));
-
-		if ((bus->sih->chip == BCM4335_CHIP_ID) ||
-			(bus->sih->chip == BCM4339_CHIP_ID))
-			dhd_overflow_war(bus);
+		dhdsdio_tune_fifoparam(bus);
 	}
 	bus->roundup = MIN(max_roundup, bus->blocksize);
 
@@ -8844,6 +8819,7 @@ concate_revision(dhd_bus_t *bus, char *fw_path, int fw_path_len, char *nv_path, 
 		return -1;
 	}
 
+
 	switch (bus->sih->chip) {
 	case BCM4330_CHIP_ID:
 		res = concate_revision_bcm4330(bus);
@@ -8942,10 +8918,11 @@ dhd_get_chipid(dhd_pub_t *dhd)
 	else
 		return 0;
 }
-#if defined( CUSTOMER_HW10 )
+
+#if defined(SOFTAP_TPUT_ENHANCE)
 void dhd_bus_setidletime(dhd_pub_t *dhdp, int idle_time)
 {
-	if ( !dhdp || !dhdp->bus ) {
+	if (!dhdp || !dhdp->bus) {
 		DHD_ERROR(("%s:Bus is Invalid\n", __FUNCTION__));
 		return;
 	}
@@ -8967,5 +8944,4 @@ void dhd_bus_getidletime(dhd_pub_t *dhdp, int* idle_time)
 
 	*idle_time = dhdp->bus->idletime;
 }
-#endif //CUSTOMER_HW10
-
+#endif /* SOFTAP_TPUT_ENHANCE */

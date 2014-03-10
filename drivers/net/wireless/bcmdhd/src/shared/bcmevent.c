@@ -20,7 +20,7 @@
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- * $Id: bcmevent.c 389384 2013-03-06 12:20:17Z $
+ * $Id: bcmevent.c 440872 2013-12-04 05:25:35Z $
  */
 
 #include <typedefs.h>
@@ -29,7 +29,7 @@
 #include <proto/bcmeth.h>
 #include <proto/bcmevent.h>
 
-#if WLC_E_LAST != 125
+#if WLC_E_LAST != 130
 #error "You need to add an entry to bcmevent_names[] for the new event"
 #endif
 
@@ -98,19 +98,6 @@ const bcmevent_name_t bcmevent_names[] = {
 	{ WLC_E_ACTION_FRAME_RX, "ACTION_FRAME_RX" },
 	{ WLC_E_ACTION_FRAME_COMPLETE, "ACTION_FRAME_COMPLETE" },
 #endif
-#if 0 && (NDISVER >= 0x0620)
-	{ WLC_E_PRE_ASSOC_IND, "ASSOC_RECV" },
-	{ WLC_E_PRE_REASSOC_IND, "REASSOC_RECV" },
-	{ WLC_E_CHANNEL_ADOPTED, "CHANNEL_ADOPTED" },
-	{ WLC_E_AP_STARTED, "AP_STARTED" },
-	{ WLC_E_DFS_AP_STOP, "DFS_AP_STOP" },
-	{ WLC_E_DFS_AP_RESUME, "DFS_AP_RESUME" },
-	{ WLC_E_ASSOC_IND_NDIS, "ASSOC_IND_NDIS"},
-	{ WLC_E_REASSOC_IND_NDIS, "REASSOC_IND_NDIS"},
-	{ WLC_E_ACTION_FRAME_RX_NDIS, "WLC_E_ACTION_FRAME_RX_NDIS" },
-	{ WLC_E_AUTH_REQ, "WLC_E_AUTH_REQ" },
-	{ WLC_E_IBSS_COALESCE, "IBSS COALESCE" },
-#endif 
 #ifdef BCMWAPI_WAI
 	{ WLC_E_WAI_STA_EVENT, "WAI_STA_EVENT" },
 	{ WLC_E_WAI_MSG, "WAI_MSG" },
@@ -160,6 +147,7 @@ const bcmevent_name_t bcmevent_names[] = {
 	{ WLC_E_PROXD, "WLC_E_PROXD" },
 #endif
 	{ WLC_E_CCA_CHAN_QUAL, "CCA_BASED_CHANNEL_QUALITY" },
+	{ WLC_E_CCX_S69_RESP_RX, "CCX_S69_RESPONSE"},
 };
 
 const int bcmevent_names_size = ARRAYSIZE(bcmevent_names);

@@ -20,7 +20,7 @@
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- * $Id: bcmutils.c 412804 2013-07-16 16:26:39Z $
+ * $Id: bcmutils.c 440953 2013-12-04 13:39:58Z $
  */
 
 #include <bcm_cfg.h>
@@ -54,6 +54,23 @@
 #include <proto/802.11.h>
 void *_bcmutils_dummy_fn = NULL;
 
+
+#ifdef CUSTOM_DSCP_TO_PRIO_MAPPING
+#define CUST_IPV4_TOS_PREC_MASK 0x3F
+#define DCSP_MAX_VALUE 64
+/* 0:BE,1:BK,2:RESV(BK):,3:EE,:4:CL,5:VI,6:VO,7:NC */
+int dscp2priomap[DCSP_MAX_VALUE]=
+{
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	2, 0, 0, 0, 0, 0, 0, 0,
+	3, 0, 0, 0, 0, 0, 0, 0,
+	4, 0, 0, 0, 0, 0, 0, 0,
+	5, 0, 0, 0, 0, 0, 0, 0,
+	6, 0, 0, 0, 0, 0, 0, 0,
+	7, 0, 0, 0, 0, 0, 0, 0
+};
+#endif /* CUSTOM_DSCP_TO_PRIO_MAPPING */
 
 #ifdef BCMDRIVER
 
@@ -1025,6 +1042,21 @@ bcm_ether_atoe(const char *p, struct ether_addr *ea)
 
 	return (i == 6);
 }
+
+int
+bcm_atoipv4(const char *p, struct ipv4_addr *ip)
+{
+
+	int i = 0;
+	char *c;
+	for (;;) {
+		ip->addr[i++] = (uint8)bcm_strtoul(p, &c, 0);
+		if (*c++ != '.' || i == IPV4_ADDR_LEN)
+			break;
+		p = c;
+	}
+	return (i == IPV4_ADDR_LEN);
+}
 #endif	/* !BCMROMOFFLOAD_EXCLUDE_BCMUTILS_FUNCS */
 
 
@@ -1195,7 +1227,12 @@ pktsetprio(void *pkt, bool update_vtag)
 			priority = PRIO_8021D_EE;
 			break;
 		default:
+#ifndef CUSTOM_DSCP_TO_PRIO_MAPPING
 			priority = (int)(tos_tc >> IPV4_TOS_PREC_SHIFT);
+#else
+			priority = (int)dscp2priomap[((tos_tc >> IPV4_TOS_PREC_SHIFT)
+				& CUST_IPV4_TOS_PREC_MASK)];
+#endif
 			break;
 		}
 
@@ -2298,7 +2335,7 @@ bcm_uint64_divide(uint32* r, uint32 a_high, uint32 a_low, uint32 b)
 	*r = r0;
 }
 
-#ifndef setbit     /* As in the header file */
+#ifndef setbit /* As in the header file */
 #ifdef BCMUTILS_BIT_MACROS_USE_FUNCS
 /* Set bit in byte array. */
 void

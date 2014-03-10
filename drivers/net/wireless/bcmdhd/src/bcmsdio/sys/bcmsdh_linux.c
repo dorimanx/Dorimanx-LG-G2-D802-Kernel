@@ -673,7 +673,7 @@ int bcmsdh_register_oob_intr(void * dhdp)
 		if (error)
 			return -ENODEV;
 
-		error = enable_irq_wake(sdhcinfo->oob_irq);
+			error = enable_irq_wake(sdhcinfo->oob_irq);
 		if (error)
 			SDLX_MSG(("%s enable_irq_wake error=%d \n", __FUNCTION__, error));
 		sdhcinfo->oob_irq_registered = TRUE;
@@ -690,10 +690,10 @@ void bcmsdh_set_irq(int flag)
 		sdhcinfo->oob_irq_enable_flag = flag;
 		if (flag) {
 			enable_irq(sdhcinfo->oob_irq);
-			enable_irq_wake(sdhcinfo->oob_irq);
+				enable_irq_wake(sdhcinfo->oob_irq);
 		} else {
 #if !(defined(BCMSPI_ANDROID) && defined(CUSTOMER_HW4) && defined(CONFIG_NKERNEL))
-			disable_irq_wake(sdhcinfo->oob_irq);
+				disable_irq_wake(sdhcinfo->oob_irq);
 #endif /* !defined(BCMSPI_ANDROID) */
 			disable_irq(sdhcinfo->oob_irq);
 		}

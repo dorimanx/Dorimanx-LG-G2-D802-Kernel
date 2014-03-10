@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_android.c 423683 2013-09-12 23:53:40Z $
+ * $Id: wl_android.c 442435 2013-12-11 09:03:27Z $
  */
 
 #include <linux/module.h>
@@ -64,10 +64,12 @@
 #define	CMD_SCAN_PASSIVE	"SCAN-PASSIVE"
 #define CMD_RSSI		"RSSI"
 #define CMD_LINKSPEED		"LINKSPEED"
+#ifdef PKT_FILTER_SUPPORT
 #define CMD_RXFILTER_START	"RXFILTER-START"
 #define CMD_RXFILTER_STOP	"RXFILTER-STOP"
 #define CMD_RXFILTER_ADD	"RXFILTER-ADD"
 #define CMD_RXFILTER_REMOVE	"RXFILTER-REMOVE"
+#endif /* PKT_FILTER_SUPPORT */
 #define CMD_BTCOEXSCAN_START	"BTCOEXSCAN-START"
 #define CMD_BTCOEXSCAN_STOP	"BTCOEXSCAN-STOP"
 #define CMD_BTCOEXMODE		"BTCOEXMODE"
@@ -116,10 +118,13 @@
 #ifdef SUPPORT_LTECX
 #define CMD_LTECX_SET		"LTECOEX"
 #endif /* SUPPORT_LTECX */
+#ifdef WLFBT
+#define CMD_GET_FTKEY		"GET_FTKEY"
+#endif /* WLFBT */
 #endif /* CUSTOMER_HW4 */
 #ifdef CUSTOMER_HW10
 #define CMD_KEEP_ALIVE		"KEEPALIVE"
-#endif
+#endif /* CUSTOMER_HW10 */
 
 /* CCX Private Commands */
 #ifdef BCMCCX
@@ -220,11 +225,20 @@ typedef struct android_wifi_af_params {
 #define CMD_CHANGE_RL 	"CHANGE_RL"
 #define CMD_RESTORE_RL  "RESTORE_RL"
 
+#ifdef BCMCCX_S69
+/* CISCO S69 commands */
+#define CMD_CCX_S69_ENABLE			"CCX_S69_ENABLE"
+#define CMD_CCX_S69_REQUEST			"CCX_S69_REQUEST"
+#endif
+
 #define CMD_SET_RMC_ENABLE			"SETRMCENABLE"
 #define CMD_SET_RMC_TXRATE			"SETRMCTXRATE"
 #define CMD_SET_RMC_ACTPERIOD		"SETRMCACTIONPERIOD"
 #define CMD_SET_RMC_IDLEPERIOD		"SETRMCIDLEPERIOD"
+
 #endif /* CUSTOMER_HW4 */
+
+
 
 /* miracast related definition */
 #define MIRACAST_MODE_OFF	0
@@ -329,7 +343,9 @@ extern int dhd_os_check_if_up(void *dhdp);
 #ifdef BCMLXSDMMC
 extern void *bcmsdh_get_drvdata(void);
 #endif /* BCMLXSDMMC */
-
+#ifdef CUSTOMER_HW10
+extern int wl_keep_alive_set(struct net_device *dev, char* extra, int total_len);
+#endif
 #if defined(CUSTOMER_HW4) && defined(WES_SUPPORT)
 /* wl_roam.c */
 extern int get_roamscan_mode(struct net_device *dev, int *mode);
@@ -1110,7 +1126,7 @@ int wl_android_set_okc_mode(struct net_device *dev, char *command, int total_len
 #endif /* CUSTOMER_HW4 */
 
 #ifdef PNO_SUPPORT
-#define PARAM_SIZE 50
+#define PNO_PARAM_SIZE 50
 #define VALUE_SIZE 50
 static int
 wls_parse_batching_cmd(struct net_device *dev, char *command, int total_len)
@@ -1118,7 +1134,7 @@ wls_parse_batching_cmd(struct net_device *dev, char *command, int total_len)
 	int err = BCME_OK;
 	uint i, tokens;
 	char *pos, *pos2, *token, *token2, *delim;
-	char param[PARAM_SIZE], value[VALUE_SIZE];
+	char param[PNO_PARAM_SIZE], value[VALUE_SIZE];
 	struct dhd_pno_batch_params batch_params;
 	DHD_PNO(("%s: command=%s, len=%d\n", __FUNCTION__, command, total_len));
 	if (total_len < strlen(CMD_WLS_BATCHING)) {
@@ -1937,66 +1953,6 @@ wl_android_set_ltecx(struct net_device *dev, const char* string_num)
 }
 #endif /* SUPPORT_LTECX */
 
-
-#ifdef CUSTOMER_HW10
-static int wl_keep_alive_set(struct net_device *dev, char* extra, int total_len)
-{
-	char 				buf[256];
-	const char 			*str;
-	wl_mkeep_alive_pkt_t	mkeep_alive_pkt;
-	wl_mkeep_alive_pkt_t	*mkeep_alive_pktp;
-	int					buf_len;
-	int					str_len;
-	int res 				= -1;
-	uint period_msec = 0;	
-
-	if ( extra == NULL ) 
-	{
-        	DHD_ERROR(( "%s: extra is NULL\n", __FUNCTION__ ));
-        	return -1;
-	}
-	if (sscanf(extra, "%d", &period_msec) != 1)
-	{
-		 DHD_ERROR(( "%s: sscanf error. check period_msec value\n", __FUNCTION__ ));
-		 return -EINVAL;
-	}
-	DHD_ERROR(( "%s: period_msec is %d\n", __FUNCTION__, period_msec ));
-
-	memset(&mkeep_alive_pkt, 0, sizeof(wl_mkeep_alive_pkt_t));
-
-	str = "mkeep_alive";
-	str_len = strlen(str);
-	strncpy(buf, str, str_len);
-	buf[ str_len ] = '\0';
-	mkeep_alive_pktp = (wl_mkeep_alive_pkt_t *) (buf + str_len + 1);
-	mkeep_alive_pkt.period_msec = period_msec;
-	buf_len = str_len + 1;
-	mkeep_alive_pkt.version = htod16(WL_MKEEP_ALIVE_VERSION);
-	mkeep_alive_pkt.length = htod16(WL_MKEEP_ALIVE_FIXED_LEN);
-
-	/* Setup keep alive zero for null packet generation */
-	mkeep_alive_pkt.keep_alive_id = 0;
-	mkeep_alive_pkt.len_bytes = 0;
-	buf_len += WL_MKEEP_ALIVE_FIXED_LEN;
-	/* Keep-alive attributes are set in local	variable (mkeep_alive_pkt), and
-	 * then memcpy'ed into buffer (mkeep_alive_pktp) since there is no
-	 * guarantee that the buffer is properly aligned.
-	 */
-	memcpy((char *)mkeep_alive_pktp, &mkeep_alive_pkt, WL_MKEEP_ALIVE_FIXED_LEN);
-
-	if ((res= wldev_ioctl(dev, WLC_SET_VAR, buf, buf_len, TRUE)) < 0)
-	{
-		DHD_ERROR(("%s:keep_alive set failed. res[%d]\n",__FUNCTION__, res));
-	}
-	else
-	{
-		DHD_ERROR(("%s:keep_alive set ok. res[%d]\n",__FUNCTION__, res));
-	}
-	
-	return res;
-}
-/* BRCM_UPDATE_E for KEEP_ALIVE */
-#endif
 static int
 wl_android_rmc_enable(struct net_device *net, int rmc_enable)
 {
@@ -2222,13 +2178,10 @@ wl_android_iolist_resume(struct net_device *dev, struct list_head *head)
 static int
 wl_android_set_miracast(struct net_device *dev, char *command, int total_len)
 {
-/*                                                                                                                                    */
-#if 1
-	int mode;
-#else
-	int mode, val;
+#ifndef CUSTOMER_HW10
+	int val;
 #endif
-/*                                                                                                                                 */
+	int mode;
 	int ret = 0;
 	struct io_cfg config;
 
@@ -2278,9 +2231,8 @@ wl_android_set_miracast(struct net_device *dev, char *command, int total_len)
 		ret = wl_android_iolist_add(dev, &miracast_resume_list, &config);
 		if (ret)
 			goto resume;
+#ifndef CUSTOMER_HW10	/* MJ : for Miracast current issue. (CSP#735431) */
 		/* tunr off pm */
-/*                                                                                                                                    */
-#if 0 
 		val = 0;
 		config.iovar = NULL;
 		config.ioctl = WLC_GET_PM;
@@ -2290,7 +2242,6 @@ wl_android_set_miracast(struct net_device *dev, char *command, int total_len)
 		if (ret)
 			goto resume;
 #endif
-/*                                                                                                                                  */
 		break;
 	case MIRACAST_MODE_OFF:
 	default:
@@ -2305,6 +2256,7 @@ resume:
 	wl_android_iolist_resume(dev, &miracast_resume_list);
 	return ret;
 }
+
 
 int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 {
@@ -2698,7 +2650,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		int skip = strlen(CMD_KEEP_ALIVE) + 1;
 		bytes_written = wl_keep_alive_set(net, command + skip, priv_cmd.total_len - skip);
 	}
-#endif
+#endif /* CUSTOMER_HW10 */
 	else if (strnicmp(command, CMD_SET_RMC_ENABLE, strlen(CMD_SET_RMC_ENABLE)) == 0) {
 		int rmc_enable = *(command + strlen(CMD_SET_RMC_ENABLE) + 1) - '0';
 		bytes_written = wl_android_rmc_enable(net, rmc_enable);
@@ -2719,6 +2671,23 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		acktimeout *= 1000;
 		bytes_written = wldev_iovar_setint(net, "rmc_acktmo", acktimeout);
 	}
+#ifdef BCMCCX_S69
+	else if (strnicmp(command, CMD_CCX_S69_ENABLE, strlen(CMD_CCX_S69_ENABLE)) == 0) {
+		uint enable = *(command + strlen(CMD_CCX_S69_ENABLE) + 1) - '0';
+		bytes_written = wldev_iovar_setint(net, "ccx_s69_enable", enable);
+	}
+	else if (strnicmp(command, CMD_CCX_S69_REQUEST, strlen(CMD_CCX_S69_REQUEST)) == 0) {
+		int skip = strlen(CMD_CCX_S69_REQUEST) + 1;
+		uint16 req = (uint16)bcm_strtoul(command + skip, NULL, 16);
+		bytes_written = wldev_iovar_setint(net, "ccx_s69_req", req);
+	}
+#endif /* BCMCCX_S69 */
+#ifdef WLFBT
+	else if (strnicmp(command, CMD_GET_FTKEY, strlen(CMD_GET_FTKEY)) == 0) {
+		wl_get_fbt_key(command);
+		bytes_written = FBT_KEYLEN;
+	}
+#endif /* WLFBT */
 #endif /* CUSTOMER_HW4 */
 	else if (strnicmp(command, CMD_HAPD_MAC_FILTER, strlen(CMD_HAPD_MAC_FILTER)) == 0) {
 		int skip = strlen(CMD_HAPD_MAC_FILTER) + 1;
@@ -2875,6 +2844,11 @@ s32 wl_event_to_bcm_event(u16 event_type)
 		case WLC_E_P2PO_DEL_DEVICE:
 			event = BCM_E_DEV_LOST;
 			break;
+#ifdef BCMCCX_S69
+		case WLC_E_CCX_S69_RESP_RX:
+			event = BCM_E_DEV_S69RESP;
+			break;
+#endif
 	/* Above events are supported from BCM Supp ver 47 Onwards */
 
 		default:
@@ -3033,13 +3007,13 @@ wl_genl_handle_msg(
 		return -EINVAL;
 	} else {
 		/* Handle the data */
-#if !defined(WL_CFG80211_P2P_DEV_IF) && (LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 7, 0)) || defined(WL_COMPAT_WIRELESS)
 		WL_DBG(("%s: Data received from pid (%d) \n", __func__,
 			info->snd_pid));
 #else
 		WL_DBG(("%s: Data received from pid (%d) \n", __func__,
 			info->snd_portid));
-#endif /* !WL_CFG80211_P2P_DEV_IF && (LINUX_VERSION < VERSION(3, 6, 0) */
+#endif /* (LINUX_VERSION < VERSION(3, 7, 0) || WL_COMPAT_WIRELESS */
 	}
 
 	return 0;
@@ -3227,11 +3201,7 @@ static int wifi_probe(struct platform_device *pdev)
 	if (wifi_irqres == NULL)
 		wifi_irqres = get_wifi_irqres_from_of(pdev);
 	wifi_control_data = wifi_ctrl;
-#if defined( CUSTOMER_HW10 )
-	err = wifi_set_power(1, 0);	/* Power On */
-#else
-	err = wifi_set_power(1, 200);	/* Power On */
-#endif //CUSTOMER_HW10
+	err = wifi_set_power(1, WIFI_TURNON_DELAY);	/* Power On */
 	if (unlikely(err)) {
 		DHD_ERROR(("%s: set_power failed. err=%d\n", __FUNCTION__, err));
 		wifi_set_power(0, WIFI_TURNOFF_DELAY);
@@ -3275,7 +3245,7 @@ static int wifi_remove(struct platform_device *pdev)
 static int wifi_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	DHD_TRACE(("##> %s\n", __FUNCTION__));
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 39)) && defined(OOB_INTR_ONLY) && 1
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 39)) && defined(OOB_INTR_ONLY)
 	bcmsdh_oob_intr_set(0);
 #endif /* (OOB_INTR_ONLY) */
 	return 0;
@@ -3284,7 +3254,7 @@ static int wifi_suspend(struct platform_device *pdev, pm_message_t state)
 static int wifi_resume(struct platform_device *pdev)
 {
 	DHD_TRACE(("##> %s\n", __FUNCTION__));
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 39)) && defined(OOB_INTR_ONLY) && 1
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 39)) && defined(OOB_INTR_ONLY)
 	if (dhd_os_check_if_up(bcmsdh_get_drvdata()))
 		bcmsdh_oob_intr_set(1);
 #endif /* (OOB_INTR_ONLY) */

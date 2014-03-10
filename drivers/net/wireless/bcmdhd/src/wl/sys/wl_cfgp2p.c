@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_cfgp2p.c 425724 2013-09-25 07:04:57Z $
+ * $Id: wl_cfgp2p.c 442503 2013-12-11 19:55:32Z $
  *
  */
 #include <typedefs.h>
@@ -41,6 +41,7 @@
 #include <bcmendian.h>
 #include <proto/ethernet.h>
 #include <proto/802.11.h>
+#include <net/rtnetlink.h>
 
 #include <wl_cfg80211.h>
 #include <wl_cfgp2p.h>
@@ -2034,8 +2035,13 @@ wl_cfgp2p_supported(struct wl_priv *wl, struct net_device *ndev)
 	ret = wldev_iovar_getint(ndev, "p2p",
 	               &p2p_supported);
 	if (ret < 0) {
-		CFGP2P_ERR(("wl p2p error %d\n", ret));
-		return 0;
+		if (ret == BCME_UNSUPPORTED) {
+			CFGP2P_INFO(("p2p is unsupported\n"));
+			return 0;
+		} else {
+			CFGP2P_ERR(("wl p2p error %d\n", ret));
+			return ret;
+		}
 	}
 	if (p2p_supported == 1) {
 		CFGP2P_INFO(("p2p is supported\n"));
@@ -2067,9 +2073,6 @@ wl_cfgp2p_down(struct wl_priv *wl)
 			if (index != WL_INVALID)
 				wl_cfgp2p_clear_management_ie(wl, index);
 	}
-#if defined(WL_CFG80211_P2P_DEV_IF)
-	wl_cfgp2p_del_p2p_disc_if(wdev);
-#endif /* WL_CFG80211_P2P_DEV_IF */
 	wl_cfgp2p_deinit_priv(wl);
 	return 0;
 }
@@ -2663,6 +2666,9 @@ wl_cfgp2p_stop_p2p_device(struct wiphy *wiphy, struct wireless_dev *wdev)
 	if (clear_flag)
 		wl_clr_drv_status(wl, SCANNING, ndev);
 
+	if (!wl->p2p_supported)
+		return;
+
 	ret = wl_cfgp2p_disable_discovery(wl);
 	if (unlikely(ret < 0)) {
 		CFGP2P_ERR(("P2P disable discovery failed, ret=%d\n", ret));
@@ -2688,7 +2694,10 @@ wl_cfgp2p_del_p2p_disc_if(struct wireless_dev *wdev)
 
 	WL_TRACE(("Enter\n"));
 
+	rtnl_lock();
+	/* cfg80211_unregister_wdev() requires RTNL to be held */
 	cfg80211_unregister_wdev(wdev);
+	rtnl_unlock();
 
 	kfree(wdev);
 

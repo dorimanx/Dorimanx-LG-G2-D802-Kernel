@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_pno.c 427050 2013-10-02 03:31:11Z $
+ * $Id: dhd_pno.c 435029 2013-11-08 02:47:59Z $
  */
 #include <typedefs.h>
 #include <osl.h>
@@ -91,6 +91,7 @@ is_dfs(uint16 channel)
 	else
 		return FALSE;
 }
+
 int
 dhd_pno_clean(dhd_pub_t *dhd)
 {
@@ -301,13 +302,13 @@ _dhd_pno_set(dhd_pub_t *dhd, const dhd_pno_params_t *pno_params, dhd_pno_mode_t 
 		/* set bestn to calculate the max mscan which firmware supports */
 		err = dhd_iovar(dhd, 0, "pfnmem", (char *)&_tmp, sizeof(_tmp), 1);
 		if (err < 0) {
-			DHD_ERROR(("%s : failed to set pfnmscan\n", __FUNCTION__));
+			DHD_ERROR(("%s : failed to set pfnmem\n", __FUNCTION__));
 			goto exit;
 		}
 		/* get max mscan which the firmware supports */
 		err = dhd_iovar(dhd, 0, "pfnmem", (char *)&_tmp, sizeof(_tmp), 0);
 		if (err < 0) {
-			DHD_ERROR(("%s : failed to get pfnmscan\n", __FUNCTION__));
+			DHD_ERROR(("%s : failed to get pfnmem\n", __FUNCTION__));
 			goto exit;
 		}
 		DHD_PNO((" returned mscan : %d, set bestn : %d\n", _tmp, pfn_param.bestn));
@@ -858,7 +859,7 @@ dhd_pno_set_for_ssid(dhd_pub_t *dhd, wlc_ssid_t* ssid_list, int nssid,
 	_params = &(_pno_state->pno_params_arr[INDEX_OF_LEGACY_PARAMS]);
 	if (_pno_state->pno_mode & DHD_PNO_LEGACY_MODE) {
 		DHD_ERROR(("%s : Legacy PNO mode was already started, "
-				"will disable previous one to start new one\n", __FUNCTION__));
+			"will disable previous one to start new one\n", __FUNCTION__));
 		err = dhd_pno_stop_for_ssid(dhd);
 		if (err < 0) {
 			DHD_ERROR(("%s : failed to stop legacy PNO (err %d)\n",
@@ -1004,6 +1005,9 @@ dhd_pno_set_for_batch(dhd_pub_t *dhd, struct dhd_pno_batch_params *batch_params)
 				__FUNCTION__));
 			goto exit;
 		}
+	} else {
+		/* batch mode is already started */
+		return -EBUSY;
 	}
 	_params->params_batch.scan_fr = batch_params->scan_fr;
 	_params->params_batch.bestn = batch_params->bestn;

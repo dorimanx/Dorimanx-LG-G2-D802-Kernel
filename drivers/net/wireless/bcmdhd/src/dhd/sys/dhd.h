@@ -24,7 +24,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd.h 419132 2013-08-19 21:33:05Z $
+ * $Id: dhd.h 442241 2013-12-10 19:49:19Z $
  */
 
 /****************
@@ -129,6 +129,11 @@ enum dhd_op_flags {
 #ifndef POWERUP_WAIT_MS
 #define POWERUP_WAIT_MS		2000 /* ms: time out in waiting wifi to come up */
 #endif
+
+#define DEFAULT_WIFI_TURNON_DELAY		200
+#ifndef WIFI_TURNON_DELAY
+#define WIFI_TURNON_DELAY		DEFAULT_WIFI_TURNON_DELAY
+#endif /* WIFI_TURNON_DELAY */
 
 enum dhd_bus_wake_state {
 	WAKE_LOCK_OFF,
@@ -298,7 +303,7 @@ typedef struct dhd_pub {
  */
 /* #define WL_ENABLE_P2P_IF		1 */
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)) && 1
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25))
 	struct mutex 	wl_start_stop_lock; /* lock/unlock for Android start/stop */
 	struct mutex 	wl_softap_lock;		 /* lock/unlock for any SoftAP/STA settings */
 #endif 
@@ -394,13 +399,25 @@ typedef struct dhd_cmn {
 	#define DHD_PM_RESUME_RETURN		do { if (dhd_mmc_suspend) return; } while (0)
 
 	#define DHD_SPINWAIT_SLEEP_INIT(a) DECLARE_WAIT_QUEUE_HEAD(a);
-	#define SPINWAIT_SLEEP(a, exp, us) do { \
-		uint countdown = (us) + 9999; \
-		while ((exp) && (countdown >= 10000)) { \
-			wait_event_interruptible_timeout(a, FALSE, 1); \
-			countdown -= 10000; \
-		} \
-	} while (0)
+ #if 1
+       #define SPINWAIT_SLEEP(a, exp, us) do { \
+                 uint countdown = (us) + 9999; \
+                 uint jiffies_div = (us)/10000; \
+                 jiffies_div = jiffies_div == 0 ? 1 : jiffies_div; \
+                 while ((exp) && (countdown >= 10000)) { \
+                         wait_event_interruptible_timeout(a, FALSE, HZ/jiffies_div); \
+                         countdown -= 10000; \
+                 } \
+            } while (0)
+ #else
+       #define SPINWAIT_SLEEP(a, exp, us) do { \
+               uint countdown = (us) + 9999; \
+               while ((exp) && (countdown >= 10000)) { \
+                       wait_event_interruptible_timeout(a, FALSE, 1); \
+                       countdown -= 10000; \
+               } \
+           } while (0)
+ #endif
 
 	#else
 
@@ -440,26 +457,27 @@ extern int dhd_os_wake_unlock(dhd_pub_t *pub);
 extern int dhd_os_wake_lock_timeout(dhd_pub_t *pub);
 extern int dhd_os_wake_lock_rx_timeout_enable(dhd_pub_t *pub, int val);
 extern int dhd_os_wake_lock_ctrl_timeout_enable(dhd_pub_t *pub, int val);
+extern int dhd_os_wake_lock_ctrl_timeout_cancel(dhd_pub_t *pub);
 extern int dhd_os_wd_wake_lock(dhd_pub_t *pub);
 extern int dhd_os_wd_wake_unlock(dhd_pub_t *pub);
 
 inline static void MUTEX_LOCK_SOFTAP_SET_INIT(dhd_pub_t * dhdp)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)) && 1
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25))
 	mutex_init(&dhdp->wl_softap_lock);
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) */
 }
 
 inline static void MUTEX_LOCK_SOFTAP_SET(dhd_pub_t * dhdp)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)) && 1
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25))
 	mutex_lock(&dhdp->wl_softap_lock);
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) */
 }
 
 inline static void MUTEX_UNLOCK_SOFTAP_SET(dhd_pub_t * dhdp)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)) && 1
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25))
 	mutex_unlock(&dhdp->wl_softap_lock);
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) */
 }
@@ -495,6 +513,12 @@ inline static void MUTEX_UNLOCK_SOFTAP_SET(dhd_pub_t * dhdp)
 			val, __FUNCTION__, __LINE__); \
 		dhd_os_wake_lock_ctrl_timeout_enable(pub, val); \
 	} while (0)
+#define DHD_OS_WAKE_LOCK_CTRL_TIMEOUT_CANCEL(publ) \
+	do { \
+		printf("call wake_lock_ctrl_timeout_cancel: %s %d\n", \
+			val, __FUNCTION__, __LINE__); \
+		dhd_os_wake_lock_ctrl_timeout_cancel(pub); \
+	} while (0)
 #else
 #define DHD_OS_WAKE_LOCK(pub)			dhd_os_wake_lock(pub)
 #define DHD_OS_WAKE_UNLOCK(pub)		dhd_os_wake_unlock(pub)
@@ -505,9 +529,9 @@ inline static void MUTEX_UNLOCK_SOFTAP_SET(dhd_pub_t * dhdp)
 	dhd_os_wake_lock_rx_timeout_enable(pub, val)
 #define DHD_OS_WAKE_LOCK_CTRL_TIMEOUT_ENABLE(pub, val) \
 	dhd_os_wake_lock_ctrl_timeout_enable(pub, val)
-#endif /* DHD_DEBUG_WAKE_LOCK */
 #define DHD_OS_WAKE_LOCK_CTRL_TIMEOUT_CANCEL(pub) \
 	dhd_os_wake_lock_ctrl_timeout_cancel(pub)
+#endif /* DHD_DEBUG_WAKE_LOCK */
 #define DHD_PACKET_TIMEOUT_MS	250
 #define DHD_EVENT_TIMEOUT_MS	1500
 
@@ -519,7 +543,7 @@ void dhd_net_if_lock(struct net_device *dev);
 void dhd_net_if_unlock(struct net_device *dev);
 
 #if defined(MULTIPLE_SUPPLICANT)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)) && 1 && 1
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25))
 extern struct mutex _dhd_sdio_mutex_lock_;
 #endif
 #endif /* MULTIPLE_SUPPLICANT */
@@ -641,7 +665,9 @@ extern int dhd_keep_alive_onoff(dhd_pub_t *dhd);
 #define DHD_MULTICAST6_FILTER_NUM	3
 #define DHD_MDNS_FILTER_NUM		4
 #define DHD_ARP_FILTER_NUM		5
-extern int 	dhd_os_enable_packet_filter(dhd_pub_t *dhdp, int val);
+
+
+extern int dhd_os_enable_packet_filter(dhd_pub_t *dhdp, int val);
 extern void dhd_enable_packet_filter(int value, dhd_pub_t *dhd);
 extern int net_os_enable_packet_filter(struct net_device *dev, int val);
 extern int net_os_rxfilter_add_remove(struct net_device *dev, int val, int num);
@@ -857,9 +883,10 @@ extern uint dhd_force_tx_queueing;
 
 
 #define MAX_DTIM_SKIP_BEACON_INTERVAL	100 /* max allowed associated AP beacon for DTIM skip */
+#ifndef MAX_DTIM_ALLOWED_INTERVAL
 #define MAX_DTIM_ALLOWED_INTERVAL 600 /* max allowed total beacon interval for DTIM skip */
+#endif
 #define NO_DTIM_SKIP 1
-
 #ifdef SDTEST
 /* Echo packet generator (SDIO), pkts/s */
 extern uint dhd_pktgen;
@@ -1077,9 +1104,6 @@ int dhd_ioctl_process(dhd_pub_t *pub, int ifidx, struct dhd_ioctl *ioc);
 #if defined(SUPPORT_MULTIPLE_REVISION)
 extern int
 concate_revision(struct dhd_bus *bus, char *fwpath, int fw_path_len, char *nvpath, int nv_path_len);
-#if defined(PLATFORM_MPS)
-extern int wifi_get_fw_nv_path(char *fw, char *nv);
-#endif
 #endif /* SUPPORT_MULTIPLE_REVISION */
 void dhd_set_bus_state(void *bus, uint32 state);
 

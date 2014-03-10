@@ -1,5 +1,5 @@
 config BCMDHD
-	tristate "Broadcom 4335 wireless cards support"
+	tristate "Broadcom wireless cards support"
 	depends on MMC
 	---help---
 	  This module adds support for wireless adapters based on
@@ -20,7 +20,14 @@ config BCM4334
 	---help---
 	  This module adds support for wireless adapters based on
 	  Broadcom 4334 chipset.
-
+	  
+config BCM43341
+	tristate "Broadcom 43341 wireless cards support"
+	depends on BCMDHD
+	---help---
+	  This module adds support for wireless adapters based on
+	  Broadcom 43341 chipset.
+	
 config BCM4335
 	tristate "Broadcom 4335 wireless cards support"
 	depends on BCMDHD
@@ -110,6 +117,13 @@ config BRCM_CCX
 	default n
 	---help---
 	  Enables CCX support
+
+config DHD_USE_SCHED_SCAN
+	bool "Use CFG80211 sched scan"
+	depends on BCMDHD && CFG80211
+	default n
+	---help---
+	  Use CFG80211 sched scan
 
 config BROADCOM_WIFI_RESERVED_MEM
 	bool "BROADCOM Reserved memory for wifi device"

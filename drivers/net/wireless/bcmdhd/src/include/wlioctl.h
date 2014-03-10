@@ -24,7 +24,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wlioctl.h 423683 2013-09-12 23:53:40Z $
+ * $Id: wlioctl.h 435951 2013-11-12 19:46:53Z $
  */
 
 #ifndef _wlioctl_h_
@@ -32,6 +32,7 @@
 
 #include <typedefs.h>
 #include <proto/ethernet.h>
+#include <proto/bcmip.h>
 #include <proto/bcmeth.h>
 #include <proto/bcmevent.h>
 #include <proto/802.11.h>
@@ -1817,10 +1818,13 @@ typedef struct {
 /* WLC_GET_AUTH, WLC_SET_AUTH values */
 #define WL_AUTH_OPEN_SYSTEM		0	/* d11 open authentication */
 #define WL_AUTH_SHARED_KEY		1	/* d11 shared authentication */
+#if (defined(BCM4334_CHIP) || defined(BCM43341_CHIP)) && (defined(CUSTOMER_HW4) || \
+	defined(CUSTOMER_HW10))
+#define WL_AUTH_OPEN_SHARED		3	 /* try open, then shared if open failed w/rc 13 */
+#else
 #define WL_AUTH_OPEN_SHARED		2	 /* try open, then shared if open failed w/rc 13 */
-
+#endif /* (BCM4334_CHIP || BCM43341_CHIP) && (CUSTOMER_HW4 || CUSTOMER_HW10) */
 #endif /* LINUX_POSTMOGRIFY_REMOVAL */
-
 /* Bit masks for radio disabled status - returned by WL_GET_RADIO */
 #define WL_RADIO_SW_DISABLE		(1<<0)
 #define WL_RADIO_HW_DISABLE		(1<<1)
@@ -3034,8 +3038,8 @@ typedef struct wl_txchain_pwr_offsets {
 #define WL_WDS_WPA_ROLE_SUP	1	/* supplicant */
 #define WL_WDS_WPA_ROLE_AUTO	255	/* auto, based on mac addr value */
 
-/* number of bytes needed to define a 128-bit mask for MAC event reporting */
-#define WL_EVENTING_MASK_LEN	16
+/* number of bytes needed to define a mask for MAC event reporting */
+#define WL_EVENTING_MASK_LEN	((WLC_E_LAST + 7) / 8)
 
 /*
  * Join preference iovar value is an array of tuples. Each tuple has a one-byte type,
@@ -4268,6 +4272,16 @@ typedef struct wl_keep_alive_pkt {
  * Dongle pattern matching filter.
  */
 
+/* Packet filter operation mode */
+/* True: 1; False: 0 */
+#define PKT_FILTER_MODE_FORWARD_ON_MATCH		1
+/* Enable and disable pkt_filter as a whole */
+#define PKT_FILTER_MODE_DISABLE					2
+/* Cache first matched rx pkt(be queried by host later) */
+#define PKT_FILTER_MODE_PKT_CACHE_ON_MATCH		4
+/* If pkt_filter is enabled and no filter is set, don't forward anything */
+#define PKT_FILTER_MODE_PKT_FORWARD_OFF_DEFAULT 8
+
 /* Packet filter types. Currently, only pattern matching is supported. */
 typedef enum wl_pkt_filter_type {
 	WL_PKT_FILTER_TYPE_PATTERN_MATCH	/* Pattern matching filter */
@@ -4322,6 +4336,7 @@ typedef struct wl_pkt_filter_stats {
 	uint32	num_pkts_forwarded;	/* # packets fwded from dongle to host for all filters */
 	uint32	num_pkts_discarded;	/* # packets discarded by dongle for all filters */
 } wl_pkt_filter_stats_t;
+
 
 #define RSN_KCK_LENGTH 16
 #define RSN_KEK_LENGTH 16
@@ -4738,6 +4753,36 @@ typedef struct {
 
 #endif /* LINUX_POSTMOGRIFY_REMOVAL */
 
+#define BSS_PEER_INFO_PARAM_CUR_VER	0
+/* Input structure for IOV_BSS_PEER_INFO */
+typedef BWL_PRE_PACKED_STRUCT	struct {
+	uint16			version;
+	struct	ether_addr ea;	/* peer MAC address */
+} BWL_POST_PACKED_STRUCT bss_peer_info_param_t;
+
+#define BSS_PEER_INFO_CUR_VER		0
+
+typedef BWL_PRE_PACKED_STRUCT struct {
+	uint16			version;
+	struct ether_addr	ea;
+	int32			rssi;
+	uint32			tx_rate;	/* current tx rate */
+	uint32			rx_rate;	/* current rx rate */
+	wl_rateset_t		rateset;	/* rateset in use */
+	uint32			age;		/* age in seconds */
+} BWL_POST_PACKED_STRUCT bss_peer_info_t;
+
+#define BSS_PEER_LIST_INFO_CUR_VER	0
+
+typedef BWL_PRE_PACKED_STRUCT struct {
+	uint16			version;
+	uint16			bss_peer_info_len;	/* length of bss_peer_info_t */
+	uint32			count;			/* number of peer info */
+	bss_peer_info_t		peer_info[1];		/* peer info */
+} BWL_POST_PACKED_STRUCT bss_peer_list_info_t;
+
+#define BSS_PEER_LIST_INFO_FIXED_LEN OFFSETOF(bss_peer_list_info_t, peer_info)
+
 /* no default structure packing */
 #include <packed_section_end.h>
 
@@ -4879,7 +4924,27 @@ typedef BWL_PRE_PACKED_STRUCT struct {
 	uint8  pprdata[1];		/* ppr serialization buffer */
 } BWL_POST_PACKED_STRUCT tx_pwr_rpt_t;
 
+typedef BWL_PRE_PACKED_STRUCT struct {
+	struct ipv4_addr	ipv4_addr;
+	struct ether_addr nexthop;
+} BWL_POST_PACKED_STRUCT ibss_route_entry_t;
+typedef BWL_PRE_PACKED_STRUCT struct {
+	uint32 num_entry;
+	ibss_route_entry_t route_entry[1];
+} BWL_POST_PACKED_STRUCT ibss_route_tbl_t;
+
+#define MAX_IBSS_ROUTE_TBL_ENTRY	64
 #endif /* LINUX_POSTMOGRIFY_REMOVAL */
+
+#define AIBSS_TXFAIL_CONFIG_VER_0    0
+
+/* structure used to configure AIBSS beacon force xmit */
+typedef BWL_PRE_PACKED_STRUCT struct {
+	uint16  version;
+	uint16  len;
+	uint32 bcn_timeout;     /* dur in seconds to receive 1 bcn */
+	uint32 max_tx_retry;     /* no of consecutive no acks to send txfail event */
+} BWL_POST_PACKED_STRUCT aibss_txfail_config_t;
 
 /* no strict structure packing */
 #include <packed_section_end.h>

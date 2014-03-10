@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_common.c 419132 2013-08-19 21:33:05Z $
+ * $Id: dhd_common.c 439201 2013-11-26 00:31:53Z $
  */
 #include <typedefs.h>
 #include <osl.h>
@@ -2111,7 +2111,6 @@ dhd_get_suspend_bcn_li_dtim(dhd_pub_t *dhd)
 	int ret = -1;
 	int dtim_period = 0;
 	int ap_beacon = 0;
-
 	int allowed_skip_dtim_cnt = 0;
 	/* Check if associated */
 	if (dhd_is_associated(dhd, NULL, NULL) == FALSE) {
@@ -2168,18 +2167,6 @@ dhd_get_suspend_bcn_li_dtim(dhd_pub_t *dhd)
 		bcn_li_dtim = (int)(CUSTOM_LISTEN_INTERVAL / dtim_period);
 		DHD_TRACE(("%s agjust dtim_skip as %d\n", __FUNCTION__, bcn_li_dtim));
 	}
-
-#ifdef CUSTOMER_HW10
-	{
-		int bi_100 = (int) ( ap_beacon / 100 );
-		if(( bcn_li_dtim * dtim_period * bi_100 ) > CUSTOM_LISTEN_INTERVAL ) {
-			/* Round up dtim_skip to fit into optimal time */
-			bcn_li_dtim = (int)(CUSTOM_LISTEN_INTERVAL / (dtim_period*bi_100));
-			DHD_TRACE(("%s 2. adjust dtim_skip as %d\n", __FUNCTION__, bcn_li_dtim));
-		}
-	}
-	if( bcn_li_dtim == 0 ) bcn_li_dtim = 1;
-#endif
 
 	DHD_ERROR(("%s beacon=%d bcn_li_dtim=%d DTIM=%d Listen=%d\n",
 		__FUNCTION__, ap_beacon, bcn_li_dtim, dtim_period, CUSTOM_LISTEN_INTERVAL));
