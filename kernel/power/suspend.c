@@ -51,7 +51,7 @@ static int suspend_monitor_id;
 
 static bool need_suspend_ops(suspend_state_t state)
 {
-	return !!(state > PM_SUSPEND_FREEZE);
+	return state > PM_SUSPEND_FREEZE;
 }
 
 static DECLARE_WAIT_QUEUE_HEAD(suspend_freeze_wait_head);
