@@ -66,7 +66,7 @@ extern int msm_turbo(int);
 #endif
 
 #ifdef CONFIG_CPU_MAX_LIMIT
-static unsigned int upper_limit_freq = 2803200;
+static unsigned int upper_limit_freq = 2265600;
 static unsigned int lower_limit_freq;
 static unsigned int cpuinfo_max_freq;
 static unsigned int cpuinfo_min_freq;
@@ -111,6 +111,7 @@ int get_min_freq(void)
 	return cpuinfo_min_freq;
 }
 #endif
+
 static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq)
 {
 	int ret = 0;
@@ -354,18 +355,17 @@ static int __cpuinit msm_cpufreq_init(struct cpufreq_policy *policy)
 		policy->cpuinfo.max_freq = CONFIG_MSM_CPU_FREQ_MAX;
 #endif
 	}
+
 #ifdef CONFIG_MSM_CPU_FREQ_SET_MIN_MAX
 	policy->min = CONFIG_MSM_CPU_FREQ_MIN;
 	policy->max = CONFIG_MSM_CPU_FREQ_MAX;
-#else
-	policy->min = 300000;
-	policy->max = 2265600;
 #endif
 
 #ifdef CONFIG_CPU_MAX_LIMIT
-	cpuinfo_max_freq = policy->cpuinfo.max_freq;
 	cpuinfo_min_freq = policy->cpuinfo.min_freq;
+	cpuinfo_max_freq = policy->cpuinfo.max_freq;
 #endif
+
 	cur_freq = acpuclk_get_rate(policy->cpu);
 	if (cpufreq_frequency_table_target(policy, table, cur_freq,
 	    CPUFREQ_RELATION_H, &index) &&
