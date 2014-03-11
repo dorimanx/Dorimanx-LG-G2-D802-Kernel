@@ -28,10 +28,17 @@
 #include <linux/sysfs.h>
 #include <linux/fastchg.h>
 
-#define FAST_CHARGE_VERSION	"version 1.0 by Paul Reioux"
+/* Credits / Changelog:
+ * version 1.0 Initial build by Paul Reioux
+ * version 1.1 Added 1800ma limit to table by Dorimanx
+ * version 1.2 added Fake AC interface by Mankindtw@xda and Dorimanx
+ */
+
+#define FAST_CHARGE_VERSION	"Version 1.2"
 
 int force_fast_charge;
 int fast_charge_level;
+int fake_charge_ac;
 
 /* sysfs interface for "force_fast_charge" */
 static ssize_t force_fast_charge_show(struct kobject *kobj,
@@ -90,6 +97,32 @@ static ssize_t charge_level_store(struct kobject *kobj,
 	return -EINVAL;
 }
 
+static ssize_t fake_charge_ac_show(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", fake_charge_ac);
+}
+
+static ssize_t fake_charge_ac_store(struct kobject *kobj,
+			struct kobj_attribute *attr, const char *buf,
+			size_t count)
+{
+
+	int new_fake_charge_ac;
+
+	sscanf(buf, "%du", &new_fake_charge_ac);
+
+	switch (new_fake_charge_ac) {
+		case FAKE_CHARGE_AC_DISABLE:
+		case FAKE_CHARGE_AC_ENABLE:
+			fake_charge_ac = new_fake_charge_ac;
+			return count;
+		default:
+			return -EINVAL;
+	}
+	return -EINVAL;
+}
+
 /* sysfs interface for "fast_charge_levels" */
 static ssize_t available_charge_levels_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
@@ -121,9 +154,15 @@ static struct kobj_attribute force_fast_charge_attribute =
 		force_fast_charge_show,
 		force_fast_charge_store);
 
+static struct kobj_attribute fake_charge_ac_attribute =
+	__ATTR(fake_charge_ac, 0666,
+		fake_charge_ac_show,
+		fake_charge_ac_store);
+
 static struct attribute *force_fast_charge_attrs[] = {
 	&force_fast_charge_attribute.attr,
 	&fast_charge_level_attribute.attr,
+	&fake_charge_ac_attribute.attr,
 	&available_charge_levels_attribute.attr,
 	&version_attribute.attr,
 	NULL,
@@ -142,6 +181,8 @@ int force_fast_charge_init(void)
 
 	 /* Forced fast charge disabled by default */
 	force_fast_charge = FAST_CHARGE_DISABLED;
+
+	fake_charge_ac = FAKE_CHARGE_AC_DISABLE;
 
 	force_fast_charge_kobj
 		= kobject_create_and_add("fast_charge", kernel_kobj);
