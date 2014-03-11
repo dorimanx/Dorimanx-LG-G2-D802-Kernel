@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __PM8XXX_BMS_BATTERYDATA_H
-#define __PM8XXX_BMS_BATTERYDATA_H
+#ifndef __BMS_BATTERYDATA_H
+#define __BMS_BATTERYDATA_H
 
 #include <linux/errno.h>
 
@@ -25,6 +25,8 @@
 #define PC_TEMP_COLS		8
 
 #define MAX_SINGLE_LUT_COLS	20
+
+#define MAX_BATT_ID_NUM		4
 
 struct single_row_lut {
 	int x[MAX_SINGLE_LUT_COLS];
@@ -69,6 +71,11 @@ struct pc_temp_ocv_lut {
 	int ocv[PC_TEMP_ROWS][PC_TEMP_COLS];
 };
 
+struct batt_ids {
+	int kohm[MAX_BATT_ID_NUM];
+	int num;
+};
+
 enum battery_type {
 	BATT_UNKNOWN = 0,
 	BATT_PALLADIUM,
@@ -95,6 +102,11 @@ enum battery_type {
  *				battery capacitance
  * @flat_ocv_threshold_uv: the voltage where the battery's discharge curve
  *				starts flattening out.
+ * @max_voltage_uv:	max voltage of the battery
+ * @cutoff_uv:		cutoff voltage of the battery
+ * @iterm_ua:		termination current of the battery when charging
+ *			to 100%
+ * @batt_id_kohm:	the best matched battery id resistor value
  */
 
 struct bms_battery_data {
@@ -108,6 +120,10 @@ struct bms_battery_data {
 	int			delta_rbatt_mohm;
 	int			rbatt_capacitive_mohm;
 	int			flat_ocv_threshold_uv;
+	int			max_voltage_uv;
+	int			cutoff_uv;
+	int			iterm_ua;
+	int			batt_id_kohm;
 };
 
 #if defined(CONFIG_PM8921_BMS) || \

@@ -250,6 +250,7 @@ struct qpnp_chg_chip {
 	unsigned int                    current_max;
 #endif
 /* END : janghyun.baek@lge.com 2012-12-26 */
+	struct qpnp_vadc_chip       *vadc_dev;
 };
 
 /* [LGE_CHANGE_S] kinam119.kim@lge.com, user space parameter to set iusb max current */
@@ -821,7 +822,7 @@ get_prop_battery_voltage_now(struct qpnp_chg_chip *chip)
 	struct qpnp_vadc_result results;
 
 	if (chip->revision > 0) {
-		rc = qpnp_vadc_read(VBAT_SNS, &results);
+		rc = qpnp_vadc_read(chip->vadc_dev, VBAT_SNS, &results);
 		if (rc) {
 			pr_err("Unable to read vbat rc=%d\n", rc);
 			return 0;
@@ -831,7 +832,6 @@ get_prop_battery_voltage_now(struct qpnp_chg_chip *chip)
 		pr_err("vbat reading not supported for 1.0 rc=%d\n", rc);
 		return 0;
 	}
-
 }
 /* QCT origin get_prop_battery_voltage_now */
 #else
@@ -843,7 +843,7 @@ get_prop_battery_voltage_now_bms(struct qpnp_chg_chip *chip)
 	struct qpnp_vadc_result results;
 
 	if (chip->revision > 0) {
-		rc = qpnp_vadc_read(VBAT_SNS, &results);
+		rc = qpnp_vadc_read(chip->vadc_dev, VBAT_SNS, &results);
 		if (rc) {
 			pr_err("Unable to read vbat rc=%d\n", rc);
 			return 0;
@@ -1082,7 +1082,7 @@ get_prop_batt_temp(struct qpnp_chg_chip *chip)
 		return DEFAULT_TEMP;
 
 	if (chip->revision > 0) {
-		rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &results);
+		rc = qpnp_vadc_read(chip->vadc_dev, LR_MUX1_BATT_THERM, &results);
 		if (rc) {
 			pr_debug("Unable to read batt temperature rc=%d\n", rc);
 			return 0;
@@ -1093,7 +1093,6 @@ get_prop_batt_temp(struct qpnp_chg_chip *chip)
 	} else {
 		pr_debug("batt temp not supported for PMIC 1.0 rc=%d\n", rc);
 	}
-
 	/* return default temperature to avoid userspace
 	 * from shutting down unecessarily */
 	return DEFAULT_TEMP;
@@ -1675,7 +1674,14 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	int rc = 0;
 #ifdef CONFIG_LGE_PM
 	/* LGE_CHANGE_S [jongbum.kim@lge.com] 2012-11-12 */
-	cable_type = *(unsigned int *) (smem_get_entry(SMEM_ID_VENDOR1, &cable_smem_size));
+	unsigned int *p_cable_type = (unsigned int *)
+		(smem_get_entry(SMEM_ID_VENDOR1, &cable_smem_size));
+
+	if (p_cable_type)
+		cable_type = *p_cable_type;
+	else
+		cable_type = 0;
+
 	printk(KERN_INFO "cable_type is = %d\n", cable_type);
 	/* LGE_CHANGE_E [jongbum.kim@lge.com] 2012-11-12 */
 #endif
@@ -1950,11 +1956,15 @@ qpnp_charger_probe(struct spmi_device *spmi)
 #endif
 #endif
 
-	if (chip->bat_if_base) {
-		rc = qpnp_vadc_is_ready();
-		if (rc)
-			goto fail_chg_enable;
+	chip->vadc_dev = qpnp_get_vadc(chip->dev, "chg");
+	if (IS_ERR(chip->vadc_dev)) {
+		rc = PTR_ERR(chip->vadc_dev);
+		if (rc != -EPROBE_DEFER)
+			pr_err("vadc property missing\n");
+		goto fail_chg_enable;
+	}
 
+	if (chip->bat_if_base) {
 		chip->batt_psy.name = "battery";
 		chip->batt_psy.type = POWER_SUPPLY_TYPE_BATTERY;
 		chip->batt_psy.properties = msm_batt_power_props;
@@ -1997,6 +2007,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			goto unregister_batt;
 		}
 	}
+
 
 	/* Turn on appropriate workaround flags */
 	qpnp_chg_setup_flags(chip);

@@ -223,8 +223,21 @@ static void button_pressed(struct work_struct *work)
 		HSD_ERR("button_pressed but 4 pole ear jack is plugged out already! just ignore the event.\n");
 		return;
 	}
-	rc = qpnp_vadc_read(P_MUX6_1_1,&result);
 
+/* LIMIT: Include ONLY A1, B1, Vu3, Z models used MSM8974 AA/AB */
+#ifdef CONFIG_ADC_READY_CHECK_JB
+	rc = qpnp_vadc_read_lge(P_MUX6_1_1,&result);
+#else
+	/* MUST BE IMPLEMENT :
+	 * After MSM8974 AC and later version(PMIC combination change),
+	 * ADC AMUX of PMICs are separated in each dual PMIC.
+	 *
+	 * Ref.
+	 * qpnp-adc-voltage.c : *qpnp_get_vadc(), qpnp_vadc_read().
+	 * qpnp-charger.c     : new implementation by QCT.
+	 */
+	return;
+#endif
 	if (rc < 0) {
 		if (rc == -ETIMEDOUT) {
 			pr_err("[DEBUG] button_pressed : adc read timeout \n");
@@ -265,6 +278,7 @@ static void button_pressed(struct work_struct *work)
 			break;
 		}
 	}
+	return;
 }
 
 static void button_released(struct work_struct *work)
@@ -321,7 +335,7 @@ static void insert_headset(struct hsd_info *hi)
 	irq_set_irq_wake(hi->irq_key, 1);
 	gpio_direction_output(hi->gpio_mic_en, 1);
 #ifdef CONFIG_SWITCH_MAX1462X_WA
-	#if defined (CONFIG_MACH_MSM8974_G2_TMO_US) ||defined (CONFIG_MACH_MSM8974_G2_SPR)
+	#if defined (CONFIG_MACH_MSM8974_G2_TMO_US) || defined (CONFIG_MACH_MSM8974_G2_SPR) || defined (CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU) || defined (CONFIG_MACH_MSM8974_G2_CA)
 		msleep(600);
 		HSD_DBG("insert delay 600\n");
 	#else
@@ -356,6 +370,10 @@ static void insert_headset(struct hsd_info *hi)
 			atomic_set(&hi->irq_key_enabled, TRUE);
 		}
 
+		input_report_switch(hi->input, SW_HEADPHONE_INSERT, 1);
+		input_report_switch(hi->input, SW_MICROPHONE_INSERT, 1);
+		input_sync(hi->input);
+
 	} else {
 		gpio_direction_output(hi->gpio_mic_en, 0);
 		spmi_write(0x00);
@@ -367,11 +385,16 @@ static void insert_headset(struct hsd_info *hi)
 		mutex_unlock(&hi->mutex_lock);
 
 		irq_set_irq_wake(hi->irq_key, 0);
+
+		input_report_switch(hi->input, SW_HEADPHONE_INSERT, 1);
+		input_sync(hi->input);
 	}
 }
 
 static void remove_headset(struct hsd_info *hi)
 {
+
+	int has_mic = switch_get_state(&hi->sdev);
 
 	HSD_DBG("remove_headset\n");
 	if(atomic_read(&hi->is_3_pole_or_not) == 1)
@@ -383,6 +406,11 @@ static void remove_headset(struct hsd_info *hi)
 	mutex_lock(&hi->mutex_lock);
 	switch_set_state(&hi->sdev, NO_DEVICE);
 	mutex_unlock(&hi->mutex_lock);
+
+	input_report_switch(hi->input, SW_HEADPHONE_INSERT, 0);
+	if (has_mic == LGE_HEADSET)
+		input_report_switch(hi->input, SW_MICROPHONE_INSERT, 0);
+	input_sync(hi->input);
 
 	if (atomic_read(&hi->irq_key_enabled)) {
 		atomic_set(&hi->irq_key_enabled, FALSE);
@@ -598,7 +626,6 @@ static int lge_hsd_probe(struct platform_device *pdev)
 		HSD_ERR("Failed to set irq_key interrupt wake\n");
 		goto error_06;
 	}
-	enable_irq(hi->irq_key);
 
 	hi->irq_detect = gpio_to_irq(hi->gpio_detect);
 	HSD_DBG("hi->irq_detect = %d\n", hi->irq_detect);
@@ -650,13 +677,24 @@ static int lge_hsd_probe(struct platform_device *pdev)
 	{
 		struct qpnp_vadc_result result;
 		int acc_read_value = 0;
-		int i, rc;
+		int i, rc = 0;
 		int count = 3;
 
 		for (i = 0; i < count; i++)
 		{
-			rc = qpnp_vadc_read(P_MUX6_1_1,&result);
-
+/* LIMIT: Include ONLY A1, B1, Vu3, Z models used MSM8974 AA/AB */
+#ifdef CONFIG_ADC_READY_CHECK_JB
+			rc = qpnp_vadc_read_lge(P_MUX6_1_1,&result);
+#else
+			/* MUST BE IMPLEMENT :
+			 * After MSM8974 AC and later version(PMIC combination change),
+			 * ADC AMUX of PMICs are separated in each dual PMIC.
+			 *
+			 * Ref.
+			 * qpnp-adc-voltage.c : *qpnp_get_vadc(), qpnp_vadc_read().
+			 * qpnp-charger.c     : new implementation by QCT.
+			 */
+#endif
 			if (rc < 0)
 			{
 				if (rc == -ETIMEDOUT) {
@@ -673,7 +711,6 @@ static int lge_hsd_probe(struct platform_device *pdev)
 			}
 		}
 	}
-
 	set_bit(EV_SYN, hi->input->evbit);
 	set_bit(EV_KEY, hi->input->evbit);
 	set_bit(EV_SW, hi->input->evbit);

@@ -281,7 +281,7 @@ touch_maker_id get_touch_maker_id(void)
 		/* Case A : Sub PCB GND --> 0.164V , TOUCH_ID_0V */
 		/* Case B : Sub PCB NC --> 1.8V , TOUCH_ID_1_8V */
 		for(trial_us = 0; trial_us < 3; trial_us++) {
-			rc = qpnp_vadc_read(P_MUX7_1_1, &result);
+			rc = qpnp_vadc_read_lge(P_MUX7_1_1, &result);
 			if (rc < 0) {
 				TOUCH_DEBUG_MSG("Touch_ID qpnp_vadc_read : Fail!!, ret = %d\n", rc);
 			}

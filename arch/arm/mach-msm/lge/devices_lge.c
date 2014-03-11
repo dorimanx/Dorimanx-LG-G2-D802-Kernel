@@ -97,7 +97,7 @@ int __init lge_init_dt_scan_chosen(unsigned long node, const char *uname,
 	uint32_t *u32;
 	void *temp;
 
-    if (depth != 1 || (strcmp(uname, "chosen") != 0
+	if (depth != 1 || (strcmp(uname, "chosen") != 0
 					   && strcmp(uname, "chosen@0") != 0))
 		return 0;
 	for (i = 0; i < cn_arr_len; i++) {
@@ -107,13 +107,16 @@ int __init lge_init_dt_scan_chosen(unsigned long node, const char *uname,
 			continue;
 		if (type == CELL_U32) {
 			u32 = of_get_flat_dt_prop(node, cn_array[i].name, &len);
-			cn_array[i].cell_u32 = of_read_ulong(u32, 1);
+			if(u32 != NULL)
+				cn_array[i].cell_u32 = of_read_ulong(u32, 1);
 		} else if (type == CELL_U64) {
 			u32 = of_get_flat_dt_prop(node, cn_array[i].name, &len);
-			cn_array[i].cell_u64 = of_read_number(u32, 2);
+			if(u32 != NULL)
+				cn_array[i].cell_u64 = of_read_number(u32, 2);
 		} else {
 			p = of_get_flat_dt_prop(node, cn_array[i].name, &len);
-			strlcpy(cn_array[i].str, p, len);
+			if(p != NULL)
+				strlcpy(cn_array[i].str, p, len);
 		}
 		cn_array[i].is_valid = 1;
 	}
@@ -272,7 +275,7 @@ static struct platform_device lg_diag_cmd_device = {
 	.name = "lg_diag_cmd",
 	.id = -1,
 	.dev    = {
-		.platform_data = 0, //&lg_diag_cmd_pdata
+		.platform_data = 0, /* &lg_diag_cmd_pdata */
 	},
 };
 
@@ -310,7 +313,7 @@ void get_cable_data_from_dt(void *of_node)
 		return;
 	}
 
-	for (i = 0 ; i < MAX_CABLE_NUM ; i++) {
+	for (i = 0; i < MAX_CABLE_NUM; i++) {
 		of_property_read_u32_array(node_temp, propname[i],
 				cable_value, 3);
 		pm8941_acc_cable_type_data[i].threshhold = cable_value[0];
@@ -334,7 +337,7 @@ int lge_pm_get_cable_info(struct chg_cable_info *cable_info)
 	struct chg_cable_info_table *table;
 	int table_size = ARRAY_SIZE(pm8941_acc_cable_type_data);
 	int acc_read_value = 0;
-	int i, rc;
+	int i, rc = 0;
 	int count = 1;
 
 	if (!info) {
@@ -347,13 +350,25 @@ int lge_pm_get_cable_info(struct chg_cable_info *cable_info)
 	}
 
 	for (i = 0; i < count; i++) {
+		/* LIMIT: Include ONLY A1, B1, Vu3, Z models used MSM8974 AA/AB */
+#ifdef CONFIG_ADC_READY_CHECK_JB
 		rc = qpnp_vadc_is_ready();
 		if (rc) {
 			printk(KERN_INFO "%s is skipped once\n", __func__);
 			continue;
 		}
-		rc = qpnp_vadc_read(LR_MUX10_USB_ID_LV, &result);
-
+		rc = qpnp_vadc_read_lge(LR_MUX10_USB_ID_LV, &result);
+#else
+		/* MUST BE IMPLEMENT :
+		 * After MSM8974 AC and later version(PMIC combination change),
+		 * ADC AMUX of PMICs are separated in each dual PMIC.
+		 *
+		 * Ref.
+		 * qpnp-adc-voltage.c : *qpnp_get_vadc(), qpnp_vadc_read().
+		 * qpnp-charger.c     : new implementation by QCT.
+		 */
+		return -ENODEV;
+#endif
 		if (rc < 0) {
 			if (rc == -ETIMEDOUT) {
 				/* reason: adc read timeout,
@@ -462,16 +477,14 @@ static int __init lge_uart_mode(char *uart_mode)
 __setup("uart_console=", lge_uart_mode);
 
 /* for supporting two LCD types with one image */
-static bool cont_splash_enabled = false;
+static bool cont_splash_enabled;
 
 static int __init cont_splash_enabled_setup(char *enabled)
 {
 	/* INFO : argument string is from LK */
 	if (!strncmp("true", enabled, 6))
-	{
 		cont_splash_enabled = true;
-	}
-	printk(KERN_INFO "cont splash enabled : %s \n", enabled);
+	printk(KERN_INFO "cont splash enabled : %s\n", enabled);
 	return 1;
 }
 __setup("cont_splash_enabled=", cont_splash_enabled_setup);
@@ -483,12 +496,12 @@ bool lge_get_cont_splash_enabled(void)
 
 #ifdef CONFIG_LGE_SUPPORT_LCD_MAKER_ID
 /* get panel maker ID from cmdline */
-static lcd_maker_id lge_panel_maker = 0;
+static lcd_maker_id lge_panel_maker;
 
 /* CAUTION : These strings are come from LK */
 char *panel_maker[] = {"0", "1", "2"};
 
-static int __init board_panel_maker(char* maker_id)
+static int __init board_panel_maker(char *maker_id)
 {
 	int i;
 
@@ -499,7 +512,7 @@ static int __init board_panel_maker(char* maker_id)
 		}
 	}
 
-	printk(KERN_DEBUG "MAKER : %s \n", panel_maker[lge_panel_maker]);
+	printk(KERN_DEBUG "MAKER : %s\n", panel_maker[lge_panel_maker]);
 	return 1;
 }
 __setup("lcd_maker_id=", board_panel_maker);
@@ -515,13 +528,13 @@ lcd_maker_id lge_get_panel_maker(void)
 	return value : 1 --> right after laf complete & reset
 */
 
-int android_dlcomplete = 0;
+int android_dlcomplete;
 
 int __init lge_android_dlcomplete(char *s)
-{	
-	if(strncmp(s,"1",1) == 0)   // if same string
+{
+	if (strncmp(s, "1", 1) == 0)   /* if same string */
 		android_dlcomplete = 1;
-	else	// not same string
+	else	/* not same string */
 		android_dlcomplete = 0;
 	printk("androidboot.dlcomplete = %d\n", android_dlcomplete);
 
@@ -575,16 +588,16 @@ int lge_get_factory_boot(void)
 	 *   cable must be factory cable.
 	 */
 	switch (lge_boot_mode) {
-		case LGE_BOOT_MODE_FACTORY  :
-		case LGE_BOOT_MODE_FACTORY2 :
-		case LGE_BOOT_MODE_PIFBOOT  :
-		case LGE_BOOT_MODE_PIFBOOT2 :
-		case LGE_BOOT_MODE_MINIOS   :
-		    res = 1;
-		    break;
+		case LGE_BOOT_MODE_FACTORY:
+		case LGE_BOOT_MODE_FACTORY2:
+		case LGE_BOOT_MODE_PIFBOOT:
+		case LGE_BOOT_MODE_PIFBOOT2:
+		case LGE_BOOT_MODE_MINIOS:
+			res = 1;
+			break;
 		default:
-		    res = 0;
-		    break;
+			res = 0;
+			break;
 	}
 	return res;
 }
@@ -610,14 +623,14 @@ static int __init board_revno_setup(char *rev_info)
 		}
 	}
 
-	printk(KERN_INFO "BOARD : LGE %s \n", rev_str[lge_bd_rev]);
+	printk(KERN_INFO "BOARD : LGE %s\n", rev_str[lge_bd_rev]);
 	return 1;
 }
 __setup("lge.rev=", board_revno_setup);
 
 hw_rev_type lge_get_board_revno(void)
 {
-    return lge_bd_rev;
+	return lge_bd_rev;
 }
 #if defined(CONFIG_LCD_KCAL)
 /* LGE_CHANGE_S
@@ -636,7 +649,7 @@ static int __init display_kcal_setup(char *kcal)
 	int kcal_g = 255;
 	int kcal_b = 255;
 
-	sscanf(kcal, "%d|%d|%d|%c", &kcal_r, &kcal_g, &kcal_b, &vaild_k );
+	sscanf(kcal, "%d|%d|%d|%c", &kcal_r, &kcal_g, &kcal_b, &vaild_k);
 	pr_info("kcal is %d|%d|%d|%c\n", kcal_r, kcal_g, kcal_b, vaild_k);
 
 	if (vaild_k != 'K') {
@@ -748,9 +761,8 @@ static void lge_boost_gpio_bypass(struct lge_boost_gpio_drvdata *ddata,
 		return;
 	}
 
-	if (gpio_get_value(ddata->bb_gpio) != bypass) {
+	if (gpio_get_value(ddata->bb_gpio) != bypass)
 		gpio_set_value(ddata->bb_gpio, bypass);
-	}
 
 	return;
 }
@@ -763,9 +775,8 @@ static int lge_boost_gpio_get_devtree_pdata(struct device *dev,
 	struct device_node *node;
 
 	node = dev->of_node;
-	if (node == NULL) {
+	if (node == NULL)
 		return -ENODEV;
-	}
 
 	memset(pdata, 0, sizeof(struct lge_boost_gpio_platform_data));
 
@@ -836,9 +847,8 @@ static int __devinit lge_boost_gpio_probe(struct platform_device *pdev)
 
 	if (!pdata) {
 		err = lge_boost_gpio_get_devtree_pdata(dev, &alt_pdata);
-		if (err) {
+		if (err)
 			return err;
-		}
 		pdata = &alt_pdata;
 	}
 

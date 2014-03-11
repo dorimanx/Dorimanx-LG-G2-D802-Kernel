@@ -18,6 +18,7 @@
 #include <linux/usb/usb_qdss.h>
 #include <linux/usb/msm_hsusb.h>
 
+#include "gadget_chips.h"
 #include "f_qdss.h"
 #include "u_qdss.c"
 
@@ -407,13 +408,14 @@ fail:
 
 static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 {
+	struct usb_gadget *gadget = c->cdev->gadget;
 	struct f_qdss  *qdss = func_to_qdss(f);
 
 	pr_debug("qdss_unbind\n");
 
 	dwc3_tx_fifo_resize_request(qdss->data, false);
 	clear_eps(f);
-	clear_desc(c->cdev->gadget, f);
+	clear_desc(gadget, f);
 }
 
 static void qdss_eps_disable(struct usb_function *f)
@@ -444,6 +446,10 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 	int status;
 
 	pr_debug("usb_qdss_disconnect_work\n");
+
+	status = uninit_data(qdss->data);
+	if (status)
+		pr_err("%s: uninit_data error\n", __func__);
 
 	status = uninit_data(qdss->data);
 	if (status)
@@ -605,7 +611,7 @@ static int qdss_bind_config(struct usb_configuration *c, const char *name)
 
 	spin_lock_irqsave(&d_lock, flags);
 	list_for_each_entry(ch, &usb_qdss_ch_list, list) {
-		if (!strncmp(name, ch->name, sizeof(ch->name))) {
+		if (!strcmp(name, ch->name)) {
 			found = 1;
 			break;
 		}
@@ -767,7 +773,7 @@ struct usb_qdss_ch *usb_qdss_open(const char *name, void *priv,
 	spin_lock_irqsave(&d_lock, flags);
 	/* Check if we already have a channel with this name */
 	list_for_each_entry(ch, &usb_qdss_ch_list, list) {
-		if (!strncmp(name, ch->name, sizeof(ch->name))) {
+		if (!strcmp(name, ch->name)) {
 			found = 1;
 			break;
 		}
@@ -812,6 +818,7 @@ EXPORT_SYMBOL(usb_qdss_open);
 void usb_qdss_close(struct usb_qdss_ch *ch)
 {
 	struct f_qdss *qdss = ch->priv_usb;
+	struct usb_gadget *gadget = qdss->cdev->gadget;
 	unsigned long flags;
 
 	pr_debug("usb_qdss_close\n");
@@ -823,7 +830,8 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	ch->app_conn = 0;
 	spin_unlock_irqrestore(&d_lock, flags);
 
-	msm_dwc3_restart_usb_session();
+	if (gadget_is_dwc3(gadget))
+		msm_dwc3_restart_usb_session(gadget);
 }
 EXPORT_SYMBOL(usb_qdss_close);
 
@@ -840,6 +848,7 @@ static void qdss_cleanup(void)
 		_ch = list_entry(act, struct usb_qdss_ch, list);
 		qdss = container_of(_ch, struct f_qdss, ch);
 		spin_lock_irqsave(&d_lock, flags);
+
 		destroy_workqueue(qdss->wq);
 		if (!_ch->priv) {
 			list_del(&_ch->list);

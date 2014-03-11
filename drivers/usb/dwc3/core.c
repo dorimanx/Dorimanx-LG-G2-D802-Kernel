@@ -59,7 +59,17 @@
 
 #include "debug.h"
 
+#if defined(CONFIG_MACH_MSM8974_G2_DCM)\
+	|| defined(CONFIG_MACH_MSM8974_G2_KDDI)\
+	|| defined(CONFIG_MACH_MSM8974_G2_OPEN_AME)\
+	|| defined(CONFIG_MACH_MSM8974_G2_OPEN_COM)\
+	|| defined(CONFIG_MACH_MSM8974_G2_OPT_AU) \
+	|| defined(CONFIG_MACH_MSM8974_G2_TEL_AU)\
+	|| defined(CONFIG_MACH_MSM8974_VU3_KR)
+static char *maximum_speed = "high";
+#else
 static char *maximum_speed = "super";
+#endif
 module_param(maximum_speed, charp, 0);
 MODULE_PARM_DESC(maximum_speed, "Maximum supported speed.");
 
@@ -153,6 +163,8 @@ static void dwc3_core_soft_reset(struct dwc3 *dwc)
 	reg |= DWC3_GCTL_CORESOFTRESET;
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 
+	dwc3_notify_event(dwc, DWC3_CONTROLLER_RESET_EVENT);
+
 	if (dwc->revision >= DWC3_REVISION_230A)
 		dwc3_notify_event(dwc, DWC3_CONTROLLER_RESET_EVENT);
 
@@ -185,8 +197,7 @@ static void dwc3_core_soft_reset(struct dwc3 *dwc)
 	reg &= ~DWC3_GCTL_CORESOFTRESET;
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 
-	if (dwc->revision >= DWC3_REVISION_230A)
-		dwc3_notify_event(dwc, DWC3_CONTROLLER_POST_RESET_EVENT);
+	dwc3_notify_event(dwc, DWC3_CONTROLLER_POST_RESET_EVENT);
 }
 
 /**
@@ -476,6 +487,14 @@ static int dwc3_core_init(struct dwc3 *dwc)
 			goto err1;
 		}
 	}
+	/*
+	 * clear Elastic buffer mode in GUSBPIPE_CTRL(0) register, otherwise
+	 * it results in high link errors and could cause SS mode transfer
+	 * failure.
+	 */
+	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
+	reg &= ~DWC3_GUSB3PIPECTL_ELASTIC_BUF_MODE;
+	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 
 	ret = dwc3_event_buffers_setup(dwc);
 	if (ret) {
@@ -503,6 +522,7 @@ void dwc3_post_host_reset_core_init(struct dwc3 *dwc)
 {
 	dwc3_core_init(dwc);
 	dwc3_gadget_restart(dwc);
+	dwc3_notify_event(dwc, DWC3_CONTROLLER_POST_INITIALIZATION_EVENT);
 }
 
 static void (*notify_event) (struct dwc3 *, unsigned);
@@ -681,6 +701,8 @@ static int __devinit dwc3_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to initialize debugfs\n");
 		goto err2;
 	}
+
+	dwc3_notify_event(dwc, DWC3_CONTROLLER_POST_INITIALIZATION_EVENT);
 
 	return 0;
 
