@@ -64,14 +64,14 @@
 #define SUP_SLOW_UP_DUR (2)
 
 #if defined(SMART_UP_PLUS)
-static unsigned int SUP_THRESHOLD_STEPS[SUP_MAX_STEP] = {70, 80, 90};
+static unsigned int SUP_THRESHOLD_STEPS[SUP_MAX_STEP] = {90, 95, 100};
 static unsigned int SUP_FREQ_STEPS[SUP_MAX_STEP] = {4, 3, 2};
 static unsigned int min_range = 108000;
 #endif
 
 #if defined(SMART_UP_SLOW_UP_AT_HIGH_FREQ)
 static unsigned int SUP_SLOW_UP_FREQUENCY = 1958400;
-static unsigned int SUP_SLOW_UP_LOAD = 80;
+static unsigned int SUP_SLOW_UP_LOAD = 95;
 
 typedef struct {
 	unsigned int hist_max_load[SUP_SLOW_UP_DUR];
@@ -96,7 +96,7 @@ history_load hist_load[SUP_CORE_NUM] = {};
 static unsigned int min_sampling_rate;
 
 #define LATENCY_MULTIPLIER			(1000)
-#define MIN_LATENCY_MULTIPLIER			(100)
+#define MIN_LATENCY_MULTIPLIER			(10)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
 #define POWERSAVE_BIAS_MAXLEVEL			(1000)
