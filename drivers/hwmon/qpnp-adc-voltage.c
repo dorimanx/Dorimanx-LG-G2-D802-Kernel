@@ -1432,7 +1432,8 @@ fail:
 EXPORT_SYMBOL(qpnp_vadc_iadc_sync_complete_request);
 #ifndef CONFIG_TOUCHSCREEN_ATMEL_S540
 #ifdef CUST_G2_TOUCH
-extern  void check_touch_xo_therm(int type);
+/* Removed by dorimanx for now */
+/* extern  void check_touch_xo_therm(int type); */
 int touch_thermal_mode;
 int thermal_threshold = 3;
 #endif
@@ -1472,11 +1473,11 @@ void xo_therm_logging(void)
 #if !defined(CONFIG_MACH_MSM8974_G2_KDDI) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
 	if (touch_thermal_mode == 0 && tmp.physical >= 50) {
 		touch_thermal_mode = 1;
-		check_touch_xo_therm(1);
+		/* check_touch_xo_therm(1); */
 	} else if (touch_thermal_mode == 1 && tmp.physical <
 		(50-thermal_threshold)) {
 		touch_thermal_mode = 0;
-		check_touch_xo_therm(0);
+		/* check_touch_xo_therm(0); */
 	}
 #endif
 #endif
