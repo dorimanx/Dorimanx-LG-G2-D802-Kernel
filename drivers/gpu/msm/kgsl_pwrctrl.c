@@ -177,9 +177,9 @@ static ssize_t kgsl_pwrctrl_thermal_pwrlevel_store(struct device *dev,
 
 	pwr = &device->pwrctrl;
 
-	ret = kgsl_sysfs_store(buf, count, &level);
+	ret = kgsl_sysfs_store(buf, &level);
 
-	if (ret != count)
+	if (ret)
 		return ret;
 
 	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
@@ -230,8 +230,8 @@ static ssize_t kgsl_pwrctrl_max_pwrlevel_store(struct device *dev,
 
 	pwr = &device->pwrctrl;
 
-	ret = kgsl_sysfs_store(buf, count, &level);
-	if (ret != count)
+	ret = kgsl_sysfs_store(buf, &level);
+	if (ret)
 		return ret;
 
 	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
@@ -283,7 +283,7 @@ static ssize_t kgsl_pwrctrl_min_pwrlevel_store(struct device *dev,
 
 	pwr = &device->pwrctrl;
 
-	ret = kgsl_sysfs_store(buf, count, &level);
+	ret = kgsl_sysfs_store(buf, &level);
 	if (ret != count)
 		return ret;
 
@@ -333,7 +333,7 @@ static ssize_t kgsl_pwrctrl_active_pwrlevel_show(struct device *dev,
 	if (device == NULL)
 		return 0;
 	pwr = &device->pwrctrl;
-	return snprintf(buf, PAGE_SIZE, "%d\n", pwr->active_pwrlevel);
+	return snprintf(buf, PAGE_SIZE, "%u\n", pwr->active_pwrlevel);
 }
 
 static ssize_t kgsl_pwrctrl_num_pwrlevels_show(struct device *dev,
@@ -346,7 +346,7 @@ static ssize_t kgsl_pwrctrl_num_pwrlevels_show(struct device *dev,
 	if (device == NULL)
 		return 0;
 	pwr = &device->pwrctrl;
-	return snprintf(buf, PAGE_SIZE, "%d\n", pwr->num_pwrlevels - 1);
+	return snprintf(buf, PAGE_SIZE, "%u\n", pwr->num_pwrlevels - 1);
 }
 
 /* Given a GPU clock value, return the lowest matching powerlevel */
@@ -369,16 +369,16 @@ static ssize_t kgsl_pwrctrl_max_gpuclk_store(struct device *dev,
 {
 	struct kgsl_device *device = kgsl_device_from_dev(dev);
 	struct kgsl_pwrctrl *pwr;
-	unsigned int val = 0, level = 0;
-	int ret;
+	unsigned int val = 0;
+	int level, ret;
 
 	if (device == NULL)
 		return 0;
 
 	pwr = &device->pwrctrl;
 
-	ret = kgsl_sysfs_store(buf, count, &val);
-	if (ret != count)
+	ret = kgsl_sysfs_store(buf, &val);
+	if (ret)
 		return ret;
 
 	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
@@ -391,9 +391,9 @@ static ssize_t kgsl_pwrctrl_max_gpuclk_store(struct device *dev,
 
 	/* if ROM set 450 max, set 650Max */
 	if (level == 2)
-		pwr->thermal_pwrlevel = level - 2;
+		pwr->thermal_pwrlevel = (unsigned int) level - 2;
 	else
-		pwr->thermal_pwrlevel = level;
+		pwr->thermal_pwrlevel = (unsigned int) level;
 
 	/*
 	 * if the thermal limit is lower than the current setting,
@@ -436,14 +436,14 @@ static ssize_t kgsl_pwrctrl_gpuclk_store(struct device *dev,
 
 	pwr = &device->pwrctrl;
 
-	ret = kgsl_sysfs_store(buf, count, &val);
-	if (ret != count)
+	ret = kgsl_sysfs_store(buf, &val);
+	if (ret)
 		return ret;
 
 	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 	level = _get_nearest_pwrlevel(pwr, val);
 	if (level >= 0)
-		kgsl_pwrctrl_pwrlevel_change(device, level);
+		kgsl_pwrctrl_pwrlevel_change(device, (unsigned int) level);
 
 	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 	return count;
@@ -481,8 +481,8 @@ static ssize_t kgsl_pwrctrl_idle_timer_store(struct device *dev,
 	if (device == NULL)
 		return 0;
 
-	ret = kgsl_sysfs_store(buf, count, &val);
-	if (ret != count)
+	ret = kgsl_sysfs_store(buf, &val);
+	if (ret)
 		return ret;
 
 	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
@@ -520,8 +520,8 @@ static ssize_t kgsl_pwrctrl_pmqos_active_latency_store(struct device *dev,
 	if (device == NULL)
 		return 0;
 
-	ret = kgsl_sysfs_store(buf, count, &val);
-	if (ret != count)
+	ret = kgsl_sysfs_store(buf, &val);
+	if (ret)
 		return ret;
 
 	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
@@ -553,8 +553,8 @@ static ssize_t kgsl_pwrctrl_pmqos_wakeup_latency_store(struct device *dev,
 	if (device == NULL)
 		return 0;
 
-	ret = kgsl_sysfs_store(buf, count, &val);
-	if (ret != count)
+	ret = kgsl_sysfs_store(buf, &val);
+	if (ret)
 		return ret;
 
 	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
@@ -668,8 +668,8 @@ static ssize_t __force_on_store(struct device *dev,
 	if (device == NULL)
 		return 0;
 
-	ret = kgsl_sysfs_store(buf, count, &val);
-	if (ret != count)
+	ret = kgsl_sysfs_store(buf, &val);
+	if (ret)
 		return ret;
 
 	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
@@ -743,8 +743,8 @@ static ssize_t kgsl_pwrctrl_bus_split_store(struct device *dev,
 	if (device == NULL)
 		return 0;
 
-	ret = kgsl_sysfs_store(buf, count, &val);
-	if (ret != count)
+	ret = kgsl_sysfs_store(buf, &val);
+	if (ret)
 		return ret;
 
 	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);

@@ -2279,12 +2279,12 @@ static ssize_t _ft_policy_store(struct device *dev,
 				     const char *buf, size_t count)
 {
 	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
-	ssize_t ret;
+	int ret;
 	if (adreno_dev == NULL)
 		return 0;
 
 	mutex_lock(&adreno_dev->dev.mutex);
-	ret = kgsl_sysfs_store(buf, count, &adreno_dev->ft_policy);
+	ret = kgsl_sysfs_store(buf, &adreno_dev->ft_policy);
 	mutex_unlock(&adreno_dev->dev.mutex);
 
 	return ret < 0 ? ret : count;
@@ -2337,8 +2337,8 @@ static ssize_t _ft_pagefault_policy_store(struct device *dev,
 
 	mutex_lock(&adreno_dev->dev.mutex);
 
-	ret = kgsl_sysfs_store(buf, count, &policy);
-	if (ret != count)
+	ret = kgsl_sysfs_store(buf, &policy);
+	if (ret)
 		goto out;
 
 	policy &= (KGSL_FT_PAGEFAULT_INT_ENABLE |
@@ -2399,7 +2399,7 @@ static ssize_t _ft_fast_hang_detect_store(struct device *dev,
 
 	tmp = adreno_dev->fast_hang_detect;
 
-	ret = kgsl_sysfs_store(buf, count, &adreno_dev->fast_hang_detect);
+	ret = kgsl_sysfs_store(buf, &adreno_dev->fast_hang_detect);
 
 	if (tmp != adreno_dev->fast_hang_detect) {
 		if (adreno_dev->fast_hang_detect) {
@@ -2461,7 +2461,7 @@ static ssize_t _ft_long_ib_detect_store(struct device *dev,
 		return 0;
 
 	mutex_lock(&adreno_dev->dev.mutex);
-	ret = kgsl_sysfs_store(buf, count, &adreno_dev->long_ib_detect);
+	ret = kgsl_sysfs_store(buf, &adreno_dev->long_ib_detect);
 	mutex_unlock(&adreno_dev->dev.mutex);
 
 	return ret < 0 ? ret : count;
@@ -2499,7 +2499,7 @@ static ssize_t _wake_timeout_store(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t count)
 {
-	int ret = kgsl_sysfs_store(buf, count, &_wake_timeout);
+	int ret = kgsl_sysfs_store(buf, &_wake_timeout);
 	return ret < 0 ? ret : count;
 }
 
@@ -2531,7 +2531,7 @@ static ssize_t _wake_nice_store(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t count)
 {
-	int ret = kgsl_sysfs_store(buf, count, &_wake_nice);
+	int ret = kgsl_sysfs_store(buf, &_wake_nice);
 	return ret < 0 ? ret : count;
 }
 
