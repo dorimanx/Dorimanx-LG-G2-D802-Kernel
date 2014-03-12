@@ -1769,7 +1769,7 @@ static ssize_t _store_uint(struct adreno_dispatcher *dispatcher,
 	unsigned int val = 0;
 	int ret;
 
-	ret = kgsl_sysfs_store(buf, 0, &val);
+	ret = kgsl_sysfs_store(buf, &val);
 	if (ret)
 		return ret;
 
