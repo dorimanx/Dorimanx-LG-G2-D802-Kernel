@@ -395,9 +395,9 @@ static ssize_t store_down_lock_duration(struct device *dev,
 	if (ret != 1)
 		return -EINVAL;
 
-	hotplug.suspend_freq = val;
+	hotplug.down_lock_dur = val;
 
-	return ret;
+	return count;
 }
 
 static ssize_t show_update_rate(struct device *dev,
@@ -420,7 +420,7 @@ static ssize_t store_update_rate(struct device *dev,
 
 	stats.update_rate = val;
 
-	return ret;
+	return count;
 }
 
 static ssize_t show_load_levels(struct device *dev,
@@ -449,13 +449,13 @@ static ssize_t store_load_levels(struct device *dev,
 	unsigned int val[3];
 
 	ret = sscanf(buf, "%u %u %u", &val[0], &val[1], &val[2]);
-	if (ret != ARRAY_SIZE(val))
+	if (ret != ARRAY_SIZE(val) || val[2] > val[1])
 		return -EINVAL;
 
 	load[val[0]].up_threshold = val[1];
 	load[val[0]].down_threshold = val[2];
 
-	return ret;
+	return count;
 }
 
 static ssize_t show_history_size(struct device *dev,
@@ -471,7 +471,6 @@ static ssize_t store_history_size(struct device *dev,
 {
 	int ret;
 	unsigned int val;
-	struct cpu_stats *st = &stats;
 
 	ret = sscanf(buf, "%u", &val);
 	if (ret != 1 || val == 0)
@@ -480,16 +479,16 @@ static ssize_t store_history_size(struct device *dev,
 	flush_workqueue(hotplug_wq);
 	cancel_delayed_work_sync(&hotplug_work);
 
-	kfree(st->load_hist);
-	st->hist_size = val;
+	kfree(stats.load_hist);
+	stats.hist_size = val;
 
-	st->load_hist = kmalloc(sizeof(st->hist_size), GFP_KERNEL);
-	if (!st->load_hist)
+	stats.load_hist = kmalloc(sizeof(stats.hist_size), GFP_KERNEL);
+	if (!stats.load_hist)
 		return -ENOMEM;
 
 	reschedule_hotplug_work();
 
-	return ret;
+	return count;
 }
 
 static ssize_t show_min_cpus_online(struct device *dev,
@@ -505,19 +504,18 @@ static ssize_t store_min_cpus_online(struct device *dev,
 {
 	int ret;
 	unsigned int val;
-	struct cpu_hotplug *hp = &hotplug;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1)
+	if (ret != 1 || val == 0)
 		return -EINVAL;
 
-	if (hp->max_cpus_online < val)
-		hp->max_cpus_online = val;
-	hp->min_cpus_online = val;
+	if (hotplug.max_cpus_online < val)
+		hotplug.max_cpus_online = val;
+	hotplug.min_cpus_online = val;
 	hotplug.down_lock = 0;
 	offline_cpu(val);
 
-	return ret;
+	return count;
 }
 
 static ssize_t show_max_cpus_online(struct device *dev,
@@ -533,19 +531,18 @@ static ssize_t store_max_cpus_online(struct device *dev,
 {
 	int ret;
 	unsigned int val;
-	struct cpu_hotplug *hp = &hotplug;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1)
+	if (ret != 1 || val == 0)
 		return -EINVAL;
 
-	if (hp->min_cpus_online > val)
-		hp->min_cpus_online = val;
-	hp->max_cpus_online = val;
+	if (hotplug.min_cpus_online > val)
+		hotplug.min_cpus_online = val;
+	hotplug.max_cpus_online = val;
 	hotplug.down_lock = 0;
 	online_cpu(val);
 
-	return ret;
+	return count;
 }
 
 static ssize_t show_cpus_boosted(struct device *dev,
@@ -563,12 +560,12 @@ static ssize_t store_cpus_boosted(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1)
+	if (ret != 1 || val == 0)
 		return -EINVAL;
 
 	hotplug.cpus_boosted = val;
 
-	return ret;
+	return count;
 }
 
 static ssize_t show_current_load(struct device *dev,
