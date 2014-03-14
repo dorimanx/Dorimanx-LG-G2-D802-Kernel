@@ -31,7 +31,7 @@
 #define NUM_LOAD_LEVELS		5
 #define MIN_INPUT_INTERVAL	150 * 1000L
 #define DEFAULT_HISTORY_SIZE	10
-#define DEFAULT_DOWN_LOCK_DUR	2500
+#define DEFAULT_DOWN_LOCK_DUR	5000
 #define DEFAULT_NR_CPUS_BOOSTED	2
 #define DEFAULT_MIN_CPUS_ONLINE	1
 #define DEFAULT_MAX_CPUS_ONLINE	NR_CPUS
@@ -121,17 +121,17 @@ struct load_thresh_tbl {
 	unsigned int down_threshold;
 };
 
-#define LOAD_SCALE(u, d)             \
-{                          	     \
-		.up_threshold = u,   \
-		.down_threshold = d, \
+#define LOAD_SCALE(u, d)     \
+{                            \
+	.up_threshold = u,   \
+	.down_threshold = d, \
 }
 
 static struct load_thresh_tbl load[] = {
 	LOAD_SCALE(400, 0),
-	LOAD_SCALE(50, 0),
-	LOAD_SCALE(100, 40),
-	LOAD_SCALE(150, 80),
+	LOAD_SCALE(40, 0),
+	LOAD_SCALE(80, 20),
+	LOAD_SCALE(140, 60),
 	LOAD_SCALE(410, 140),
 };
 
