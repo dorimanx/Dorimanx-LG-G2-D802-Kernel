@@ -52,15 +52,15 @@
 #define MIN_FREQUENCY_UP_THRESHOLD                (11)
 #define MAX_FREQUENCY_UP_THRESHOLD                (100)
 #define MIN_FREQUENCY_DOWN_DIFFERENTIAL                (1)
-#define DBS_INPUT_EVENT_MIN_FREQ                (1190400)
+#define DBS_INPUT_EVENT_MIN_FREQ                (1574400)
 #define DEF_UI_DYNAMIC_SAMPLING_RATE                (30000)
 #define DBS_UI_SAMPLING_MIN_TIMEOUT                (30)
 #define DBS_UI_SAMPLING_MAX_TIMEOUT                (1000)
 #define DBS_UI_SAMPLING_TIMEOUT                        (80)
 
 #define DEF_FREQ_STEP                                (25)
-#define DEF_STEP_UP_EARLY_HISPEED                (1728000)
-#define DEF_STEP_UP_INTERIM_HISPEED                (1958400)
+#define DEF_STEP_UP_EARLY_HISPEED                (1958400)
+#define DEF_STEP_UP_INTERIM_HISPEED                (2265600)
 #define DEF_SAMPLING_EARLY_HISPEED_FACTOR        (2)
 #define DEF_SAMPLING_INTERIM_HISPEED_FACTOR        (3)
 
@@ -96,8 +96,8 @@ static freq_table_idx pre_freq_idx[SUP_CORE_NUM] = {};
 
 #if defined(SMART_UP_SLOW_UP_AT_HIGH_FREQ)
 
-#define SUP_SLOW_UP_FREQUENCY                 (1574400)
-#define SUP_HIGH_SLOW_UP_FREQUENCY         (1728000)
+#define SUP_SLOW_UP_FREQUENCY                 (1728000)
+#define SUP_HIGH_SLOW_UP_FREQUENCY         (2265600)
 #define SUP_SLOW_UP_LOAD                 (80)
 
 typedef struct {
@@ -133,7 +133,7 @@ static unsigned int min_sampling_rate;
 static unsigned int skip_intellidemand = 0;
 
 #define LATENCY_MULTIPLIER                        (1000)
-#define MIN_LATENCY_MULTIPLIER                        (100)
+#define MIN_LATENCY_MULTIPLIER                        (20)
 #define TRANSITION_LATENCY_LIMIT                (10 * 1000 * 1000)
 
 #define POWERSAVE_BIAS_MAXLEVEL                        (1000)
