@@ -54,6 +54,9 @@ static unsigned long long cyc_to_sched_clock(u32 cyc, u32 mask)
 	if (cd.suspended)
 		return cd.epoch_ns;
 
+	if (cd.suspended)
+		return cd.epoch_ns;
+
 	/*
 	 * Load the epoch_cyc and epoch_ns atomically.  We do this by
 	 * ensuring that we always write epoch_cyc, epoch_ns and
@@ -68,7 +71,9 @@ static unsigned long long cyc_to_sched_clock(u32 cyc, u32 mask)
 		smp_rmb();
 	} while (epoch_cyc != cd.epoch_cyc_copy);
 
-	return epoch_ns + cyc_to_ns((cyc - epoch_cyc) & mask, cd.mult, cd.shift);
+	cyc = read_sched_clock();
+	cyc = (cyc - epoch_cyc) & sched_clock_mask;
+	return epoch_ns + cyc_to_ns(cyc, cd.mult, cd.shift);
 }
 
 /*
