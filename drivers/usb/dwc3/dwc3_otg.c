@@ -622,9 +622,22 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 				"power_supply_get_by_name(ac)\n");
 		dotg->psy = power_supply_get_by_name("ac");
 	} else {
+#ifdef CONFIG_FORCE_FAST_CHARGE
+		if ((force_fast_charge > 0) &&
+				(fake_charge_ac == FAKE_CHARGE_AC_ENABLE)) {
+			pr_info("msm_otg_notify_power_supply: "
+					"power_supply_get_by_name(ac)\n");
+			dotg->psy = power_supply_get_by_name("ac");
+		} else {
+			pr_info("msm_otg_notify_power_supply: "
+					"power_supply_get_by_name(usb)\n");
+			dotg->psy = power_supply_get_by_name("usb");
+		}
+#else
 		pr_info("msm_otg_notify_power_supply: "
 				"power_supply_get_by_name(usb)\n");
 		dotg->psy = power_supply_get_by_name("usb");
+#endif
 	}
 	if (!dotg->psy)
 		goto psy_error;
@@ -644,6 +657,16 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 			dotg->psy = power_supply_get_by_name("ac");
 		}
 #endif
+#ifdef CONFIG_FORCE_FAST_CHARGE
+		if ((force_fast_charge > 0) &&
+				(fake_charge_ac == FAKE_CHARGE_AC_ENABLE)) {
+			if (!strncmp(dotg->psy->name, "ac", 2)) {
+				dotg->psy = power_supply_get_by_name("usb");
+				power_supply_set_current_limit(dotg->psy, 1000*mA);
+				dotg->psy = power_supply_get_by_name("ac");
+			}
+		}
+#endif
 	} else if (dotg->charger->max_power > 0 && (mA == 0 || mA == 2)) {
 		/* Disable charging */
 		if (power_supply_set_online(dotg->psy, false))
@@ -661,33 +684,6 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 #endif
 /* END : janghyun.baek@lge.com 2012-12-26 */
 	}
-
-#ifdef CONFIG_FORCE_FAST_CHARGE
-	if ((force_fast_charge > 0) &&
-			(fake_charge_ac == FAKE_CHARGE_AC_ENABLE)) {
-		if (dotg->charger->chg_type == DWC3_SDP_CHARGER) {
-			/* Set to maximum, smb349 limits input current */
-			if (force_fast_charge > 1)
-				mA = fast_charge_level;
-			else
-				mA = 2000;
-
-			power_supply_set_supply_type(dotg->psy,
-					POWER_SUPPLY_TYPE_USB_DCP);
-			dotg->psy = power_supply_get_by_name("ac");
-			power_supply_set_online(dotg->psy, true);
-			power_supply_set_current_limit(dotg->psy, 1000*mA);
-			pr_info("USB fast charging is ON.\n");
-		} else if (dotg->charger->chg_type == DWC3_INVALID_CHARGER) {
-			power_supply_set_supply_type(dotg->psy,
-					POWER_SUPPLY_TYPE_BATTERY);
-			dotg->psy = power_supply_get_by_name("ac");
-			power_supply_set_online(dotg->psy, false);
-			power_supply_set_current_limit(dotg->psy, 0);
-			pr_info("USB fast charging is OFF.\n");
-		}
-	}
-#endif
 
 	power_supply_changed(dotg->psy);
 	dotg->charger->max_power = mA;
@@ -857,7 +853,15 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	case OTG_STATE_UNDEFINED:
 		dwc3_otg_init_sm(dotg);
 		if (!dotg->psy) {
+#ifdef CONFIG_FORCE_FAST_CHARGE
+			if ((force_fast_charge > 0) &&
+					(fake_charge_ac == FAKE_CHARGE_AC_ENABLE))
+				dotg->psy = power_supply_get_by_name("ac");
+			else
+				dotg->psy = power_supply_get_by_name("usb");
+#else
 			dotg->psy = power_supply_get_by_name("usb");
+#endif
 
 			if (!dotg->psy)
 				dev_err(phy->dev,
@@ -922,8 +926,10 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					break;
 				case DWC3_SDP_CHARGER:
 #ifdef CONFIG_FORCE_FAST_CHARGE
-					if ((force_fast_charge > 0) &&
-							(fake_charge_ac == FAKE_CHARGE_AC_DISABLE))
+					if (force_fast_charge > 1)
+						dwc3_otg_set_power(phy,
+							fast_charge_level);
+					else if (force_fast_charge > 0)
 						dwc3_otg_set_power(phy,
 							DWC3_IDEV_CHG_MAX);
 					else
@@ -931,6 +937,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 #else
 					dwc3_otg_set_power(phy, IUNIT);
 #endif
+
 #ifdef CONFIG_LGE_PM
 					if (!slimport_is_connected()) {
 						dwc3_otg_start_peripheral(&dotg->otg,

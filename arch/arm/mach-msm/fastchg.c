@@ -31,10 +31,11 @@
 /* Credits / Changelog:
  * version 1.0 Initial build by Paul Reioux
  * version 1.1 Added 1800ma limit to table by Dorimanx
- * version 1.2 added Fake AC interface by Mankindtw@xda and Dorimanx
+ * version 1.2 Added Fake AC interface by Mankindtw@xda and Dorimanx
+ * version 1.3 Misc fixes to force AC and allowed real 1800mA max.
  */
 
-#define FAST_CHARGE_VERSION	"Version 1.2"
+#define FAST_CHARGE_VERSION	"Version 1.3"
 
 int force_fast_charge;
 int fast_charge_level;
@@ -183,6 +184,8 @@ int force_fast_charge_init(void)
 	force_fast_charge = FAST_CHARGE_DISABLED;
 
 	fake_charge_ac = FAKE_CHARGE_AC_DISABLE;
+
+	fast_charge_level = FAST_CHARGE_1800;
 
 	force_fast_charge_kobj
 		= kobject_create_and_add("fast_charge", kernel_kobj);
