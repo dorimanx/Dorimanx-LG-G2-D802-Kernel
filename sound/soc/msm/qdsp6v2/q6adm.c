@@ -35,7 +35,6 @@
 #define INVALID_COPP_ID 0xFF
 #define ADM_GET_PARAMETER_LENGTH 350
 
-
 enum {
 	ADM_RX_AUDPROC_CAL,
 	ADM_TX_AUDPROC_CAL,
@@ -667,7 +666,7 @@ void send_adm_custom_topology(int port_id)
 		/* Only call this once */
 		this_adm.set_custom_topology = 0;
 
-		result = adm_memory_map_regions(port_id,
+		result = adm_memory_map_regions(GLOBAL_CFG,
 				&cal_block.cal_paddr, 0, &size, 1);
 		if (result < 0) {
 			pr_err("%s: mmap did not work! addr = 0x%x, size = %d\n",
@@ -807,9 +806,10 @@ static void send_adm_cal(int port_id, int path)
 		this_adm.mem_addr_audproc[acdb_path].cal_size)) {
 
 		if (this_adm.mem_addr_audproc[acdb_path].cal_paddr != 0)
-			adm_memory_unmap_regions(port_id);
+			adm_memory_unmap_regions(GLOBAL_CFG);
 
-		result = adm_memory_map_regions(port_id, &aud_cal.cal_paddr,
+		result = adm_memory_map_regions(GLOBAL_CFG,
+						&aud_cal.cal_paddr,
 						0, &size, 1);
 		if (result < 0) {
 			pr_err("ADM audproc mmap did not work! path = %d, addr = 0x%x, size = %d\n",
@@ -841,9 +841,9 @@ static void send_adm_cal(int port_id, int path)
 		this_adm.mem_addr_audvol[acdb_path].cal_size)) {
 
 		if (this_adm.mem_addr_audvol[acdb_path].cal_paddr != 0)
-			adm_memory_unmap_regions(port_id);
+			adm_memory_unmap_regions(GLOBAL_CFG);
 
-		result = adm_memory_map_regions(port_id, &aud_cal.cal_paddr,
+		result = adm_memory_map_regions(GLOBAL_CFG, &aud_cal.cal_paddr,
 						0, &size, 1);
 		if (result < 0) {
 			pr_err("ADM audvol mmap did not work! path = %d, addr = 0x%x, size = %d\n",
@@ -866,9 +866,8 @@ static void send_adm_cal(int port_id, int path)
 
 int adm_unmap_cal_blocks(void)
 {
-	int	i;
-	int	result = 0;
-	int	result2 = 0;
+	int				i;
+	int				result = 0;
 
 	for (i = 0; i < ADM_MAX_CAL_TYPES; i++) {
 		if (atomic_read(&this_adm.mem_map_cal_handles[i]) != 0) {
@@ -887,17 +886,9 @@ int adm_unmap_cal_blocks(void)
 				this_adm.set_custom_topology = 1;
 			}
 
-			/* valid port ID needed for callback use primary I2S */
 			atomic_set(&this_adm.mem_map_cal_index, i);
-			result2 = adm_memory_unmap_regions(PRIMARY_I2S_RX);
-			if (result2 < 0) {
-				pr_err("%s: adm_memory_unmap_regions failed, err %d\n",
-						__func__, result2);
-				result = result2;
-			} else {
-				atomic_set(&this_adm.mem_map_cal_handles[i],
-					0);
-			}
+			adm_memory_unmap_regions(GLOBAL_CFG);
+			atomic_set(&this_adm.mem_map_cal_handles[i], 0);
 		}
 	}
 	return result;

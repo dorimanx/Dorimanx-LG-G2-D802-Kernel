@@ -286,41 +286,20 @@ static struct device_type slim_dev_type = {
 	.release	= slim_dev_release,
 };
 
-static void slim_report(struct work_struct *work)
+static void slim_report_present(struct work_struct *work)
 {
 	u8 laddr;
-	int ret, i;
+	int ret;
 	struct slim_driver *sbdrv;
 	struct slim_device *sbdev =
 			container_of(work, struct slim_device, wd);
-	struct slim_controller *ctrl = sbdev->ctrl;
-	if (!sbdev->dev.driver)
-		return;
-	/* check if device-up or down needs to be called */
-	mutex_lock(&ctrl->m_ctrl);
-	/* address no longer valid, means device reported absent */
-	for (i = 0; i < ctrl->num_dev; i++) {
-		if (sbdev->laddr == ctrl->addrt[i].laddr &&
-			ctrl->addrt[i].valid == false &&
-			sbdev->notified)
-			break;
-	}
-	mutex_unlock(&ctrl->m_ctrl);
-	sbdrv = to_slim_driver(sbdev->dev.driver);
-	if (i < ctrl->num_dev) {
-		sbdev->notified = false;
-		if (sbdrv->device_down)
-			sbdrv->device_down(sbdev);
-		return;
-	}
-	if (sbdev->notified)
+	if (sbdev->notified || !sbdev->dev.driver)
 		return;
 	ret = slim_get_logical_addr(sbdev, sbdev->e_addr, 6, &laddr);
-	if (!ret) {
-		if (sbdrv)
-			sbdev->notified = true;
-		if (sbdrv->device_up)
-			sbdrv->device_up(sbdev);
+	sbdrv = to_slim_driver(sbdev->dev.driver);
+	if (!ret && sbdrv->device_up) {
+		sbdev->notified = true;
+		sbdrv->device_up(sbdev);
 	}
 }
 
@@ -343,7 +322,7 @@ int slim_add_device(struct slim_controller *ctrl, struct slim_device *sbdev)
 	INIT_LIST_HEAD(&sbdev->mark_define);
 	INIT_LIST_HEAD(&sbdev->mark_suspend);
 	INIT_LIST_HEAD(&sbdev->mark_removal);
-	INIT_WORK(&sbdev->wd, slim_report);
+	INIT_WORK(&sbdev->wd, slim_report_present);
 	mutex_lock(&ctrl->m_ctrl);
 	list_add_tail(&sbdev->dev_list, &ctrl->devs);
 	mutex_unlock(&ctrl->m_ctrl);
@@ -625,31 +604,6 @@ retry:
 EXPORT_SYMBOL_GPL(slim_add_numbered_controller);
 
 /*
- * slim_report_absent: Controller calls this function when a device
- *	reports absent, OR when the device cannot be communicated with
- * @sbdev: Device that cannot be reached, or sent report absent
- */
-void slim_report_absent(struct slim_device *sbdev)
-{
-	struct slim_controller *ctrl;
-	int i;
-	if (!sbdev)
-		return;
-	ctrl = sbdev->ctrl;
-	if (!ctrl)
-		return;
-	/* invalidate logical addresses */
-	mutex_lock(&ctrl->m_ctrl);
-	for (i = 0; i < ctrl->num_dev; i++) {
-		if (sbdev->laddr == ctrl->addrt[i].laddr)
-			ctrl->addrt[i].valid = false;
-	}
-	mutex_unlock(&ctrl->m_ctrl);
-	queue_work(ctrl->wq, &sbdev->wd);
-}
-EXPORT_SYMBOL(slim_report_absent);
-
-/*
  * slim_msg_response: Deliver Message response received from a device to the
  *	framework.
  * @ctrl: Controller handle
@@ -774,10 +728,10 @@ int slim_assign_laddr(struct slim_controller *ctrl, const u8 *e_addr,
 	bool exists = false;
 	struct slim_device *sbdev;
 #ifdef CONFIG_SND_SOC_ES325_SLIM
-	/* LGE_BSP_AUDIO
-	* assign laddr to slim slave : Audience eS325 ALSA SoC Audio driver
-	* 2013-01-10, jeremy.pi@lge.com
-	*/
+	/*              
+                                                                    
+                                
+ */
 	struct sbi_boardinfo *bi;
 	struct list_head *pos;
 #endif /* CONFIG_SND_SOC_ES325_SLIM */
@@ -823,10 +777,10 @@ int slim_assign_laddr(struct slim_controller *ctrl, const u8 *e_addr,
 	ctrl->addrt[i].laddr = *laddr;
 
 #ifdef CONFIG_SND_SOC_ES325_SLIM
-	/* LGE_BSP_AUDIO
-	* assign laddr to slim slave : Audience eS325 ALSA SoC Audio driver
-	* 2013-01-10, jeremy.pi@lge.com
-	*/
+	/*              
+                                                                    
+                                
+ */
 	list_for_each(pos, &board_list) {
 		bi = list_entry(pos, struct sbi_boardinfo, list);
 		if (memcmp(e_addr, bi->board_info.slim_slave->e_addr, 6) == 0) {

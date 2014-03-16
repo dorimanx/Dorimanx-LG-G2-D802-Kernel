@@ -520,9 +520,6 @@ struct taiko_priv {
 
 	/* class h specific data */
 	struct wcd9xxx_clsh_cdc_data clsh_d;
-
-	int (*machine_codec_event_cb)(struct snd_soc_codec *codec,
-			enum wcd9xxx_codec_event);
 };
 
 static const u32 comp_shift[] = {
@@ -1126,7 +1123,6 @@ static int taiko_config_compander(struct snd_soc_dapm_widget *w,
 	}
 	return 0;
 }
-
 
 
 static const char *const taiko_anc_func_text[] = {"OFF", "ON"};
@@ -6370,16 +6366,6 @@ int taiko_hs_detect(struct snd_soc_codec *codec,
 }
 EXPORT_SYMBOL_GPL(taiko_hs_detect);
 
-void taiko_event_register(
-	int (*machine_event_cb)(struct snd_soc_codec *codec,
-				enum wcd9xxx_codec_event),
-	struct snd_soc_codec *codec)
-{
-	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
-	taiko->machine_codec_event_cb = machine_event_cb;
-}
-EXPORT_SYMBOL_GPL(taiko_event_register);
-
 static void taiko_init_slim_slave_cfg(struct snd_soc_codec *codec)
 {
 	struct taiko_priv *priv = snd_soc_codec_get_drvdata(codec);
@@ -6400,16 +6386,6 @@ static void taiko_init_slim_slave_cfg(struct snd_soc_codec *codec)
 	pr_debug("%s: slimbus logical address 0x%llx\n", __func__, eaddr);
 }
 
-static int taiko_device_down(struct wcd9xxx *wcd9xxx)
-{
-	struct snd_soc_codec *codec;
-
-	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
-	snd_soc_card_change_online_state(codec->card, 0);
-
-	return 0;
-}
-
 static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 {
 	int ret = 0;
@@ -6419,10 +6395,8 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 
 	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
 	taiko = snd_soc_codec_get_drvdata(codec);
-
-	snd_soc_card_change_online_state(codec->card, 1);
-
 	mutex_lock(&codec->mutex);
+
 	if (codec->reg_def_copy) {
 		pr_debug("%s: Update ASOC cache", __func__);
 		kfree(codec->reg_cache);
@@ -6430,6 +6404,7 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 						codec->reg_size, GFP_KERNEL);
 	}
 
+	wcd9xxx_resmgr_post_ssr(&taiko->resmgr);
 	if (spkr_drv_wrnd == 1)
 		snd_soc_update_bits(codec, TAIKO_A_SPKR_DRV_EN, 0x80, 0x80);
 
@@ -6441,8 +6416,6 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 
 	taiko_init_slim_slave_cfg(codec);
 	taiko_slim_interface_init_reg(codec);
-
-	wcd9xxx_resmgr_post_ssr(&taiko->resmgr);
 
 	if (taiko->mbhc_started) {
 		wcd9xxx_mbhc_deinit(&taiko->mbhc);
@@ -6466,13 +6439,6 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 				taiko->mbhc_started = true;
 		}
 	}
-	taiko->machine_codec_event_cb(codec, WCD9XXX_CODEC_EVENT_CODEC_UP);
-
-	taiko_cleanup_irqs(taiko);
-	ret = taiko_setup_irqs(taiko);
-	if (ret)
-		pr_err("%s: Failed to setup irq: %d\n", __func__, ret);
-
 	mutex_unlock(&codec->mutex);
 	return ret;
 }
@@ -6515,12 +6481,9 @@ static struct wcd9xxx_reg_address taiko_reg_address = {
 };
 
 static int wcd9xxx_ssr_register(struct wcd9xxx *control,
-				int (*device_down_cb)(struct wcd9xxx *wcd9xxx),
-				int (*device_up_cb)(struct wcd9xxx *wcd9xxx),
-				void *priv)
+		int (*post_reset_cb)(struct wcd9xxx *wcd9xxx), void *priv)
 {
-	control->dev_down = device_down_cb;
-	control->post_reset = device_up_cb;
+	control->post_reset = post_reset_cb;
 	control->ssr_priv = priv;
 	return 0;
 }
@@ -6615,8 +6578,7 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	control = codec->control_data;
 
-	wcd9xxx_ssr_register(control, taiko_device_down,
-			     taiko_post_reset_cb, (void *)codec);
+	wcd9xxx_ssr_register(control, taiko_post_reset_cb, (void *)codec);
 
 	dev_info(codec->dev, "%s()\n", __func__);
 

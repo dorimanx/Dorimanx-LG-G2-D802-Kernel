@@ -27,11 +27,6 @@
 #include <sound/q6asm-v2.h>
 #include <sound/q6lsm.h>
 
-#include <sound/q6adm-v2.h>
-#include <sound/q6afe-v2.h>
-#include <sound/q6asm-v2.h>
-#include <sound/q6lsm.h>
-
 #define MAX_NETWORKS			15
 #define MAX_IOCTL_DATA			(MAX_NETWORKS * 2)
 #define MAX_COL_SIZE			324
@@ -1008,7 +1003,7 @@ static int unmap_cal_tables(void)
 		result = result2;
 	}
 
-	result2 = voc_unmap_cal_blocks();
+	result2 = voice_unmap_cal_blocks();
 	if (result2 < 0) {
 		pr_err("%s: voice_unmap_cal_blocks failed, err = %d\n",
 			__func__, result2);
@@ -1031,6 +1026,7 @@ static int deregister_memory(void)
 		if (result < 0)
 			pr_err("%s: unmap_cal_tables failed, err = %d\n",
 				__func__, result);
+
 
 
 		atomic64_set(&acdb_data.mem_len, 0);

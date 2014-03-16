@@ -299,6 +299,14 @@ static struct mfd_cell tapan_devs[] = {
 	},
 };
 
+
+enum wcd9xxx_chipid_major {
+	TABLA_MAJOR = cpu_to_le16(0x100),
+	SITAR_MAJOR = cpu_to_le16(0x101),
+	TAIKO_MAJOR = cpu_to_le16(0x102),
+	TAPAN_MAJOR = cpu_to_le16(0x103),
+};
+
 static const struct wcd9xxx_codec_type wcd9xxx_codecs[] = {
 	{
 		TABLA_MAJOR, cpu_to_le16(0x1), tabla1x_devs,
@@ -486,7 +494,7 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 	found = wcd9xxx_check_codec_type(wcd9xxx, &version);
 	if (!found) {
 		ret = -ENODEV;
-		goto err;
+		goto err_irq;
 	} else {
 		wcd9xxx->codec_type = found;
 		wcd9xxx->version = version;
@@ -506,13 +514,6 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 		dev_err(wcd9xxx->dev, "Failed to add children: %d\n", ret);
 		goto err_irq;
 	}
-
-	ret = device_init_wakeup(wcd9xxx->dev, true);
-	if (ret) {
-		dev_err(wcd9xxx->dev, "Device wakeup init failed: %d\n", ret);
-		goto err_irq;
-	}
-
 	return ret;
 err_irq:
 	wcd9xxx_irq_exit(wcd9xxx);
@@ -527,7 +528,6 @@ err:
 
 static void wcd9xxx_device_exit(struct wcd9xxx *wcd9xxx)
 {
-	device_init_wakeup(wcd9xxx->dev, false);
 	wcd9xxx_irq_exit(wcd9xxx);
 	wcd9xxx_bring_down(wcd9xxx);
 	wcd9xxx_free_reset(wcd9xxx);
@@ -1566,32 +1566,14 @@ static int wcd9xxx_device_up(struct wcd9xxx *wcd9xxx)
 		pr_err("%s: Resetting Codec failed\n", __func__);
 
 	wcd9xxx_bring_up(wcd9xxx);
-	ret = wcd9xxx_irq_init(wcd9xxx);
-	if (ret) {
-		pr_err("%s: wcd9xx_irq_init failed : %d\n", __func__, ret);
-	} else {
-		if (wcd9xxx->post_reset)
-			ret = wcd9xxx->post_reset(wcd9xxx);
-	}
+	wcd9xxx->post_reset(wcd9xxx);
 	return ret;
 }
 
 static int wcd9xxx_slim_device_up(struct slim_device *sldev)
 {
 	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
-	dev_dbg(wcd9xxx->dev, "%s: device up\n", __func__);
 	return wcd9xxx_device_up(wcd9xxx);
-}
-
-static int wcd9xxx_slim_device_down(struct slim_device *sldev)
-{
-	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
-
-	wcd9xxx_irq_exit(wcd9xxx);
-	if (wcd9xxx->dev_down)
-		wcd9xxx->dev_down(wcd9xxx);
-	dev_dbg(wcd9xxx->dev, "%s: device down\n", __func__);
-	return 0;
 }
 
 static int wcd9xxx_slim_resume(struct slim_device *sldev)
@@ -1750,7 +1732,6 @@ static struct slim_driver taiko_slim_driver = {
 	.resume = wcd9xxx_slim_resume,
 	.suspend = wcd9xxx_slim_suspend,
 	.device_up = wcd9xxx_slim_device_up,
-	.device_down = wcd9xxx_slim_device_down,
 };
 
 static const struct slim_device_id tapan_slimtest_id[] = {
@@ -1768,8 +1749,6 @@ static struct slim_driver tapan_slim_driver = {
 	.id_table = tapan_slimtest_id,
 	.resume = wcd9xxx_slim_resume,
 	.suspend = wcd9xxx_slim_suspend,
-	.device_up = wcd9xxx_slim_device_up,
-	.device_down = wcd9xxx_slim_device_down,
 };
 
 static struct i2c_device_id wcd9xxx_id_table[] = {

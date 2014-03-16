@@ -25,8 +25,8 @@
 #define Q6_PIL_GET_DELAY_MS 100
 #define BOOT_CMD 1
 
-static ssize_t adsp_boot_store(struct kobject *kobj,\
-	struct kobj_attribute *attr,\
+static ssize_t adsp_boot_store(struct kobject *kobj,
+	struct kobj_attribute *attr,
 	const char *buf, size_t count);
 
 struct adsp_loader_private {
@@ -43,7 +43,7 @@ static struct attribute *attrs[] = {
 	NULL,
 };
 
-struct platform_device *adsp_private;
+static struct platform_device *adsp_private;
 
 static void adsp_loader_do(struct platform_device *pdev)
 {
@@ -104,7 +104,7 @@ static ssize_t adsp_boot_store(struct kobject *kobj,
 	sscanf(buf, "%du", &boot);
 
 	if (boot == BOOT_CMD) {
-		pr_info("%s:going to call adsp_loader_do", __func__);
+		pr_debug("%s:going to call adsp_loader_do", __func__);
 		adsp_loader_do(adsp_private);
 	}
 	return count;
@@ -118,8 +118,9 @@ static int adsp_loader_init_sysfs(struct platform_device *pdev)
 
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
-		pr_err("memory alloc failed\n");
-		return -ENOMEM;
+		pr_err("%s: memory alloc failed\n", __func__);
+		ret = -ENOMEM;
+		goto error_return;
 	}
 
 	platform_set_drvdata(pdev, priv);
@@ -132,6 +133,7 @@ static int adsp_loader_init_sysfs(struct platform_device *pdev)
 	if (!priv->attr_group) {
 		pr_err("%s: malloc attr_group failed\n",
 						__func__);
+		ret = -ENOMEM;
 		goto error_return;
 	}
 
@@ -141,6 +143,7 @@ static int adsp_loader_init_sysfs(struct platform_device *pdev)
 	if (!priv->boot_adsp_obj) {
 		pr_err("%s: sysfs create and add failed\n",
 						__func__);
+		ret = -ENOMEM;
 		goto error_return;
 	}
 
@@ -156,10 +159,6 @@ static int adsp_loader_init_sysfs(struct platform_device *pdev)
 	return 0;
 
 error_return:
-	if (priv->attr_group) {
-		devm_kfree(&pdev->dev, priv->attr_group);
-		priv->attr_group = NULL;
-	}
 
 	if (priv->boot_adsp_obj) {
 		kobject_del(priv->boot_adsp_obj);
@@ -189,14 +188,6 @@ static int adsp_loader_remove(struct platform_device *pdev)
 		priv->boot_adsp_obj = NULL;
 	}
 
-	if (priv->attr_group) {
-		devm_kfree(&pdev->dev, priv->attr_group);
-		priv->attr_group = NULL;
-	}
-
-	devm_kfree(&pdev->dev, priv);
-	adsp_private = NULL;
-
 	return 0;
 }
 
@@ -204,7 +195,7 @@ static int adsp_loader_probe(struct platform_device *pdev)
 {
 	int ret = adsp_loader_init_sysfs(pdev);
 	if (ret != 0) {
-		pr_err("Error in initing sysfs\n");
+		pr_err("%s: Error in initing sysfs\n", __func__);
 		return ret;
 	}
 

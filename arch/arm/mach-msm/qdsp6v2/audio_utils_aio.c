@@ -250,11 +250,7 @@ void audio_aio_async_write_ack(struct q6audio_aio *audio, uint32_t token,
 		return;
 
 	spin_lock_irqsave(&audio->dsp_lock, flags);
-	if (list_empty(&audio->out_queue)) {
-		pr_warning("%s: ingore unexpected event from dsp\n", __func__);
-		spin_unlock_irqrestore(&audio->dsp_lock, flags);
-		return;
-	}
+	BUG_ON(list_empty(&audio->out_queue));
 	used_buf = list_first_entry(&audio->out_queue,
 					struct audio_aio_buffer_node, list);
 	if (token == used_buf->token) {
@@ -1095,7 +1091,6 @@ int audio_aio_open(struct q6audio_aio *audio, struct file *file)
 	int rc = 0;
 	int i;
 	struct audio_aio_event *e_node = NULL;
-	struct list_head *ptr, *next;
 
 	/* Settings will be re-config at AUDIO_SET_CONFIG,
 	 * but at least we need to have initial config
@@ -1148,35 +1143,28 @@ int audio_aio_open(struct q6audio_aio *audio, struct file *file)
 		else {
 			pr_err("%s[%p]:event pkt alloc failed\n",
 				__func__, audio);
-			rc = -ENOMEM;
-			goto cleanup;
+			break;
 		}
 	}
 	audio->client = msm_audio_ion_client_create(UINT_MAX,
 						    "Audio_Dec_Client");
 	if (IS_ERR_OR_NULL(audio->client)) {
 		pr_err("Unable to create ION client\n");
-		rc = -ENOMEM;
-		goto cleanup;
+		rc = -EACCES;
+		goto fail;
 	}
 	pr_debug("Ion client create in audio_aio_open %p", audio->client);
 
 	rc = register_volume_listener(audio);
 	if (rc < 0)
-		goto ion_cleanup;
+		goto fail;
 
 	return 0;
-ion_cleanup:
-	msm_audio_ion_client_destroy(audio->client);
-	audio->client = NULL;
-cleanup:
-	list_for_each_safe(ptr, next, &audio->free_event_queue) {
-		e_node = list_first_entry(&audio->free_event_queue,
-				   struct audio_aio_event, list);
-		list_del(&e_node->list);
-		kfree(e_node);
-	}
+
 fail:
+	q6asm_audio_client_free(audio->ac);
+	kfree(audio->codec_cfg);
+	kfree(audio);
 	return rc;
 }
 

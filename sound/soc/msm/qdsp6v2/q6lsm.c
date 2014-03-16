@@ -31,7 +31,6 @@
 #include <mach/memory.h>
 #include <mach/debug_mm.h>
 #include "audio_acdb.h"
-#include "q6core.h"
 
 #define APR_TIMEOUT	(5 * HZ)
 #define LSM_CAL_SIZE	4096
@@ -175,6 +174,8 @@ static void *q6lsm_mmap_apr_reg(void)
 				 __func__);
 			atomic_dec(&lsm_common.apr_users);
 		}
+		lsm_common.common_client.apr = lsm_common.apr;
+		lsm_common.common_client.mmap_apr = lsm_common.apr;
 	}
 
 	return lsm_common.apr;
@@ -187,6 +188,8 @@ static int q6lsm_mmap_apr_dereg(void)
 	} else {
 		if (atomic_dec_return(&lsm_common.apr_users) == 0) {
 			apr_deregister(lsm_common.apr);
+			lsm_common.common_client.apr = NULL;
+			lsm_common.common_client.mmap_apr = NULL;
 			pr_debug("%s:APR De-Register common port\n", __func__);
 		}
 	}
@@ -271,7 +274,7 @@ static int q6lsm_apr_send_pkt(struct lsm_client *client, void *handle,
 		mmap_handle_p = mmap_p;
 	}
 	atomic_set(&client->cmd_state, CMD_STATE_WAIT_RESP);
-	ret = apr_send_pkt(handle, data);
+	ret = apr_send_pkt(client->apr, data);
 	if (mmap_p)
 		spin_unlock_irqrestore(&mmap_lock, flags);
 
@@ -482,6 +485,7 @@ int q6lsm_deregister_sound_model(struct lsm_client *client)
 
 	q6lsm_snd_model_buf_free(client);
 
+
 	return rc;
 }
 
@@ -571,6 +575,8 @@ static int q6lsm_memory_unmap_regions(struct lsm_client *client,
 	return rc;
 }
 
+
+
 static int q6lsm_send_cal(struct lsm_client *client)
 {
 	int rc;
@@ -609,7 +615,6 @@ static int q6lsm_send_cal(struct lsm_client *client)
 		}
 		lsm_common.lsm_cal_addr = lsm_cal.cal_paddr;
 		lsm_common.lsm_cal_size = LSM_CAL_SIZE;
-		lsm_common.common_client.session = client->session;
 	}
 
 	q6lsm_add_hdr(client, &params.hdr, sizeof(params), true);
@@ -629,46 +634,26 @@ bail:
 	return rc;
 }
 
+
 int q6lsm_unmap_cal_blocks(void)
 {
-	int	result = 0;
-	int	result2 = 0;
+	int				result = 0;
 
 	if (lsm_common.mmap_handle_for_cal == 0)
 		goto done;
 
-	if (lsm_common.common_client.mmap_apr == NULL) {
-		lsm_common.common_client.mmap_apr = q6lsm_mmap_apr_reg();
-		if (lsm_common.common_client.mmap_apr == NULL) {
-			pr_err("%s: q6lsm_mmap_apr_reg failed\n",
-				__func__);
-			result = -EPERM;
-			goto done;
-		}
-	}
-
-	result2 = q6lsm_memory_unmap_regions(
+	q6lsm_mmap_apr_reg();
+	result = q6lsm_memory_unmap_regions(
 		&lsm_common.common_client,
 		lsm_common.mmap_handle_for_cal);
-	if (result2 < 0) {
+	q6lsm_mmap_apr_dereg();
+	if (result < 0)
 		pr_err("%s: unmap failed, err %d\n",
-			__func__, result2);
-		result = result2;
-	} else {
-		lsm_common.mmap_handle_for_cal = 0;
-	}
-
-	result2 = q6lsm_mmap_apr_dereg();
-	if (result2 < 0) {
-		pr_err("%s: q6lsm_mmap_apr_dereg failed, err %d\n",
-			__func__, result2);
-		result = result2;
-	} else {
-		lsm_common.common_client.mmap_apr = NULL;
-	}
+			__func__, result);
 
 	lsm_common.lsm_cal_addr = 0;
 	lsm_common.lsm_cal_size = 0;
+	lsm_common.mmap_handle_for_cal = 0;
 
 done:
 	return result;
@@ -683,7 +668,7 @@ int q6lsm_snd_model_buf_free(struct lsm_client *client)
 	rc = q6lsm_memory_unmap_regions(client,
 					client->sound_model.mem_map_handle);
 	if (rc < 0)
-		pr_err("%s CMD Memory_unmap_regions failed\n", __func__);
+ 		pr_err("%s CMD Memory_unmap_regions failed\n", __func__);
 
 	if (client->sound_model.data) {
 		ion_unmap_kernel(client->sound_model.client,
@@ -716,6 +701,7 @@ static struct lsm_client *q6lsm_get_lsm_client(int session_id)
 	else
 		client = lsm_session[session_id];
 	spin_unlock_irqrestore(&lsm_session_lock, flags);
+
 done:
 	return client;
 }
@@ -806,7 +792,6 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, uint32_t len)
 		if (IS_ERR_OR_NULL(client->sound_model.handle)) {
 			pr_err("%s: ION memory allocation for AUDIO failed\n",
 			       __func__);
-			mutex_unlock(&client->cmd_lock);
 			goto fail;
 		}
 
@@ -897,12 +882,7 @@ static int __init q6lsm_init(void)
 	spin_lock_init(&lsm_session_lock);
 	spin_lock_init(&mmap_lock);
 	mutex_init(&lsm_common.apr_lock);
-
 	lsm_common.common_client.session = LSM_CONTROL_SESSION;
-	init_waitqueue_head(&lsm_common.common_client.cmd_wait);
-	mutex_init(&lsm_common.common_client.cmd_lock);
-	atomic_set(&lsm_common.common_client.cmd_state, CMD_STATE_CLEARED);
-
 	return 0;
 }
 

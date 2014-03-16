@@ -128,12 +128,9 @@ static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
 						snd_model.min_keyw_confidence,
 						snd_model.min_user_confidence,
 						snd_model.detect_failure);
-		if (rc < 0) {
+		if (rc < 0)
 			pr_err("%s: q6lsm_register_sound_model failed =%d\n",
 			       __func__, rc);
-			q6lsm_snd_model_buf_free(prtd->lsm_client);
-		}
-
 		break;
 
 	case SNDRV_LSM_DEREG_SND_MODEL:
