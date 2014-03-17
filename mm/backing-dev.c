@@ -370,7 +370,7 @@ static unsigned long bdi_longest_inactive(void)
 static void bdi_clear_pending(struct backing_dev_info *bdi)
 {
 	clear_bit(BDI_pending, &bdi->state);
-	smp_mb__after_clear_bit();
+	smp_mb__after_atomic();
 	wake_up_bit(&bdi->state, BDI_pending);
 }
 
@@ -791,7 +791,7 @@ void clear_bdi_congested(struct backing_dev_info *bdi, int sync)
 	bit = sync ? BDI_sync_congested : BDI_async_congested;
 	if (test_and_clear_bit(bit, &bdi->state))
 		atomic_dec(&nr_bdi_congested[sync]);
-	smp_mb__after_clear_bit();
+	smp_mb__after_atomic();
 	if (waitqueue_active(wqh))
 		wake_up(wqh);
 }
