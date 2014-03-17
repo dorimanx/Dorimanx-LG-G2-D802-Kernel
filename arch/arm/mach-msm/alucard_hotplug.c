@@ -315,7 +315,7 @@ static void __cpuinit cpus_hotplugging(bool state) {
 		if (num_online_cpus() > 1) {
 			delay -= jiffies % delay;
 		}
-		schedule_delayed_work_on(0, &alucard_hotplug_work, delay);
+		queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
 	} else {
 		stop_rq_work();
 		for_each_online_cpu(cpu) {
@@ -364,7 +364,7 @@ static void update_sampling_rate(unsigned int new_rate)
 		cancel_delayed_work_sync(&alucard_hotplug_work);
 		mutex_lock(&timer_mutex);
 
-		schedule_delayed_work_on(cpu, &alucard_hotplug_work, usecs_to_jiffies(new_rate));
+		queue_delayed_work_on(cpu, system_wq, &alucard_hotplug_work, usecs_to_jiffies(new_rate));
 	}
 
 	mutex_unlock(&timer_mutex);
@@ -657,7 +657,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 		if (num_online_cpus() == 1) {
 			per_cpu(od_hotplug_cpuinfo, 0).up_cpu = 1;
 		}
-		schedule_delayed_work_on(0, &alucard_hotplug_work, delay);
+		queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
 	}
 	mutex_unlock(&timer_mutex);
 }
@@ -702,7 +702,7 @@ int __init alucard_hotplug_init(void)
 		delay -= jiffies % delay;
 	}
 	INIT_DELAYED_WORK(&alucard_hotplug_work, hotplug_work_fn);
-	schedule_delayed_work_on(0, &alucard_hotplug_work, delay);
+	queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
 
 	return ret;
 }
