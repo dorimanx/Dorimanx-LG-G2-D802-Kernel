@@ -42,7 +42,7 @@
 #define DEF_FREQUENCY_UP_THRESHOLD		(80)
 #define DEF_FREQUENCY_UP_THRESHOLD_ANY_CPU	(80)
 #define DEF_FREQUENCY_UP_THRESHOLD_MULTI_CORE	(90)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(80)
+#define MICRO_FREQUENCY_UP_THRESHOLD		(90)
 
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define DEF_SAMPLING_RATE			(6 * 10000)
@@ -64,14 +64,14 @@
 #define SUP_SLOW_UP_DUR (2)
 
 #if defined(SMART_UP_PLUS)
-static unsigned int SUP_THRESHOLD_STEPS[SUP_MAX_STEP] = {75, 80, 90};
+static unsigned int SUP_THRESHOLD_STEPS[SUP_MAX_STEP] = {80, 85, 90};
 static unsigned int SUP_FREQ_STEPS[SUP_MAX_STEP] = {4, 3, 2};
 static unsigned int min_range = 108000;
 #endif
 
 #if defined(SMART_UP_SLOW_UP_AT_HIGH_FREQ)
 static unsigned int SUP_SLOW_UP_FREQUENCY = 2265600;
-static unsigned int SUP_SLOW_UP_LOAD = 80;
+static unsigned int SUP_SLOW_UP_LOAD = 85;
 
 typedef struct {
 	unsigned int hist_max_load[SUP_SLOW_UP_DUR];
@@ -96,11 +96,12 @@ history_load hist_load[SUP_CORE_NUM] = {};
 static unsigned int min_sampling_rate;
 
 #define LATENCY_MULTIPLIER			(1000)
-#define MIN_LATENCY_MULTIPLIER			(10)
+#define MIN_LATENCY_MULTIPLIER			(20)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
 #define POWERSAVE_BIAS_MAXLEVEL			(1000)
 #define POWERSAVE_BIAS_MINLEVEL			(-1000)
+unsigned int ondemand_current_sampling_rate;
 
 static void do_dbs_timer(struct work_struct *work);
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
@@ -146,6 +147,8 @@ struct cpu_dbs_info_s {
 	wait_queue_head_t sync_wq;
 	atomic_t src_sync_cpu;
 	atomic_t sync_enabled;
+
+	bool activated; /* dbs_timer_init is in effect */
 };
 static DEFINE_PER_CPU(struct cpu_dbs_info_s, od_cpu_dbs_info);
 
@@ -247,6 +250,14 @@ static inline cputime64_t get_cpu_iowait_time(unsigned int cpu, cputime64_t *wal
 }
 
 /*
+ * Find right sampling rate based on sampling_rate
+ */
+static unsigned int effective_sampling_rate(void)
+{
+	return max(dbs_tuners_ins.sampling_rate, min_sampling_rate);
+}
+
+/*
  * Find right freq to be set now with powersave_bias on.
  * Returns the freq_hi to be used right now and will set freq_hi_jiffies,
  * freq_lo, and freq_lo_jiffies in percpu area for averaging freqs.
@@ -291,7 +302,7 @@ static unsigned int powersave_bias_target(struct cpufreq_policy *policy,
 		dbs_info->freq_lo_jiffies = 0;
 		return freq_lo;
 	}
-	jiffies_total = usecs_to_jiffies(dbs_tuners_ins.sampling_rate);
+	jiffies_total = usecs_to_jiffies(effective_sampling_rate());
 	jiffies_hi = (freq_avg - freq_lo) * jiffies_total;
 	jiffies_hi += ((freq_hi - freq_lo) / 2);
 	jiffies_hi /= (freq_hi - freq_lo);
@@ -389,9 +400,12 @@ static ssize_t show_powersave_bias
 static void update_sampling_rate(unsigned int new_rate)
 {
 	int cpu;
+	unsigned int effective;
 
-	dbs_tuners_ins.sampling_rate = new_rate
-				     = max(new_rate, min_sampling_rate);
+	if (new_rate)
+		dbs_tuners_ins.sampling_rate = max(new_rate, min_sampling_rate);
+
+	effective = effective_sampling_rate();
 
 	get_online_cpus();
 	for_each_online_cpu(cpu) {
@@ -399,34 +413,61 @@ static void update_sampling_rate(unsigned int new_rate)
 		struct cpu_dbs_info_s *dbs_info;
 		unsigned long next_sampling, appointed_at;
 
+		/*
+		 * mutex_destory(&dbs_info->timer_mutex) should not happen
+		 * in this context. dbs_mutex is locked/unlocked at GOV_START
+		 * and GOV_STOP context only other than here.
+		 */
+		mutex_lock(&dbs_mutex);
+
 		policy = cpufreq_cpu_get(cpu);
-		if (!policy)
+		if (!policy) {
+			mutex_unlock(&dbs_mutex);
 			continue;
+		}
 		dbs_info = &per_cpu(od_cpu_dbs_info, policy->cpu);
 		cpufreq_cpu_put(policy);
+
+		/* timer_mutex is destroyed or will be destroyed soon */
+		if (!dbs_info->activated) {
+			mutex_unlock(&dbs_mutex);
+			continue;
+		}
 
 		mutex_lock(&dbs_info->timer_mutex);
 
 		if (!delayed_work_pending(&dbs_info->work)) {
 			mutex_unlock(&dbs_info->timer_mutex);
+			mutex_unlock(&dbs_mutex);
 			continue;
 		}
 
-		next_sampling  = jiffies + usecs_to_jiffies(new_rate);
+		next_sampling = jiffies + usecs_to_jiffies(new_rate);
 		appointed_at = dbs_info->work.timer.expires;
 
-
 		if (time_before(next_sampling, appointed_at)) {
-
 			mutex_unlock(&dbs_info->timer_mutex);
 			cancel_delayed_work_sync(&dbs_info->work);
 			mutex_lock(&dbs_info->timer_mutex);
 
 			queue_delayed_work_on(dbs_info->cpu, dbs_wq,
-				&dbs_info->work, usecs_to_jiffies(new_rate));
-
+					&dbs_info->work, usecs_to_jiffies(effective));
 		}
 		mutex_unlock(&dbs_info->timer_mutex);
+
+		/*
+		 * For the little possiblity that dbs_timer_exit() has been
+		 * called after checking dbs_info->activated above.
+		 * If cancel_delayed_work_syn() has been calld by
+		 * dbs_timer_exit() before schedule_delayed_work_on() of this
+		 * function, it should be revoked by calling cancel again
+		 * before releasing dbs_mutex, which will trigger mutex_destroy
+		 * to be called.
+		 */
+		if (!dbs_info->activated)
+			cancel_delayed_work_sync(&dbs_info->work);
+
+		mutex_unlock(&dbs_mutex);
 	}
 	put_online_cpus();
 }
@@ -436,10 +477,13 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 {
 	unsigned int input;
 	int ret;
+
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+
 	update_sampling_rate(input);
+	ondemand_current_sampling_rate = dbs_tuners_ins.sampling_rate;
 	return count;
 }
 
@@ -1048,11 +1092,11 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	 */
 	if (max_load_freq <
 	    (dbs_tuners_ins.up_threshold - dbs_tuners_ins.down_differential) *
-	     policy->cur) {
+			policy->cur) {
 		unsigned int freq_next;
 		freq_next = max_load_freq /
 				(dbs_tuners_ins.up_threshold -
-				 dbs_tuners_ins.down_differential);
+					dbs_tuners_ins.down_differential);
 
 /* PATCH : SMART_UP */
 #if defined(SMART_UP_PLUS) && defined(SMART_UP_SLOW_UP_AT_HIGH_FREQ)
@@ -1127,7 +1171,7 @@ static void do_dbs_timer(struct work_struct *work)
 			/* We want all CPUs to do sampling nearly on
 			 * same jiffy
 			 */
-			delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate
+			delay = usecs_to_jiffies(effective_sampling_rate()
 				* dbs_info->rate_mult);
 
 			if (num_online_cpus() > 1)
@@ -1153,7 +1197,7 @@ static void do_dbs_timer(struct work_struct *work)
 static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 {
 	/* We want all CPUs to do sampling nearly on same jiffy */
-	int delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate);
+	int delay = usecs_to_jiffies(effective_sampling_rate());
 
 	if (num_online_cpus() > 1)
 		delay -= jiffies % delay;
@@ -1161,10 +1205,12 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 	dbs_info->sample_type = DBS_NORMAL_SAMPLE;
 	INIT_DEFERRABLE_WORK(&dbs_info->work, do_dbs_timer);
 	queue_delayed_work_on(dbs_info->cpu, dbs_wq, &dbs_info->work, delay);
+	dbs_info->activated = true;
 }
 
 static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
 {
+	dbs_info->activated = false;
 	cancel_delayed_work_sync(&dbs_info->work);
 }
 
