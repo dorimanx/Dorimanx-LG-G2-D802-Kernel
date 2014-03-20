@@ -19,6 +19,10 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
 #include <linux/pm_runtime.h>
+#ifdef CONFIG_MACH_MSM8974_B1_KR
+#include <mach/board_lge.h>
+#endif
+
 
 #include "core.h"
 #include "bus.h"
@@ -1014,11 +1018,19 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	WARN_ON(!host->claimed);
 
 	#ifdef CONFIG_MACH_LGE
+	#ifndef CONFIG_MACH_MSM8974_B1_KR
 	if (host->index == 2 && !mmc_cd_get_status(host)) {
 		printk(KERN_INFO "[LGE][MMC][%-18s( )] sd-no-exist. skip next\n", __func__);
 		err = -ENOMEDIUM;
 		return err;
 	}
+	#else
+	if (host->index == 1 && !mmc_cd_get_status(host)) {
+			printk(KERN_INFO "[LGE][MMC][%-18s( )] sd-no-exist. skip next\n", __func__);
+			err = -ENOMEDIUM;
+			return err;
+	}
+	#endif
 	#endif
 
 	/* The initialization should be done at 3.3 V I/O voltage. */
@@ -1153,10 +1165,10 @@ static void mmc_sd_remove(struct mmc_host *host)
 static int mmc_sd_alive(struct mmc_host *host)
 {
 #ifdef CONFIG_MACH_LGE
-	/*                                      
-                                                                    
-                                                                                              
-  */
+	/* LGE_UPDATE, 2013/07/19, G2-FS@lge.com
+	 * When checking whether sd exists or not, using CMD13 is not good.
+	 * It can be async-status between cd-gpio and result of CMD13 according to sd-slot-structure.
+	 */
 	return !mmc_cd_get_status(host);
 #else
 	return mmc_send_status(host->card, NULL);
@@ -1171,9 +1183,9 @@ static void mmc_sd_detect(struct mmc_host *host)
 	int err = 0;
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
 #if !defined (CONFIG_MACH_LGE) || defined(CONFIG_MACH_MSM8974_B1_KR)
-	/*                                      
-                              
-  */
+	/* LGE_UPDATE, 2013/07/19, G2-FS@lge.com
+	 * for fixing compile-warning
+	 */
 	int retries = 5;
 #endif
 #endif
@@ -1189,16 +1201,18 @@ static void mmc_sd_detect(struct mmc_host *host)
 	 */
 
 #if defined (CONFIG_MACH_LGE) && !defined(CONFIG_MACH_MSM8974_B1_KR)
-	/*                                      
-                                                                    
-                                                                                              
-  */
+	/* LGE_UPDATE, 2013/07/19, G2-FS@lge.com
+	 * When checking whether sd exists or not, using CMD13 is not good.
+	 * It can be async-status between cd-gpio and result of CMD13 according to sd-slot-structure.
+	 */
 	if (!mmc_cd_get_status(host)) {
 		err = _mmc_detect_card_removed(host);
 		printk(KERN_ERR "%s(%s): Unable to re-detect card (%d)\n",
 		       __func__, mmc_hostname(host), err);
 	}
 #else
+	if ((HW_REV_B <= lge_get_board_revno())&&(HW_REV_1_0 > lge_get_board_revno()))
+	{
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
 	while(retries) {
 		err = mmc_send_status(host->card, NULL);
@@ -1219,6 +1233,12 @@ static void mmc_sd_detect(struct mmc_host *host)
 #else
 	err = _mmc_detect_card_removed(host);
 #endif
+	} else {
+		if (!mmc_cd_get_status(host)) {
+			err = _mmc_detect_card_removed(host);
+			printk(KERN_ERR "%s(%s): Unable to re-detect card (%d)\n",__func__, mmc_hostname(host), err);
+		}
+	}
 #endif
 
 	mmc_release_host(host);
@@ -1286,10 +1306,10 @@ static int mmc_sd_resume(struct mmc_host *host)
 		err = mmc_sd_init_card(host, host->ocr, host->card);
 
 		#ifdef CONFIG_MACH_LGE
-			/*           
-                              
-                              
-   */
+			/* LGE_CHANGE
+			* Skip below When ENOMEDIUM
+			* 2013-03-09, G2-FS@lge.com
+			*/
 			if (err == -ENOMEDIUM) {
 				printk(KERN_INFO "[LGE][MMC][%-18s( )] error:ENOMEDIUM\n", __func__);
 				break;
@@ -1450,10 +1470,10 @@ int mmc_attach_sd(struct mmc_host *host)
 		err = mmc_sd_init_card(host, host->ocr, NULL);
 
 		#ifdef CONFIG_MACH_LGE
-		/*           
-                             
-                             
-  */
+		/* LGE_CHANGE
+		* Skip below When ENOMEDIUM
+		* 2013-07-16, G2-FS@lge.com
+		*/
 		if (err == -ENOMEDIUM) {
 			printk(KERN_INFO "[LGE][MMC][%-18s( )] error:ENOMEDIUM\n", __func__);
 			retries = 0;

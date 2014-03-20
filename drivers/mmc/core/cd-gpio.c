@@ -60,9 +60,9 @@ static irqreturn_t mmc_cd_gpio_irqt(int irq, void *dev_id)
 
 		/* Schedule a card detection after a debounce timeout */
 		#ifdef CONFIG_MACH_LGE
-		/*                                      
-                                                   
-   */
+		/* LGE_UPDATE, 2013/07/16, G2-FS@lge.com
+		 * Reduce debounce time to make it more sensitive
+		 */
 		mmc_detect_change(host, 0);
 		#else
 		mmc_detect_change(host, msecs_to_jiffies(100));

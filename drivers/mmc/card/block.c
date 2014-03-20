@@ -43,6 +43,9 @@
 #include <linux/mmc/sd.h>
 
 #include <asm/uaccess.h>
+#ifdef CONFIG_MACH_MSM8974_B1_KR
+#include <mach/board_lge.h>
+#endif
 
 #include "queue.h"
 
@@ -1507,8 +1510,8 @@ static int mmc_blk_err_check(struct mmc_card *card,
 		printk(KERN_INFO "[LGE][MMC][%-18s( )] sd-no-exist, skip next\n", __func__);
 		return MMC_BLK_NOMEDIUM;
 	}
-	#else // for b1 sd's port swap (SD: sdc3/index0 , wifi : sdc2
-	if (card->host->index == 0 && !mmc_cd_get_status(card->host)) {
+	#else /* for b1 to fix sd host index */
+	if (card->host->index == 1 && !mmc_cd_get_status(card->host)) {
 		printk(KERN_INFO "[LGE][MMC][%-18s( )] sd-no-exist, skip next\n", __func__);
 		return MMC_BLK_NOMEDIUM;
 	}

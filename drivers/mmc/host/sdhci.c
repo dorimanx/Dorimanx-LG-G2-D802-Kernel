@@ -746,7 +746,7 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 	if (host->quirks & SDHCI_QUIRK_BROKEN_TIMEOUT_VAL)
 		return 0xE;
 #ifndef CONFIG_MACH_LGE
-	/*                                          */
+	/* LGE_UPDATE, 2013/12/10, G2-KK-FS@lge.com */
 	/* QCT Case : 01383733 TD: 135796/OFFICIAL EVENT */
 	/* we agree that below code is not appied */
 	/* Hardware Interrupt occurs, since Data Timeout is longer than hadware interrupt time */
@@ -1542,11 +1542,15 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	/* If polling, assume that the card is always present. */
 	if (host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION)
 #ifdef CONFIG_MACH_LGE
-	/*                                      
-                                                                 
-  */
+	/* LGE_UPDATE, 2013/07/19, G2-FS@lge.com
+	 * When sd doesn't exist physically, do finish tasklet-schedule.
+	 */
 		{
+#ifndef CONFIG_MACH_MSM8974_B1_KR
 			if (mmc->index == 2)
+#else
+			if (mmc->index == 1)
+#endif
 				present = mmc_cd_get_status(mmc);
 			else
 				present = true;
@@ -1602,6 +1606,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	unsigned long flags;
 	int vdd_bit = -1;
 	u8 ctrl;
+	int ret;
 
 	mutex_lock(&host->ios_mutex);
 	if (host->flags & SDHCI_DEVICE_DEAD) {
@@ -1614,6 +1619,29 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	if (ios->clock)
 		sdhci_set_clock(host, ios->clock);
 
+	/*
+	 * The controller clocks may be off during power-up and we may end up
+	 * enabling card clock before giving power to the card. Hence, during
+	 * MMC_POWER_UP enable the controller clock and turn-on the regulators.
+	 * The mmc_power_up would provide the necessary delay before turning on
+	 * the clocks to the card.
+	 */
+	if (ios->power_mode & MMC_POWER_UP) {
+		if (host->ops->enable_controller_clock) {
+			ret = host->ops->enable_controller_clock(host);
+			if (ret) {
+				pr_err("%s: enabling controller clock: failed: %d\n",
+				       mmc_hostname(host->mmc), ret);
+			} else {
+				vdd_bit = sdhci_set_power(host, ios->vdd);
+
+				if (host->vmmc && vdd_bit != -1)
+					mmc_regulator_set_ocr(host->mmc,
+							      host->vmmc,
+							      vdd_bit);
+			}
+		}
+	}
 	spin_lock_irqsave(&host->lock, flags);
 	if (!host->clock) {
 		spin_unlock_irqrestore(&host->lock, flags);
@@ -1622,14 +1650,16 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	}
 	spin_unlock_irqrestore(&host->lock, flags);
 
-	if (ios->power_mode & (MMC_POWER_UP | MMC_POWER_ON))
+	if (!host->ops->enable_controller_clock && (ios->power_mode &
+						    (MMC_POWER_UP |
+						     MMC_POWER_ON))) {
 		vdd_bit = sdhci_set_power(host, ios->vdd);
 
-	if (host->vmmc && vdd_bit != -1)
-		mmc_regulator_set_ocr(host->mmc, host->vmmc, vdd_bit);
+		if (host->vmmc && vdd_bit != -1)
+			mmc_regulator_set_ocr(host->mmc, host->vmmc, vdd_bit);
+	}
 
 	spin_lock_irqsave(&host->lock, flags);
-
 	if (host->ops->platform_send_init_74_clocks)
 		host->ops->platform_send_init_74_clocks(host, ios->power_mode);
 
@@ -1975,9 +2005,9 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 			host->ops->check_power_status(host, REQ_BUS_OFF);
 
 		#ifdef CONFIG_MACH_LGE
-		/*                                      
-                             
-   */
+		/* LGU_UPDATE, 2013/07/17, G2-FS@lge.com
+		 * It maybe need more time.
+		 */
 		usleep_range(10000, 15000);
 		#else
 		/* Wait for 1ms as per the spec */
@@ -2009,9 +2039,9 @@ static int sdhci_start_signal_voltage_switch(struct mmc_host *mmc,
 	err = sdhci_do_start_signal_voltage_switch(host, ios);
 
 	#ifdef CONFIG_MACH_LGE
-	/*                                      
-                                            
-  */
+	/* LGE_UPDATE, 2013/07/17, G2-FS@lge.com
+	 * When err is -EAGAIN, baby one more time.
+	 */
 	if (err == -EAGAIN)
 	{
 		usleep_range(5000, 5500);

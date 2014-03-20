@@ -612,9 +612,9 @@ static int mmc_compare_ext_csds(struct mmc_card *card, unsigned bus_width)
 
 	if (err || bw_ext_csd == NULL) {
 		#ifdef CONFIG_MACH_LGE
-		/*                                      
-                                                
-  */
+		/* LGE_CHANGE, 2013-04-19, G2-FS@lge.com
+		* Adding Print, Requested by QMC-CASE-01158823
+		*/
 		pr_err("%s: %s: 0x%x, 0x%x\n", mmc_hostname(card->host), __func__, err, bw_ext_csd ? *bw_ext_csd : 0x0);
 		#endif
 		if (bus_width != MMC_BUS_WIDTH_1)
@@ -662,9 +662,9 @@ static int mmc_compare_ext_csds(struct mmc_card *card, unsigned bus_width)
 			bw_ext_csd[EXT_CSD_SEC_CNT + 3]));
 
 	#ifdef CONFIG_MACH_LGE
-		/*                                      
-                                                
-  */
+		/* LGE_CHANGE, 2013-04-19, G2-FS@lge.com
+		* Adding Print, Requested by QMC-CASE-01158823
+		*/
 		if (err) {
 		pr_err("%s: %s: fail during compare, err = 0x%x\n", mmc_hostname(card->host), __func__, err);
 		err = -EINVAL;
@@ -678,7 +678,7 @@ out:
 	mmc_free_ext_csd(bw_ext_csd);
 	return err;
 }
-#ifdef CONFIG_MACH_MSM8974_G2_OPEN_COM
+#if defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
 MMC_DEV_ATTR(capacity, "%02x%02x%02x%02x\n", card->ext_csd.raw_sectors[3], card->ext_csd.raw_sectors[2], card->ext_csd.raw_sectors[1], card->ext_csd.raw_sectors[0]);
 #endif
 MMC_DEV_ATTR(cid, "%08x%08x%08x%08x\n", card->raw_cid[0], card->raw_cid[1],
@@ -701,7 +701,7 @@ MMC_DEV_ATTR(raw_rpmb_size_mult, "%#x\n", card->ext_csd.raw_rpmb_size_mult);
 MMC_DEV_ATTR(rel_sectors, "%#x\n", card->ext_csd.rel_sectors);
 
 static struct attribute *mmc_std_attrs[] = {
-#ifdef CONFIG_MACH_MSM8974_G2_OPEN_COM
+#if defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
 	&dev_attr_capacity.attr,
 #endif
 	&dev_attr_cid.attr,
@@ -800,9 +800,9 @@ static int mmc_select_powerclass(struct mmc_card *card,
 		break;
 	default:
 		#ifdef CONFIG_MACH_LGE
-		/*                                      
-                                                
-  */
+		/* LGE_CHANGE, 2013-04-19, G2-FS@lge.com
+		* Adding Print, Requested by QMC-CASE-01158823
+		*/
 		pr_err("%s: %s: Voltage range not supported for power class, host->ios.vdd = 0x%x\n", mmc_hostname(host), __func__, host->ios.vdd);
 		#else
 		pr_warning("%s: Voltage range not supported "
@@ -1226,9 +1226,9 @@ int mmc_set_clock_bus_speed(struct mmc_card *card, unsigned long freq)
 		mmc_set_timing(card->host, MMC_TIMING_LEGACY);
 		mmc_set_clock(card->host, MMC_HIGH_26_MAX_DTR);
 
-		err = mmc_select_hs(card, &card->cached_ext_csd);
+		err = mmc_select_hs(card, card->cached_ext_csd);
 	} else {
-		err = mmc_select_hs400(card, &card->cached_ext_csd);
+		err = mmc_select_hs400(card, card->cached_ext_csd);
 	}
 
 	return err;
@@ -1476,7 +1476,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_get_ext_csd(card, &ext_csd);
 		if (err)
 			goto free_card;
-		memcpy(&card->cached_ext_csd, ext_csd, sizeof(card->ext_csd));
+		card->cached_ext_csd = ext_csd;
 		err = mmc_read_ext_csd(card, ext_csd);
 		if (err)
 			goto free_card;
@@ -1674,15 +1674,12 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	if (!oldcard)
 		host->card = card;
 
-	mmc_free_ext_csd(ext_csd);
 	return 0;
 
 free_card:
 	if (!oldcard)
 		mmc_remove_card(card);
 err:
-	mmc_free_ext_csd(ext_csd);
-
 	return err;
 }
 
