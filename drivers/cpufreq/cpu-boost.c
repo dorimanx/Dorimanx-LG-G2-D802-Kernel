@@ -95,10 +95,6 @@ static int boost_adjust_notify(struct notifier_block *nb, unsigned long val, voi
 		pr_debug("CPU%u policy min after boost: %u kHz\n",
 			 cpu, policy->min);
 		break;
-
-	case CPUFREQ_START:
-		set_cpus_allowed(s->thread, *cpumask_of(cpu));
-		break;
 	}
 
 	return NOTIFY_OK;
@@ -353,7 +349,6 @@ static int cpu_boost_init(void)
 		spin_lock_init(&s->lock);
 		INIT_DELAYED_WORK(&s->boost_rem, do_boost_rem);
 		INIT_DELAYED_WORK(&s->input_boost_rem, do_input_boost_rem);
-		set_cpus_allowed(s->thread, *cpumask_of(cpu));
 	}
 	cpufreq_register_notifier(&boost_adjust_nb, CPUFREQ_POLICY_NOTIFIER);
 	atomic_notifier_chain_register(&migration_notifier_head,
