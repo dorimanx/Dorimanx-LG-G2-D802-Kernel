@@ -337,6 +337,7 @@
 			<0xff 70>,  /* iommu_pmon_nonsecure_irq */
 			<0xff 97>,  /* iommu_nonsecure_irq */
 			<0xff 105>, /* iommu_pmon_nonsecure_irq */
+			<0xff 163>,  /* usb30_ee1_irq */
 			<0xff 173>, /* o_wcss_apss_smd_hi */
 			<0xff 174>, /* o_wcss_apss_smd_med */
 			<0xff 175>, /* o_wcss_apss_smd_low */
@@ -344,7 +345,6 @@
 			<0xff 177>, /* o_wcss_apss_wlan_data_xfer_done */
 			<0xff 178>, /* o_wcss_apss_wlan_rx_data_avail */
 			<0xff 179>, /* o_wcss_apss_asic_intr */
-
 			<0xff 181>, /* wcnss watchdog */
 			<0xff 188>, /* lpass_irq_out_apcs(0) */
 			<0xff 189>, /* lpass_irq_out_apcs(1) */

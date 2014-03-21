@@ -48,7 +48,7 @@
 
 		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
 		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
-		qcom,cpu-dma-latency-us = <200>;
+		qcom,cpu-dma-latency-us = <50>;
 
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <8>;
@@ -97,7 +97,7 @@
 
 	/* Below is SDCC2 */
 	sdcc2_rev_a: qcom,sdcc_rev_a@f98a4000 {
-		cell-index = <2>; /* SDC2 SD card slot */
+		cell-index = <2>; /* SDC2 WLAN slot */
 		compatible = "qcom,msm-sdcc";
 		reg = <0xf98a4000 0x800>,
 			<0xf98a4800 0x100>,
@@ -154,7 +154,7 @@
 	};
 
 	sdcc2_rev_b: qcom,sdcc_rev_b@f98a4000 {
-		cell-index = <2>; /* SDC2 SD card slot */
+		cell-index = <2>; /* SDC2 WLAN slot */
 		compatible = "qcom,msm-sdcc";
 		reg = <0xf98a4000 0x800>,
 			<0xf98a4800 0x100>,
@@ -211,7 +211,7 @@
 	};
 
 	sdcc2_rev_c: qcom,sdcc_rev_c@f98a4000 {
-		cell-index = <2>; /* SDC2 SD card slot */
+		cell-index = <2>; /* SDC2 WLAN slot */
 		compatible = "qcom,msm-sdcc";
 		reg = <0xf98a4000 0x800>,
 			<0xf98a4800 0x100>,
@@ -268,7 +268,7 @@
 	};
 
 	sdcc2_rev_d: qcom,sdcc_rev_d@f98a4000 {
-		cell-index = <2>; /* SDC2 SD card slot */
+		cell-index = <2>; /* SDC2 WLAN slot */
 		compatible = "qcom,msm-sdcc";
 		reg = <0xf98a4000 0x800>,
 			<0xf98a4800 0x100>,
@@ -323,7 +323,6 @@
 		revision = "rev_d...";
 		status = "ok";
 	};	
-
 };
 
 &sdcc2 {

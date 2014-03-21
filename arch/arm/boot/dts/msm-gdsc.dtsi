@@ -60,4 +60,18 @@
 		reg = <0xfc400404 0x4>;
 		status = "disabled";
 	};
+
+	gdsc_usb30: qcom,gdsc@fc401e84 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_usb30";
+		reg = <0xfc401e84 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_usb30_sec: qcom,gdsc@fc401ec0 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_usb30_sec";
+		reg = <0xfc401ec0 0x4>;
+		status = "disabled";
+	};
 };

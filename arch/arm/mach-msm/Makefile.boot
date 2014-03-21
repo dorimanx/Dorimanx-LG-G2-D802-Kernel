@@ -68,7 +68,7 @@ ifeq ($(CONFIG_MACH_LGE),n)
         dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2.2-fluid.dtb
         dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2.2-liquid.dtb
         dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2.2-mtp.dtb
-else
+else ifneq ($(CONFIG_DTS_TARGET),"")
         dtb-$(CONFIG_MACH_MSM8974_G2_ATT)	+= msm8974-g2-att.dtb
         dtb-$(CONFIG_MACH_MSM8974_G2_ATT)	+= msm8974-v2-g2-att.dtb
         dtb-$(CONFIG_MACH_MSM8974_G2_CA)	+= msm8974-g2-ca.dtb
