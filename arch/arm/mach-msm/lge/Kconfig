@@ -250,6 +250,12 @@ config MACH_MSM8974_Z_KDDI
 
 endmenu
 
+config DTS_TARGET
+	string "DTS target dir"
+	help
+	  CONFIG_DTS_TARGET should be set to support appended dts.
+	  ex) CONFIG_DTS_TARGET="msm8974-g2-kr".
+
 menu "LGE Specific Patches"
 
 config LGE_USES_SMD_DS_TTY
