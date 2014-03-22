@@ -323,6 +323,8 @@ static void __cpuinit cpus_hotplugging(bool state) {
 				continue;
 			cpu_down(cpu);
 		}
+		if (delayed_work_pending(&alucard_hotplug_work))
+			cancel_delayed_work_sync(&alucard_hotplug_work);
 	}
 
 	mutex_unlock(&timer_mutex);
@@ -702,14 +704,17 @@ int __init alucard_hotplug_init(void)
 		delay -= jiffies % delay;
 	}
 	INIT_DELAYED_WORK(&alucard_hotplug_work, hotplug_work_fn);
-	queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
+
+	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0)
+		queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
 
 	return ret;
 }
 
 static void __exit alucard_hotplug_exit(void)
 {
-	cancel_delayed_work_sync(&alucard_hotplug_work);
+	if (delayed_work_pending(&alucard_hotplug_work))
+		cancel_delayed_work_sync(&alucard_hotplug_work);
 	mutex_destroy(&timer_mutex);
 }
 MODULE_AUTHOR("Alucard_24@XDA");
