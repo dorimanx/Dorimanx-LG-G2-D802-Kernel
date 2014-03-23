@@ -238,7 +238,7 @@ static void update_sampling_rate(unsigned int new_rate)
 			cancel_delayed_work_sync(&nightmare_cpuinfo->work);
 			mutex_lock(&nightmare_cpuinfo->timer_mutex);
 
-			queue_delayed_work_on(nightmare_cpuinfo->cpu, system_wq, &nightmare_cpuinfo->work, usecs_to_jiffies(new_rate));
+			queue_delayed_work_on(nightmare_cpuinfo->cpu, system_power_efficient_wq, &nightmare_cpuinfo->work, usecs_to_jiffies(new_rate));
 		}
 		mutex_unlock(&nightmare_cpuinfo->timer_mutex);
 	}
@@ -652,7 +652,7 @@ static void do_nightmare_timer(struct work_struct *work)
 		delay -= jiffies % delay;
 	}
 
-	queue_delayed_work_on(cpu, system_wq, &nightmare_cpuinfo->work, delay);
+	queue_delayed_work_on(cpu, system_power_efficient_wq, &nightmare_cpuinfo->work, delay);
 	mutex_unlock(&nightmare_cpuinfo->timer_mutex);
 }
 
@@ -712,7 +712,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		this_nightmare_cpuinfo->enable = 1;
 		INIT_DEFERRABLE_WORK(&this_nightmare_cpuinfo->work, do_nightmare_timer);
-		queue_delayed_work_on(this_nightmare_cpuinfo->cpu, system_wq, &this_nightmare_cpuinfo->work, delay);
+		queue_delayed_work_on(this_nightmare_cpuinfo->cpu, system_power_efficient_wq, &this_nightmare_cpuinfo->work, delay);
 
 		break;
 
