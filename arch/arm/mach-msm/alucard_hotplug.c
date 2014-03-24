@@ -28,8 +28,6 @@ static struct mutex timer_mutex;
 
 static struct delayed_work alucard_hotplug_work;
 
-static struct workqueue_struct *alucard_hotplug_wq;
-
 struct hotplug_cpuinfo {
 	cputime64_t prev_cpu_wall;
 	cputime64_t prev_cpu_idle;
@@ -317,7 +315,7 @@ static void __cpuinit cpus_hotplugging(bool state) {
 		if (num_online_cpus() > 1) {
 			delay -= jiffies % delay;
 		}
-		queue_delayed_work_on(0, alucard_hotplug_wq, &alucard_hotplug_work, delay);
+		queue_delayed_work_on(0, system_power_efficient_wq, &alucard_hotplug_work, delay);
 	} else {
 		stop_rq_work();
 		for_each_online_cpu(cpu) {
@@ -368,7 +366,7 @@ static void update_sampling_rate(unsigned int new_rate)
 		cancel_delayed_work_sync(&alucard_hotplug_work);
 		mutex_lock(&timer_mutex);
 
-		queue_delayed_work_on(cpu, alucard_hotplug_wq, &alucard_hotplug_work, usecs_to_jiffies(new_rate));
+		queue_delayed_work_on(cpu, system_power_efficient_wq, &alucard_hotplug_work, usecs_to_jiffies(new_rate));
 	}
 
 	mutex_unlock(&timer_mutex);
@@ -661,7 +659,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 		if (num_online_cpus() == 1) {
 			per_cpu(od_hotplug_cpuinfo, 0).up_cpu = 1;
 		}
-		queue_delayed_work_on(0, alucard_hotplug_wq, &alucard_hotplug_work, delay);
+		queue_delayed_work_on(0, system_power_efficient_wq, &alucard_hotplug_work, delay);
 	}
 	mutex_unlock(&timer_mutex);
 }
@@ -688,9 +686,6 @@ int __init alucard_hotplug_init(void)
 		start_rq_work();
 	}
 
-	alucard_hotplug_wq = alloc_workqueue("alucardhplug",
-				WQ_HIGHPRI | WQ_UNBOUND, 1);
-
 	mutex_lock(&alucard_hotplug_mutex);
 	hotplugging_rate = 0;
 	for_each_possible_cpu(cpu) {
@@ -711,7 +706,7 @@ int __init alucard_hotplug_init(void)
 	INIT_DELAYED_WORK(&alucard_hotplug_work, hotplug_work_fn);
 
 	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0)
-		queue_delayed_work_on(0, alucard_hotplug_wq, &alucard_hotplug_work, delay);
+		queue_delayed_work_on(0, system_power_efficient_wq, &alucard_hotplug_work, delay);
 
 	return ret;
 }
@@ -721,7 +716,6 @@ static void __exit alucard_hotplug_exit(void)
 	if (delayed_work_pending(&alucard_hotplug_work))
 		cancel_delayed_work_sync(&alucard_hotplug_work);
 	mutex_destroy(&timer_mutex);
-	destroy_workqueue(alucard_hotplug_wq);
 }
 MODULE_AUTHOR("Alucard_24@XDA");
 MODULE_DESCRIPTION("'alucard_hotplug' - A cpu hotplug driver for "
