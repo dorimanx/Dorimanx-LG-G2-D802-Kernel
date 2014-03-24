@@ -468,9 +468,9 @@ int __init intelli_plug_init(void)
 #endif
 
 	intelliplug_wq = alloc_workqueue("intelliplug",
-				WQ_HIGHPRI | WQ_UNBOUND, 1);
+				WQ_HIGHPRI | WQ_UNBOUND, 0);
 	intelliplug_boost_wq = alloc_workqueue("iplug_boost",
-				WQ_HIGHPRI | WQ_UNBOUND, 1);
+				WQ_HIGHPRI | WQ_UNBOUND, 0);
 	INIT_DELAYED_WORK(&intelli_plug_work, intelli_plug_work_fn);
 	INIT_DELAYED_WORK(&intelli_plug_boost, intelli_plug_boost_fn);
 	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
