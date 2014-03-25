@@ -15,17 +15,17 @@
 	i2c@f9967000 {
 		/* NXP */
 		pn544@28 {
-			compatible = "nxp,pn544";
+			compatible = "NXP,pn544";
 			status = "ok";
 			reg = <0x28>;
+			NXP,i2c-pull-up = <1>;
 			interrupt-parent = <&msmgpio>;
 			interrupts = <59 0x2>;
-			nxp,gpio_sda = <&msmgpio 83 0x00>;
-			nxp,gpio_scl = <&msmgpio 84 0x00>;
-			nxp,gpio_ven = <&msmgpio 94 0x00>;
-			nxp,gpio_mode = <&msmgpio 95 0x00>;
-			nxp,gpio_irq = <&msmgpio 59 0x00>;
-			nxp,i2c-pull-up = <1>;
+			NXP,gpio_sda = <&msmgpio 83 0x00>;
+			NXP,gpio_scl = <&msmgpio 84 0x00>;
+			NXP,gpio_ven = <&msmgpio 94 0x00>;
+			NXP,gpio_mode = <&msmgpio 95 0x00>;
+			NXP,gpio_irq = <&msmgpio 59 0x00>;
 		};
 	};
 };

@@ -173,6 +173,16 @@ int freeze_kernel_threads(void)
 {
 	int error;
 
+/*
+ * Removed sys_sync() after frozen user processes for
+ *  preventing failure of entering suspend by data encryption FIPS crypto module.
+ */
+#ifndef CONFIG_CRYPTO_DEV_KFIPS
+	error = sys_sync();
+	if (error)
+		return error;
+#endif
+
 	printk("Freezing remaining freezable tasks ... ");
 	pm_nosig_freezing = true;
 	error = try_to_freeze_tasks(false);

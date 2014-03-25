@@ -5,7 +5,8 @@ bool pn544_validate_boot_mode(void) {
     enum lge_boot_mode_type boot_mode;
     boot_mode = lge_get_boot_mode();
 	printk("pn544_probe() boot_mode : %d\n",boot_mode);
-    if (boot_mode == LGE_BOOT_MODE_FACTORY || boot_mode == LGE_BOOT_MODE_FACTORY2 || boot_mode == LGE_BOOT_MODE_MINIOS) {
+    if (boot_mode == LGE_BOOT_MODE_FACTORY || boot_mode == LGE_BOOT_MODE_FACTORY2 || boot_mode == LGE_BOOT_MODE_MINIOS)
+    {
         printk("boot_mode :LGE_BOOT_MODE_FACTORY or LGE_BOOT_MODE_FACTORY2 or LGE_BOOT_MODE_MINIOS\n");
         return true;
     }

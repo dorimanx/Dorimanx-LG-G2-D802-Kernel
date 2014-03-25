@@ -611,19 +611,21 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 	struct mtp_dev *dev = fp->private_data;
 	struct usb_composite_dev *cdev = dev->cdev;
 	struct usb_request *req;
-	int r = count, xfer, len;
+	int r = count, xfer;
 	int ret = 0;
 
 	DBG(cdev, "mtp_read(%d)\n", count);
 
-#ifdef CONFIG_USB_G_LGE_ANDROID
-	if (!dev->ep_out)
+	if (count > mtp_rx_req_len)
 		return -EINVAL;
-#endif
-	len = ALIGN(count, dev->ep_out->maxpacket);
 
-	if (len > mtp_rx_req_len)
-		return -EINVAL;
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	if (dev->ep_out && !IS_ALIGNED(count, dev->ep_out->maxpacket))
+#else
+	if (!IS_ALIGNED(count, dev->ep_out->maxpacket))
+#endif
+		DBG(cdev, "%s - count(%d) not multiple of mtu(%d)\n", __func__,
+						count, dev->ep_out->maxpacket);
 
 	/* we will block until we're online */
 	DBG(cdev, "mtp_read: waiting for online state\n");
@@ -646,7 +648,7 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 requeue_req:
 	/* queue a request */
 	req = dev->rx_req[0];
-	req->length = len;
+	req->length = mtp_rx_req_len;
 	dev->rx_done = 0;
 	ret = usb_ep_queue(dev->ep_out, req, GFP_KERNEL);
 	if (ret < 0) {
@@ -751,8 +753,8 @@ static ssize_t mtp_write(struct file *fp, const char __user *buf,
 			break;
 		}
 
-		if (count > mtp_tx_req_len)
-			xfer = mtp_tx_req_len;
+		if (count > MTP_BULK_BUFFER_SIZE)
+			xfer = MTP_BULK_BUFFER_SIZE;
 		else
 			xfer = count;
 		if (xfer && copy_from_user(req->buf, buf, xfer)) {
@@ -844,8 +846,8 @@ static void send_file_work(struct work_struct *data)
 			break;
 		}
 
-		if (count > mtp_tx_req_len)
-			xfer = mtp_tx_req_len;
+		if (count > MTP_BULK_BUFFER_SIZE)
+			xfer = MTP_BULK_BUFFER_SIZE;
 		else
 			xfer = count;
 
@@ -913,11 +915,7 @@ static void receive_file_work(struct work_struct *data)
 	count = dev->xfer_file_length;
 
 	DBG(cdev, "receive_file_work(%lld)\n", count);
-#ifdef CONFIG_USB_G_LGE_ANDROID
-	if (dev->ep_out && !IS_ALIGNED(count, dev->ep_out->maxpacket))
-#else
 	if (!IS_ALIGNED(count, dev->ep_out->maxpacket))
-#endif
 		DBG(cdev, "%s- count(%lld) not multiple of mtu(%d)\n", __func__,
 						count, dev->ep_out->maxpacket);
 
@@ -1135,12 +1133,6 @@ out:
 static int mtp_open(struct inode *ip, struct file *fp)
 {
 	printk(KERN_INFO "mtp_open\n");
-#ifdef CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
-    if( nSetConfig >= 2 ) {
-        printk(KERN_INFO "%s : Set Config number is %d\n", __func__, nSetConfig);
-        return -EACCES;
-    }
-#endif //CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
 	if (mtp_lock(&_mtp_dev->open_excl))
 		return -EBUSY;
 

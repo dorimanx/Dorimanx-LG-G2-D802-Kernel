@@ -34,18 +34,6 @@ config LGE_NFC_PN544_C3
 	  To compile this driver as a module, choose m here. The module will
 	  be called pn544.
 
-config LGE_NFC_PN547
-	bool "PN547 NFC driver"
-	depends on I2C
-	select CRC_CCITT
-	default n
-	---help---
-	  Say yes if you want PN547 Near Field Communication driver.
-	  This is for i2c connected version. If unsure, say N here.
-
-	  To compile this driver as a module, choose m here. The module will
-	  be called pn547.
-
 config LGE_NFC_PRESTANDBY
 	bool "NFC STANBY MODE"
 	default n
@@ -124,14 +112,6 @@ config NFC_WILINK
 	  Say Y here to compile support for Texas Instrument's NFC WiLink driver
 	  into the kernel or say M to compile it as module.
 
-config NFC_QNCI
-	bool "Qualcomm NCI based NFC Controller Driver for qca199x"
-	depends on I2C
-	select CRC_CCITT
-	help
-	  This enables the NFC driver for QCA199x based devices.
-	  This is for i2c connected version. NCI protocol logic
-	  resides in the usermode and it has no other NFC dependencies.
 
 config LGE_NFC_SONY_CXD2235AGG
 	bool "CXD2235AGG NFC driver"
@@ -154,7 +134,6 @@ config LGE_NFC_SONY_KDDI
 
 	  To compile this driver as a module, choose m here. The module will
 	  be called CDX2235AGG.	  
-
 source "drivers/nfc/snfc/Kconfig"
 source "drivers/nfc/snfc_kddi/Kconfig"
 

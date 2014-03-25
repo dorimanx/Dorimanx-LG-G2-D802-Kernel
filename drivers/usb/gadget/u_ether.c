@@ -532,7 +532,7 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 	spin_lock(&dev->req_lock);
 	list_add_tail(&req->list, &dev->tx_reqs);
 
-	if (dev->port_usb->multi_pkt_xfer) {
+	if (dev->port_usb->multi_pkt_xfer && !req->context) {
 		dev->no_tx_req_used--;
 		req->length = 0;
 		in = dev->port_usb->in_ep;
@@ -570,11 +570,6 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 				switch (retval) {
 				default:
 					DBG(dev, "tx queue err %d\n", retval);
-					new_req->length = 0;
-					spin_lock(&dev->req_lock);
-					list_add_tail(&new_req->list,
-							&dev->tx_reqs);
-					spin_unlock(&dev->req_lock);
 					break;
 				case 0:
 					spin_lock(&dev->req_lock);
@@ -584,13 +579,7 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 				}
 			} else {
 				spin_lock(&dev->req_lock);
-				/*
-				 * Put the idle request at the back of the
-				 * queue. The xmit function will put the
-				 * unfinished request at the beginning of the
-				 * queue.
-				 */
-				list_add_tail(&new_req->list, &dev->tx_reqs);
+				list_add(&new_req->list, &dev->tx_reqs);
 				spin_unlock(&dev->req_lock);
 			}
 		} else {
@@ -598,6 +587,14 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 		}
 	} else {
 		skb = req->context;
+		/* Is aggregation already enabled and buffers allocated ? */
+		if (dev->port_usb->multi_pkt_xfer && dev->tx_req_bufsize) {
+			req->buf = kzalloc(dev->tx_req_bufsize, GFP_ATOMIC);
+			req->context = NULL;
+		} else {
+			req->buf = NULL;
+		}
+
 		spin_unlock(&dev->req_lock);
 		dev_kfree_skb_any(skb);
 	}
@@ -625,11 +622,14 @@ static int alloc_tx_buffer(struct eth_dev *dev)
 
 	list_for_each(act, &dev->tx_reqs) {
 		req = container_of(act, struct usb_request, list);
-		if (!req->buf)
+		if (!req->buf) {
 			req->buf = kzalloc(dev->tx_req_bufsize,
 						GFP_ATOMIC);
 			if (!req->buf)
 				goto free_buf;
+		}
+		/* req->context is not used for multi_pkt_xfers */
+		req->context = NULL;
 	}
 	return 0;
 
@@ -639,7 +639,6 @@ free_buf:
 	list_for_each(act, &dev->tx_reqs) {
 		req = container_of(act, struct usb_request, list);
 		kfree(req->buf);
-		req->buf = NULL;
 	}
 	return -ENOMEM;
 }
@@ -673,11 +672,15 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	}
 
 	/* Allocate memory for tx_reqs to support multi packet transfer */
+	spin_lock_irqsave(&dev->req_lock, flags);
 	if (multi_pkt_xfer && !dev->tx_req_bufsize) {
 		retval = alloc_tx_buffer(dev);
-		if (retval < 0)
+		if (retval < 0) {
+			spin_unlock_irqrestore(&dev->req_lock, flags);
 			return -ENOMEM;
+		}
 	}
+	spin_unlock_irqrestore(&dev->req_lock, flags);
 
 	/* apply outgoing CDC or RNDIS filters */
 	if (!is_promisc(cdc_filter)) {
@@ -818,8 +821,6 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	if (retval) {
 		if (!multi_pkt_xfer)
 			dev_kfree_skb_any(skb);
-		else
-			req->length = 0;
 drop:
 		dev->net->stats.tx_dropped++;
 		spin_lock_irqsave(&dev->req_lock, flags);
@@ -881,6 +882,8 @@ static int eth_stop(struct net_device *net)
 	spin_lock_irqsave(&dev->lock, flags);
 	if (dev->port_usb) {
 		struct gether	*link = dev->port_usb;
+		const struct usb_endpoint_descriptor *in;
+		const struct usb_endpoint_descriptor *out;
 
 		if (link->close)
 			link->close(link);
@@ -1063,12 +1066,6 @@ int gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 
 	SET_ETHTOOL_OPS(net, &ops);
 
-	/* two kinds of host-initiated state changes:
-	 *  - iff DATA transfer is active, carrier is "on"
-	 *  - tx queueing enabled if open *and* carrier is "on"
-	 */
-	netif_carrier_off(net);
-
 	dev->gadget = g;
 	SET_NETDEV_DEV(net, &g->dev);
 	SET_NETDEV_DEVTYPE(net, &gadget_type);
@@ -1082,6 +1079,12 @@ int gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 		INFO(dev, "HOST MAC %pM\n", dev->host_mac);
 
 		the_dev = dev;
+
+		/* two kinds of host-initiated state changes:
+		 *  - iff DATA transfer is active, carrier is "on"
+		 *  - tx queueing enabled if open *and* carrier is "on"
+		 */
+		netif_carrier_off(net);
 	}
 
 	return status;
@@ -1243,10 +1246,8 @@ void gether_disconnect(struct gether *link)
 		list_del(&req->list);
 
 		spin_unlock(&dev->req_lock);
-		if (link->multi_pkt_xfer) {
+		if (link->multi_pkt_xfer)
 			kfree(req->buf);
-			req->buf = NULL;
-		}
 		usb_ep_free_request(link->in_ep, req);
 		spin_lock(&dev->req_lock);
 	}

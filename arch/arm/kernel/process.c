@@ -38,7 +38,6 @@
 #include <asm/thread_notify.h>
 #include <asm/stacktrace.h>
 #include <asm/mach/time.h>
-#include <asm/tls.h>
 
 #ifdef CONFIG_CC_STACKPROTECTOR
 #include <linux/stackprotector.h>
@@ -537,8 +536,7 @@ copy_thread(unsigned long clone_flags, unsigned long stack_start,
 	clear_ptrace_hw_breakpoint(p);
 
 	if (clone_flags & CLONE_SETTLS)
-		thread->tp_value[0] = childregs->ARM_r3;
-	thread->tp_value[1] = get_tpuser();
+		thread->tp_value = regs->ARM_r3;
 
 	thread_notify(THREAD_NOTIFY_COPY, thread);
 
@@ -657,7 +655,6 @@ unsigned long arch_randomize_brk(struct mm_struct *mm)
 }
 
 #ifdef CONFIG_MMU
-#ifdef CONFIG_KUSER_HELPERS
 /*
  * The vectors page is always readable from user space for the
  * atomic helpers and the signal restart code. Insert it into the
@@ -690,14 +687,10 @@ int in_gate_area_no_mm(unsigned long addr)
 {
 	return in_gate_area(NULL, addr);
 }
-#define is_gate_vma(vma)	((vma) = &gate_vma)
-#else
-#define is_gate_vma(vma)	0
-#endif
 
 const char *arch_vma_name(struct vm_area_struct *vma)
 {
-	if (is_gate_vma(vma))
+	if (vma == &gate_vma)
 		return "[vectors]";
 	else if (vma == get_user_timers_vma(NULL))
 		return "[timers]";

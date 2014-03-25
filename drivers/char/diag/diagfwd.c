@@ -46,11 +46,11 @@
 #define MODE_CMD		41
 #define RESET_ID		2
 
-//2013-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [START]
+//                                                                             
 #ifdef CONFIG_LGE_DM_DEV
 #include "lg_dm_dev_tty.h"
-#endif /*CONFIG_LGE_DM_DEV*/
-//2013-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [END]
+#endif /*                 */
+//                                                                           
 
 #ifdef CONFIG_LGE_DM_APP
 #include "lg_dm_tty.h"
@@ -466,20 +466,15 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
       if (smd_info->ch && !buf &&
 		(driver->logging_mode == DM_DEV_MODE)) {
 //			chk_logging_wakeup();
-/* LGE_CHANGE_S, modified to wake up tty driver when buf is empty, secheol.pyo@lge.com, 2013-07-21 */
 	  	  lge_dm_dev_tty->set_logging = 1;
 		  wake_up_interruptible(&lge_dm_dev_tty->waitq);
-/* LGE_CHANGE_E, modified to wake up tty driver when buf is empty, secheol.pyo@lge.com, 2013-07-21 */
 	}
 
       if (smd_info->ch && !buf &&
 		(driver->logging_mode == DM_APP_MODE)) {
 //			chk_logging_wakeup();
-/* LGE_CHANGE_S, modified to wake up tty driver when buf is empty, secheol.pyo@lge.com, 2013-07-21 */
 	  	  lge_dm_tty->set_logging = 1;
 		  wake_up_interruptible(&lge_dm_tty->waitq);
-/* LGE_CHANGE_E, modified to wake up tty driver when buf is empty, secheol.pyo@lge.com, 2013-07-21 */
-
 	}
 
 }
@@ -729,7 +724,7 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 	}
 #endif
 
-//2013-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [START]
+//                                                                             
 #ifdef CONFIG_LGE_DM_DEV
 		if (driver->logging_mode == DM_DEV_MODE) {
 			/* only diag cmd #250 for supporting testmode tool */
@@ -754,8 +749,8 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 		wake_up_interruptible(&lge_dm_dev_tty->waitq);
 
 	}
-#endif /*CONFIG_LGE_DM_DEV*/
-//2013-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [END]
+#endif /*                 */
+//                                                                           
     return err;
 }
 
@@ -1406,8 +1401,8 @@ void diag_process_hdlc(void *data, unsigned len)
 		}
 	} else if (driver->debug_flag) {
 		printk(KERN_ERR "Packet dropped due to bad HDLC coding/CRC"
-						" errors or partial packet received, packet"
-						" length = %d\n", len);
+				" errors or partial packet received, packet"
+				" length = %d\n", len);
 		print_hex_dump(KERN_DEBUG, "Dropped Packet Data: ", 16, 1,
 					   DUMP_PREFIX_ADDRESS, data, len, 1);
 		driver->debug_flag = 0;
@@ -1507,7 +1502,7 @@ int diagfwd_connect(void)
 	int err;
 	int i;
 
-//2013-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [START]
+//                                                                             
 #ifdef CONFIG_LGE_DM_DEV
 	if (driver->logging_mode == DM_DEV_MODE) {
 		driver->usb_connected = 1;
@@ -1522,8 +1517,8 @@ int diagfwd_connect(void)
 
 		return 0;
 	}
-#endif /*CONFIG_LGE_DM_DEV*/
-//2013-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [END]
+#endif /*                 */
+//                                                                           
 
 #ifdef CONFIG_LGE_DM_APP
 	if (driver->logging_mode == DM_APP_MODE) {
@@ -1574,7 +1569,7 @@ int diagfwd_disconnect(void)
 {
 	int i;
 
-//2013-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [START]
+//                                                                             
 #ifdef CONFIG_LGE_DM_DEV
 	if (driver->logging_mode == DM_DEV_MODE) {
 		driver->usb_connected = 0;
@@ -1583,8 +1578,8 @@ int diagfwd_disconnect(void)
 
 		return 0;
 	}
-#endif /*CONFIG_LGE_DM_DEV*/
-//2013-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [END]
+#endif /*                 */
+//                                                                           
 
 #ifdef CONFIG_LGE_DM_APP
 	if (driver->logging_mode == DM_APP_MODE) {
@@ -1707,7 +1702,7 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 						 &(driver->diag_read_work));
 		}
 
-//2013-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [START]
+//                                                                             
 #ifdef CONFIG_LGE_DM_DEV
 		if (driver->logging_mode == DM_DEV_MODE) {
 			if (status != -ECONNRESET && status != -ESHUTDOWN)
@@ -1717,8 +1712,8 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 				queue_work(driver->diag_wq,
 						 &(driver->diag_read_work));
 		}
-#endif /*CONFIG_LGE_DM_DEV*/
-//2013-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [END]
+#endif /*                 */
+//                                                                           
 
 #ifdef CONFIG_LGE_DM_APP
 		if (driver->logging_mode == DM_APP_MODE) {

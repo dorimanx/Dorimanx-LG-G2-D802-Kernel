@@ -13,12 +13,6 @@
 /include/ "msm8974-leds.dtsi"
 /include/ "msm8974-camera-sensor-liquid.dtsi"
 
-/ {
-	aliases {
-		serial0 = &blsp1_uart1;
-	};
-};
-
 &soc {
 	serial@f991e000 {
 		status = "ok";
@@ -26,11 +20,6 @@
 
 	qcom,mdss_edp@fd923400 {
 		status = "ok";
-	};
-
-	qcom,mdss_edp@fd923400 {
-		status = "ok";
-		qcom,cont-splash-enabled;
 	};
 
 	i2c@f9967000 {
@@ -219,7 +208,7 @@
 					/* Object 6, Instance = 0 */
 					00 00 00 00 00 00
 					/* Object 38, Instance = 0 */
-					19 04 00 07 08 0D 00 00 00 00
+					19 01 00 0D 02 0D 00 00 00 00
 					00 00 00 00 00 00 00 00 00 00
 					00 00 00 00 00 00 00 00 00 00
 					00 00 00 00 00 00 00 00 00 00
@@ -232,8 +221,8 @@
 					41 00 14 14 00 00 00 01 00 00
 					/* Object 9, Instance = 0 */
 					8F 00 00 20 34 00 87 4B 02 03
-					00 05 03 41 0A 14 14 0A 80 07
-					38 04 00 00 03 03 08 28 02 3C
+					00 05 03 40 0A 14 14 0A 80 07
+					38 04 03 03 03 03 08 28 02 3C
 					0F 0F 2E 33 01 00
 					/* Object 15, Instance = 0 */
 					00 00 00 00 00 00 00 00 00 00
@@ -245,7 +234,7 @@
 					00 00 00 00 00 00 00 00 00
 					/* Object 25, Instance = 0 */
 					00 00 54 6F F0 55 00 00 00 00
-					00 00 00 00 0C
+					00 00 00 00 00
 					/* Object 27, Instance = 0 */
 					00 00 00 00 00 00 00
 					/* Object 40, Instance = 0 */
@@ -408,7 +397,6 @@
 			hsic,ignore-cal-pad-config;
 			hsic,strobe-pad-offset = <0x2050>;
 			hsic,data-pad-offset = <0x2054>;
-			qcom,phy-susp-sof-workaround;
 
 			qcom,msm-bus,name = "hsic";
 			qcom,msm-bus,num-cases = <2>;
@@ -798,12 +786,14 @@
 	};
 };
 
-&pm8941_lsid1 {
-	qcom,leds@d000 {
-		qcom,rgb_2 {
-			status = "ok";
-			qcom,default-state = "on";
-			qcom,turn-off-delay-ms = <1000>;
+&spmi_bus {
+	qcom,pm8941@1 {
+		qcom,leds@d000 {
+			qcom,rgb_2 {
+				status = "ok";
+				qcom,default-state = "on";
+				qcom,turn-off-delay-ms = <1000>;
+			};
 		};
 	};
 };
@@ -826,7 +816,7 @@
 	};
 
 	qcom,dc-chgpth@1400 {
-		status = "disabled";
+		status = "ok";
 	};
 
 	qcom,boost@1500 {

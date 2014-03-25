@@ -10,8 +10,7 @@ mcdrvmodule-objs := mobicore_driver/logging.o \
 		mobicore_driver/ops.o \
 		mobicore_driver/mem.o \
 		mobicore_driver/api.o \
-		mobicore_driver/main.o \
-		mobicore_driver/pm.o
+		mobicore_driver/main.o
 
 mckernelapi-objs := mobicore_kernelapi/main.o \
 		mobicore_kernelapi/clientlib.o \

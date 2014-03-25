@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/cpuidle.h>
+#include <linux/cpu_pm.h>
 
 #include <mach/cpuidle.h>
 
@@ -74,6 +75,8 @@ static int msm_cpuidle_enter(
 	int i;
 	enum msm_pm_sleep_mode pm_mode;
 
+	cpu_pm_enter();
+
 	pm_mode = msm_pm_idle_enter(dev, drv, index);
 
 	for (i = 0; i < dev->state_count; i++) {
@@ -87,6 +90,7 @@ static int msm_cpuidle_enter(
 		}
 	}
 
+	cpu_pm_exit();
 	local_irq_enable();
 
 	return ret;

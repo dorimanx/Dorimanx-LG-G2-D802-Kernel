@@ -45,11 +45,6 @@
 #include "smd_private.h"
 
 static int enable_debug;
-
-/* START : subsys_modem_restart : testmode */
-extern bool ignore_errors_by_subsys_modem_restart;
-/* END : subsys_modem_restart : testmode */
-
 module_param(enable_debug, int, S_IRUGO | S_IWUSR);
 
 /**
@@ -145,7 +140,6 @@ struct restart_log {
  * @dentry: debugfs directory for this device
  * @do_ramdump_on_put: ramdump on subsystem_put() if true
  * @err_ready: completion variable to record error ready from subsystem
- * @crashed: indicates if subsystem has crashed
  */
 struct subsys_device {
 	struct subsys_desc *desc;
@@ -169,7 +163,6 @@ struct subsys_device {
 	struct miscdevice misc_dev;
 	char miscdevice_name[32];
 	struct completion err_ready;
-	bool crashed;
 };
 
 #ifdef CONFIG_MACH_LGE
@@ -599,8 +592,8 @@ void *subsystem_get(const char *name)
 			retval = ERR_PTR(ret);
 			goto err_start;
 		}
-		/* QCT Debug code for modem stuck issue,
-	 	 * secheol.pyo@lge.com, 2013-05-01*/
+		/*                                      
+                                     */
 		pr_info("[LGE Debug] subsys: %s get start %d by %d[%s]\n",
 			name, subsys->count,
 			current->pid, current->comm);
@@ -640,8 +633,8 @@ void subsystem_put(void *subsystem)
 			subsys->desc->name, __func__))
 		goto err_out;
 	if (!--subsys->count) {
-/* [LGE_S]QCT Debug code for modem stuck issue,
- * secheol.pyo@lge.com, 2013-05-01
+/*                                             
+                                  
  */
 		pr_info("[LGE DEBUG]subsys: %s put stop %d by %d[%s]\n",
 			 subsys->desc->name, subsys->count,
@@ -661,8 +654,8 @@ void subsystem_put(void *subsystem)
 			subsys->count++;
 		}
 #endif
-/* [LGE_E]QCT Debug code for modem stuck issue,
- * secheol.pyo@lge.com, 2013-05-01
+/*                                             
+                                  
  */
 	}
 	mutex_unlock(&track->lock);
@@ -852,7 +845,6 @@ int subsystem_restart(const char *name)
 }
 EXPORT_SYMBOL(subsystem_restart);
 
-/* START : subsys_modem_restart : testmode */
 /**
  * subsys_modem_restart() - modem restart silently
  *
@@ -877,7 +869,6 @@ int subsys_modem_restart(void)
 
 	rsl = dev->restart_level;
 	dev->restart_level = RESET_SUBSYS_COUPLED;
-	ignore_errors_by_subsys_modem_restart = true; //dj.seo@lge.com , temp add
 	ret = subsystem_restart_dev(dev);
 	dev->restart_level = rsl;
 	modem_reboot_cnt--;
@@ -886,7 +877,6 @@ int subsys_modem_restart(void)
 	return ret;
 }
 EXPORT_SYMBOL(subsys_modem_restart);
-/* END : subsys_modem_restart : testmode */
 
 int subsystem_crashed(const char *name)
 {
@@ -915,15 +905,6 @@ int subsystem_crashed(const char *name)
 }
 EXPORT_SYMBOL(subsystem_crashed);
 
-void subsys_set_crash_status(struct subsys_device *dev, bool crashed)
-{
-	dev->crashed = true;
-}
-
-bool subsys_get_crash_status(struct subsys_device *dev)
-{
-	return dev->crashed;
-}
 #ifdef CONFIG_DEBUG_FS
 static ssize_t subsys_debugfs_read(struct file *filp, char __user *ubuf,
 		size_t cnt, loff_t *ppos)

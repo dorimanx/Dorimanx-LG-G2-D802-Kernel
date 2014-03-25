@@ -29,11 +29,8 @@
 #define IN_EP_MAX_PACKET_SIZE	256
 
 /* Number of requests to allocate */
-#ifdef CONFIG_USB_G_LGE_ANDROID
+//#define IN_EP_REQ_COUNT 4
 #define IN_EP_REQ_COUNT 16
-#else
-#define IN_EP_REQ_COUNT 4
-#endif
 
 #define AUDIO_AC_INTERFACE	0
 #define AUDIO_AS_INTERFACE	1

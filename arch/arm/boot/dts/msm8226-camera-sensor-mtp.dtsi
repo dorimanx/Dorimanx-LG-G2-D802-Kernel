@@ -18,7 +18,6 @@
 		compatible = "qcom,camera-led-flash";
 		qcom,flash-type = <1>;
 		qcom,flash-source = <&pm8226_flash0 &pm8226_flash1>;
-		qcom,torch-source = <&pm8226_torch>;
 	};
 };
 

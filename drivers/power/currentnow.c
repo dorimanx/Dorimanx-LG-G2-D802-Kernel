@@ -38,7 +38,6 @@ struct cn_chip {
 	u16				base;
 	u16				iadc_base;
 	u16				bms_enabled;
-	struct qpnp_iadc_chip       *iadc_dev;
 };
 
 static enum power_supply_property cn_props[] = {
@@ -131,7 +130,7 @@ static int convert_vsense_to_uv(struct cn_chip *chip,
 {
 	struct qpnp_iadc_calib calibration;
 
-	qpnp_iadc_get_gain_and_offset(chip->iadc_dev, &calibration);
+	qpnp_iadc_get_gain_and_offset(&calibration);
 	return cc_adjust_for_gain(cc_reading_to_uv(reading),
 			calibration.gain_raw - calibration.offset_raw);
 }
@@ -232,6 +231,12 @@ static int __devinit cn_probe(struct spmi_device *spmi)
 	chip->r_sense_uohm = RSENSE_MICRO_OHM; /* rsense is 10mohm */
 	chip->bms_enabled = 0;
 
+	rc = qpnp_iadc_is_ready();
+	if (rc) {
+		pr_info("iadc not ready: %d, deferring probe\n", rc);
+		goto error_read;
+	}
+
 	rc = spmi_cn_add_controller(chip, spmi);
 	if (rc) {
 		pr_info("error registering spmi resource %d\n", rc);
@@ -243,7 +248,6 @@ static int __devinit cn_probe(struct spmi_device *spmi)
 		pr_err("Unable to get iadc selected channel = %d\n", rc);
 		goto error_read;
 	}
-
 	chip->cn_psy.name		= "cn";
 	chip->cn_psy.type		= POWER_SUPPLY_TYPE_BMS;
 	chip->cn_psy.get_property	= cn_get_property;

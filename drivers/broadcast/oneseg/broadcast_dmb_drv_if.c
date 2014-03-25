@@ -30,7 +30,7 @@ static struct broadcast_dmb_chdevice dmb_dev;
 
 static int broadcast_dmb_power_on(void)
 {
-	int rc = ERROR;
+	int rc;
 	rc = broadcast_drv_if_power_on();
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_power_on\n");
 	return rc;
@@ -38,7 +38,7 @@ static int broadcast_dmb_power_on(void)
 
 static int broadcast_dmb_power_off(void)
 {
-	int rc = ERROR;
+	int rc;
 	rc = broadcast_drv_if_power_off();
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_power_off\n");
 	return rc;
@@ -72,8 +72,7 @@ static int broadcast_dmb_open(void __user *arg)
 
 static int broadcast_dmb_close(void)
 {
-	int rc = ERROR;
-
+	int rc;
 	rc = broadcast_drv_if_close();
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_close\n");
 	return rc;
@@ -110,15 +109,12 @@ static int broadcast_dmb_set_channel(void __user *arg)
 static int broadcast_dmb_resync(void __user *arg)
 {
 	int rc = ERROR;
-	int udata;
-	int __user* puser = (int __user*)arg;
 
 	if(arg==NULL) {
 		printk(KERN_ERR"broadcast_dmb_resync arg is Null\n");
 		return ERROR;
 	}
 
-	udata = *puser;
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_resync\n");
 	rc = broadcast_drv_if_resync();
 	return rc;
@@ -249,8 +245,7 @@ static int broadcast_dmb_get_dmb_data(void __user *arg)
 
 static int8 broadcast_dmb_reset_ch(void)
 {
-	int rc = ERROR;
-	
+	int rc;
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_reset_ch\n");
 	rc = broadcast_drv_if_reset_ch();
 	return rc;
@@ -401,12 +396,12 @@ static long broadcast_dmb_ioctl_control(struct file *filep, unsigned int cmd,	un
 		printk(KERN_DEBUG"LGE_BROADCAST_DMB_IOCTL_RESYNC result = %d \n", rc);
 		break;
 	case LGE_BROADCAST_DMB_IOCTL_DETECT_SYNC:
-		printk(KERN_DEBUG"[1seg][broadcast_dmb_ioctl_control][LGE_BROADCAST_DMB_IOCTL_DETECT_SYNC][s]\n");
+		//printk(KERN_DEBUG"[1seg][broadcast_dmb_ioctl_control][LGE_BROADCAST_DMB_IOCTL_DETECT_SYNC][s]\n");
 		rc = broadcast_dmb_detect_sync(argp);
-		printk(KERN_DEBUG"LGE_BROADCAST_DMB_IOCTL_DETECT_SYNC result = %d \n", rc);
+		//printk(KERN_DEBUG"LGE_BROADCAST_DMB_IOCTL_DETECT_SYNC result = %d \n", rc);
 		break;
 	case LGE_BROADCAST_DMB_IOCTL_GET_SIG_INFO:
-		printk(KERN_DEBUG"[1seg][broadcast_dmb_ioctl_control][LGE_BROADCAST_DMB_IOCTL_GET_SIG_INFO][s]\n");
+		//printk(KERN_DEBUG"[1seg][broadcast_dmb_ioctl_control][LGE_BROADCAST_DMB_IOCTL_GET_SIG_INFO][s]\n");
 		rc = broadcast_dmb_get_sig_info(argp);
 		break;
 	case LGE_BROADCAST_DMB_IOCTL_GET_CH_INFO:
@@ -476,7 +471,7 @@ static const struct file_operations broadcast_dmb_fops_control =
 
 static int broadcast_dmb_device_init(struct broadcast_dmb_chdevice *pbroadcast, int index)
 {
-	int rc = ERROR;
+	int rc;
 	rc = OK;	// test code taew00k.kang
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_release_control index[%d]\n",index);
 
@@ -488,14 +483,13 @@ static int broadcast_dmb_device_init(struct broadcast_dmb_chdevice *pbroadcast, 
 
 	pbroadcast->dev = device_create(broadcast_dmb_class, NULL, MKDEV(MAJOR(broadcast_dmb_dev), 0),
 					 NULL, DEVICE_NAME);
-					 //NULL, "broadcast%d", index);
 
 	printk(KERN_DEBUG"broadcast_dmb_device_add add add%d broadcast_dmb_dev = %d \n", rc, MKDEV(MAJOR(broadcast_dmb_dev), 0));
 	
 	if (IS_ERR(pbroadcast->dev)) {
 		rc = PTR_ERR(pbroadcast->dev);
 		pr_err("[1seg]device_create failed: %d\n", rc);
-		rc = -1;
+		rc = ERROR;
 	}
 	
 	printk(KERN_DEBUG"broadcast_dmb_device_init start %d\n", rc);
@@ -506,7 +500,7 @@ static int broadcast_dmb_device_init(struct broadcast_dmb_chdevice *pbroadcast, 
 
 int8 broadcast_dmb_blt_power_on(void)
 {
-	int rc = ERROR;
+	int rc;
 	rc = OK;	// test code taew00k.kang
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_blt_power_on\n");
 	return rc;
@@ -516,7 +510,7 @@ EXPORT_SYMBOL(broadcast_dmb_blt_power_on);
 
 int8 broadcast_dmb_blt_power_off(void)
 {
-	int rc = ERROR;
+	int rc;
 	rc = OK;	// test code taew00k.kang
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_blt_power_off\n");
 	return rc;
@@ -526,7 +520,7 @@ EXPORT_SYMBOL(broadcast_dmb_blt_power_off);
 
 int8 broadcast_dmb_blt_open(void)
 {
-	int8 rc = ERROR;
+	int rc;
 	rc = OK;	// test code taew00k.kang
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_blt_open\n");
 	return rc;
@@ -535,7 +529,7 @@ EXPORT_SYMBOL(broadcast_dmb_blt_open);
 
 int8 broadcast_dmb_blt_close(void)
 {
-	int8 rc = ERROR;
+	int rc;
 	rc = OK;	// test code taew00k.kang
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_blt_close\n");
 	return rc;
@@ -544,7 +538,7 @@ EXPORT_SYMBOL(broadcast_dmb_blt_close);
 
 int8 broadcast_dmb_blt_tune_set_ch(int32 freq_num)
 {
-	int8 rc = ERROR;
+	int rc;
 	//int32 freq_number = freq_num;
 	//uint8 subchannel = 0;
 	//uint8 op_mode = 2;
@@ -557,8 +551,9 @@ EXPORT_SYMBOL(broadcast_dmb_blt_tune_set_ch);
 
 int8 broadcast_dmb_blt_get_sig_info(void* sig_info)
 {
-	int rc = ERROR;
+	int rc;
 	struct broadcast_dmb_sig_info udata;
+
 	rc = OK;	// test code taew00k.kang
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_blt_get_sig_info\n");
 
@@ -581,9 +576,7 @@ int broadcast_dmb_drv_start(void)
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_drv_start\n");
 	if (!broadcast_dmb_class) {
 
-		//broadcast_dmb_class = class_create(THIS_MODULE, "broadcast_dmb");
 		broadcast_dmb_class = class_create(THIS_MODULE, DEVICE_NAME);
-
 		if (IS_ERR(broadcast_dmb_class)) {
 			rc = PTR_ERR(broadcast_dmb_class);
 			pr_err("broadcast_dmb_class: create device class failed: %d\n",
@@ -591,9 +584,7 @@ int broadcast_dmb_drv_start(void)
 			return rc;
 		}
 
-		//rc = alloc_chrdev_region(&broadcast_dmb_dev, 0, BROADCAST_DMB_NUM_DEVS, "broadcast_dmb");
 		rc = alloc_chrdev_region(&broadcast_dmb_dev, 0, BROADCAST_DMB_NUM_DEVS, DEVICE_NAME);
-		
 		printk(KERN_DEBUG"broadcast_dmb_drv_start add add%d broadcast_dmb_dev = %d \n", rc, broadcast_dmb_dev);
 		if (rc < 0) {
 			pr_err("broadcast_class: failed to allocate chrdev: %d\n",

@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+/include/ "skeleton.dtsi"
+
 &soc {
 	qcom,spm@f9089000 {
 		compatible = "qcom,spm-v2";

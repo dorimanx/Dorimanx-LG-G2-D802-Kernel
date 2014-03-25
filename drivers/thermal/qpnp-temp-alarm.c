@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,7 @@
 #include <linux/thermal.h>
 #include <linux/qpnp/qpnp-adc.h>
 
-#ifdef CONFIG_LGE_PM
+#if defined(CONFIG_MACH_MSM8974_G2_KR)
 #include <linux/wakelock.h>
 #include <linux/workqueue.h>
 #endif
@@ -72,7 +72,7 @@ enum qpnp_tm_registers {
 #define TRIP_STAGE1			2
 #define TRIP_NUM			3
 
-#ifdef CONFIG_LGE_PM
+#if defined(CONFIG_MACH_MSM8974_G2_KR)
 #define BATT_IF_PRES_RT_STATUS		BIT(0)
 #define BATT_PRES_EN_BIT		BIT(0)
 #endif
@@ -103,8 +103,7 @@ struct qpnp_tm_chip {
 	enum qpnp_vadc_channels		adc_channel;
 	u16				base_addr;
 	bool				allow_software_override;
-	struct qpnp_vadc_chip		*vadc_dev;
-#ifdef CONFIG_LGE_PM
+#if defined(CONFIG_MACH_MSM8974_G2_KR)
 	u16				bat_if_base;
 	unsigned int			batt_present_irq;
 	struct work_struct		batt_insert_remove_worker;
@@ -178,7 +177,7 @@ static int qpnp_tm_update_temp(struct qpnp_tm_chip *chip)
 	struct qpnp_vadc_result adc_result;
 	int rc;
 
-	rc = qpnp_vadc_read(chip->vadc_dev, chip->adc_channel, &adc_result);
+	rc = qpnp_vadc_read(chip->adc_channel, &adc_result);
 	if (!rc)
 		chip->temperature = adc_result.physical;
 	else
@@ -481,13 +480,11 @@ static int qpnp_tm_init_reg(struct qpnp_tm_chip *chip)
 	return rc;
 }
 
-#ifdef CONFIG_LGE_PM
+#if defined(CONFIG_MACH_MSM8974_G2_KR)
 #define INT_RT_STS(base)			(base + 0x10)
 #define INT_EN_SET(base)			(base + 0x15)
 #define SMBB_BAT_IF_SUBTYPE			0x03
 #define REG_OFFSET_PERP_SUBTYPE		0x05
-
-int pm_batt_rt_sts;
 
 static int
 qpnp_register_read(struct qpnp_tm_chip *chip, u8 *val,
@@ -570,7 +567,6 @@ EXPORT_SYMBOL_GPL(qpnp_batif_unregist_batt_present);
 
 static void notify_batt_insert_remove_event(u8 batt_present)
 {
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 	batt_present = !!batt_present;
 	if (notify_batt_pres_func_ptr) {
 		pr_debug("notifying batt_present\n");
@@ -578,17 +574,13 @@ static void notify_batt_insert_remove_event(u8 batt_present)
 	} else {
 		pr_err("unable to notify batt_present\n");
 	}
-#else
-	/* NOT G2 domestic model */
-	pr_err("Not a g2 domestic\n");
-#endif
 }
 
 /* will be excute when first irq detected battery missing */
 static void batt_insert_remove_work_second(struct work_struct *work)
 {
 	struct qpnp_tm_chip *chip = container_of(work,
-		struct qpnp_tm_chip, batt_insert_remove_worker_second.work);
+			struct qpnp_tm_chip, batt_insert_remove_worker_second.work);
 	int rc;
 	u8 batt_pres_rt_sts;
 
@@ -605,9 +597,6 @@ static void batt_insert_remove_work_second(struct work_struct *work)
 		(u8)(batt_pres_rt_sts & BATT_IF_PRES_RT_STATUS));
 
 	batt_pres_rt_sts = batt_pres_rt_sts & BATT_IF_PRES_RT_STATUS;
-
-	/* SMB349 battery present work-around */
-	pm_batt_rt_sts = (int)batt_pres_rt_sts;
 
 	/* Enable battery insert / remove irq */
 	rc = qpnp_register_masked_write(chip, INT_EN_SET(chip->bat_if_base),
@@ -663,8 +652,7 @@ static void batt_insert_remove_work(struct work_struct *work)
 			"but batt present, return\n", __func__);
 
 		/* Enable battery insert / remove irq */
-		rc = qpnp_register_masked_write(chip,
-					INT_EN_SET(chip->bat_if_base),
+		rc = qpnp_register_masked_write(chip, INT_EN_SET(chip->bat_if_base),
 					BATT_PRES_EN_BIT, BATT_PRES_EN_BIT, 1);
 		if (rc) {
 			pr_err("spmi write failed: addr=%03X, rc=%d\n",
@@ -700,9 +688,8 @@ static int __devinit qpnp_tm_probe(struct spmi_device *spmi)
 	u32 default_temperature;
 	int rc = 0;
 	u8 raw_type[2], type, subtype;
-#ifdef CONFIG_LGE_PM
+#if defined(CONFIG_MACH_MSM8974_G2_KR)
 	struct spmi_resource *spmi_resource;
-	u8 batt_pres_rt_sts;
 #endif
 	if (!spmi || !(&spmi->dev) || !spmi->dev.of_node) {
 		dev_err(&spmi->dev, "%s: device tree node not found\n",
@@ -773,12 +760,9 @@ static int __devinit qpnp_tm_probe(struct spmi_device *spmi)
 				__func__, chip->adc_channel);
 		} else {
 			chip->adc_type = QPNP_TM_ADC_QPNP_ADC;
-			chip->vadc_dev = qpnp_get_vadc(&spmi->dev,
-							"temp_alarm");
-			if (IS_ERR(chip->vadc_dev)) {
-				rc = PTR_ERR(chip->vadc_dev);
-				if (rc != -EPROBE_DEFER)
-					pr_err("vadc property missing\n");
+			rc = qpnp_vadc_is_ready();
+			if (rc) {
+				/* Probe retry, do not print an error message */
 				goto err_cancel_work;
 			}
 		}
@@ -855,10 +839,10 @@ static int __devinit qpnp_tm_probe(struct spmi_device *spmi)
 		goto err_free_tz;
 	}
 
-#ifdef CONFIG_LGE_PM
+#if defined(CONFIG_MACH_MSM8974_G2_KR)
 	spmi_for_each_container_dev(spmi_resource, spmi) {
 		if (!spmi_resource) {
-			pr_err("qpnp temp alarm : spmi resource absent\n");
+			pr_err("qpnp_chg: spmi resource absent\n");
 			goto fail_bat_if;
 		}
 
@@ -882,15 +866,14 @@ static int __devinit qpnp_tm_probe(struct spmi_device *spmi)
 			pr_err("qpnp bat_if block enable for batt insert remove irq.\n");
 			chip->bat_if_base = res->start;
 			chip->batt_present_irq = spmi_get_irq_byname(chip->spmi_dev,
-					spmi_resource, "batt-pres");
+							spmi_resource, "batt-pres");
 
 			if (chip->batt_present_irq < 0) {
 				pr_err("Unable to get batt_present_irq\n");
 				goto fail_bat_if;
 			}
 
-			rc = devm_request_irq(&(chip->spmi_dev->dev),
-				chip->batt_present_irq,
+			rc = devm_request_irq(&(chip->spmi_dev->dev), chip->batt_present_irq,
 				qpnp_batif_batt_inserted_removed_irq_handler,
 				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 				"batt_remove_insert", chip);
@@ -901,32 +884,13 @@ static int __devinit qpnp_tm_probe(struct spmi_device *spmi)
 				goto fail_bat_if;
 			}
 
-			rc = qpnp_register_masked_write(chip,
-				INT_EN_SET(chip->bat_if_base),
+			rc = qpnp_register_masked_write(chip, INT_EN_SET(chip->bat_if_base),
 				BATT_PRES_EN_BIT, BATT_PRES_EN_BIT, 1);
 
 			if (rc) {
 				pr_err("failed to enable BAT_IF_INT_EN_SET rc=%d\n", rc);
 				goto fail_bat_if;
 			}
-
-			/* smb349 charger battery present W/A */
-			rc = qpnp_register_read(chip, &batt_pres_rt_sts,
-					INT_RT_STS(chip->bat_if_base), 1);
-			if (rc) {
-				pr_err("spmi read failed: addr=%03X, rc=%d\n",
-						INT_RT_STS(chip->bat_if_base), rc);
-				pr_err("assume that battery is present\n");
-
-				/* battery present */
-				pm_batt_rt_sts = 1;
-			} else {
-				pm_batt_rt_sts =
-					(int)(batt_pres_rt_sts & BATT_IF_PRES_RT_STATUS);
-				pr_err("%s : init PMIC battery RTS = %d\n",
-						__func__, pm_batt_rt_sts);
-			}
-
 			enable_irq_wake(chip->batt_present_irq);
 			break;
 		default:
@@ -935,8 +899,7 @@ static int __devinit qpnp_tm_probe(struct spmi_device *spmi)
 	}
 
 	INIT_WORK(&chip->batt_insert_remove_worker, batt_insert_remove_work);
-	INIT_DELAYED_WORK(&chip->batt_insert_remove_worker_second,
-				batt_insert_remove_work_second);
+	INIT_DELAYED_WORK(&chip->batt_insert_remove_worker_second, batt_insert_remove_work_second);
 	wake_lock_init(&chip->battgone_wake_lock,
 				WAKE_LOCK_SUSPEND, "batt removed");
 #endif
@@ -951,7 +914,7 @@ free_chip:
 	dev_set_drvdata(&spmi->dev, NULL);
 	kfree(chip);
 	return rc;
-#ifdef CONFIG_LGE_PM
+#if defined(CONFIG_MACH_MSM8974_G2_KR)
 fail_bat_if:
 	pr_err("Cannot enable qpnp bat_if block.\n");
 	return 0;

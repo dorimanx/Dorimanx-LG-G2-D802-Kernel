@@ -1222,16 +1222,6 @@ config USB_G_LGE_SERIALNO_REDIRECTION
 
 	default n
 
-config USB_G_LGE_MULTIPLE_CONFIGURATION
-	boolean "LGE Multiple Configuration"
-	help
-	  If there is any function which has duplicated in multiple configuration, it occurs error when makes descriptor.
-	  So in case of duplicated functions should be add another descriptor This config is for duplicated functions.
-	  
-	  Say y if this must be needed.
-
-	default n
-
 #CONFIG_USB_DWC3_MSM_VZW_SUPPORT
 config USB_DWC3_MSM_VZW_SUPPORT
 	bool "VZW specific DWC3_MSM support in LGE Android"

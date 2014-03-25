@@ -20,8 +20,8 @@
 #include <mach/board_lge.h>
 
 #define KS8851_IRQ_GPIO 94
-/* soojung.lim@lge.com, 2013-05-23
- * To use 24MHz GP/GCC_GP clock for V2 H/W
+/*                                
+                                          
  */
 int g_is_tlmm_spare_reg_value = 0;
 
@@ -170,12 +170,6 @@ static struct gpiomux_setting snfc_hvdd_cfg = {
     .pull = GPIOMUX_PULL_NONE,
     .dir = GPIOMUX_OUT_LOW,
 };
-static struct gpiomux_setting snfc_uicc_cfg = {
-    .func = GPIOMUX_FUNC_GPIO,
-    .drv = GPIOMUX_DRV_2MA,
-    .pull = GPIOMUX_PULL_NONE,
-    .dir = GPIOMUX_OUT_HIGH,
-};
 
 #endif
 static struct gpiomux_setting gpio_uart_config = {
@@ -246,7 +240,7 @@ static struct gpiomux_setting gpio_epm_config = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
-/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 #if defined (CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
 #else
 #if !defined(CONFIG_LGE_NFC_SONY_CXD2235AGG)
@@ -263,7 +257,7 @@ static struct gpiomux_setting wcnss_5wire_active_cfg = {
 };
 #endif
 #endif
-/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 
 #if defined (CONFIG_LGE_BROADCAST_ONESEG)
 static struct gpiomux_setting lge_1seg_ctrl_pin_suspend = {
@@ -302,7 +296,7 @@ static struct gpiomux_setting lge_1seg_gpio_blsp8_spi_suspend_config = {
 	.pull = GPIOMUX_PULL_DOWN, //Should be PULL NONE
 };
 
-#endif /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif /*                             */
 #if defined (CONFIG_LGE_BROADCAST_ONESEG)
 static struct msm_gpiomux_config lge_1seg_blsp_configs[] __initdata = {
 	{
@@ -352,7 +346,7 @@ static struct msm_gpiomux_config lge_1seg_blsp_configs[] __initdata = {
 		},
 	},
 };
-#endif /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif /*                             */
 
 static struct gpiomux_setting gpio_i2c_config = {
 	.func = GPIOMUX_FUNC_3,
@@ -501,9 +495,9 @@ static struct gpiomux_setting max17048_int_config = {
 #endif
 
 #if 0
-/* LGE_CHANGE
- * MAIN_CAM_RESET is changed from GPIO_90 to GPIO_4 - To fix build error after changing the function of GPIO_4
- * 2013-03-18, jinw.kim@lge.com
+/*           
+                                                                                                              
+                               
  */
 static struct gpiomux_setting touch_id_act_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -634,9 +628,9 @@ static struct gpiomux_setting hsic_resume_susp_cfg = {
 
 #if 0	/* Camera will use gpio 145 */
 static struct msm_gpiomux_config msm_hsic_configs[] = {
-/* LGE_CHANGE
- * Camera bring up - DCM
- * 2013-03-14, jinw.kim@lge.com
+/*           
+                        
+                               
  */
 	{
 		.gpio = 145,               /* HSIC_DATA */
@@ -964,13 +958,6 @@ static struct msm_gpiomux_config msm8974_nfc_configs_rev_c[] __initdata ={
 				[GPIOMUX_SUSPENDED] = &snfc_hvdd_cfg,
 			},
 		},
-		/* NFC UICC_VCC_CONTROL */
-		{
-			.gpio = 39,
-			.settings = {
-				[GPIOMUX_SUSPENDED] = &snfc_uicc_cfg,
-			},
-		},		
 };	
 #endif
 #if defined(CONFIG_LGE_NFC_SONY_CXD2235AGG)
@@ -1027,13 +1014,6 @@ static struct msm_gpiomux_config msm8974_nfc_configs_rev_d[] __initdata ={
 				[GPIOMUX_SUSPENDED] = &snfc_hvdd_cfg,
 			},
 		},
-		/* NFC UICC_VCC_CONTROL */
-		{
-			.gpio = 39,
-			.settings = {
-				[GPIOMUX_SUSPENDED] = &snfc_uicc_cfg,
-			},
-		},		
 };	
 #endif
 
@@ -1113,9 +1093,9 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		},
 	},
 #if 0
-/* LGE_CHANGE
- * MAIN_CAM_RESET is changed from GPIO_90 to GPIO_4
- * 2013-03-18, jinw.kim@lge.com
+/*           
+                                                   
+                               
  */
 #ifdef CONFIG_MACH_LGE
 	{
@@ -1173,7 +1153,7 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	},
 #endif
 
-/* LGE_CHANGE_S, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+/*                                                        */
 #ifndef CONFIG_LGE_BLUETOOTH
 	{
 		.gpio      = 53,		/* BLSP2 QUP4 SPI_DATA_MOSI */
@@ -1203,8 +1183,8 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[0],
 		},
 	},
-#endif /* CONFIG_LGE_BLUETOOTH */
-/* LGE_CHANGE_S, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+#endif /*                      */
+/*                                                        */
 	{
 		.gpio      = 81,		/* EPM enable */
 		.settings = {
@@ -1415,11 +1395,11 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &cam_settings[1],
 		},
 	},
-#endif  /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif  /*                             */
 #if defined(CONFIG_MACH_LGE)
-/* LGE_CHANGE
- * MAIN_CAM_RESET is changed from GPIO_90 to GPIO_4
- * 2013-03-18, jinw.kim@lge.com
+/*           
+                                                   
+                               
  */
 	{
 		.gpio = 4, /* CAM1_RST_N */
@@ -1438,7 +1418,7 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &cam_settings[1],
 		},
 	},
-#endif  /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif  /*                             */
 #endif
 
 #if defined(CONFIG_BACKLIGHT_LM3630)
@@ -1452,7 +1432,7 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &cam_settings[1],
 		},
 	},
-#endif  /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif  /*                             */
 #endif
 /* TSIF1 GPIO 89~92 is used for 1seg tsif */
 #if !defined (CONFIG_LGE_BROADCAST_ONESEG)
@@ -1463,11 +1443,11 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &cam_settings[1],
 		},
 	},
-#endif  /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif  /*                             */
 #if defined(CONFIG_MACH_LGE)
-/* LGE_CHANGE_S
- * Camera bring up - DCM
- * 2013-03-14, jinw.kim@lge.com
+/*             
+                        
+                               
  */
 	{
 		.gpio = 57, /* 13M_VCM_EN */
@@ -1553,7 +1533,7 @@ static struct msm_gpiomux_config msm8974_pri_auxpcm_configs[] __initdata = {
 };
 #endif
 
-/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 #if defined (CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
 #else
 static struct msm_gpiomux_config wcnss_5wire_interface[] = {
@@ -1597,7 +1577,7 @@ static struct msm_gpiomux_config wcnss_5wire_interface[] = {
 #endif
 };
 #endif
-/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 
 static struct msm_gpiomux_config msm_taiko_config[] __initdata = {
 	{
@@ -1946,7 +1926,7 @@ static struct msm_gpiomux_config msm8974_sdc4_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &sdc4_suspend_cfg,
 		},
 	},
-#endif  /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif  /*                             */
 #if !defined(CONFIG_LGE_NFC_SONY_CXD2235AGG)
 	{
 		/* DAT2 */
@@ -1966,9 +1946,9 @@ static struct msm_gpiomux_config msm8974_sdc4_configs[] __initdata = {
 		},
 	},
 #if 0	/* Camera will use gpio 96 */
-/* LGE_CHANGE_S
- * Camera bring up - DCM
- * 2013-03-14, jinw.kim@lge.com
+/*             
+                        
+                               
  */
 	{
 		/* DAT0 */
@@ -1989,7 +1969,7 @@ static struct msm_gpiomux_config msm8974_sdc4_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &sdc4_suspend_cfg,
 		},
 	},
-#endif /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif /*                             */
 	{
 		/* CLK */
 		.gpio      = 93,
@@ -2009,7 +1989,7 @@ static void msm_gpiomux_sdc4_install(void)
 static void msm_gpiomux_sdc4_install(void) {}
 #endif /* CONFIG_MMC_MSM_SDC4_SUPPORT */
 
-/* LGE_CHANGE_S, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+/*                                                        */
 #ifdef CONFIG_LGE_BLUETOOTH
 static struct gpiomux_setting bt_gpio_uart_active_config = {
     .func = GPIOMUX_FUNC_2,
@@ -2182,8 +2162,8 @@ static void bluetooth_msm_gpiomux_install(void)
     /* PCM I/F */
     msm_gpiomux_install(bt_pcm_configs, ARRAY_SIZE(bt_pcm_configs));
 }
-#endif /* CONFIG_LGE_BLUETOOTH */
-/* LGE_CHANGE_E, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+#endif /*                      */
+/*                                                        */
 
 
 static struct msm_gpiomux_config apq8074_dragonboard_ts_config[] __initdata = {
@@ -2213,8 +2193,8 @@ void __init msm_8974_init_gpiomux(void)
 		return;
 	}
 
-/* soojung.lim@lge.com, 2013-05-23
- * To use 24MHz GP/GCC_GP clock for V2 H/W
+/*                                
+                                          
  */
 if (socinfo_get_version() >= 0x20000) {
  g_is_tlmm_spare_reg_value = 0x7;
@@ -2223,7 +2203,7 @@ if (socinfo_get_version() >= 0x20000) {
 
 #if defined (CONFIG_LGE_BROADCAST_ONESEG)
     msm_gpiomux_install(lge_1seg_blsp_configs, ARRAY_SIZE(lge_1seg_blsp_configs));
-#endif  /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif  /*                             */
 
 #if defined(CONFIG_LGE_NFC_SONY_CXD2235AGG)
 	if (lge_get_board_revno() <= HW_REV_C) {
@@ -2248,7 +2228,7 @@ if (socinfo_get_version() >= 0x20000) {
 #if defined(CONFIG_MACH_LGE)
 #if defined(CONFIG_MAX17048_FUELGAUGE) || defined(CONFIG_MAX17050_FUELGAUGE)
 #if defined(CONFIG_MACH_MSM8974_G2_DCM)
-	/* [Power] junnyoung.jang@lge.com*/
+	/*                               */
 	if (HW_REV_A < lge_get_board_revno()) {
 		msm_gpiomux_install(msm_fuel_gauge_max17050_configs,
 				ARRAY_SIZE(msm_fuel_gauge_max17050_configs));
@@ -2257,8 +2237,8 @@ if (socinfo_get_version() >= 0x20000) {
 				ARRAY_SIZE(msm_fuel_gauge_configs));
 	}
 #else
-	/* [Power] yeonhwa.so@lge.com
-	 * If MAX17048 is removed, we modify and use it*/
+	/*                           
+                                                */
 	if (HW_REV_A <= lge_get_board_revno()) {
 		msm_gpiomux_install(msm_fuel_gauge_configs,
 				ARRAY_SIZE(msm_fuel_gauge_configs));
@@ -2266,13 +2246,13 @@ if (socinfo_get_version() >= 0x20000) {
 #endif
 #endif
 #endif
-/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 #if defined (CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
 #else
 	msm_gpiomux_install(wcnss_5wire_interface,
 				ARRAY_SIZE(wcnss_5wire_interface));
 #endif
-/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 
 	msm_gpiomux_install(msm8974_slimbus_config,
 			ARRAY_SIZE(msm8974_slimbus_config));
@@ -2305,10 +2285,8 @@ if (socinfo_get_version() >= 0x20000) {
 		msm_gpiomux_install(msm_mhl_configs,
 				    ARRAY_SIZE(msm_mhl_configs));
 #ifndef CONFIG_MACH_LGE
-	if (of_board_is_liquid() ||
-	    (of_board_is_dragonboard() && machine_is_apq8074()))
-		msm_gpiomux_install(msm8974_pri_ter_auxpcm_configs,
-				 ARRAY_SIZE(msm8974_pri_ter_auxpcm_configs));
+	msm_gpiomux_install(msm8974_pri_auxpcm_configs,
+				 ARRAY_SIZE(msm8974_pri_auxpcm_configs));
 #endif
 	msm_gpiomux_install_nowrite(msm_lcd_configs,
 			ARRAY_SIZE(msm_lcd_configs));
@@ -2338,11 +2316,11 @@ if (socinfo_get_version() >= 0x20000) {
 #if defined(CONFIG_LGE_SM100) || defined(CONFIG_TSPDRV)
        msm_gpiomux_install(vibrator_configs, ARRAY_SIZE(vibrator_configs));
 #endif
-/* LGE_CHANGE_S, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+/*                                                        */
 #ifdef CONFIG_LGE_BLUETOOTH
     bluetooth_msm_gpiomux_install();
-#endif /* CONFIG_LGE_BLUETOOTH */
-/* LGE_CHANGE_E, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+#endif /*                      */
+/*                                                        */
 
 	if (of_board_is_dragonboard() && machine_is_apq8074())
 		msm_gpiomux_install(apq8074_dragonboard_ts_config,

@@ -15,7 +15,7 @@
 #include <linux/debugfs.h>
 #include <linux/stringify.h>
 #include "ipa_i.h"
-#include "ipa_rm_i.h"
+
 
 #define IPA_MAX_MSG_LEN 4096
 #define IPA_DBG_CNTR_ON 127265
@@ -104,7 +104,6 @@ static struct dentry *dfile_stats;
 static struct dentry *dfile_dbg_cnt;
 static struct dentry *dfile_msg;
 static struct dentry *dfile_ip4_nat;
-static struct dentry *dfile_rm_stats;
 static char dbg_buff[IPA_MAX_MSG_LEN];
 static s8 ep_reg_idx;
 
@@ -950,20 +949,6 @@ static ssize_t ipa_read_nat4(struct file *file,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
-static ssize_t ipa_rm_read_stats(struct file *file, char __user *ubuf,
-		size_t count, loff_t *ppos)
-{
-	int result, nbytes, cnt = 0;
-	result = ipa_rm_stat(dbg_buff, IPA_MAX_MSG_LEN);
-	if (result < 0) {
-		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
-				"Error in printing RM stat %d\n", result);
-		cnt += nbytes;
-	} else
-		cnt += result;
-	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
-}
-
 const struct file_operations ipa_gen_reg_ops = {
 	.read = ipa_read_gen_reg,
 };
@@ -1006,10 +991,6 @@ const struct file_operations ipa_dbg_cnt_ops = {
 
 const struct file_operations ipa_nat4_ops = {
 	.read = ipa_read_nat4,
-};
-
-const struct file_operations ipa_rm_stats = {
-	.read = ipa_rm_read_stats,
 };
 
 void ipa_debugfs_init(void)
@@ -1109,13 +1090,6 @@ void ipa_debugfs_init(void)
 		goto fail;
 	}
 
-	dfile_rm_stats = debugfs_create_file("rm_stats", read_only_mode,
-		dent, 0,
-		&ipa_rm_stats);
-	if (!dfile_rm_stats || IS_ERR(dfile_rm_stats)) {
-		IPAERR("fail to create file for debug_fs rm_stats\n");
-		goto fail;
-	}
 	return;
 
 fail:

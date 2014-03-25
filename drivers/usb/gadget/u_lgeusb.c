@@ -79,32 +79,32 @@ int debug_pmic_register_for_usb(void)
 
 	struct spmi_controller *ctrl = spmi_busnum_to_ctrl(0);
 
-	if (!ctrl) {
+	if(!ctrl) {
 		pr_err("Controller is null!\n");
 		return -EINVAL;
 	}
 
 	/* read SMBB_USB_CHGPTH_USB_CHG_PTH_STS, SMBB_USB_CHGPTH_INT_RT_STS registers
 	*/
-	rc = spmi_ext_register_readl(ctrl, 0, SMBB_USB_CHGPTH_USB_CHG_PTH_STS,
-			&usb_sts_reg, 1);
-	if (rc) {
-		pr_err("[%s] spmi read failed-rc:%d , addr:0x%x", __func__,
-				rc, SMBB_USB_CHGPTH_USB_CHG_PTH_STS);
+	rc = spmi_ext_register_readl(ctrl, 0, SMBB_USB_CHGPTH_USB_CHG_PTH_STS,  &usb_sts_reg, 1);
+	if (rc)
+	{
+		pr_err("[%s] spmi read failed-rc:%d , addr:0x%x", __func__, 
+									   rc, SMBB_USB_CHGPTH_USB_CHG_PTH_STS);
 		return -EINVAL;
 	}
-	usb_valid = ((usb_sts_reg & 0xC0) >> 6);
+	usb_valid = ((usb_sts_reg & 0xC0) >> 6);	
 
-	rc = spmi_ext_register_readl(ctrl, 0, SMBB_USB_CHGPTH_INT_RT_STS,
-			&usb_rt_reg, 1);
-	if (rc)	{
-		pr_err("[%s] spmi read failed-rc:%d ,addr:0x%x", __func__,
-				rc, SMBB_USB_CHGPTH_INT_RT_STS);
+	rc = spmi_ext_register_readl(ctrl, 0, SMBB_USB_CHGPTH_INT_RT_STS,  &usb_rt_reg, 1);
+	if (rc)
+	{
+		pr_err("[%s] spmi read failed-rc:%d ,addr:0x%x", __func__, 
+										rc, SMBB_USB_CHGPTH_INT_RT_STS);
 		return -EINVAL;
 	}
 
-	pr_info("[SMBB_USB_CHGPTH]sts:0x%x, usb_valid:0x%x, rt:0x%x\n",
-			usb_sts_reg, usb_valid, usb_rt_reg);
+	pr_info("[SMBB_USB_CHGPTH]sts:0x%x, usb_valid:0x%x, rt:0x%x\n", 
+								usb_sts_reg, usb_valid, usb_rt_reg);
 
 	return rc;
 }

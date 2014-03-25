@@ -32,20 +32,6 @@ extern void device_pm_move_before(struct device *, struct device *);
 extern void device_pm_move_after(struct device *, struct device *);
 extern void device_pm_move_last(struct device *);
 
-#ifdef CONFIG_ZERO_WAIT
-extern struct list_head dpm_wakeup_dev_list;	/* The wakeup device list */
-
-struct dpm_zw_wakeup {
-	struct list_head entry;
-	struct device *dev;
-};
-
-extern void dpm_wakeup_dev_list_set(void);
-extern void dpm_wakeup_dev_list_clean(void);
-#else /* !CONFIG_ZERO_WAIT */
-static inline void dpm_wakeup_dev_remove(struct device *dev) { return; }
-#endif
-
 #else /* !CONFIG_PM_SLEEP */
 
 static inline void device_pm_init(struct device *dev)

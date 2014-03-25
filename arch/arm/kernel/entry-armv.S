@@ -731,16 +731,15 @@ ENTRY(__switch_to)
  UNWIND(.fnstart	)
  UNWIND(.cantunwind	)
 	add	ip, r1, #TI_CPU_SAVE
+	ldr	r3, [r2, #TI_TP_VALUE]
  ARM(	stmia	ip!, {r4 - sl, fp, sp, lr} )	@ Store most regs on stack
  THUMB(	stmia	ip!, {r4 - sl, fp}	   )	@ Store most regs on stack
  THUMB(	str	sp, [ip], #4		   )
  THUMB(	str	lr, [ip], #4		   )
-	ldr	r4, [r2, #TI_TP_VALUE]
-	ldr	r5, [r2, #TI_TP_VALUE + 4]
 #ifdef CONFIG_CPU_USE_DOMAINS
 	ldr	r6, [r2, #TI_CPU_DOMAIN]
 #endif
-	switch_tls r1, r4, r5, r3, r7
+	set_tls	r3, r4, r5
 #if defined(CONFIG_CC_STACKPROTECTOR) && !defined(CONFIG_SMP)
 	ldr	r7, [r2, #TI_TASK]
 	ldr	r8, =__stack_chk_guard
@@ -788,18 +787,6 @@ ENDPROC(__switch_to)
 #endif
 	.endm
 
-	.macro	kuser_pad, sym, size
-	.if	(. - \sym) & 3
-	.rept	4 - (. - \sym) & 3
-	.byte	0
-	.endr
-	.endif
-	.rept	(\size - (. - \sym)) / 4
-	.word	0xe7fddef1
-	.endr
-	.endm
-
-#ifdef CONFIG_KUSER_HELPERS
 	.align	5
 	.globl	__kuser_helper_start
 __kuser_helper_start:
@@ -981,13 +968,18 @@ kuser_cmpxchg64_fixup:
 #error "incoherent kernel configuration"
 #endif
 
-	kuser_pad __kuser_cmpxchg64, 64
+	/* pad to next slot */
+	.rept	(16 - (. - __kuser_cmpxchg64)/4)
+	.word	0
+	.endr
+
+	.align	5
 
 __kuser_memory_barrier:				@ 0xffff0fa0
 	smp_dmb	arm
 	usr_ret	lr
 
-	kuser_pad __kuser_memory_barrier, 32
+	.align	5
 
 __kuser_cmpxchg:				@ 0xffff0fc0
 
@@ -1060,14 +1052,13 @@ kuser_cmpxchg32_fixup:
 
 #endif
 
-	kuser_pad __kuser_cmpxchg, 32
+	.align	5
 
 __kuser_get_tls:				@ 0xffff0fe0
 	ldr	r0, [pc, #(16 - 8)]	@ read TLS, set in kuser_get_tls_init
 	usr_ret	lr
 	mrc	p15, 0, r0, c13, c0, 3	@ 0xffff0fe8 hardware TLS code
-	kuser_pad __kuser_get_tls, 16
-	.rep	3
+	.rep	4
 	.word	0			@ 0xffff0ff0 software TLS value, then
 	.endr				@ pad up to __kuser_helper_version
 
@@ -1077,16 +1068,14 @@ __kuser_helper_version:				@ 0xffff0ffc
 	.globl	__kuser_helper_end
 __kuser_helper_end:
 
-#endif
-
  THUMB(	.thumb	)
 
 /*
  * Vector stubs.
  *
- * This code is copied to 0xffff1000 so we can use branches in the
- * vectors, rather than ldr's.  Note that this code must not exceed
- * a page size.
+ * This code is copied to 0xffff0200 so we can use branches in the
+ * vectors, rather than ldr's.  Note that this code must not
+ * exceed 0x300 bytes.
  *
  * Common stub entry macro:
  *   Enter in IRQ mode, spsr = SVC/USR CPSR, lr = SVC/USR PC
@@ -1145,17 +1134,8 @@ ENDPROC(vector_\name)
 1:
 	.endm
 
-	.section .stubs, "ax", %progbits
+	.globl	__stubs_start
 __stubs_start:
-	@ This must be the first word
-	.word	vector_swi
-
-vector_rst:
- ARM(	swi	SYS_ERROR0	)
- THUMB(	svc	#0		)
- THUMB(	nop			)
-	b	vector_und
-
 /*
  * Interrupt dispatcher
  */
@@ -1250,16 +1230,6 @@ vector_rst:
 	.align	5
 
 /*=============================================================================
- * Address exception handler
- *-----------------------------------------------------------------------------
- * These aren't too critical.
- * (they're not supposed to happen, and won't happen in 32-bit data mode).
- */
-
-vector_addrexcptn:
-	b	vector_addrexcptn
-
-/*=============================================================================
  * Undefined FIQs
  *-----------------------------------------------------------------------------
  * Enter in FIQ mode, spsr = ANY CPSR, lr = ANY PC
@@ -1272,22 +1242,47 @@ vector_addrexcptn:
 vector_fiq:
 	subs	pc, lr, #4
 
+/*=============================================================================
+ * Address exception handler
+ *-----------------------------------------------------------------------------
+ * These aren't too critical.
+ * (they're not supposed to happen, and won't happen in 32-bit data mode).
+ */
+
+vector_addrexcptn:
+	b	vector_addrexcptn
+
+/*
+ * We group all the following data together to optimise
+ * for CPUs with separate I & D caches.
+ */
+	.align	5
+
+.LCvswi:
+	.word	vector_swi
 .krait_fixup:
 	.word	msm_krait_need_wfe_fixup
 
-	.globl	vector_fiq_offset
-	.equ	vector_fiq_offset, vector_fiq
+	.globl	__stubs_end
+__stubs_end:
 
-	.section .vectors, "ax", %progbits
+	.equ	stubs_offset, __vectors_start + 0x200 - __stubs_start
+
+	.globl	__vectors_start
 __vectors_start:
-	W(b)	vector_rst
-	W(b)	vector_und
-	W(ldr)	pc, __vectors_start + 0x1000
-	W(b)	vector_pabt
-	W(b)	vector_dabt
-	W(b)	vector_addrexcptn
-	W(b)	vector_irq
-	W(b)	vector_fiq
+ ARM(	swi	SYS_ERROR0	)
+ THUMB(	svc	#0		)
+ THUMB(	nop			)
+	W(b)	vector_und + stubs_offset
+	W(ldr)	pc, .LCvswi + stubs_offset
+	W(b)	vector_pabt + stubs_offset
+	W(b)	vector_dabt + stubs_offset
+	W(b)	vector_addrexcptn + stubs_offset
+	W(b)	vector_irq + stubs_offset
+	W(b)	vector_fiq + stubs_offset
+
+	.globl	__vectors_end
+__vectors_end:
 
 	.data
 

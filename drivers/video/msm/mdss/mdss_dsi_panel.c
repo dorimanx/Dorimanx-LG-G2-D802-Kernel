@@ -118,20 +118,7 @@ lcd_maker_id get_panel_maker_id(void)
     int rc;
     int acc_read_value = 0;
 
-/* LIMIT: Include ONLY A1, B1, Vu3, Z models used MSM8974 AA/AB */
-#ifdef CONFIG_ADC_READY_CHECK_JB
-	rc = qpnp_vadc_read_lge(P_MUX5_1_1, &result);
-#else
-	/* MUST BE IMPLEMENT :
-	 * After MSM8974 AC and later version(PMIC combination change),
-	 * ADC AMUX of PMICs are separated in each dual PMIC.
-	 *
-	 * Ref.
-	 * qpnp-adc-voltage.c : *qpnp_get_vadc(), qpnp_vadc_read().
-	 * qpnp-charger.c     : new implementation by QCT.
-	 */
-	return maker_id;
-#endif
+	rc = qpnp_vadc_read(P_MUX5_1_1, &result);
 
 	if (rc < 0) {
 		if (rc == -ETIMEDOUT) {

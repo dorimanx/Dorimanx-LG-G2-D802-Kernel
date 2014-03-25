@@ -93,9 +93,6 @@ SECTIONS
 		_text = .;
 		HEAD_TEXT
 	}
-#ifdef CONFIG_STRICT_MEMORY_RWX
-	. = ALIGN(1<<SECTION_SHIFT);
-#endif
 
 	.text : {			/* Real text segment		*/
 		_stext = .;		/* Text and read-only data	*/
@@ -118,10 +115,10 @@ SECTIONS
 		*(.got)			/* Global offset table		*/
 			ARM_CPU_KEEP(PROC_INFO)
 	}
-
 #ifdef CONFIG_STRICT_MEMORY_RWX
 	. = ALIGN(1<<SECTION_SHIFT);
 #endif
+
 	RO_DATA(PAGE_SIZE)
 
 #ifdef CONFIG_ARM_UNWIND
@@ -151,23 +148,6 @@ SECTIONS
 #endif
 	__init_begin = .;
 #endif
-	/*
-	 * The vectors and stubs are relocatable code, and the
-	 * only thing that matters is their relative offsets
-	 */
-	__vectors_start = .;
-	.vectors 0 : AT(__vectors_start) {
-		*(.vectors)
-	}
-	. = __vectors_start + SIZEOF(.vectors);
-	__vectors_end = .;
-
-	__stubs_start = .;
-	.stubs 0x1000 : AT(__stubs_start) {
-		*(.stubs)
-	}
-	. = __stubs_start + SIZEOF(.stubs);
-	__stubs_end = .;
 
 	INIT_TEXT_SECTION(8)
 	.exit.text : {
@@ -176,9 +156,6 @@ SECTIONS
 	.init.proc.info : {
 		ARM_CPU_DISCARD(PROC_INFO)
 	}
-#ifdef CONFIG_STRICT_MEMORY_RWX
-	. = ALIGN(1<<SECTION_SHIFT);
-#endif
 	.init.arch.info : {
 		__arch_info_begin = .;
 		*(.arch.info.init)
@@ -213,6 +190,10 @@ SECTIONS
 		INIT_RAM_FS
 	}
 #ifndef CONFIG_XIP_KERNEL
+#ifdef CONFIG_STRICT_MEMORY_RWX
+	. = ALIGN(1<<SECTION_SHIFT);
+#endif
+	__init_data = .;
 	.exit.data : {
 		ARM_EXIT_KEEP(EXIT_DATA)
 	}

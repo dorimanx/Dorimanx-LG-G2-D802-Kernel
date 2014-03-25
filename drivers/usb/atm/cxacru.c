@@ -585,8 +585,7 @@ static int cxacru_cm(struct cxacru_data *instance, enum cxacru_cm_request cm,
 		     u8 *wdata, int wsize, u8 *rdata, int rsize)
 {
 	int ret, actlen;
-	int offb;
-	unsigned int offd;
+	int offb, offd;
 	const int stride = CMD_PACKET_SIZE - 4;
 	u8 *wbuf = instance->snd_buf;
 	u8 *rbuf = instance->rcv_buf;

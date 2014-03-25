@@ -29,14 +29,9 @@
 #include <linux/async.h>
 #include <linux/suspend.h>
 #include <linux/timer.h>
-#include <linux/slab.h>
 
 #include "../base.h"
 #include "power.h"
-
-#if defined (CONFIG_MACH_LGE)
-#include <linux/module.h>
-#endif
 
 typedef int (*pm_callback_t)(struct device *);
 
@@ -55,10 +50,6 @@ LIST_HEAD(dpm_prepared_list);
 LIST_HEAD(dpm_suspended_list);
 LIST_HEAD(dpm_late_early_list);
 LIST_HEAD(dpm_noirq_list);
-
-#ifdef CONFIG_ZERO_WAIT
-LIST_HEAD(dpm_wakeup_dev_list);
-#endif
 
 struct suspend_stats suspend_stats;
 static DEFINE_MUTEX(dpm_list_mtx);
@@ -122,73 +113,6 @@ void device_pm_add(struct device *dev)
 	mutex_unlock(&dpm_list_mtx);
 }
 
-#ifdef CONFIG_ZERO_WAIT
-static inline void dpm_wakeup_dev_remove(struct device *dev)
-{
-	struct dpm_zw_wakeup *zw_wakeup;
-
-	list_for_each_entry(zw_wakeup, &dpm_wakeup_dev_list, entry) {
-		if (zw_wakeup->dev == dev) {
-			device_set_wakeup_capable(dev, true);
-			list_del_init(&zw_wakeup->entry);
-			zw_wakeup->dev = NULL;
-			kfree(zw_wakeup);
-			break;
-		}
-	}
-}
-
-void dpm_wakeup_dev_list_set(void)
-{
-	struct device *dev;
-	struct dpm_zw_wakeup *zw_wakeup;
-
-	mutex_lock(&dpm_list_mtx);
-	if (!list_empty(&dpm_wakeup_dev_list)) {
-		mutex_unlock(&dpm_list_mtx);
-		return;
-	}
-
-	list_for_each_entry(dev, &dpm_list, power.entry) {
-		get_device(dev);
-		if (device_can_wakeup(dev)) {
-			zw_wakeup = kzalloc(sizeof(struct dpm_zw_wakeup),
-						GFP_KERNEL);
-			if (zw_wakeup == NULL) {
-				put_device(dev);
-				mutex_unlock(&dpm_list_mtx);
-				return;
-			}
-
-			zw_wakeup->dev = dev;
-			list_add_tail(&zw_wakeup->entry, &dpm_wakeup_dev_list);
-			device_set_wakeup_capable(zw_wakeup->dev, false);
-		}
-		put_device(dev);
-	}
-	mutex_unlock(&dpm_list_mtx);
-}
-
-void dpm_wakeup_dev_list_clean(void)
-{
-	struct dpm_zw_wakeup *zw_wakeup;
-	struct dpm_zw_wakeup *n;
-
-	mutex_lock(&dpm_list_mtx);
-	list_for_each_entry_safe_reverse(zw_wakeup, n,
-				&dpm_wakeup_dev_list, entry) {
-		get_device(zw_wakeup->dev);
-		device_set_wakeup_capable(zw_wakeup->dev, true);
-		put_device(zw_wakeup->dev);
-
-		list_del_init(&zw_wakeup->entry);
-		zw_wakeup->dev = NULL;
-		kfree(zw_wakeup);
-	}
-	mutex_unlock(&dpm_list_mtx);
-}
-#endif /* CONFIG_ZERO_WAIT */
-
 /**
  * device_pm_remove - Remove a device from the PM core's list of active devices.
  * @dev: Device to be removed from the list.
@@ -201,7 +125,6 @@ void device_pm_remove(struct device *dev)
 	mutex_lock(&dpm_list_mtx);
 	dev_pm_qos_constraints_destroy(dev);
 	list_del_init(&dev->power.entry);
-	dpm_wakeup_dev_remove(dev);
 	mutex_unlock(&dpm_list_mtx);
 	device_wakeup_disable(dev);
 	pm_runtime_remove(dev);
@@ -761,11 +684,6 @@ static void dpm_drv_timeout(unsigned long data)
 	BUG();
 }
 
-#if defined (CONFIG_MACH_LGE)
-static int nsec64_measure_resume_spend = 10000;// over 10ms
-module_param_named(resume_spend, nsec64_measure_resume_spend, int, S_IRUGO | S_IWUSR | S_IWGRP);
-#endif
-
 /**
  * dpm_resume - Execute "resume" callbacks for non-sysdev devices.
  * @state: PM transition of the system being carried out.
@@ -798,16 +716,7 @@ void dpm_resume(pm_message_t state)
 		if (!is_async(dev)) {
 			int error;
 
-#if defined (CONFIG_MACH_LGE)
-			ktime_t stime,etime;
-#endif
-
 			mutex_unlock(&dpm_list_mtx);
-
-#if defined (CONFIG_MACH_LGE)
-			if (nsec64_measure_resume_spend)
-				stime=ktime_get();
-#endif
 
 			error = device_resume(dev, state, false);
 			if (error) {
@@ -816,21 +725,6 @@ void dpm_resume(pm_message_t state)
 				dpm_save_failed_dev(dev_name(dev));
 				pm_dev_err(dev, state, "", error);
 			}
-
-#if defined (CONFIG_MACH_LGE)
-			if (nsec64_measure_resume_spend) {
-				int usecs;
-				u64 usecs64;
-				etime = ktime_get();
-				usecs64 = ktime_to_ns(ktime_sub(etime, stime));
-				do_div(usecs64, NSEC_PER_USEC);
-				usecs=usecs64;
-				if (usecs64>(u64)nsec64_measure_resume_spend-1) {
-					printk(KERN_EMERG "* DPM device: %s (%s) %d\n", dev_name(dev),
-						(dev->driver ? dev->driver->name : "no driver"),usecs);
-				}
-			}
-#endif
 
 			mutex_lock(&dpm_list_mtx);
 		}

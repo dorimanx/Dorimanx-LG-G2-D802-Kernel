@@ -44,7 +44,6 @@ struct smd_ch_info {
 	char			*name;
 	unsigned long		flags;
 	wait_queue_head_t	wait;
-	wait_queue_head_t smd_wait_q;
 	unsigned		dtr;
 
 	struct list_head	tx_q;
@@ -112,8 +111,8 @@ static void grmnet_ctrl_smd_read_w(struct work_struct *w)
 {
 	struct smd_ch_info *c = container_of(w, struct smd_ch_info, read_w);
 	struct rmnet_ctrl_port *port = c->port;
-	int sz, total_received, read_avail;
-	int len;
+	int sz;
+	size_t len;
 	void *buf;
 	unsigned long flags;
 
@@ -123,47 +122,22 @@ static void grmnet_ctrl_smd_read_w(struct work_struct *w)
 		if (sz <= 0)
 			break;
 
+		if (smd_read_avail(c->ch) < sz)
+			break;
+
 		spin_unlock_irqrestore(&port->port_lock, flags);
 
 		buf = kmalloc(sz, GFP_KERNEL);
 		if (!buf)
 			return;
 
-		total_received = 0;
-		while (total_received < sz) {
-			wait_event(c->smd_wait_q,
-				((read_avail = smd_read_avail(c->ch)) ||
-				(c->ch == 0)));
-
-			if (read_avail < 0 || c->ch == 0) {
-				pr_err("%s:smd read_avail failure:%d or channel closed ch=%p",
-					   __func__, read_avail, c->ch);
-				kfree(buf);
-				return;
-			}
-
-			if (read_avail + total_received > sz) {
-				pr_err("%s: SMD sending incorrect pkt\n",
-					   __func__);
-				kfree(buf);
-				return;
-			}
-
-			len = smd_read(c->ch, buf + total_received, read_avail);
-			if (len <= 0) {
-				pr_err("%s: smd read failure %d\n",
-					   __func__, len);
-				kfree(buf);
-				return;
-			}
-			total_received += len;
-		}
+		len = smd_read(c->ch, buf, sz);
 
 		/* send it to USB here */
 		spin_lock_irqsave(&port->port_lock, flags);
 		if (port->port_usb && port->port_usb->send_cpkt_response) {
 			port->port_usb->send_cpkt_response(port->port_usb,
-							buf, sz);
+							buf, len);
 			c->to_host++;
 		}
 		kfree(buf);
@@ -330,7 +304,7 @@ static void grmnet_ctrl_smd_notify(void *p, unsigned event)
 
 	switch (event) {
 	case SMD_EVENT_DATA:
-		if (smd_read_avail(c->ch) && !waitqueue_active(&c->smd_wait_q))
+		if (smd_read_avail(c->ch))
 			queue_work(grmnet_ctrl_wq, &c->read_w);
 		if (smd_write_avail(c->ch))
 			queue_work(grmnet_ctrl_wq, &c->write_w);
@@ -360,7 +334,6 @@ static void grmnet_ctrl_smd_notify(void *p, unsigned event)
 
 		break;
 	}
-	wake_up(&c->smd_wait_q);
 }
 /*------------------------------------------------------------ */
 
@@ -606,7 +579,6 @@ static int grmnet_ctrl_smd_port_alloc(int portno)
 						[portno % MAX_CTRL_PER_CLIENT];
 	c->port = port;
 	init_waitqueue_head(&c->wait);
-	init_waitqueue_head(&c->smd_wait_q);
 	INIT_LIST_HEAD(&c->tx_q);
 	INIT_WORK(&c->read_w, grmnet_ctrl_smd_read_w);
 	INIT_WORK(&c->write_w, grmnet_ctrl_smd_write_w);

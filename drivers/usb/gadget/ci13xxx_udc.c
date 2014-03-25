@@ -70,6 +70,10 @@
 #include <mach/usb_trace.h>
 #include "ci13xxx_udc.h"
 
+/* Turns on streaming. overrides CI13XXX_DISABLE_STREAMING */
+static unsigned int streaming;
+module_param(streaming, uint, S_IRUGO | S_IWUSR);
+
 /******************************************************************************
  * DEFINE
  *****************************************************************************/
@@ -363,10 +367,7 @@ static int hw_device_reset(struct ci13xxx *udc)
 	 * 8 micro frames. If CPU can handle interrupts at faster rate, ITC
 	 * can be set to lesser value to gain performance.
 	 */
-	if (udc->udc_driver->nz_itc)
-		hw_cwrite(CAP_USBCMD, USBCMD_ITC_MASK,
-			USBCMD_ITC(udc->udc_driver->nz_itc));
-	else if (udc->udc_driver->flags & CI13XXX_ZERO_ITC)
+	if (udc->udc_driver->flags & CI13XXX_ZERO_ITC)
 		hw_cwrite(CAP_USBCMD, USBCMD_ITC_MASK, USBCMD_ITC(0));
 
 	if (hw_cread(CAP_USBMODE, USBMODE_CM) != USBMODE_CM_DEVICE) {
@@ -388,31 +389,19 @@ static int hw_device_reset(struct ci13xxx *udc)
 static int hw_device_state(u32 dma)
 {
 	struct ci13xxx *udc = _udc;
-	struct usb_gadget *gadget = &udc->gadget;
 
 	if (dma) {
-		if (gadget->streaming_enabled || !(udc->udc_driver->flags &
-				CI13XXX_DISABLE_STREAMING)) {
+		if (streaming || !(udc->udc_driver->flags &
+				CI13XXX_DISABLE_STREAMING))
 			hw_cwrite(CAP_USBMODE, USBMODE_SDIS, 0);
-			pr_debug("%s(): streaming mode is enabled. USBMODE:%x\n",
-				__func__, hw_cread(CAP_USBMODE, ~0));
-		} else {
+		else
 			hw_cwrite(CAP_USBMODE, USBMODE_SDIS, USBMODE_SDIS);
-			pr_debug("%s(): streaming mode is disabled. USBMODE:%x\n",
-				__func__, hw_cread(CAP_USBMODE, ~0));
-		}
+
 		hw_cwrite(CAP_ENDPTLISTADDR, ~0, dma);
 
 		if (udc->udc_driver->notify_event)
 			udc->udc_driver->notify_event(udc,
 				CI13XXX_CONTROLLER_CONNECT_EVENT);
-
-		/* Set BIT(31) to enable AHB2AHB Bypass functionality */
-		if (udc->udc_driver->flags & CI13XXX_ENABLE_AHB2AHB_BYPASS) {
-			hw_awrite(ABS_AHBMODE, AHB2AHB_BYPASS, AHB2AHB_BYPASS);
-			pr_debug("%s(): ByPass Mode is enabled. AHBMODE:%x\n",
-					__func__, hw_aread(ABS_AHBMODE, ~0));
-		}
 
 		/* interrupt, error, port change, reset, sleep/suspend */
 		hw_cwrite(CAP_USBINTR, ~0,
@@ -421,12 +410,6 @@ static int hw_device_state(u32 dma)
 	} else {
 		hw_cwrite(CAP_USBCMD, USBCMD_RS, 0);
 		hw_cwrite(CAP_USBINTR, ~0, 0);
-		/* Clear BIT(31) to disable AHB2AHB Bypass functionality */
-		if (udc->udc_driver->flags & CI13XXX_ENABLE_AHB2AHB_BYPASS) {
-			hw_awrite(ABS_AHBMODE, AHB2AHB_BYPASS, 0);
-			pr_debug("%s(): ByPass Mode is disabled. AHBMODE:%x\n",
-					__func__, hw_aread(ABS_AHBMODE, ~0));
-		}
 	}
 	return 0;
 }
@@ -1867,14 +1850,6 @@ static void ep_prime_timer_func(unsigned long data)
 
 
 	spin_lock_irqsave(mep->lock, flags);
-
-	if (_udc && (!_udc->vbus_active || _udc->suspended)) {
-		pr_debug("ep%d%s prime timer when vbus_active=%d,suspend=%d\n",
-			mep->num, mep->dir ? "IN" : "OUT",
-			_udc->vbus_active, _udc->suspended);
-		goto out;
-	}
-
 	if (!hw_cread(CAP_ENDPTPRIME, BIT(n)))
 		goto out;
 
@@ -2004,7 +1979,6 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 	for (i = 1; i < 5; i++)
 		mReq->ptr->page[i] = (mReq->req.dma + i * CI13XXX_PAGE_SIZE) &
 							~TD_RESERVED_MASK;
-	wmb();
 
 	/* Remote Wakeup */
 	if (udc->suspended) {
@@ -2218,9 +2192,6 @@ __acquires(mEp->lock)
 
 	if (mEp == NULL)
 		return -EINVAL;
-
-	del_timer(&mEp->prime_timer);
-	mEp->prime_timer_count = 0;
 
 	hw_ep_flush(mEp->num, mEp->dir);
 
@@ -2951,6 +2922,8 @@ static int ep_disable(struct usb_ep *ep)
 
 	/* only internal SW should disable ctrl endpts */
 
+	del_timer(&mEp->prime_timer);
+	mEp->prime_timer_count = 0;
 	direction = mEp->dir;
 	do {
 		dbg_event(_usb_addr(mEp), "DISABLE", 0);
@@ -3305,6 +3278,8 @@ static void ep_fifo_flush(struct usb_ep *ep)
 
 	spin_lock_irqsave(mEp->lock, flags);
 
+	del_timer(&mEp->prime_timer);
+	mEp->prime_timer_count = 0;
 	dbg_event(_usb_addr(mEp), "FFLUSH", 0);
 	/*
 	 * _ep_nuke() takes care of flushing the endpoint.

@@ -45,7 +45,9 @@ extern    "C"
 #define _ISDB_MAX_PCBER_  20000
 
 #define _ISDB_MIN_VITERBIBER_  0
-#define _ISDB_MAX_VITERBIBER_  500
+//#define _ISDB_MAX_VITERBIBER_  500
+#define _ISDB_MAX_VITERBIBER_  2000
+
 
 #define _ISDB_MIN_TSPER_  0
 #define _ISDB_MAX_TSPER_  50000

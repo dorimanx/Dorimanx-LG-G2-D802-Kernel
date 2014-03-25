@@ -601,12 +601,11 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 	memcpy(req.app_name, load_img_req.img_name, MAX_APP_NAME_SIZE);
 
 	ret = __qseecom_check_app_exists(req);
-	if (ret < 0) {
-		qsee_disable_clock_vote(data, CLK_SFPB);
+	if (ret < 0)
 		return ret;
-	}
+	else
+		app_id = ret;
 
-	app_id = ret;
 	if (app_id) {
 		pr_debug("App id %d (%s) already exists\n", app_id,
 			(char *)(req.app_name));
@@ -1977,15 +1976,14 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 		pr_err("set_cpus_allowed_ptr failed : ret %d\n",
 				set_cpu_ret);
 		ret = -EFAULT;
-		goto exit_ion_free;
+		goto qseecom_load_external_elf_set_cpu_err;
 	}
-
 	/* Vote for the SFPB clock */
 	ret = qsee_vote_for_clock(data, CLK_SFPB);
 	if (ret) {
 		pr_err("Unable to vote for SFPB clock: ret = %d", ret);
 		ret = -EIO;
-		goto exit_cpu_restore;
+		goto qseecom_load_external_elf_set_cpu_err;
 	}
 
 	/*  SCM_CALL to load the external elf */
@@ -1996,32 +1994,23 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 		pr_err("scm_call to load failed : ret %d\n",
 				ret);
 		ret = -EFAULT;
-		goto exit_disable_clock;
+		goto qseecom_load_external_elf_scm_err;
 	}
 
-	switch (resp.result) {
-	case QSEOS_RESULT_SUCCESS:
-		break;
-	case QSEOS_RESULT_INCOMPLETE:
-		pr_err("%s: qseos result incomplete\n", __func__);
+	if (resp.result == QSEOS_RESULT_INCOMPLETE) {
 		ret = __qseecom_process_incomplete_cmd(data, &resp);
 		if (ret)
-			pr_err("process_incomplete_cmd failed: err: %d\n", ret);
-		break;
-	case QSEOS_RESULT_FAILURE:
-		pr_err("scm_call rsp.result is QSEOS_RESULT_FAILURE\n");
-		ret = -EFAULT;
-		break;
-	default:
-		pr_err("scm_call response result %d not supported\n",
-							resp.result);
-		ret = -EFAULT;
-		break;
+			pr_err("process_incomplete_cmd failed err: %d\n",
+					ret);
+	} else {
+		if (resp.result != QSEOS_RESULT_SUCCESS) {
+			pr_err("scm_call to load image failed resp.result =%d\n",
+						resp.result);
+			ret = -EFAULT;
+		}
 	}
 
-exit_disable_clock:
-	qsee_disable_clock_vote(data, CLK_SFPB);
-exit_cpu_restore:
+qseecom_load_external_elf_scm_err:
 	/* Restore the CPU mask */
 	mask = CPU_MASK_ALL;
 	set_cpu_ret = set_cpus_allowed_ptr(current, &mask);
@@ -2030,10 +2019,12 @@ exit_cpu_restore:
 				set_cpu_ret);
 		ret = -EFAULT;
 	}
-exit_ion_free:
+
+qseecom_load_external_elf_set_cpu_err:
 	/* Deallocate the handle */
 	if (!IS_ERR_OR_NULL(ihandle))
 		ion_free(qseecom.ion_clnt, ihandle);
+	qsee_disable_clock_vote(data, CLK_SFPB);
 	return ret;
 }
 

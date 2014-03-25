@@ -72,6 +72,7 @@
 			ti,pre-chg-current-ma = <256>;
 			ti,sys-vmin-mv = <3500>;
 			ti,vin-limit-mv = <4360>;
+			ti,icl-vbus-mv = <4400>;
 
 			lge,no-init-cable = <0 0 0>;
 			lge,cable-mhl-1k = <5000 500 500>;
@@ -131,7 +132,6 @@
 	qcom,msm-thermal {
 		qcom,limit-temp = <80>;
 		qcom,temp-hysteresis = <5>;
-                qcom,core-limit-temp = <90>;
 		qcom,core-temp-hysteresis = <5>;
 	};
 
@@ -490,18 +490,6 @@
 
 		qcom,leds@e100 {
 			status = "disabled";
-		};
-
-		qcom,leds@e200 {
-			status = "okay";
-			qcom,kpdbl1 {
-				linux,name = "button-backlight1";
-			};
-
-			qcom,kpdbl2 {
-				linux,name = "button-backlight2";
-				qcom,mode = "pwm";
-			};
 		};
 	};
 

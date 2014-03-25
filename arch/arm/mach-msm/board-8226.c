@@ -136,7 +136,6 @@ void __init msm8226_init(void)
 static const char *msm8226_dt_match[] __initconst = {
 	"qcom,msm8226",
 	"qcom,msm8926",
-	"qcom,apq8026",
 	NULL
 };
 
