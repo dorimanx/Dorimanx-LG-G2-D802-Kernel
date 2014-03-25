@@ -27,7 +27,7 @@
 #include <linux/msm_thermal.h>
 #include <mach/cpufreq.h>
 
-#define DEFAULT_POLLING_MS	200
+#define DEFAULT_POLLING_MS	250
 /* last 3 minutes based on 200ms polling cycle */
 #define MAX_HISTORY_SZ		((3*60*1000) / DEFAULT_POLLING_MS)
 
@@ -42,8 +42,8 @@ static struct msm_thermal_stat_data msm_thermal_stats;
 static int enabled = 0;
 static struct msm_thermal_data msm_thermal_info = {
 	.sensor_id = 0,
-	.poll_ms = 200,
-	.limit_temp_degC = 75,
+	.poll_ms = 250,
+	.limit_temp_degC = 78,
 	.temp_hysteresis_degC = 2,
 	.freq_step = 2,
 	.freq_control_mask = 0xf,
@@ -195,8 +195,8 @@ static void __ref do_freq_control(long temp)
 	int cpu = 0;
 	uint32_t max_freq = limited_max_freq_thermal;
 
-	if (msm_thermal_info.limit_temp_degC > 75)
-		msm_thermal_info.limit_temp_degC = 75;
+	if (msm_thermal_info.limit_temp_degC > 78)
+		msm_thermal_info.limit_temp_degC = 78;
 
 	if (temp >= msm_thermal_info.limit_temp_degC) {
 		if (limit_idx == limit_idx_low)
@@ -266,7 +266,7 @@ static void __ref check_temp(struct work_struct *work)
 
 	do_core_control(temp);
 	do_freq_control(temp);
-	//pr_info("msm_thermal: worker is alive!\n");
+	/* pr_info("msm_thermal: worker is alive!\n"); */
 reschedule:
 	if (enabled)
 		queue_delayed_work(intellithermal_wq, &check_temp_work,
@@ -309,6 +309,9 @@ static void __ref disable_msm_thermal(void)
 	int cpu = 0;
 
 	flush_workqueue(intellithermal_wq);
+
+	if (limited_max_freq_thermal == MSM_CPUFREQ_NO_LIMIT)
+		return;
 
 	for_each_possible_cpu(cpu) {
 		update_cpu_max_freq(cpu, MSM_CPUFREQ_NO_LIMIT);
