@@ -345,7 +345,6 @@ static void __cpuinit cpus_hotplugging(bool state) {
  */
 static void update_sampling_rate(unsigned int new_rate)
 {
-	int cpu = 0;
 	unsigned long next_sampling, appointed_at;
 
 	atomic_set(&hotplug_tuners_ins.hotplug_sampling_rate,new_rate);
@@ -366,7 +365,7 @@ static void update_sampling_rate(unsigned int new_rate)
 		cancel_delayed_work_sync(&alucard_hotplug_work);
 		mutex_lock(&timer_mutex);
 
-		queue_delayed_work_on(cpu, system_power_efficient_wq, &alucard_hotplug_work, usecs_to_jiffies(new_rate));
+		queue_delayed_work_on(0, system_power_efficient_wq, &alucard_hotplug_work, usecs_to_jiffies(new_rate));
 	}
 
 	mutex_unlock(&timer_mutex);
@@ -526,10 +525,10 @@ static struct attribute_group alucard_hotplug_attr_group = {
 
 static void __cpuinit hotplug_work_fn(struct work_struct *work)
 {
-	bool hotplug_enable = atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0;
-	int upmaxcoreslimit = atomic_read(&hotplug_tuners_ins.maxcoreslimit);
-	int up_rate = atomic_read(&hotplug_tuners_ins.cpu_up_rate);
-	int down_rate = atomic_read(&hotplug_tuners_ins.cpu_down_rate);
+	bool hotplug_enable = false;
+	int upmaxcoreslimit = 0;
+	int up_rate = 0;
+	int down_rate = 0;
 	bool check_up = false, check_down = false;
 	int schedule_down_cpu = 1;
 	int schedule_up_cpu = 1;
@@ -542,9 +541,14 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 
 	mutex_lock(&timer_mutex);
 
+	hotplug_enable = atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0;
+
 	if (hotplug_enable) {
 		/* set hotplugging_rate used */
 		++hotplugging_rate;
+		upmaxcoreslimit = atomic_read(&hotplug_tuners_ins.maxcoreslimit);
+ 		up_rate = atomic_read(&hotplug_tuners_ins.cpu_up_rate);
+		down_rate = atomic_read(&hotplug_tuners_ins.cpu_down_rate);
 		check_up = (hotplugging_rate % up_rate == 0);
 		check_down = (hotplugging_rate % down_rate == 0);
 		rq_avg = get_nr_run_avg();
@@ -616,7 +620,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 						&& online_cpus < upmaxcoreslimit
 						&& per_cpu(od_hotplug_cpuinfo, cpu).up_cpu > 0
 						&& schedule_up_cpu > 0
-						&& offline_cpu >= 0
+						&& offline_cpu > 0
 						&& cur_load >= up_load
 						&& cur_freq >= up_freq
 						&& rq_avg > up_rq) {
