@@ -43,12 +43,12 @@ static int enabled = 0;
 static struct msm_thermal_data msm_thermal_info = {
 	.sensor_id = 0,
 	.poll_ms = 250,
-	.limit_temp_degC = 78,
-	.temp_hysteresis_degC = 2,
+	.limit_temp_degC = 75,
+	.temp_hysteresis_degC = 10,
 	.freq_step = 2,
 	.freq_control_mask = 0xf,
 	.core_limit_temp_degC = 80,
-	.core_temp_hysteresis_degC = 5,
+	.core_temp_hysteresis_degC = 10,
 	.core_control_mask = 0xe,
 };
 static uint32_t limited_max_freq_thermal = MSM_CPUFREQ_NO_LIMIT;
@@ -195,8 +195,8 @@ static void __ref do_freq_control(long temp)
 	int cpu = 0;
 	uint32_t max_freq = limited_max_freq_thermal;
 
-	if (msm_thermal_info.limit_temp_degC > 78)
-		msm_thermal_info.limit_temp_degC = 78;
+	if (msm_thermal_info.limit_temp_degC > 75)
+		msm_thermal_info.limit_temp_degC = 75;
 
 	if (temp >= msm_thermal_info.limit_temp_degC) {
 		if (limit_idx == limit_idx_low)
@@ -307,6 +307,9 @@ static struct notifier_block __refdata msm_thermal_cpu_notifier = {
 static void __ref disable_msm_thermal(void)
 {
 	int cpu = 0;
+
+	/* make sure check_temp is no longer running */
+	cancel_delayed_work(&check_temp_work);
 
 	flush_workqueue(intellithermal_wq);
 

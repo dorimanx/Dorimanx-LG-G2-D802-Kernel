@@ -45,7 +45,6 @@
 static DEFINE_MUTEX(intelli_plug_mutex);
 
 static struct delayed_work intelli_plug_work;
-static struct delayed_work intelli_plug_boost;
 
 static struct workqueue_struct *intelliplug_wq;
 static struct workqueue_struct *intelliplug_boost_wq;
@@ -189,19 +188,6 @@ static unsigned int calculate_thread_stats(void)
 	return nr_run;
 }
 
-static void __cpuinit intelli_plug_boost_fn(struct work_struct *work)
-{
-
-	int nr_cpus = num_online_cpus();
-
-	if (nr_cpus < 2) {
-		if (!strict_mode_active)
-			cpu_up(1);
-		else
-			cpu_up(0);
-	}
-}
-
 static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 {
 	unsigned int nr_run_stat;
@@ -315,9 +301,9 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 		} else if (debug_intelli_plug) {
 			pr_info("intelli_plug is suspened!\n");
 		}
-		queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
-			msecs_to_jiffies(sampling_time));
 	}
+	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
+		msecs_to_jiffies(sampling_time));
 }
 
 #ifdef CONFIG_POWERSUSPEND
@@ -330,9 +316,9 @@ static void intelli_plug_suspend(struct power_suspend *handler)
 	hotplug_suspended = true;
 	mutex_unlock(&intelli_plug_mutex);
 
-	if (intelli_plug_active == 1) {
-		flush_workqueue(intelliplug_wq);
+	flush_workqueue(intelliplug_wq);
 
+	if (intelli_plug_active == 1) {
 		/* put rest of the cores to sleep! */
 		for (i = num_of_active_cores - 1; i > 0; i--) {
 			cpu_down(i);
@@ -363,10 +349,9 @@ static void __cpuinit intelli_plug_resume(struct power_suspend *handler)
 		for (i = 1; i < num_of_active_cores; i++) {
 			cpu_up(i);
 		}
-
-		queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
-			msecs_to_jiffies(10));
 	}
+	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
+		msecs_to_jiffies(10));
 }
 
 static struct power_suspend intelli_plug_power_suspend_driver = {
@@ -378,12 +363,9 @@ static struct power_suspend intelli_plug_power_suspend_driver = {
 static void intelli_plug_input_event(struct input_handle *handle,
 		unsigned int type, unsigned int code, int value)
 {
-	if (debug_intelli_plug)
-		pr_info("intelli_plug touched!\n");
-	if (intelli_plug_active == 1) {
-		queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_boost,
+	if (intelli_plug_active == 1)
+		queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
 			msecs_to_jiffies(10));
-	}
 }
 
 static int input_dev_filter(const char *input_dev_name)
@@ -475,7 +457,6 @@ int __init intelli_plug_init(void)
 	intelliplug_boost_wq = alloc_workqueue("iplug_boost",
 				WQ_HIGHPRI | WQ_UNBOUND, 1);
 	INIT_DELAYED_WORK(&intelli_plug_work, intelli_plug_work_fn);
-	INIT_DELAYED_WORK(&intelli_plug_boost, intelli_plug_boost_fn);
 	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
 		msecs_to_jiffies(10));
 
