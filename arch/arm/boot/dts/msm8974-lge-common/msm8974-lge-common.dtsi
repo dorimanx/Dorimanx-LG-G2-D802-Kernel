@@ -120,12 +120,6 @@
 		};
 	};
 
-        qcom,msm-rng@f9bff000 {
-		qcom,msm-bus,vectors-KBps =
-				<88 618 0 0>,
-				<88 618 0 800>;
-        };
-
 	/* wifi */
 	qcom,wcnss-wlan@fb000000 {
 		status = "disable";
@@ -134,10 +128,8 @@
 };
 
 &spi_epm {
-	lge,do-not-create-sysfs-file;
-	/* this is dummy node to register trivial hwmon0 node */
 	epm-adc@0 {
-		lge,do-not-create-sysfs-file;
+		status = "disable";
 		compatible = "cy,epm-adc-cy8c5568lti-114";
 		reg = <0>;
 		interrupt-parent = <&msmgpio>;

@@ -10,12 +10,6 @@
  * GNU General Public License for more details.
  */
 
-/ {
-	aliases{
-		smd0 = &smdtty_ds;
-	};
-};
-
 &soc {
 	lge_android_usb@fc42b0c8 {
 		compatible = "lge,lge-android-usb";
@@ -25,13 +19,6 @@
 		lge,lge_android_usb,product_name = "LGE Android Phone";
 		lge,lge_android_usb,manufacturer_name = "LG Electronics Inc.";
 		lge,lge_android_usb,factory_composition = "acm,diag";
-	};
-
-	qcom,smdtty {
-		smdtty_ds: qcom,smdtty-ds {
-			qcom,smdtty-remote = "modem";
-			qcom,smdtty-port-name = "DS";
-		};
 	};
 };
 

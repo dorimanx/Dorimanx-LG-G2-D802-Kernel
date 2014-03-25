@@ -1465,13 +1465,13 @@
 	qcom,msm-thermal {
 		compatible = "qcom,msm-thermal";
 		qcom,sensor-id = <0>;
-		qcom,poll-ms = <200>;
+		qcom,poll-ms = <250>;
 		qcom,limit-temp = <75>;
-		qcom,temp-hysteresis = <0>;
+		qcom,temp-hysteresis = <10>;
 		qcom,freq-step = <2>;
 		qcom,freq-control-mask = <0xf>;
 		qcom,core-limit-temp = <80>;
-		qcom,core-temp-hysteresis = <5>;
+		qcom,core-temp-hysteresis = <10>;
 		qcom,core-control-mask = <0xe>;
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
