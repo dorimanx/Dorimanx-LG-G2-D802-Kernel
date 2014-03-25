@@ -27,7 +27,7 @@
 #endif
 
 #define INTELLI_PLUG_MAJOR_VERSION	2
-#define INTELLI_PLUG_MINOR_VERSION	4
+#define INTELLI_PLUG_MINOR_VERSION	3
 
 #define DEF_SAMPLING_MS			(1000)
 #define BUSY_SAMPLING_MS		(500)
@@ -47,6 +47,7 @@ static DEFINE_MUTEX(intelli_plug_mutex);
 static struct delayed_work intelli_plug_work;
 static struct delayed_work intelli_plug_boost;
 
+static struct workqueue_struct *intelliplug_wq;
 static struct workqueue_struct *intelliplug_boost_wq;
 
 static unsigned int intelli_plug_active = 0;
@@ -269,7 +270,7 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 				persist_count = DUAL_CORE_PERSISTENCE;
 				if (!decision)
 					persist_count = DUAL_CORE_PERSISTENCE /
-							CPU_DOWN_FACTOR;
+						CPU_DOWN_FACTOR;
 				if (nr_cpus < 2) {
 					for (i = 1; i < cpu_count; i++)
 						cpu_up(i);
@@ -299,7 +300,7 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 				persist_count = QUAD_CORE_PERSISTENCE;
 				if (!decision)
 					persist_count = QUAD_CORE_PERSISTENCE /
-							CPU_DOWN_FACTOR;
+						CPU_DOWN_FACTOR;
 				if (nr_cpus < 4)
 					for (i = 1; i < cpu_count; i++)
 						cpu_up(i);
@@ -314,9 +315,8 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 		} else if (debug_intelli_plug) {
 			pr_info("intelli_plug is suspened!\n");
 		}
-		queue_delayed_work_on(0, system_power_efficient_wq,
-				&intelli_plug_work,
-				msecs_to_jiffies(sampling_time));
+		queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
+			msecs_to_jiffies(sampling_time));
 	}
 }
 
@@ -331,6 +331,8 @@ static void intelli_plug_suspend(struct power_suspend *handler)
 	mutex_unlock(&intelli_plug_mutex);
 
 	if (intelli_plug_active == 1) {
+		flush_workqueue(intelliplug_wq);
+
 		/* put rest of the cores to sleep! */
 		for (i = num_of_active_cores - 1; i > 0; i--) {
 			cpu_down(i);
@@ -362,9 +364,8 @@ static void __cpuinit intelli_plug_resume(struct power_suspend *handler)
 			cpu_up(i);
 		}
 
-		queue_delayed_work_on(0, system_power_efficient_wq,
-				&intelli_plug_work,
-				msecs_to_jiffies(10));
+		queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
+			msecs_to_jiffies(10));
 	}
 }
 
@@ -380,9 +381,8 @@ static void intelli_plug_input_event(struct input_handle *handle,
 	if (debug_intelli_plug)
 		pr_info("intelli_plug touched!\n");
 	if (intelli_plug_active == 1) {
-		queue_delayed_work_on(0, system_power_efficient_wq,
-				&intelli_plug_boost,
-				msecs_to_jiffies(10));
+		queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_boost,
+			msecs_to_jiffies(10));
 	}
 }
 
@@ -470,15 +470,14 @@ int __init intelli_plug_init(void)
 	register_power_suspend(&intelli_plug_power_suspend_driver);
 #endif
 
+	intelliplug_wq = alloc_workqueue("intelliplug",
+				WQ_HIGHPRI | WQ_UNBOUND, 0);
 	intelliplug_boost_wq = alloc_workqueue("iplug_boost",
 				WQ_HIGHPRI | WQ_UNBOUND, 0);
 	INIT_DELAYED_WORK(&intelli_plug_work, intelli_plug_work_fn);
 	INIT_DELAYED_WORK(&intelli_plug_boost, intelli_plug_boost_fn);
-	if (intelli_plug_active == 1) {
-		queue_delayed_work_on(0, system_power_efficient_wq,
-				&intelli_plug_work,
-				msecs_to_jiffies(10));
-	}
+	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
+		msecs_to_jiffies(10));
 
 	return 0;
 }
