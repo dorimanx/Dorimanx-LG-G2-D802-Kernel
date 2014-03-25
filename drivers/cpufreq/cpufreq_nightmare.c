@@ -652,6 +652,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 static void do_nightmare_timer(struct work_struct *work)
 {
 	struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo;
+	unsigned int sampling_rate;
 	int delay;
 	unsigned int cpu;
 
@@ -660,16 +661,17 @@ static void do_nightmare_timer(struct work_struct *work)
 
 	mutex_lock(&nightmare_cpuinfo->timer_mutex);
 
-	if (need_load_eval(nightmare_cpuinfo, delay))
-		nightmare_check_cpu(nightmare_cpuinfo);
-
+	sampling_rate = atomic_read(&nightmare_tuners_ins.sampling_rate);
+	delay = usecs_to_jiffies(sampling_rate);
 	/* We want all CPUs to do sampling nearly on
 	 * same jiffy
 	 */
-	delay = usecs_to_jiffies(atomic_read(&nightmare_tuners_ins.sampling_rate));
 	if (num_online_cpus() > 1) {
 		delay -= jiffies % delay;
 	}
+
+	if (need_load_eval(nightmare_cpuinfo, sampling_rate))
+		nightmare_check_cpu(nightmare_cpuinfo);
 
 	queue_delayed_work_on(cpu, system_power_efficient_wq, &nightmare_cpuinfo->work, delay);
 	mutex_unlock(&nightmare_cpuinfo->timer_mutex);

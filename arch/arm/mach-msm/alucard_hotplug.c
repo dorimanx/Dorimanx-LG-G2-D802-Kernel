@@ -29,6 +29,8 @@ static struct mutex timer_mutex;
 
 static struct delayed_work alucard_hotplug_work;
 
+static ktime_t time_stamp;
+
 struct hotplug_cpuinfo {
 	cputime64_t prev_cpu_wall;
 	cputime64_t prev_cpu_idle;
@@ -311,6 +313,10 @@ static void __cpuinit cpus_hotplugging(bool state) {
 			per_cpu(od_hotplug_cpuinfo, cpu).up_by_cpu = -1;
 		}
 		hotplugging_rate = 0;
+
+		/* Initiate timer time stamp */
+		time_stamp = ktime_get();
+
 		delay = usecs_to_jiffies(atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate));
 		if (num_online_cpus() > 1) {
 			delay -= jiffies % delay;
@@ -523,6 +529,21 @@ static struct attribute_group alucard_hotplug_attr_group = {
 	.name = "alucard_hotplug",
 };
 
+/* Will return if we need to evaluate cpu load again or not */
+static inline bool need_load_eval(unsigned int sampling_rate)
+{
+	ktime_t time_now = ktime_get();
+	s64 delta_us = ktime_us_delta(time_now, time_stamp);
+
+	/* Do nothing if we recently have sampled */
+	if (delta_us < (s64)(sampling_rate / 2))
+		return false;
+	else
+		time_stamp = time_now;
+
+	return true;
+}
+
 static void __cpuinit hotplug_work_fn(struct work_struct *work)
 {
 	bool hotplug_enable = false;
@@ -537,6 +558,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 	int ref_cpu = -1;
 	int online_cpus = 0;
 	unsigned int rq_avg = 0;
+	unsigned int sampling_rate=0;
 	int delay;
 
 	mutex_lock(&timer_mutex);
@@ -544,123 +566,126 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 	hotplug_enable = atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0;
 
 	if (hotplug_enable) {
-		/* set hotplugging_rate used */
-		++hotplugging_rate;
-		upmaxcoreslimit = atomic_read(&hotplug_tuners_ins.maxcoreslimit);
- 		up_rate = atomic_read(&hotplug_tuners_ins.cpu_up_rate);
-		down_rate = atomic_read(&hotplug_tuners_ins.cpu_down_rate);
-		check_up = (hotplugging_rate % up_rate == 0);
-		check_down = (hotplugging_rate % down_rate == 0);
-		rq_avg = get_nr_run_avg();
-
-		online_cpus = num_online_cpus();
-
-		for_each_cpu_not(cpu, cpu_online_mask) {
-			cputime64_t cur_wall_time, cur_idle_time;
-			unsigned int wall_time, idle_time;
-
-			cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, 0);
-
-			wall_time = (unsigned int)
-					(cur_wall_time - per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_wall);
-			per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_wall = cur_wall_time;
-
-			idle_time = (unsigned int)
-					(cur_idle_time - per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_idle);
-			per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_idle = cur_idle_time;
-
-			if (offline_cpu == -1) {
-				offline_cpu = cpu;
-			}
-
-			per_cpu(od_hotplug_cpuinfo, cpu).online = false;
-			per_cpu(od_hotplug_cpuinfo, cpu).up_cpu = 1;
-			per_cpu(od_hotplug_cpuinfo, cpu).up_by_cpu = -1;
-		}
-
-		for_each_online_cpu(cpu) {
-			cputime64_t cur_wall_time, cur_idle_time;
-			unsigned int wall_time, idle_time;
-			int up_load;
-			int down_load;
-			unsigned int up_freq;
-			unsigned int down_freq;
-			unsigned int up_rq;
-			unsigned int down_rq;
-			int cur_load = -1;
-			unsigned int cur_freq = 0;
-
-			cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, 0);
-
-			wall_time = (unsigned int)
-					(cur_wall_time - per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_wall);
-			per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_wall = cur_wall_time;
-
-			idle_time = (unsigned int)
-					(cur_idle_time - per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_idle);
-			per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_idle = cur_idle_time;
-
-			if (wall_time >= idle_time) { /*if wall_time < idle_time, evaluate cpu load next time*/
-					cur_load = wall_time > idle_time ? (100 * (wall_time - idle_time)) / wall_time : 0;/*if wall_time is equal to idle_time cpu_load is equal to 0*/
-
-					cur_freq = acpuclk_get_rate(cpu);
-				
-					up_load = atomic_read(&hotplug_load[cpu][UP_INDEX]);
-					down_load = atomic_read(&hotplug_load[cpu][DOWN_INDEX]);
-					up_freq = atomic_read(&hotplug_freq[cpu][UP_INDEX]);
-					down_freq = atomic_read(&hotplug_freq[cpu][DOWN_INDEX]);
-					up_rq = atomic_read(&hotplug_rq[cpu][UP_INDEX]);
-					down_rq = atomic_read(&hotplug_rq[cpu][DOWN_INDEX]);
-
-					/*printk(KERN_ERR "U CPU[%u], cur_freq[%u], up_freq[%u], cur_load[%d], up_load[%d], offline_cpu[%d], schedule_up_cpu[%d]\n",cpu, cur_freq, up_freq, cur_load, up_load, offline_cpu, schedule_up_cpu);
-					printk(KERN_ERR "D CPU[%u], cur_freq[%u], down_freq[%u], cur_load[%d], down_load[%d], schedule_down_cpu[%d]\n",cpu, cur_freq, down_freq, cur_load, down_load, schedule_down_cpu);*/
-
-					if (check_up
-						&& online_cpus < upmaxcoreslimit
-						&& per_cpu(od_hotplug_cpuinfo, cpu).up_cpu > 0
-						&& schedule_up_cpu > 0
-						&& offline_cpu > 0
-						&& cur_load >= up_load
-						&& cur_freq >= up_freq
-						&& rq_avg > up_rq) {
-							--schedule_up_cpu;
-							per_cpu(od_hotplug_cpuinfo, offline_cpu).online = true;
-							per_cpu(od_hotplug_cpuinfo, offline_cpu).up_by_cpu = cpu;
-							per_cpu(od_hotplug_cpuinfo, cpu).up_cpu = 0;
-							cpu_up(offline_cpu);
-					}
-					if (check_down
-						&& cpu > 0
-						&& schedule_down_cpu > 0
-						&& cpu != offline_cpu
-						&& cur_load >= 0) {
-							if (cur_load < down_load
-								|| (cur_freq <= down_freq
-									&& rq_avg <= down_rq)) {
-									--schedule_down_cpu;
-									per_cpu(od_hotplug_cpuinfo, cpu).online = false;
-									ref_cpu = per_cpu(od_hotplug_cpuinfo, cpu).up_by_cpu;
-									if (ref_cpu >= 0) {
-										per_cpu(od_hotplug_cpuinfo, ref_cpu).up_cpu = 1;
-									}
-									per_cpu(od_hotplug_cpuinfo, cpu).up_cpu = 1;
-									per_cpu(od_hotplug_cpuinfo, cpu).up_by_cpu = -1;
-									cpu_down(cpu);
-							}
-					}
-			}
-		}
-		if (hotplugging_rate >= max(up_rate, down_rate)) {
-			hotplugging_rate = 0;
-		}
-
-		delay = usecs_to_jiffies(atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate));
+		sampling_rate = atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate);
+		delay = usecs_to_jiffies(sampling_rate);
 		if (num_online_cpus() > 1) {
 			delay -= jiffies % delay;
 		}
 
-		if (num_online_cpus() == 1) {
-			per_cpu(od_hotplug_cpuinfo, 0).up_cpu = 1;
+		if (need_load_eval(sampling_rate)) {
+			/* set hotplugging_rate used */
+			++hotplugging_rate;
+			upmaxcoreslimit = atomic_read(&hotplug_tuners_ins.maxcoreslimit);
+	 		up_rate = atomic_read(&hotplug_tuners_ins.cpu_up_rate);
+			down_rate = atomic_read(&hotplug_tuners_ins.cpu_down_rate);
+			check_up = (hotplugging_rate % up_rate == 0);
+			check_down = (hotplugging_rate % down_rate == 0);
+			rq_avg = get_nr_run_avg();
+
+			online_cpus = num_online_cpus();
+
+			for_each_cpu_not(cpu, cpu_online_mask) {
+				cputime64_t cur_wall_time, cur_idle_time;
+				unsigned int wall_time, idle_time;
+
+				cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, 0);
+
+				wall_time = (unsigned int)
+						(cur_wall_time - per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_wall);
+				per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_wall = cur_wall_time;
+
+				idle_time = (unsigned int)
+						(cur_idle_time - per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_idle);
+				per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_idle = cur_idle_time;
+
+				if (offline_cpu == -1) {
+					offline_cpu = cpu;
+				}
+
+				per_cpu(od_hotplug_cpuinfo, cpu).online = false;
+				per_cpu(od_hotplug_cpuinfo, cpu).up_cpu = 1;
+				per_cpu(od_hotplug_cpuinfo, cpu).up_by_cpu = -1;
+			}
+
+			for_each_online_cpu(cpu) {
+				cputime64_t cur_wall_time, cur_idle_time;
+				unsigned int wall_time, idle_time;
+				int up_load;
+				int down_load;
+				unsigned int up_freq;
+				unsigned int down_freq;
+				unsigned int up_rq;
+				unsigned int down_rq;
+				int cur_load = -1;
+				unsigned int cur_freq = 0;
+
+				cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, 0);
+
+				wall_time = (unsigned int)
+						(cur_wall_time - per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_wall);
+				per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_wall = cur_wall_time;
+
+				idle_time = (unsigned int)
+						(cur_idle_time - per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_idle);
+				per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_idle = cur_idle_time;
+
+				if (wall_time >= idle_time) { /*if wall_time < idle_time, evaluate cpu load next time*/
+						cur_load = wall_time > idle_time ? (100 * (wall_time - idle_time)) / wall_time : 0;/*if wall_time is equal to idle_time cpu_load is equal to 0*/
+
+						cur_freq = acpuclk_get_rate(cpu);
+				
+						up_load = atomic_read(&hotplug_load[cpu][UP_INDEX]);
+						down_load = atomic_read(&hotplug_load[cpu][DOWN_INDEX]);
+						up_freq = atomic_read(&hotplug_freq[cpu][UP_INDEX]);
+						down_freq = atomic_read(&hotplug_freq[cpu][DOWN_INDEX]);
+						up_rq = atomic_read(&hotplug_rq[cpu][UP_INDEX]);
+						down_rq = atomic_read(&hotplug_rq[cpu][DOWN_INDEX]);
+
+						/*printk(KERN_ERR "U CPU[%u], cur_freq[%u], up_freq[%u], cur_load[%d], up_load[%d], offline_cpu[%d], schedule_up_cpu[%d]\n",cpu, cur_freq, up_freq, cur_load, up_load, offline_cpu, schedule_up_cpu);
+						printk(KERN_ERR "D CPU[%u], cur_freq[%u], down_freq[%u], cur_load[%d], down_load[%d], schedule_down_cpu[%d]\n",cpu, cur_freq, down_freq, cur_load, down_load, schedule_down_cpu);*/
+
+						if (check_up 
+							&& online_cpus < upmaxcoreslimit
+							&& per_cpu(od_hotplug_cpuinfo, cpu).up_cpu > 0
+							&& schedule_up_cpu > 0
+							&& offline_cpu > 0
+							&& cur_load >= up_load
+							&& cur_freq >= up_freq
+							&& rq_avg > up_rq) {
+								--schedule_up_cpu;
+								per_cpu(od_hotplug_cpuinfo, offline_cpu).online = true;
+								per_cpu(od_hotplug_cpuinfo, offline_cpu).up_by_cpu = cpu;
+								per_cpu(od_hotplug_cpuinfo, cpu).up_cpu = 0;
+								cpu_up(offline_cpu);
+						}
+						if (check_down
+							&& cpu > 0
+							&& schedule_down_cpu > 0
+							&& cpu != offline_cpu
+							&& cur_load >= 0) {
+								if (cur_load < down_load
+									|| (cur_freq <= down_freq 
+										&& rq_avg <= down_rq)) {
+										--schedule_down_cpu;
+										per_cpu(od_hotplug_cpuinfo, cpu).online = false;
+										ref_cpu = per_cpu(od_hotplug_cpuinfo, cpu).up_by_cpu;
+										if (ref_cpu >= 0) {
+											per_cpu(od_hotplug_cpuinfo, ref_cpu).up_cpu = 1;
+										}
+										per_cpu(od_hotplug_cpuinfo, cpu).up_cpu = 1;
+										per_cpu(od_hotplug_cpuinfo, cpu).up_by_cpu = -1;
+										cpu_down(cpu);
+								}
+						}
+				}
+			}
+			if (hotplugging_rate >= max(up_rate, down_rate)) {
+				hotplugging_rate = 0;
+			}
+
+			if (num_online_cpus() == 1) {
+				per_cpu(od_hotplug_cpuinfo, 0).up_cpu = 1;
+			}
 		}
 		queue_delayed_work_on(0, system_power_efficient_wq, &alucard_hotplug_work, delay);
 	}
@@ -693,12 +718,16 @@ int __init alucard_hotplug_init(void)
 	hotplugging_rate = 0;
 	for_each_possible_cpu(cpu) {
 		per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_idle = get_cpu_idle_time(cpu, &per_cpu(od_hotplug_cpuinfo, cpu).prev_cpu_wall, 0);
+
 		per_cpu(od_hotplug_cpuinfo, cpu).up_cpu = 1;
 		per_cpu(od_hotplug_cpuinfo, cpu).online = cpu_online(cpu);
 		per_cpu(od_hotplug_cpuinfo, cpu).up_by_cpu = -1;
 	}
 	mutex_init(&timer_mutex);
 	mutex_unlock(&alucard_hotplug_mutex);
+
+	/* Initiate timer time stamp */
+	time_stamp = ktime_get();
 
 	delay = usecs_to_jiffies(atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate));
 	if (num_online_cpus() > 1) {
