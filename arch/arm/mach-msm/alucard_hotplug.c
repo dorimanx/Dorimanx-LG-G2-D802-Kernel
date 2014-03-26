@@ -307,8 +307,8 @@ static void __cpuinit cpus_hotplugging(bool state) {
 	if (state) {
 		start_rq_work();
 		for_each_possible_cpu(cpu) {
-			struct hotplug_cpuinfo *this_hotplug_cpuinfo =
-				&per_cpu(od_hotplug_cpuinfo, cpu);
+			struct hotplug_cpuinfo *this_hotplug_cpuinfo;
+			this_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
 
 			this_hotplug_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_hotplug_cpuinfo->prev_cpu_wall, 0);
 			this_hotplug_cpuinfo->up_cpu = 1;
@@ -589,10 +589,11 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 			online_cpus = num_online_cpus();
 
 			for_each_cpu_not(cpu, cpu_online_mask) {
-				struct hotplug_cpuinfo *this_hotplug_cpuinfo =
-					&per_cpu(od_hotplug_cpuinfo, cpu);
+				struct hotplug_cpuinfo *this_hotplug_cpuinfo;
 				cputime64_t cur_wall_time, cur_idle_time;
 				unsigned int wall_time, idle_time;
+
+				this_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
 
 				cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, 0);
 
@@ -614,9 +615,8 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 			}
 
 			for_each_online_cpu(cpu) {
-				struct hotplug_cpuinfo *this_hotplug_cpuinfo =
-					&per_cpu(od_hotplug_cpuinfo, cpu);
-				struct hotplug_cpuinfo *ref_hotplug_cpuinfo;
+				struct hotplug_cpuinfo *this_hotplug_cpuinfo;
+				struct hotplug_cpuinfo *ref_hotplug_cpuinfo = NULL;
 				cputime64_t cur_wall_time, cur_idle_time;
 				unsigned int wall_time, idle_time;
 				int up_load;
@@ -627,6 +627,8 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 				unsigned int down_rq;
 				int cur_load = -1;
 				unsigned int cur_freq = 0;
+
+				this_hotplug_cpuinfo =	&per_cpu(od_hotplug_cpuinfo, cpu);
 
 				cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, 0);
 
@@ -662,10 +664,10 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 							&& cur_freq >= up_freq
 							&& rq_avg > up_rq) {
 								--schedule_up_cpu;
+								this_hotplug_cpuinfo->up_cpu = 0;
 								ref_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, offline_cpu);
 								ref_hotplug_cpuinfo->online = true;
 								ref_hotplug_cpuinfo->up_by_cpu = cpu;
-								this_hotplug_cpuinfo->up_cpu = 0;
 						} else if (check_down
 							&& cpu > 0
 							&& schedule_down_cpu > 0
@@ -676,14 +678,14 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 										&& rq_avg <= down_rq)) {
 										--schedule_down_cpu;
 										this_hotplug_cpuinfo->online = false;
+										this_hotplug_cpuinfo->up_cpu = 1;
+										this_hotplug_cpuinfo->up_by_cpu = -1;
 										ref_cpu = this_hotplug_cpuinfo->up_by_cpu;
+										online_cpu = cpu;
 										if (ref_cpu >= 0) {
 											ref_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, ref_cpu);
 											ref_hotplug_cpuinfo->up_cpu = 1;
 										}
-										this_hotplug_cpuinfo->up_cpu = 1;
-										this_hotplug_cpuinfo->up_by_cpu = -1;
-										online_cpu = cpu;
 								}
 						}
 				}
@@ -699,9 +701,9 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 			}
 
 			if (num_online_cpus() == 1) {
-				struct hotplug_cpuinfo *this_hotplug_cpuinfo =
-					&per_cpu(od_hotplug_cpuinfo, 0);
-				this_hotplug_cpuinfo->up_cpu = 1;
+				struct hotplug_cpuinfo *main_hotplug_cpuinfo;
+				main_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, 0);
+				main_hotplug_cpuinfo->up_cpu = 1;
 			}
 		}
 		queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
@@ -734,8 +736,9 @@ int __init alucard_hotplug_init(void)
 	mutex_lock(&alucard_hotplug_mutex);
 	hotplugging_rate = 0;
 	for_each_possible_cpu(cpu) {
-		struct hotplug_cpuinfo *this_hotplug_cpuinfo =
-			&per_cpu(od_hotplug_cpuinfo, cpu);
+		struct hotplug_cpuinfo *this_hotplug_cpuinfo;
+
+		this_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
 
 		this_hotplug_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_hotplug_cpuinfo->prev_cpu_wall, 0);
 
@@ -766,6 +769,9 @@ static void __exit alucard_hotplug_exit(void)
 	if (delayed_work_pending(&alucard_hotplug_work))
 		cancel_delayed_work_sync(&alucard_hotplug_work);
 	mutex_destroy(&timer_mutex);
+
+	sysfs_remove_group(kernel_kobj,
+					   &&alucard_hotplug_attr_group);
 }
 MODULE_AUTHOR("Alucard_24@XDA");
 MODULE_DESCRIPTION("'alucard_hotplug' - A cpu hotplug driver for "
