@@ -616,7 +616,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 
 			for_each_online_cpu(cpu) {
 				struct hotplug_cpuinfo *this_hotplug_cpuinfo;
-				struct hotplug_cpuinfo *ref_hotplug_cpuinfo;
+				struct hotplug_cpuinfo *ref_hotplug_cpuinfo = NULL;
 				cputime64_t cur_wall_time, cur_idle_time;
 				unsigned int wall_time, idle_time;
 				int up_load;
@@ -664,10 +664,10 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 							&& cur_freq >= up_freq
 							&& rq_avg > up_rq) {
 								--schedule_up_cpu;
-								this_hotplug_cpuinfo->up_cpu = 0;
 								ref_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, offline_cpu);
 								ref_hotplug_cpuinfo->online = true;
 								ref_hotplug_cpuinfo->up_by_cpu = cpu;
+								this_hotplug_cpuinfo->up_cpu = 0;
 						} else if (check_down
 							&& cpu > 0
 							&& schedule_down_cpu > 0
@@ -677,15 +677,15 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 									|| (cur_freq <= down_freq
 										&& rq_avg <= down_rq)) {
 										--schedule_down_cpu;
-										this_hotplug_cpuinfo->online = false;
-										this_hotplug_cpuinfo->up_cpu = 1;
-										this_hotplug_cpuinfo->up_by_cpu = -1;
 										ref_cpu = this_hotplug_cpuinfo->up_by_cpu;
-										online_cpu = cpu;
 										if (ref_cpu >= 0) {
 											ref_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, ref_cpu);
 											ref_hotplug_cpuinfo->up_cpu = 1;
 										}
+										this_hotplug_cpuinfo->online = false;
+										this_hotplug_cpuinfo->up_cpu = 1;
+										this_hotplug_cpuinfo->up_by_cpu = -1;
+										online_cpu = cpu;
 								}
 						}
 				}
