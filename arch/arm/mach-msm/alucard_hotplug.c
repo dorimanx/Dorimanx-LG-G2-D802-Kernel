@@ -24,7 +24,6 @@
 #include <linux/slab.h>
 #include "acpuclock.h"
 
-static DEFINE_MUTEX(alucard_hotplug_mutex);
 static struct mutex timer_mutex;
 
 static struct delayed_work alucard_hotplug_work;
@@ -174,9 +173,9 @@ static atomic_t hotplug_load[4][2] = {
 };
 static atomic_t hotplug_rq[4][2] = {
 	{ATOMIC_INIT(0), ATOMIC_INIT(100)},
-	{ATOMIC_INIT(100), ATOMIC_INIT(200)},
-	{ATOMIC_INIT(200), ATOMIC_INIT(300)},
-	{ATOMIC_INIT(300), ATOMIC_INIT(0)}
+	{ATOMIC_INIT(100), ATOMIC_INIT(100)},
+	{ATOMIC_INIT(100), ATOMIC_INIT(100)},
+	{ATOMIC_INIT(100), ATOMIC_INIT(0)}
 };
 
 #define show_one(file_name, object)					\
@@ -326,13 +325,13 @@ static void __cpuinit cpus_hotplugging(bool state) {
 		}
 		queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
 	} else {
+		cancel_delayed_work_sync(&alucard_hotplug_work);
 		stop_rq_work();
 		for_each_online_cpu(cpu) {
 			if (cpu == 0)
 				continue;
 			cpu_down(cpu);
 		}
-		cancel_delayed_work_sync(&alucard_hotplug_work);
 	}
 
 	mutex_unlock(&timer_mutex);
@@ -732,7 +731,6 @@ int __init alucard_hotplug_init(void)
 		start_rq_work();
 	}
 
-	mutex_lock(&alucard_hotplug_mutex);
 	hotplugging_rate = 0;
 	for_each_possible_cpu(cpu) {
 		struct hotplug_cpuinfo *this_hotplug_cpuinfo;
@@ -746,7 +744,6 @@ int __init alucard_hotplug_init(void)
 		this_hotplug_cpuinfo->up_by_cpu = -1;
 	}
 	mutex_init(&timer_mutex);
-	mutex_unlock(&alucard_hotplug_mutex);
 
 	/* Initiate timer time stamp */
 	time_stamp = ktime_get();
@@ -766,14 +763,11 @@ int __init alucard_hotplug_init(void)
 void __exit alucard_hotplug_exit(void)
 {
 	cancel_delayed_work_sync(&alucard_hotplug_work);
-
-	mutex_lock(&alucard_hotplug_mutex);
+	stop_rq_work();
 
 	mutex_destroy(&timer_mutex);
 	sysfs_remove_group(kernel_kobj,
 					   &alucard_hotplug_attr_group);
-
-	mutex_unlock(&alucard_hotplug_mutex);
 }
 MODULE_AUTHOR("Alucard_24@XDA");
 MODULE_DESCRIPTION("'alucard_hotplug' - A cpu hotplug driver for "

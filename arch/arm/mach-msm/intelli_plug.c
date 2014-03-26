@@ -151,11 +151,11 @@ static void intelli_plug_active_eval_fn(unsigned int status)
 	intelli_plug_active = status;
 
 	if (status == 1) {
-		queue_delayed_work_on(0, system_wq, &intelli_plug_work,
-			msecs_to_jiffies(10));
+		if (!delayed_work_pending(&intelli_plug_work))
+			queue_delayed_work_on(0, system_wq, &intelli_plug_work,
+				msecs_to_jiffies(10));
 	} else {
-		if (delayed_work_pending(&intelli_plug_work))
-			cancel_delayed_work_sync(&intelli_plug_work);
+		cancel_delayed_work_sync(&intelli_plug_work);
 	}
 }
 
@@ -536,88 +536,9 @@ static struct early_suspend intelli_plug_early_suspend_struct_driver = {
 #endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
-static void intelli_plug_input_event(struct input_handle *handle,
-		unsigned int type, unsigned int code, int value)
-{
-	if (intelli_plug_active == 1)
-		queue_delayed_work_on(0, system_wq, &intelli_plug_work,
-			msecs_to_jiffies(10));
-}
-
-static int input_dev_filter(const char *input_dev_name)
-{
-	if (strstr(input_dev_name, "touchscreen") ||
-		strstr(input_dev_name, "sec_touchscreen") ||
-		strstr(input_dev_name, "touch_dev") ||
-		strstr(input_dev_name, "-keypad") ||
-		strstr(input_dev_name, "-nav") ||
-		strstr(input_dev_name, "-oj")) {
-		pr_info("touch dev: %s\n", input_dev_name);
-		return 0;
-	} else {
-		pr_info("touch dev: %s\n", input_dev_name);
-		return 1;
-	}
-}
-
-static int intelli_plug_input_connect(struct input_handler *handler,
-		struct input_dev *dev, const struct input_device_id *id)
-{
-	struct input_handle *handle;
-	int error;
-
-	if (input_dev_filter(dev->name))
-		return -ENODEV;
-
-	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
-	if (!handle)
-		return -ENOMEM;
-
-	handle->dev = dev;
-	handle->handler = handler;
-	handle->name = "intelliplug";
-
-	error = input_register_handle(handle);
-	if (error)
-		goto err2;
-
-	error = input_open_device(handle);
-	if (error)
-		goto err1;
-	pr_info("%s found and connected!\n", dev->name);
-	return 0;
-err1:
-	input_unregister_handle(handle);
-err2:
-	kfree(handle);
-	return error;
-}
-
-static void intelli_plug_input_disconnect(struct input_handle *handle)
-{
-	input_close_device(handle);
-	input_unregister_handle(handle);
-	kfree(handle);
-}
-
-static const struct input_device_id intelli_plug_ids[] = {
-	{ .driver_info = 1 },
-	{ },
-};
-
-static struct input_handler intelli_plug_input_handler = {
-	.event          = intelli_plug_input_event,
-	.connect        = intelli_plug_input_connect,
-	.disconnect     = intelli_plug_input_disconnect,
-	.name           = "intelliplug_handler",
-	.id_table       = intelli_plug_ids,
-};
-
 int __init intelli_plug_init(void)
 {
 	int rc;
-
-	rc = input_register_handler(&intelli_plug_input_handler);
 
 	rc = sysfs_create_group(kernel_kobj, &intelli_plug_attr_group);
 
@@ -658,8 +579,6 @@ int __exit intelli_plug_exit(void)
 
 	sysfs_remove_group(kernel_kobj,
 					   &intelli_plug_attr_group);
-
-	input_unregister_handler(&intelli_plug_input_handler);
 
 	return 0;
 }
