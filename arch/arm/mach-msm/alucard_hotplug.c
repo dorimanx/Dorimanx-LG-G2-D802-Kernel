@@ -31,7 +31,7 @@ static struct delayed_work alucard_hotplug_work;
 
 static ktime_t time_stamp;
 
-struct hotplug_cpuinfo {
+static struct hotplug_cpuinfo {
 	cputime64_t prev_cpu_wall;
 	cputime64_t prev_cpu_idle;
 	int online;
@@ -61,7 +61,7 @@ static struct hotplug_tuners {
 
 #define RQ_AVG_TIMER_RATE	10
 
-struct runqueue_data {
+static struct runqueue_data {
 	unsigned int nr_run_avg;
 	unsigned int update_rate;
 	int64_t last_time;
@@ -763,7 +763,7 @@ int __init alucard_hotplug_init(void)
 	return ret;
 }
 
-static void __exit alucard_hotplug_exit(void)
+void __exit alucard_hotplug_exit(void)
 {
 	cancel_delayed_work_sync(&alucard_hotplug_work);
 
