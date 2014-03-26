@@ -332,8 +332,7 @@ static void __cpuinit cpus_hotplugging(bool state) {
 				continue;
 			cpu_down(cpu);
 		}
-		if (delayed_work_pending(&alucard_hotplug_work))
-			cancel_delayed_work_sync(&alucard_hotplug_work);
+		cancel_delayed_work_sync(&alucard_hotplug_work);
 	}
 
 	mutex_unlock(&timer_mutex);
@@ -766,12 +765,15 @@ int __init alucard_hotplug_init(void)
 
 static void __exit alucard_hotplug_exit(void)
 {
-	if (delayed_work_pending(&alucard_hotplug_work))
-		cancel_delayed_work_sync(&alucard_hotplug_work);
-	mutex_destroy(&timer_mutex);
+	cancel_delayed_work_sync(&alucard_hotplug_work);
 
+	mutex_lock(&alucard_hotplug_mutex);
+
+	mutex_destroy(&timer_mutex);
 	sysfs_remove_group(kernel_kobj,
 					   &alucard_hotplug_attr_group);
+
+	mutex_unlock(&alucard_hotplug_mutex);
 }
 MODULE_AUTHOR("Alucard_24@XDA");
 MODULE_DESCRIPTION("'alucard_hotplug' - A cpu hotplug driver for "
