@@ -47,7 +47,6 @@ static DEFINE_MUTEX(intelli_plug_mutex);
 static struct delayed_work intelli_plug_work;
 
 static struct workqueue_struct *intelliplug_wq;
-static struct workqueue_struct *intelliplug_boost_wq;
 
 static unsigned int intelli_plug_active = 0;
 module_param(intelli_plug_active, uint, 0644);
@@ -453,9 +452,7 @@ int __init intelli_plug_init(void)
 #endif
 
 	intelliplug_wq = alloc_workqueue("intelliplug",
-				WQ_HIGHPRI | WQ_UNBOUND, 1);
-	intelliplug_boost_wq = alloc_workqueue("iplug_boost",
-				WQ_HIGHPRI | WQ_UNBOUND, 1);
+				WQ_HIGHPRI | WQ_UNBOUND, 0);
 	INIT_DELAYED_WORK(&intelli_plug_work, intelli_plug_work_fn);
 	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
 		msecs_to_jiffies(10));
