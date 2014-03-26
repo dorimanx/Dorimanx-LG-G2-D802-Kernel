@@ -616,7 +616,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 
 			for_each_online_cpu(cpu) {
 				struct hotplug_cpuinfo *this_hotplug_cpuinfo;
-				struct hotplug_cpuinfo *ref_hotplug_cpuinfo = NULL;
+				struct hotplug_cpuinfo *ref_hotplug_cpuinfo;
 				cputime64_t cur_wall_time, cur_idle_time;
 				unsigned int wall_time, idle_time;
 				int up_load;
@@ -771,7 +771,7 @@ static void __exit alucard_hotplug_exit(void)
 	mutex_destroy(&timer_mutex);
 
 	sysfs_remove_group(kernel_kobj,
-					   &&alucard_hotplug_attr_group);
+					   &alucard_hotplug_attr_group);
 }
 MODULE_AUTHOR("Alucard_24@XDA");
 MODULE_DESCRIPTION("'alucard_hotplug' - A cpu hotplug driver for "
