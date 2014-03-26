@@ -700,7 +700,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 
 			if (num_online_cpus() == 1) {
 				struct hotplug_cpuinfo *this_hotplug_cpuinfo =
-					&per_cpu(od_hotplug_cpuinfo, cpu);
+					&per_cpu(od_hotplug_cpuinfo, 0);
 				this_hotplug_cpuinfo->up_cpu = 1;
 			}
 		}
