@@ -547,21 +547,25 @@ static inline bool need_load_eval(unsigned int sampling_rate)
 
 static void __cpuinit hotplug_work_fn(struct work_struct *work)
 {
+	struct hotplug_cpuinfo *ref_hotplug_cpuinfo = NULL;
 	bool hotplug_enable = false;
 	int upmaxcoreslimit = 0;
 	int up_rate = 0;
 	int down_rate = 0;
 	bool check_up = false, check_down = false;
-	int schedule_down_cpu = 1;
-	int schedule_up_cpu = 1;
+	int schedule_down_cpu = 3;
+	int schedule_up_cpu = 0;
 	unsigned int cpu = 0;
-	int offline_cpu = -1;
-	int online_cpu = -1;
+	int online_cpu = 0;
+	int offline_cpu = 0;
 	int ref_cpu = -1;
 	int online_cpus = 0;
 	unsigned int rq_avg = 0;
 	unsigned int sampling_rate=0;
 	int delay;
+	int cpus_off[4] = {-1, -1, -1, -1};
+	int cpus_on[4] = {-1, -1, -1, -1};
+	int idx_off = 0;
 
 	mutex_lock(&timer_mutex);
 
@@ -603,9 +607,10 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 						(cur_idle_time - this_hotplug_cpuinfo->prev_cpu_idle);
 				this_hotplug_cpuinfo->prev_cpu_idle = cur_idle_time;
 
-				if (offline_cpu == -1) {
-					offline_cpu = cpu;
-				}
+				cpus_off[idx_off] = cpu;
+				++idx_off;
+				++schedule_up_cpu;
+				--schedule_down_cpu;
 
 				this_hotplug_cpuinfo->online = false;
 				this_hotplug_cpuinfo->up_cpu = 1;
@@ -614,7 +619,6 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 
 			for_each_online_cpu(cpu) {
 				struct hotplug_cpuinfo *this_hotplug_cpuinfo;
-				struct hotplug_cpuinfo *ref_hotplug_cpuinfo = NULL;
 				cputime64_t cur_wall_time, cur_idle_time;
 				unsigned int wall_time, idle_time;
 				int up_load;
@@ -657,24 +661,26 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 							&& online_cpus < upmaxcoreslimit
 							&& this_hotplug_cpuinfo->up_cpu > 0
 							&& schedule_up_cpu > 0
-							&& offline_cpu > 0
 							&& cur_load >= up_load
 							&& cur_freq >= up_freq
 							&& rq_avg > up_rq) {
-								--schedule_up_cpu;
-								ref_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, offline_cpu);
-								ref_hotplug_cpuinfo->online = true;
-								ref_hotplug_cpuinfo->up_by_cpu = cpu;
-								this_hotplug_cpuinfo->up_cpu = 0;
+								if (offline_cpu < idx_off 
+									&& cpus_off[offline_cpu] > 0) {
+										ref_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpus_off[offline_cpu]);
+										ref_hotplug_cpuinfo->online = true;
+										ref_hotplug_cpuinfo->up_by_cpu = cpu;
+										this_hotplug_cpuinfo->up_cpu = 0;
+										++offline_cpu;
+										--schedule_up_cpu;
+								}
+								
 						} else if (check_down
 							&& cpu > 0
 							&& schedule_down_cpu > 0
-							&& cpu != offline_cpu
 							&& cur_load >= 0) {
 								if (cur_load < down_load
 									|| (cur_freq <= down_freq
 										&& rq_avg <= down_rq)) {
-										--schedule_down_cpu;
 										ref_cpu = this_hotplug_cpuinfo->up_by_cpu;
 										if (ref_cpu >= 0) {
 											ref_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, ref_cpu);
@@ -683,25 +689,34 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 										this_hotplug_cpuinfo->online = false;
 										this_hotplug_cpuinfo->up_cpu = 1;
 										this_hotplug_cpuinfo->up_by_cpu = -1;
-										online_cpu = cpu;
+										cpus_on[online_cpu] = cpu;
+										++online_cpu;
+										--schedule_down_cpu;
 								}
 						}
 				}
 			}
-			if (schedule_up_cpu == 0)
-				cpu_up(offline_cpu);
+			if (offline_cpu > 0) {
+				for (cpu = 0; cpu < offline_cpu; cpu++) {
+					if (cpus_off[cpu] > 0)
+						cpu_up(cpus_off[cpu]);
+				}	
+			}
 
-			if (schedule_down_cpu == 0)
-				cpu_down(online_cpu);
+			if (online_cpu > 0) {
+				for (cpu = 0; cpu < online_cpu; cpu++) {
+					if (cpus_on[cpu] > 0)
+						cpu_down(cpus_on[cpu]);
+				}
+			}
 
 			if (hotplugging_rate >= max(up_rate, down_rate)) {
 				hotplugging_rate = 0;
 			}
 
 			if (num_online_cpus() == 1) {
-				struct hotplug_cpuinfo *main_hotplug_cpuinfo;
-				main_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, 0);
-				main_hotplug_cpuinfo->up_cpu = 1;
+				ref_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, 0);
+				ref_hotplug_cpuinfo->up_cpu = 1;
 			}
 		}
 		queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
