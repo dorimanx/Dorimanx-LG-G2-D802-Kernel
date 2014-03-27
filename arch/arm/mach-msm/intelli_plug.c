@@ -55,13 +55,8 @@ static bool hotplug_suspended = false;
 
 /* HotPlug Driver controls */
 static unsigned int intelli_plug_active = 0;
-module_param(intelli_plug_active, uint, 0644);
-
 static unsigned int eco_mode_active = 0;
-module_param(eco_mode_active, uint, 0644);
-
 static unsigned int strict_mode_active = 0;
-module_param(strict_mode_active, uint, 0644);
 
 /* HotPlug Driver Tuning */
 static unsigned int def_sampling_ms = DEF_SAMPLING_MS;
