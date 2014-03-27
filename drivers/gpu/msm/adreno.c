@@ -275,7 +275,7 @@ static void adreno_input_work(struct work_struct *work)
 	if (!_wake_timeout)
 		return;
 
-	mutex_lock(&device->mutex);
+	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 
 	device->flags |= KGSL_FLAG_WAKE_ON_TOUCH;
 
@@ -292,7 +292,7 @@ static void adreno_input_work(struct work_struct *work)
 	 */
 	mod_timer(&device->idle_timer,
 		jiffies + msecs_to_jiffies(_wake_timeout));
-	mutex_unlock(&device->mutex);
+	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 }
 
 /*
@@ -2090,27 +2090,27 @@ static void adreno_start_work(struct work_struct *work)
 	/* Nice ourselves to be higher priority but not too high priority */
 	set_user_nice(current, _wake_nice);
 
-	mutex_lock(&device->mutex);
-	/* 
-	* If adreno start is already called, no need to call it again 
-	* it can lead to unpredictable behavior if we try to start 
-	* the device that is already started. 
-	* Below is the sequence of events that can go bad without the check 
-	* 1) thread 1 calls adreno_start to be scheduled on high priority wq 
-	* 2) thread 2 calls adreno_start with normal priority 
-	* 3) thread 1 after checking the device to be in slumber state gives 
-	* up mutex to be scheduled on high priority wq 
-	* 4) thread 2 after checking the device to be in slumber state gets 
-	* the mutex and finishes adreno_start before thread 1 is scheduled 
-	* on high priority wq. 
-	* 5) thread 1 gets scheduled on high priority wq and executes 
-	* adreno_start again. This leads to unpredictable behavior. 
-	*/ 
-	if (!test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv)) 
-	_status = _adreno_start(adreno_dev); 
-	else 
-	_status = 0; 
-	mutex_unlock(&device->mutex);
+	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	/*
+	 *  If adreno start is already called, no need to call it again
+	 *  it can lead to unpredictable behavior if we try to start
+	 *  the device that is already started.
+	 *  Below is the sequence of events that can go bad without the check
+	 *  1) thread 1 calls adreno_start to be scheduled on high priority wq
+	 *  2) thread 2 calls adreno_start with normal priority
+	 *  3) thread 1 after checking the device to be in slumber state gives
+	 *     up mutex to be scheduled on high priority wq
+	 *  4) thread 2 after checking the device to be in slumber state gets
+	 *     the mutex and finishes adreno_start before thread 1 is scheduled
+	 *     on high priority wq.
+	 *  5) thread 1 gets scheduled on high priority wq and executes
+	 *     adreno_start again. This leads to unpredictable behavior.
+	 */
+	if (!test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv))
+		_status = _adreno_start(adreno_dev);
+	else
+		_status = 0;
+	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 }
 
 /**
@@ -2135,9 +2135,9 @@ static int adreno_start(struct kgsl_device *device, int priority)
 	 * higher priority work queue and wait for it to finish
 	 */
 	queue_work(adreno_wq, &adreno_dev->start_work);
-	mutex_unlock(&device->mutex);
+	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 	flush_work(&adreno_dev->start_work);
-	mutex_lock(&device->mutex);
+	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 
 	return _status;
 }

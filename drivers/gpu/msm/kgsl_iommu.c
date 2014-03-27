@@ -1775,11 +1775,8 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 		return ret;
 	}
 
-	if (!mutex_is_locked(&device->mutex) ||
-		device->mutex.owner != current) {
-		mutex_lock(&device->mutex);
+	if (!kgsl_mutex_lock(&device->mutex, &device->mutex_owner))
 		lock_taken = 1;
-	}
 
 	/* If current pt then flush immediately */
 	if (kgsl_mmu_is_perprocess(pt->mmu) &&
@@ -1789,7 +1786,7 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 		kgsl_iommu_default_setstate(pt->mmu, KGSL_MMUFLAGS_TLBFLUSH);
 
 	if (lock_taken)
-		mutex_unlock(&device->mutex);
+		kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 
 	return ret;
 }
