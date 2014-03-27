@@ -50,7 +50,7 @@ static struct hotplug_tuners {
 	.hotplug_sampling_rate = ATOMIC_INIT(60000),
 	.hotplug_enable = ATOMIC_INIT(0),
 	.cpu_up_rate = ATOMIC_INIT(2),
-	.cpu_down_rate = ATOMIC_INIT(2),
+	.cpu_down_rate = ATOMIC_INIT(15),
 	.maxcoreslimit = ATOMIC_INIT(NR_CPUS),
 };
 
@@ -160,10 +160,10 @@ static unsigned int get_nr_run_avg(void)
 static unsigned hotplugging_rate = 0;
 
 static atomic_t hotplug_freq[4][2] = {
-	{ATOMIC_INIT(0), ATOMIC_INIT(960000)},
-	{ATOMIC_INIT(652800), ATOMIC_INIT(960000)},
-	{ATOMIC_INIT(652800), ATOMIC_INIT(960000)},
-	{ATOMIC_INIT(652800), ATOMIC_INIT(0)}
+	{ATOMIC_INIT(0), ATOMIC_INIT(1267200)},
+	{ATOMIC_INIT(960000), ATOMIC_INIT(1497600)},
+	{ATOMIC_INIT(1036800), ATOMIC_INIT(1728000)},
+	{ATOMIC_INIT(1190400), ATOMIC_INIT(0)}
 };
 static atomic_t hotplug_load[4][2] = {
 	{ATOMIC_INIT(0), ATOMIC_INIT(65)},
@@ -173,9 +173,9 @@ static atomic_t hotplug_load[4][2] = {
 };
 static atomic_t hotplug_rq[4][2] = {
 	{ATOMIC_INIT(0), ATOMIC_INIT(100)},
-	{ATOMIC_INIT(100), ATOMIC_INIT(100)},
-	{ATOMIC_INIT(100), ATOMIC_INIT(100)},
-	{ATOMIC_INIT(100), ATOMIC_INIT(0)}
+	{ATOMIC_INIT(100), ATOMIC_INIT(200)},
+	{ATOMIC_INIT(200), ATOMIC_INIT(300)},
+	{ATOMIC_INIT(300), ATOMIC_INIT(0)}
 };
 
 #define show_one(file_name, object)					\
@@ -654,7 +654,8 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 						up_rq = atomic_read(&hotplug_rq[cpu][UP_INDEX]);
 						down_rq = atomic_read(&hotplug_rq[cpu][DOWN_INDEX]);
 
-						/*printk(KERN_ERR "U CPU[%u], cur_freq[%u], up_freq[%u], cur_load[%d], up_load[%d], offline_cpu[%d], schedule_up_cpu[%d]\n",cpu, cur_freq, up_freq, cur_load, up_load, offline_cpu, schedule_up_cpu);
+						/*printk(KERN_ERR "ONLINE CPUS[%u], CPU[%u], cur_freq[%u], cur_load[%d], rq_avg[%u]\n",online_cpus, cpu, cur_freq, cur_load, rq_avg);
+						printk(KERN_ERR "U CPU[%u], cur_freq[%u], up_freq[%u], cur_load[%d], up_load[%d], offline_cpu[%d], schedule_up_cpu[%d]\n",cpu, cur_freq, up_freq, cur_load, up_load, offline_cpu, schedule_up_cpu);
 						printk(KERN_ERR "D CPU[%u], cur_freq[%u], down_freq[%u], cur_load[%d], down_load[%d], schedule_down_cpu[%d]\n",cpu, cur_freq, down_freq, cur_load, down_load, schedule_down_cpu);*/
 
 						if (check_up
