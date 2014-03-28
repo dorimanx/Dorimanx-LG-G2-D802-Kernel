@@ -772,7 +772,7 @@ int __init alucard_hotplug_init(void)
 
 	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0)
 		queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
-
+	printk(KERN_ERR "alucard_hotplug_init[%u]\n",1);
 	return ret;
 }
 
@@ -781,6 +781,7 @@ void __exit alucard_hotplug_exit(void)
 	cancel_delayed_work_sync(&alucard_hotplug_work);
 	stop_rq_work();
 
+	printk(KERN_ERR "alucard_hotplug_exit[%u]\n",0);
 	mutex_destroy(&timer_mutex);
 	sysfs_remove_group(kernel_kobj,
 					   &alucard_hotplug_attr_group);
@@ -789,5 +790,5 @@ MODULE_AUTHOR("Alucard_24@XDA");
 MODULE_DESCRIPTION("'alucard_hotplug' - A cpu hotplug driver for "
 	"capable processors");
 MODULE_LICENSE("GPL");
-module_init(alucard_hotplug_init);
-module_exit(alucard_hotplug_exit);
+late_initcall(alucard_hotplug_init);
+late_exitcall(alucard_hotplug_exit);
