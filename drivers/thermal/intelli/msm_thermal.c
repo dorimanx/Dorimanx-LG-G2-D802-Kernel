@@ -587,7 +587,7 @@ int __init msm_thermal_init(struct msm_thermal_data *pdata)
 
 	enabled = 1;
 	if (num_possible_cpus() > 1)
-		core_control_enabled = 0;
+		core_control_enabled = 1;
 	intellithermal_wq = alloc_workqueue("intellithermal",
 				WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
 	INIT_DELAYED_WORK(&check_temp_work, check_temp);
