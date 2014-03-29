@@ -34,13 +34,13 @@
 #define INTELLI_PLUG_MAJOR_VERSION	3
 #define INTELLI_PLUG_MINOR_VERSION	0
 
-#define DEF_SAMPLING_MS			(1000)
-#define BUSY_SAMPLING_MS		(500)
+#define DEF_SAMPLING_MS			(500)
+#define BUSY_SAMPLING_MS		(250)
 
 #define BUSY_PERSISTENCE		10
-#define DUAL_CORE_PERSISTENCE		7
-#define TRI_CORE_PERSISTENCE		5
-#define QUAD_CORE_PERSISTENCE		3
+#define DUAL_CORE_PERSISTENCE		14
+#define TRI_CORE_PERSISTENCE		10
+#define QUAD_CORE_PERSISTENCE		6
 
 #define CPU_DOWN_FACTOR			2
 #define NR_FSHIFT			3
@@ -145,13 +145,12 @@ static void intelli_plug_active_eval_fn(unsigned int status)
 {
 	intelli_plug_active = status;
 
-	if (status == 1) {
+	if (status == 1)
 		if (!delayed_work_pending(&intelli_plug_work))
 			queue_delayed_work_on(0, system_wq, &intelli_plug_work,
 				msecs_to_jiffies(10));
-	} else {
+	else
 		cancel_delayed_work_sync(&intelli_plug_work);
-	}
 }
 
 static ssize_t store_intelli_plug_active(struct kobject *kobj,
@@ -470,6 +469,8 @@ static void intelli_plug_early_suspend(struct early_suspend *handler)
 	int i = 0;
 	int num_of_active_cores = 0;
 
+	flush_workqueue(system_wq);
+
 	if (intelli_plug_active == 1) {
 		num_of_active_cores = num_possible_cpus();
 
@@ -511,7 +512,6 @@ static void __cpuinit intelli_plug_late_resume(struct early_suspend *handler)
 		for (i = 1; i < num_of_active_cores; i++) {
 			cpu_up(i);
 		}
-
 		queue_delayed_work_on(0, system_wq, &intelli_plug_work,
 			msecs_to_jiffies(10));
 	}
@@ -537,7 +537,6 @@ int __init intelli_plug_init(void)
 
 	rc = sysfs_create_group(kernel_kobj, &intelli_plug_attr_group);
 
-	/* pr_info("intelli_plug: scheduler delay is: %d\n", delay); */
 	pr_info("intelli_plug: version %d.%d by faux123\n",
 		 INTELLI_PLUG_MAJOR_VERSION,
 		 INTELLI_PLUG_MINOR_VERSION);
@@ -551,11 +550,8 @@ int __init intelli_plug_init(void)
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 	INIT_DELAYED_WORK(&intelli_plug_work, intelli_plug_work_fn);
-
-	if (intelli_plug_active == 1) {
-		queue_delayed_work_on(0, system_wq, &intelli_plug_work,
-			msecs_to_jiffies(10));
-	}
+	queue_delayed_work_on(0, system_wq, &intelli_plug_work,
+		msecs_to_jiffies(10));
 
 	return 0;
 }
@@ -572,8 +568,7 @@ int __exit intelli_plug_exit(void)
 #endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
-	sysfs_remove_group(kernel_kobj,
-					   &intelli_plug_attr_group);
+	sysfs_remove_group(kernel_kobj, &intelli_plug_attr_group);
 
 	return 0;
 }

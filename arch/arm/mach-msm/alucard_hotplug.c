@@ -770,8 +770,7 @@ int __init alucard_hotplug_init(void)
 	}
 	INIT_DELAYED_WORK(&alucard_hotplug_work, hotplug_work_fn);
 
-	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0)
-		queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
+	queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
 	printk(KERN_ERR "alucard_hotplug_init[%u]\n",1);
 	return ret;
 }
