@@ -358,9 +358,6 @@ static int __cpuinit msm_cpufreq_init(struct cpufreq_policy *policy)
 	cpuinfo_max_freq = policy->cpuinfo.max_freq;
 #endif
 
-	policy->max = 2265600;
-	policy->min = 300000;
-
 	cur_freq = acpuclk_get_rate(policy->cpu);
 	if (cpufreq_frequency_table_target(policy, table, cur_freq,
 	    CPUFREQ_RELATION_H, &index) &&
@@ -370,16 +367,19 @@ static int __cpuinit msm_cpufreq_init(struct cpufreq_policy *policy)
 				policy->cpu, cur_freq);
 		return -EINVAL;
 	}
-	/*
-	 * Call set_cpu_freq unconditionally so that when cpu is set to
-	 * online, frequency limit will always be updated.
-	 */
-	ret = set_cpu_freq(policy, table[index].frequency);
-	if (ret)
-		return ret;
-	pr_debug("cpufreq: cpu%d init at %d switching to %d\n",
-			policy->cpu, cur_freq, policy->max);
-	policy->cur = policy->max;
+
+	if (cur_freq != table[index].frequency) {
+		int ret = 0;
+		ret = acpuclk_set_rate(policy->cpu, table[index].frequency,
+				SETRATE_CPUFREQ);
+		if (ret)
+			return ret;
+		pr_debug("cpufreq: cpu%d init at %d switching to %d\n",
+				policy->cpu, cur_freq, table[index].frequency);
+		cur_freq = table[index].frequency;
+	}
+
+	policy->cur = cur_freq;
 
 	policy->cpuinfo.transition_latency =
 		acpuclk_get_switch_time() * NSEC_PER_USEC;
