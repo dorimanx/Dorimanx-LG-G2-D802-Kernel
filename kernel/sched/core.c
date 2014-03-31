@@ -3162,6 +3162,7 @@ void scheduler_tick(void)
 	rq->idle_balance = idle_cpu(cpu);
 	trigger_load_balance(rq);
 #endif
+	check_for_migration(rq, curr);
 }
 
 notrace unsigned long get_parent_ip(unsigned long addr)
