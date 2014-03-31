@@ -48,8 +48,8 @@
 static DEFINE_MUTEX(intelli_plug_mutex);
 
 static struct delayed_work intelli_plug_work;
-
 static struct workqueue_struct *intelliplug_wq;
+
 static unsigned int sampling_time = 0;
 static unsigned int sampling_time_on = 10;
 static unsigned int persist_count = 0;
@@ -57,7 +57,7 @@ static unsigned int busy_persist_count = 0;
 static bool hotplug_suspended = false;
 
 /* HotPlug Driver controls */
-static unsigned int intelli_plug_active = 0;
+static atomic_t intelli_plug_active = ATOMIC_INIT(0);
 static unsigned int eco_mode_active = 0;
 static unsigned int strict_mode_active = 0;
 
@@ -100,7 +100,13 @@ static ssize_t show_##file_name					\
 	return sprintf(buf, "%u\n", object);			\
 }
 
-show_one(intelli_plug_active, intelli_plug_active);
+static ssize_t show_intelli_plug_active(struct kobject *kobj,
+			struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n",
+			atomic_read(&intelli_plug_active));
+}
+
 show_one(eco_mode_active, eco_mode_active);
 show_one(strict_mode_active, strict_mode_active);
 show_one(def_sampling_ms, def_sampling_ms);
@@ -146,14 +152,12 @@ store_one(nr_run_hysteresis, nr_run_hysteresis);
 
 static void intelli_plug_active_eval_fn(unsigned int status)
 {
-	intelli_plug_active = status;
+	atomic_set(&intelli_plug_active, status);
 
 	if (status == 1) {
-		intelli_plug_active = 1;
 		sampling_time_on = 10;
 		sampling_time = 0;
 	} else {
-		intelli_plug_active = 0;
 		sampling_time_on = 500;
 		sampling_time = 250;
 		flush_workqueue(intelliplug_wq);
@@ -167,13 +171,13 @@ static ssize_t store_intelli_plug_active(struct kobject *kobj,
 	int ret;
 	unsigned int input;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%d", &input);
 	if (ret < 0)
 		return ret;
 
 	input = min(max(input, 0), 1);
 
-	if (input == intelli_plug_active)
+	if (input == atomic_read(&intelli_plug_active))
 		return count;
 
 	intelli_plug_active_eval_fn(input);
@@ -357,7 +361,7 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 	int decision = 0;
 	int i;
 
-	if (intelli_plug_active == 1) {
+	if (atomic_read(&intelli_plug_active) == 1) {
 		nr_run_stat = calculate_thread_stats();
 		if (debug_intelli_plug)
 			pr_info("nr_run_stat: %u\n", nr_run_stat);
@@ -461,7 +465,7 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 		} else if (debug_intelli_plug)
 			pr_info("intelli_plug is suspened!\n");
 	}
-	if (!intelli_plug_active)
+	if (atomic_read(&intelli_plug_active) == 0)
 		sampling_time = 60;
 
 	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
@@ -480,7 +484,7 @@ static void intelli_plug_early_suspend(struct early_suspend *handler)
 
 	flush_workqueue(intelliplug_wq);
 
-	if (intelli_plug_active == 1) {
+	if (atomic_read(&intelli_plug_active) == 1) {
 		mutex_lock(&intelli_plug_mutex);
 		hotplug_suspended = true;
 		mutex_unlock(&intelli_plug_mutex);
@@ -498,10 +502,10 @@ static void __cpuinit intelli_plug_resume(struct power_suspend *handler)
 static void __cpuinit intelli_plug_late_resume(struct early_suspend *handler)
 #endif
 {
-	int num_of_active_cores;
+	int num_of_active_cores = 0;
 	int i = 0;
 
-	if (intelli_plug_active == 1) {
+	if (atomic_read(&intelli_plug_active) == 1) {
 		mutex_lock(&intelli_plug_mutex);
 		/* keep cores awake long enough for faster wake up */
 		persist_count = busy_persistence;
@@ -539,7 +543,7 @@ static struct early_suspend intelli_plug_early_suspend_struct_driver = {
 #endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
-int __init intelli_plug_init(void)
+static int __init intelli_plug_init(void)
 {
 	int rc;
 
@@ -566,6 +570,24 @@ int __init intelli_plug_init(void)
 	return 0;
 }
 
+static int __exit intelli_plug_exit(void)
+{
+	cancel_delayed_work(&intelli_plug_work);
+
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#ifdef CONFIG_POWERSUSPEND
+	unregister_power_suspend(&intelli_plug_power_suspend_driver);
+#else
+	unregister_early_suspend(&intelli_plug_early_suspend_struct_driver);
+#endif
+#endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
+
+	sysfs_remove_group(kernel_kobj,
+					   &intelli_plug_attr_group);
+
+	return 0;
+}
+
 MODULE_AUTHOR("Paul Reioux <reioux@gmail.com>");
 MODULE_AUTHOR("Alucard24 & Dorimanx");
 MODULE_DESCRIPTION("'intell_plug' - An intelligent cpu hotplug driver for "
@@ -573,3 +595,4 @@ MODULE_DESCRIPTION("'intell_plug' - An intelligent cpu hotplug driver for "
 MODULE_LICENSE("GPL");
 
 late_initcall(intelli_plug_init);
+late_initexit(intelli_plug_exit);
