@@ -34,13 +34,13 @@
 #define INTELLI_PLUG_MAJOR_VERSION	3
 #define INTELLI_PLUG_MINOR_VERSION	0
 
-#define DEF_SAMPLING_MS			(500)
-#define BUSY_SAMPLING_MS		(250)
+#define DEF_SAMPLING_MS			(60)
+#define BUSY_SAMPLING_MS		(30)
 
 #define BUSY_PERSISTENCE		10
-#define DUAL_CORE_PERSISTENCE		14
-#define TRI_CORE_PERSISTENCE		10
-#define QUAD_CORE_PERSISTENCE		6
+#define DUAL_CORE_PERSISTENCE		7
+#define TRI_CORE_PERSISTENCE		5
+#define QUAD_CORE_PERSISTENCE		3
 
 #define CPU_DOWN_FACTOR			2
 #define NR_FSHIFT			3
@@ -48,7 +48,10 @@
 static DEFINE_MUTEX(intelli_plug_mutex);
 
 static struct delayed_work intelli_plug_work;
+
+static struct workqueue_struct *intelliplug_wq;
 static unsigned int sampling_time = 0;
+static unsigned int sampling_time_on = 10;
 static unsigned int persist_count = 0;
 static unsigned int busy_persist_count = 0;
 static bool hotplug_suspended = false;
@@ -145,12 +148,16 @@ static void intelli_plug_active_eval_fn(unsigned int status)
 {
 	intelli_plug_active = status;
 
-	if (status == 1)
-		if (!delayed_work_pending(&intelli_plug_work))
-			queue_delayed_work_on(0, system_wq, &intelli_plug_work,
-				msecs_to_jiffies(10));
-	else
-		cancel_delayed_work_sync(&intelli_plug_work);
+	if (status == 1) {
+		intelli_plug_active = 1;
+		sampling_time_on = 10;
+		sampling_time = 0;
+	} else {
+		intelli_plug_active = 0;
+		sampling_time_on = 500;
+		sampling_time = 250;
+		flush_workqueue(intelliplug_wq);
+	}
 }
 
 static ssize_t store_intelli_plug_active(struct kobject *kobj,
@@ -451,12 +458,14 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 						nr_run_stat);
 				break;
 			}
-		} else if (debug_intelli_plug) {
+		} else if (debug_intelli_plug)
 			pr_info("intelli_plug is suspened!\n");
-		}
-		queue_delayed_work_on(0, system_wq, &intelli_plug_work,
-			msecs_to_jiffies(sampling_time));
 	}
+	if (!intelli_plug_active)
+		sampling_time = 60;
+
+	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
+		msecs_to_jiffies(sampling_time));
 }
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
@@ -467,13 +476,11 @@ static void intelli_plug_early_suspend(struct early_suspend *handler)
 #endif
 {
 	int i = 0;
-	int num_of_active_cores = 0;
+	int num_of_active_cores = num_possible_cpus();
 
-	flush_workqueue(system_wq);
+	flush_workqueue(intelliplug_wq);
 
 	if (intelli_plug_active == 1) {
-		num_of_active_cores = num_possible_cpus();
-
 		mutex_lock(&intelli_plug_mutex);
 		hotplug_suspended = true;
 		mutex_unlock(&intelli_plug_mutex);
@@ -491,7 +498,7 @@ static void __cpuinit intelli_plug_resume(struct power_suspend *handler)
 static void __cpuinit intelli_plug_late_resume(struct early_suspend *handler)
 #endif
 {
-	int num_of_active_cores = 0;
+	int num_of_active_cores;
 	int i = 0;
 
 	if (intelli_plug_active == 1) {
@@ -512,9 +519,10 @@ static void __cpuinit intelli_plug_late_resume(struct early_suspend *handler)
 		for (i = 1; i < num_of_active_cores; i++) {
 			cpu_up(i);
 		}
-		queue_delayed_work_on(0, system_wq, &intelli_plug_work,
-			msecs_to_jiffies(10));
+		sampling_time_on = 10;
 	}
+	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
+		msecs_to_jiffies(sampling_time_on));
 }
 
 #ifdef CONFIG_POWERSUSPEND
@@ -549,26 +557,11 @@ int __init intelli_plug_init(void)
 #endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
+	intelliplug_wq = alloc_workqueue("intelliplug",
+				WQ_HIGHPRI | WQ_UNBOUND, 1);
 	INIT_DELAYED_WORK(&intelli_plug_work, intelli_plug_work_fn);
-	queue_delayed_work_on(0, system_wq, &intelli_plug_work,
+	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
 		msecs_to_jiffies(10));
-
-	return 0;
-}
-
-int __exit intelli_plug_exit(void)
-{
-	cancel_delayed_work_sync(&intelli_plug_work);
-
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
-#ifdef CONFIG_POWERSUSPEND
-	unregister_power_suspend(&intelli_plug_power_suspend_driver);
-#else
-	unregister_early_suspend(&intelli_plug_early_suspend_struct_driver);
-#endif
-#endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
-
-	sysfs_remove_group(kernel_kobj, &intelli_plug_attr_group);
 
 	return 0;
 }
@@ -580,4 +573,3 @@ MODULE_DESCRIPTION("'intell_plug' - An intelligent cpu hotplug driver for "
 MODULE_LICENSE("GPL");
 
 late_initcall(intelli_plug_init);
-late_exitcall(intelli_plug_exit);
