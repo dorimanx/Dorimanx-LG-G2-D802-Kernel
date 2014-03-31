@@ -122,7 +122,7 @@ static ssize_t store_##file_name		\
 	unsigned int input;			\
 	int ret;				\
 	ret = sscanf(buf, "%u", &input);	\
-	if (ret != 1)				\
+	if (ret != 1 || input > 100)		\
 		return -EINVAL;			\
 	if (input == object) {			\
 		return count;			\
