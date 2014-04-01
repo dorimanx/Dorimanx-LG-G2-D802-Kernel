@@ -296,6 +296,20 @@ static void print_cpu(struct seq_file *m, int cpu)
 	P(cpu_load[2]);
 	P(cpu_load[3]);
 	P(cpu_load[4]);
+#ifdef CONFIG_SMP
+	P(cpu_power);
+#endif
+#if defined(CONFIG_SCHED_HMP) || defined(CONFIG_SCHED_FREQ_INPUT)
+	P(load_scale_factor);
+	P(capacity);
+	P(efficiency);
+	P(cur_freq);
+	P(max_freq);
+#endif
+#ifdef CONFIG_SCHED_HMP
+	P(nr_big_tasks);
+	P(nr_small_tasks);
+#endif
 #undef P
 #undef PN
 
@@ -376,6 +390,14 @@ static int sched_debug_show(struct seq_file *m, void *v)
 	PN(sysctl_sched_wakeup_granularity);
 	P(sysctl_sched_child_runs_first);
 	P(sysctl_sched_features);
+#ifdef CONFIG_SCHED_HMP
+	P(sched_mostly_idle_load);
+	P(sched_small_task);
+	P(sched_upmigrate);
+	P(sched_downmigrate);
+	P(sched_init_task_load_windows);
+	P(sched_init_task_load_pelt);
+#endif
 #undef PN
 #undef P
 
