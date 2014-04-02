@@ -548,8 +548,10 @@ static int __init pSeries_probe_hypertas(unsigned long node,
 					 const char *uname, int depth,
 					 void *data)
 {
-	const char *hypertas;
-	unsigned long len;
+	const char *prop;
+	int len;
+	static int hypertas_found;
+	static int vec5_found;
 
 	if (depth != 1 ||
 	    (strcmp(uname, "rtas") != 0 && strcmp(uname, "rtas@0") != 0))
@@ -568,7 +570,7 @@ static int __init pSeries_probe_hypertas(unsigned long node,
 static int __init pSeries_probe(void)
 {
 	unsigned long root = of_get_flat_dt_root();
- 	char *dtype = of_get_flat_dt_prop(root, "device_type", NULL);
+	const char *dtype = of_get_flat_dt_prop(root, "device_type", NULL);
 
  	if (dtype == NULL)
  		return 0;
