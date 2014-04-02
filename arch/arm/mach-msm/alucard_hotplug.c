@@ -184,7 +184,8 @@ static atomic_t hotplug_rq[4][2] = {
 static ssize_t show_##file_name						\
 (struct kobject *kobj, struct attribute *attr, char *buf)		\
 {									\
-	return sprintf(buf, "%d\n", atomic_read(&hotplug_tuners_ins.object));		\
+	return sprintf(buf, "%d\n", \
+		atomic_read(&hotplug_tuners_ins.object));		\
 }
 show_one(hotplug_sampling_rate, hotplug_sampling_rate);
 show_one(hotplug_enable, hotplug_enable);
@@ -196,7 +197,8 @@ show_one(maxcoreslimit, maxcoreslimit);
 static ssize_t show_##file_name##_##num_core##_##up_down		\
 (struct kobject *kobj, struct attribute *attr, char *buf)		\
 {									\
-	return sprintf(buf, "%d\n", atomic_read(&file_name[num_core - 1][up_down]));	\
+	return sprintf(buf, "%d\n", \
+		atomic_read(&file_name[num_core - 1][up_down]));	\
 }
 
 #define store_hotplug_param(file_name, num_core, up_down)		\
@@ -209,10 +211,10 @@ static ssize_t store_##file_name##_##num_core##_##up_down		\
 	ret = sscanf(buf, "%d", &input);				\
 	if (ret != 1)							\
 		return -EINVAL;						\
-	if (input == atomic_read(&file_name[num_core - 1][up_down])) {		\
-		return count;	\
-	}	\
-	atomic_set(&file_name[num_core - 1][up_down], input);			\
+	if (input == atomic_read(&file_name[num_core - 1][up_down])) {	\
+		return count;						\
+	}								\
+	atomic_set(&file_name[num_core - 1][up_down], input);		\
 	return count;							\
 }
 
@@ -311,9 +313,13 @@ static void cpus_hotplugging(bool state) {
 		start_rq_work();
 		for_each_possible_cpu(cpu) {
 			struct hotplug_cpuinfo *this_hotplug_cpuinfo;
-			this_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
+			this_hotplug_cpuinfo =
+					&per_cpu(od_hotplug_cpuinfo, cpu);
 
-			this_hotplug_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_hotplug_cpuinfo->prev_cpu_wall, 0);
+			this_hotplug_cpuinfo->prev_cpu_idle =
+					get_cpu_idle_time(cpu,
+					&this_hotplug_cpuinfo->prev_cpu_wall,
+					0);
 			this_hotplug_cpuinfo->up_cpu = 1;
 			this_hotplug_cpuinfo->online = cpu_online(cpu);
 			this_hotplug_cpuinfo->up_by_cpu = -1;
@@ -323,8 +329,10 @@ static void cpus_hotplugging(bool state) {
 		/* Initiate timer time stamp */
 		time_stamp = ktime_get();
 
-		delay = msecs_to_jiffies(atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate));
-		queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
+		delay = msecs_to_jiffies(atomic_read(
+				&hotplug_tuners_ins.hotplug_sampling_rate));
+		queue_delayed_work_on(0, system_wq, &alucard_hotplug_work,
+				delay);
 	} else {
 		mutex_unlock(&timer_mutex);
 		cancel_delayed_work_sync(&alucard_hotplug_work);
@@ -342,12 +350,14 @@ static void cpus_hotplugging(bool state) {
  * @new_rate: new sampling rate
  *
  * If new rate is smaller than the old, simply updaing
- * hotplug_tuners_ins.hotplug_sampling_rate might not be appropriate. For example,
+ * hotplug_tuners_ins.hotplug_sampling_rate might not be appropriate.
+ * For example:
  * if the original sampling_rate was 1 second and the requested new sampling
  * rate is 10 ms because the user needs immediate reaction from ondemand
  * governor, but not sure if higher frequency will be required or not,
- * then, the hotplugging system may change the sampling rate too late; up to 1 second
- * later. Thus, if we are reducing the hotplug sampling rate, we need to make the
+ * then, the hotplugging system may change the sampling rate too late;
+ * up to 1 second later.
+ * Thus, if we are reducing the hotplug sampling rate, we need to make the
  * new value effective immediately.
  */
 static void update_sampling_rate(unsigned int new_rate)
@@ -372,15 +382,17 @@ static void update_sampling_rate(unsigned int new_rate)
 		cancel_delayed_work_sync(&alucard_hotplug_work);
 		mutex_lock(&timer_mutex);
 
-		queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, msecs_to_jiffies(new_rate));
+		queue_delayed_work_on(0, system_wq, &alucard_hotplug_work,
+				msecs_to_jiffies(new_rate));
 	}
 
 	mutex_unlock(&timer_mutex);
 }
 
 /* hotplug_sampling_rate */
-static ssize_t store_hotplug_sampling_rate(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
+static ssize_t store_hotplug_sampling_rate(struct kobject *a,
+				struct attribute *b,
+				const char *buf, size_t count)
 {
 	int input;
 	int ret;
@@ -572,12 +584,12 @@ static void hotplug_work_fn(struct work_struct *work)
 	unsigned int sampling_rate=0;
 	int delay;
 	int cpus_off[4] = {-1, -1, -1, -1};
-	int cpus_on[4] = {-1, -1, -1, -1};
 	int idx_off = 0;
 
 	mutex_lock(&timer_mutex);
 
-	sampling_rate = max(10, atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate));
+	sampling_rate = max(10,
+		atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate));
 	delay = msecs_to_jiffies(sampling_rate);
 	/* set hotplugging_rate used */
 	++hotplugging_rate;
@@ -600,11 +612,13 @@ static void hotplug_work_fn(struct work_struct *work)
 		cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, 0);
 
 		wall_time = (unsigned int)
-				(cur_wall_time - this_hotplug_cpuinfo->prev_cpu_wall);
+				(cur_wall_time -
+					this_hotplug_cpuinfo->prev_cpu_wall);
 		this_hotplug_cpuinfo->prev_cpu_wall = cur_wall_time;
 
 		idle_time = (unsigned int)
-				(cur_idle_time - this_hotplug_cpuinfo->prev_cpu_idle);
+				(cur_idle_time -
+					this_hotplug_cpuinfo->prev_cpu_idle);
 		this_hotplug_cpuinfo->prev_cpu_idle = cur_idle_time;
 
 		cpus_off[idx_off] = cpu;
@@ -635,30 +649,66 @@ static void hotplug_work_fn(struct work_struct *work)
 		cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, 0);
 
 		wall_time = (unsigned int)
-				(cur_wall_time - this_hotplug_cpuinfo->prev_cpu_wall);
+				(cur_wall_time -
+					this_hotplug_cpuinfo->prev_cpu_wall);
 		this_hotplug_cpuinfo->prev_cpu_wall = cur_wall_time;
 
 		idle_time = (unsigned int)
-				(cur_idle_time - this_hotplug_cpuinfo->prev_cpu_idle);
+				(cur_idle_time -
+					this_hotplug_cpuinfo->prev_cpu_idle);
 		this_hotplug_cpuinfo->prev_cpu_idle = cur_idle_time;
 
-		if (wall_time >= idle_time) { /*if wall_time < idle_time, evaluate cpu load next time*/
-			cur_load = wall_time > idle_time ? (100 * (wall_time - idle_time)) / wall_time : 0;/*if wall_time is equal to idle_time cpu_load is equal to 0*/
+		/* if wall_time < idle_time, evaluate cpu load next time */
+		if (wall_time >= idle_time) {
+			/*
+			 * if wall_time is equal to idle_time,
+			 * cpu_load is equal to 0
+			 */
+			cur_load = wall_time > idle_time ? (100 *
+				(wall_time - idle_time)) / wall_time : 0;
 
 			cur_freq = acpuclk_get_rate(cpu);
 
 			up_load = atomic_read(&hotplug_load[cpu][UP_INDEX]);
-			down_load = atomic_read(&hotplug_load[cpu][DOWN_INDEX]);
+			down_load = atomic_read(
+				&hotplug_load[cpu][DOWN_INDEX]);
 			up_freq = atomic_read(&hotplug_freq[cpu][UP_INDEX]);
-			down_freq = atomic_read(&hotplug_freq[cpu][DOWN_INDEX]);
+			down_freq = atomic_read(
+				&hotplug_freq[cpu][DOWN_INDEX]);
 			up_rq = atomic_read(&hotplug_rq[cpu][UP_INDEX]);
 			down_rq = atomic_read(&hotplug_rq[cpu][DOWN_INDEX]);
 
-			/*printk(KERN_ERR "ONLINE CPUS[%u], CPU[%u], cur_freq[%u], cur_load[%d], rq_avg[%u]\n",online_cpus, cpu, cur_freq, cur_load, rq_avg);
-			printk(KERN_ERR "U CPU[%u], cur_freq[%u], up_freq[%u], cur_load[%d], up_load[%d], offline_cpu[%d], schedule_up_cpu[%d]\n",cpu, cur_freq, up_freq, cur_load, up_load, offline_cpu, schedule_up_cpu);
-			printk(KERN_ERR "D CPU[%u], cur_freq[%u], down_freq[%u], cur_load[%d], down_load[%d], schedule_down_cpu[%d]\n",cpu, cur_freq, down_freq, cur_load, down_load, schedule_down_cpu);*/
+#if 0
+			printk(KERN_ERR "ONLINE CPUS[%u], CPU[%u], \
+				cur_freq[%u], cur_load[%d], \
+				rq_avg[%u]\n", online_cpus, \
+				cpu, cur_freq, cur_load, rq_avg);
+			printk(KERN_ERR "U CPU[%u], cur_freq[%u], \
+				up_freq[%u], cur_load[%d], up_load[%d], \
+				offline_cpu[%d], schedule_up_cpu[%d]\n", \
+				cpu, cur_freq, up_freq, cur_load, up_load, \
+				offline_cpu, schedule_up_cpu);
+			printk(KERN_ERR "D CPU[%u], cur_freq[%u], \
+				down_freq[%u], cur_load[%d], down_load[%d], \
+				schedule_down_cpu[%d]\n", cpu, cur_freq, \
+				down_freq, cur_load, down_load, \
+				schedule_down_cpu);
+#endif
 
-			if (check_up
+			if (online_cpus - online_cpu > upmaxcoreslimit) {
+				ref_cpu = this_hotplug_cpuinfo->up_by_cpu;
+				if (ref_cpu >= 0) {
+					ref_hotplug_cpuinfo =
+						&per_cpu(od_hotplug_cpuinfo,
+						ref_cpu);
+					ref_hotplug_cpuinfo->up_cpu = 1;
+				}
+				this_hotplug_cpuinfo->online = false;
+				this_hotplug_cpuinfo->up_cpu = 1;
+				this_hotplug_cpuinfo->up_by_cpu = -1;
+				++online_cpu;
+				--schedule_down_cpu;
+			} else if (check_up
 					&& online_cpus < upmaxcoreslimit
 					&& this_hotplug_cpuinfo->up_cpu > 0
 					&& schedule_up_cpu > 0
@@ -667,30 +717,35 @@ static void hotplug_work_fn(struct work_struct *work)
 					&& rq_avg > up_rq) {
 				if (offline_cpu < idx_off
 						&& cpus_off[offline_cpu] > 0) {
-					ref_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpus_off[offline_cpu]);
+					ref_hotplug_cpuinfo =
+						&per_cpu(od_hotplug_cpuinfo,
+						cpus_off[offline_cpu]);
 					ref_hotplug_cpuinfo->online = true;
 					ref_hotplug_cpuinfo->up_by_cpu = cpu;
 					this_hotplug_cpuinfo->up_cpu = 0;
 					++offline_cpu;
 					--schedule_up_cpu;
 				}
-			} else if ((online_cpus > upmaxcoreslimit)
-					|| (check_down
+			} else if (check_down
 					&& cpu > 0
 					&& schedule_down_cpu > 0
-					&& cur_load >= 0)) {
+					&& cur_load >= 0) {
 				if (cur_load < down_load
 						|| (cur_freq <= down_freq
 						&& rq_avg <= down_rq)) {
-					ref_cpu = this_hotplug_cpuinfo->up_by_cpu;
+					ref_cpu =
+						this_hotplug_cpuinfo->
+							up_by_cpu;
 					if (ref_cpu >= 0) {
-						ref_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, ref_cpu);
-						ref_hotplug_cpuinfo->up_cpu = 1;
+						ref_hotplug_cpuinfo = &per_cpu(
+							od_hotplug_cpuinfo,
+							ref_cpu);
+						ref_hotplug_cpuinfo->
+							up_cpu = 1;
 					}
 					this_hotplug_cpuinfo->online = false;
 					this_hotplug_cpuinfo->up_cpu = 1;
 					this_hotplug_cpuinfo->up_by_cpu = -1;
-					cpus_on[online_cpu] = cpu;
 					++online_cpu;
 					--schedule_down_cpu;
 				}
@@ -743,7 +798,8 @@ static int __init alucard_hotplug_init(void)
 		struct hotplug_cpuinfo *this_hotplug_cpuinfo;
 		this_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
 
-		this_hotplug_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_hotplug_cpuinfo->prev_cpu_wall, 0);
+		this_hotplug_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu,
+				&this_hotplug_cpuinfo->prev_cpu_wall, 0);
 		this_hotplug_cpuinfo->up_cpu = 1;
 		this_hotplug_cpuinfo->online = cpu_online(cpu);
 		this_hotplug_cpuinfo->up_by_cpu = -1;
@@ -758,10 +814,12 @@ static int __init alucard_hotplug_init(void)
 	INIT_WORK(&up_work, cpu_up_work);
 	INIT_WORK(&down_work, cpu_down_work);
 
-	delay = msecs_to_jiffies(atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate));
+	delay = msecs_to_jiffies(atomic_read(
+			&hotplug_tuners_ins.hotplug_sampling_rate));
 
 	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0)
-		queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
+		queue_delayed_work_on(0, system_wq,
+			&alucard_hotplug_work, delay);
 
 	return ret;
 }
@@ -775,8 +833,7 @@ static void __exit alucard_hotplug_exit(void)
 
 	mutex_destroy(&timer_mutex);
 
-	sysfs_remove_group(kernel_kobj,
-					   &alucard_hotplug_attr_group);
+	sysfs_remove_group(kernel_kobj, &alucard_hotplug_attr_group);
 }
 MODULE_AUTHOR("Alucard_24@XDA");
 MODULE_DESCRIPTION("'alucard_hotplug' - A cpu hotplug driver for "
