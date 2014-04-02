@@ -674,11 +674,11 @@ static void hotplug_work_fn(struct work_struct *work)
 					++offline_cpu;
 					--schedule_up_cpu;
 				}
-
-			} else if (check_down
+			} else if ((online_cpus > upmaxcoreslimit)
+					|| (check_down
 					&& cpu > 0
 					&& schedule_down_cpu > 0
-					&& cur_load >= 0) {
+					&& cur_load >= 0)) {
 				if (cur_load < down_load
 						|| (cur_freq <= down_freq
 						&& rq_avg <= down_rq)) {

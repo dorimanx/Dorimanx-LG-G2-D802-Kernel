@@ -55,6 +55,7 @@ static uint32_t limited_max_freq_thermal = MSM_CPUFREQ_NO_LIMIT;
 static struct delayed_work check_temp_work;
 static struct workqueue_struct *intellithermal_wq;
 static bool core_control_enabled;
+static unsigned int debug_mode = 0;
 static uint32_t cpus_offlined;
 static DEFINE_MUTEX(core_control_mutex);
 
@@ -82,6 +83,8 @@ module_param_named(core_control_mask, msm_thermal_info.core_control_mask,
 
 module_param_named(thermal_limit_high, limit_idx_high, int, 0664);
 module_param_named(thermal_limit_low, limit_idx_low, int, 0664);
+
+module_param_named(thermal_debug_mode, debug_mode, int, 0664);
 
 static int msm_thermal_get_freq_table(void)
 {
@@ -198,6 +201,13 @@ static void __ref do_freq_control(long temp)
 	if (msm_thermal_info.limit_temp_degC > 75)
 		msm_thermal_info.limit_temp_degC = 75;
 
+	if (debug_mode == 1)
+		printk(KERN_ERR "pre-check do_freq_control temp[%u], \
+				limit_idx[%u], limit_idx_low[%u], \
+				limited_idx_high[%u]\n",
+				temp, limit_idx, limit_idx_low,
+				limit_idx_high);
+
 	if (temp >= msm_thermal_info.limit_temp_degC) {
 		if (limit_idx == limit_idx_low)
 			return;
@@ -218,6 +228,13 @@ static void __ref do_freq_control(long temp)
 		} else
 			max_freq = table[limit_idx].frequency;
 	}
+
+	if (debug_mode == 1)
+		printk(KERN_ERR "do_freq_control temp[%u], \
+				limit_idx[%u], max_freq[%u], \
+				limited_max_freq_thermal[%u]\n",
+				temp, limit_idx, max_freq,
+				limited_max_freq_thermal);
 
 	if (max_freq == limited_max_freq_thermal)
 		return;
