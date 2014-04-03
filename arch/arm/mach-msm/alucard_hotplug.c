@@ -27,6 +27,7 @@
 static struct mutex timer_mutex;
 
 static struct delayed_work alucard_hotplug_work;
+static struct workqueue_struct *alucardhp_wq;
 static struct work_struct up_work;
 static struct work_struct down_work;
 
@@ -331,7 +332,7 @@ static void cpus_hotplugging(bool state) {
 
 		delay = msecs_to_jiffies(atomic_read(
 				&hotplug_tuners_ins.hotplug_sampling_rate));
-		queue_delayed_work_on(0, system_wq, &alucard_hotplug_work,
+		queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
 				delay);
 	} else {
 		mutex_unlock(&timer_mutex);
@@ -382,7 +383,7 @@ static void update_sampling_rate(unsigned int new_rate)
 		cancel_delayed_work_sync(&alucard_hotplug_work);
 		mutex_lock(&timer_mutex);
 
-		queue_delayed_work_on(0, system_wq, &alucard_hotplug_work,
+		queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
 				msecs_to_jiffies(new_rate));
 	}
 
@@ -588,8 +589,7 @@ static void hotplug_work_fn(struct work_struct *work)
 
 	mutex_lock(&timer_mutex);
 
-	sampling_rate = max(10,
-		atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate));
+	sampling_rate = atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate);
 	delay = msecs_to_jiffies(sampling_rate);
 	/* set hotplugging_rate used */
 	++hotplugging_rate;
@@ -753,11 +753,11 @@ static void hotplug_work_fn(struct work_struct *work)
 		}
 	}
 	if (offline_cpu > 0) {
-		queue_work_on(0, system_wq, &up_work);
+		queue_work_on(0, alucardhp_wq, &up_work);
 	}
 
 	if (online_cpu > 0) {
-		queue_work_on(0, system_wq, &down_work);
+		queue_work_on(0, alucardhp_wq, &down_work);
 	}
 
 	if (hotplugging_rate >= max(up_rate, down_rate)) {
@@ -768,7 +768,7 @@ static void hotplug_work_fn(struct work_struct *work)
 		ref_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, 0);
 		ref_hotplug_cpuinfo->up_cpu = 1;
 	}
-	queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
+	queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work, delay);
 
 	mutex_unlock(&timer_mutex);
 }
@@ -789,6 +789,15 @@ static int __init alucard_hotplug_init(void)
 	ret = init_rq_avg();
 	if (ret) {
 		return ret;
+	}
+
+	alucardhp_wq = alloc_workqueue("alucardhp_wq_efficient",
+				WQ_POWER_EFFICIENT, 0);
+
+	if (!alucardhp_wq) {
+		printk(KERN_ERR "Failed to create \
+			alucardhp_wq_efficient workqueue\n");
+		return -EFAULT;
 	}
 
 	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0)
@@ -818,7 +827,7 @@ static int __init alucard_hotplug_init(void)
 			&hotplug_tuners_ins.hotplug_sampling_rate));
 
 	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0)
-		queue_delayed_work_on(0, system_wq,
+		queue_delayed_work_on(0, alucardhp_wq,
 			&alucard_hotplug_work, delay);
 
 	return ret;
@@ -832,6 +841,8 @@ static void __exit alucard_hotplug_exit(void)
 	stop_rq_work();
 
 	mutex_destroy(&timer_mutex);
+
+	destroy_workqueue(alucardhp_wq);
 
 	sysfs_remove_group(kernel_kobj, &alucard_hotplug_attr_group);
 }
