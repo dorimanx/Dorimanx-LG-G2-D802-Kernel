@@ -24,6 +24,14 @@
 #include <linux/slab.h>
 #include "acpuclock.h"
 
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if CONFIG_POWERSUSPEND
+#include <linux/powersuspend.h>
+#else
+#include <linux/earlysuspend.h>
+#endif
+#endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
+
 static struct mutex timer_mutex;
 
 static struct delayed_work alucard_hotplug_work;
@@ -49,12 +57,14 @@ static struct hotplug_tuners {
 	atomic_t cpu_up_rate;
 	atomic_t cpu_down_rate;
 	atomic_t maxcoreslimit;
+	atomic_t maxcoreslimit_sleep;
 } hotplug_tuners_ins = {
 	.hotplug_sampling_rate = ATOMIC_INIT(60),
 	.hotplug_enable = ATOMIC_INIT(0),
 	.cpu_up_rate = ATOMIC_INIT(2),
 	.cpu_down_rate = ATOMIC_INIT(20),
 	.maxcoreslimit = ATOMIC_INIT(NR_CPUS),
+	.maxcoreslimit_sleep = ATOMIC_INIT(1),
 };
 
 #define MAX_HOTPLUG_RATE	(40)
@@ -193,6 +203,7 @@ show_one(hotplug_enable, hotplug_enable);
 show_one(cpu_up_rate, cpu_up_rate);
 show_one(cpu_down_rate, cpu_down_rate);
 show_one(maxcoreslimit, maxcoreslimit);
+show_one(maxcoreslimit_sleep, maxcoreslimit_sleep);
 
 #define show_hotplug_param(file_name, num_core, up_down)		\
 static ssize_t show_##file_name##_##num_core##_##up_down		\
@@ -497,11 +508,33 @@ static ssize_t store_maxcoreslimit(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+/* maxcoreslimit_sleep */
+static ssize_t store_maxcoreslimit_sleep(struct kobject *a, struct attribute *b,
+				  const char *buf, size_t count)
+{
+	int input;
+	int ret;
+
+	ret = sscanf(buf, "%d", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	input = max(input > NR_CPUS ? NR_CPUS : input, 1);
+
+	if (atomic_read(&hotplug_tuners_ins.maxcoreslimit_sleep) == input)
+		return count;
+
+	atomic_set(&hotplug_tuners_ins.maxcoreslimit_sleep, input);
+
+	return count;
+}
+
 define_one_global_rw(hotplug_sampling_rate);
 define_one_global_rw(hotplug_enable);
 define_one_global_rw(cpu_up_rate);
 define_one_global_rw(cpu_down_rate);
 define_one_global_rw(maxcoreslimit);
+define_one_global_rw(maxcoreslimit_sleep);
 
 static struct attribute *alucard_hotplug_attributes[] = {
 	&hotplug_sampling_rate.attr,
@@ -533,6 +566,7 @@ static struct attribute *alucard_hotplug_attributes[] = {
 	&cpu_up_rate.attr,
 	&cpu_down_rate.attr,
 	&maxcoreslimit.attr,
+	&maxcoreslimit_sleep.attr,
 	NULL
 };
 
@@ -773,6 +807,62 @@ static void hotplug_work_fn(struct work_struct *work)
 	mutex_unlock(&timer_mutex);
 }
 
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#ifdef CONFIG_POWERSUSPEND
+static void alucard_hotplug_suspend(struct power_suspend *handler)
+#else
+static void alucard_hotplug_early_suspend(struct early_suspend *handler)
+#endif
+{
+	int i = 0;
+	int maxcoreslimit_sleep = 0;
+
+	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0) {
+		flush_workqueue(alucardhp_wq);
+		maxcoreslimit_sleep = atomic_read(&hotplug_tuners_ins.maxcoreslimit_sleep);
+
+		/* put rest of the cores to sleep! */
+		for (i = num_possible_cpus() - 1; i >= maxcoreslimit_sleep; i--) {
+			if (cpu_online(i))
+				cpu_down(i);
+		}
+	}
+}
+
+#ifdef CONFIG_POWERSUSPEND
+static void __cpuinit alucard_hotplug_resume(struct power_suspend *handler)
+#else
+static void __cpuinit alucard_hotplug_late_resume(struct early_suspend *handler)
+#endif
+{
+	int maxcoreslimit = 0;
+	int i = 0;
+
+	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0) {
+		/* wake up everyone */
+		maxcoreslimit = atomic_read(&hotplug_tuners_ins.maxcoreslimit);
+
+		for (i = 1; i < maxcoreslimit; i++) {
+			if (!cpu_online(i))
+				cpu_up(i);
+		}
+	}
+}
+
+#ifdef CONFIG_POWERSUSPEND
+static struct power_suspend alucard_hotplug_power_suspend_driver = {
+	.suspend = alucard_hotplug_suspend,
+	.resume = alucard_hotplug_resume,
+};
+#else
+static struct early_suspend alucard_hotplug_early_suspend_driver = {
+	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 10,
+	.suspend = alucard_hotplug_early_suspend,
+	.resume = alucard_hotplug_late_resume,
+};
+#endif
+#endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
+
 static int __init alucard_hotplug_init(void)
 {
 	/* We want all CPUs to do sampling nearly on same jiffy */
@@ -786,18 +876,24 @@ static int __init alucard_hotplug_init(void)
 		return ret;
 	}
 
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#ifdef CONFIG_POWERSUSPEND
+	register_power_suspend(&alucard_hotplug_power_suspend_driver);
+#else
+	register_early_suspend(&alucard_hotplug_early_suspend_driver);
+#endif
+#endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
+
+	alucardhp_wq = alloc_workqueue("alucardhp_wq_efficient",
+					      WQ_POWER_EFFICIENT, 0);
+	if (!alucardhp_wq) {
+		printk(KERN_ERR "Failed to create alucardhp_wq_efficient workqueue\n");
+		return -EFAULT;
+	}
+
 	ret = init_rq_avg();
 	if (ret) {
 		return ret;
-	}
-
-	alucardhp_wq = alloc_workqueue("alucardhp_wq_efficient",
-				WQ_POWER_EFFICIENT, 0);
-
-	if (!alucardhp_wq) {
-		printk(KERN_ERR "Failed to create \
-			alucardhp_wq_efficient workqueue\n");
-		return -EFAULT;
 	}
 
 	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0)
@@ -843,6 +939,14 @@ static void __exit alucard_hotplug_exit(void)
 	mutex_destroy(&timer_mutex);
 
 	destroy_workqueue(alucardhp_wq);
+
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#ifdef CONFIG_POWERSUSPEND
+	unregister_power_suspend(&alucard_hotplug_power_suspend_driver);
+#else
+	unregister_early_suspend(&alucard_hotplug_early_suspend_driver);
+#endif
+#endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 	sysfs_remove_group(kernel_kobj, &alucard_hotplug_attr_group);
 }
