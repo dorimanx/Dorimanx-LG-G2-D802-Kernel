@@ -954,5 +954,5 @@ MODULE_AUTHOR("Alucard_24@XDA");
 MODULE_DESCRIPTION("'alucard_hotplug' - A cpu hotplug driver for "
 	"capable processors");
 MODULE_LICENSE("GPL");
-module_init(alucard_hotplug_init);
-module_exit(alucard_hotplug_exit);
+late_initcall(alucard_hotplug_init);
+late_initexit(alucard_hotplug_exit);
