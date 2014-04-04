@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.4.84 Kernel Configuration
+# Linux/arm 3.4.86 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -666,7 +666,7 @@ CONFIG_ARCH_NR_GPIO=0
 # CONFIG_PREEMPT_VOLUNTARY is not set
 CONFIG_PREEMPT=y
 CONFIG_PREEMPT_COUNT=y
-CONFIG_HZ=100
+CONFIG_HZ=200
 # CONFIG_THUMB2_KERNEL is not set
 CONFIG_AEABI=y
 # CONFIG_OABI_COMPAT is not set
