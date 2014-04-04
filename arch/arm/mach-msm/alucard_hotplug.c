@@ -648,7 +648,7 @@ static void __cpuinit cpu_up_work(struct work_struct *work)
 	}
 }
 
-static void __cpuexit cpu_down_work(struct work_struct *work)
+static void __ref cpu_down_work(struct work_struct *work)
 {
 	int cpu;
 
@@ -905,9 +905,9 @@ static void hotplug_work_fn(struct work_struct *work)
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 #ifdef CONFIG_POWERSUSPEND
-static void alucard_hotplug_suspend(struct power_suspend *handler)
+static void __ref alucard_hotplug_suspend(struct power_suspend *handler)
 #else
-static void alucard_hotplug_early_suspend(struct early_suspend *handler)
+static void __ref alucard_hotplug_early_suspend(struct early_suspend *handler)
 #endif
 {
 	int i = 0;
@@ -985,16 +985,16 @@ static int __init alucard_hotplug_init(void)
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 #ifdef CONFIG_MACH_LGE
-	alucardhp_wq = alloc_workqueue("alucardhp_wq_efficient",
+	alucardhp_wq = alloc_workqueue("alucardhp_wq",
 				WQ_HIGHPRI | WQ_UNBOUND, 1);
 #else
-	alucardhp_wq = alloc_workqueue("alucardhp_wq_efficient",
-				WQ_POWER_EFFICIENT, 0);
+	alucardhp_wq = alloc_workqueue("alucardhp_wq",
+				WQ_HIGHPRI | WQ_UNBOUND, 0);
 #endif
 
 	if (!alucardhp_wq) {
 		printk(KERN_ERR "Failed to create \
-				alucardhp_wq_efficient workqueue\n");
+				alucardhp workqueue\n");
 		return -EFAULT;
 	}
 

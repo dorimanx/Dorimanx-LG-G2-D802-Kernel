@@ -66,7 +66,7 @@ static u64 hyper_freq_boosted_time;
 #define MIN_SAMPLING_RATE_RATIO			(2)
 
 static unsigned int min_sampling_rate;
-#define DEFAULT_SAMPLING_RATE			(60000)
+#define DEFAULT_SAMPLING_RATE			(80000)
 #define BOOSTED_SAMPLING_RATE			(40000)
 #define LATENCY_MULTIPLIER			(1000)
 #define MIN_LATENCY_MULTIPLIER			(100)
@@ -1063,11 +1063,9 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
-#ifdef CONFIG_MACH_LGE
 		/* If device is being removed, skip set limits */
 		if (!this_dbs_info->cur_policy)
 			break;
-#endif
 		mutex_lock(&this_dbs_info->timer_mutex);
 		if (policy->max < this_dbs_info->cur_policy->cur)
 			__cpufreq_driver_target(this_dbs_info->cur_policy,

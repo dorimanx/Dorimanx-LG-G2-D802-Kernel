@@ -1635,11 +1635,12 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
-#ifdef CONFIG_MACH_LGE
 		/* If device is being removed, skip set limits */
-		if (!this_dbs_info->cur_policy)
+		if (this_dbs_info->cur_policy == NULL) {
+				pr_debug("Unable to limit cpu freq \
+						due to cur_policy == NULL\n");
 			break;
-#endif
+		}
 		mutex_lock(&this_dbs_info->timer_mutex);
 		if (policy->max < this_dbs_info->cur_policy->cur)
 			__cpufreq_driver_target(this_dbs_info->cur_policy,
