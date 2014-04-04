@@ -95,7 +95,7 @@ static history_load hist_load[SUP_CORE_NUM] = {};
 static unsigned int min_sampling_rate;
 
 #define LATENCY_MULTIPLIER			(1000)
-#define MIN_LATENCY_MULTIPLIER			(20)
+#define MIN_LATENCY_MULTIPLIER			(100)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
 #define POWERSAVE_BIAS_MAXLEVEL			(1000)
@@ -1090,8 +1090,8 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	cpufreq_notify_utilization(policy, load_at_max_freq);
 
 /* PATCH : SMART_UP */
-        if (dbs_tuners_ins.smart_up && (core_j + 1) >
-					dbs_tuners_ins.smart_each_off ) {
+	if (dbs_tuners_ins.smart_up && (core_j + 1) >
+				dbs_tuners_ins.smart_each_off ) {
 		if (max_load_freq > SUP_THRESHOLD_STEPS[0] * policy->cur) {
 			int smart_up_inc =
 				(policy->max - policy->cur) / SUP_FREQ_STEPS[0];
@@ -1165,8 +1165,8 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 			return;
 		}
 	}
-/*
-	if ((num_online_cpus() > 1) && (dbs_tuners_ins.enable_turbo_mode)) {
+
+	if ((num_online_cpus() > 1) && (dbs_tuners_ins.enable_turbo_mode = 1)) {
 		if (max_load_other_cpu >
 				dbs_tuners_ins.up_threshold_any_cpu_load) {
 			if (policy->cur < dbs_tuners_ins.sync_freq)
@@ -1183,7 +1183,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 			return;
 		}
 	}
-*/
+
 	/* Check for frequency decrease */
 	/* if we cannot reduce the frequency anymore, break out early */
 	if (policy->cur == policy->min)
@@ -1222,7 +1222,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		/* No longer fully busy, reset rate_mult */
 		this_dbs_info->rate_mult = 1;
 
-		if ((num_online_cpus() > 1) && (dbs_tuners_ins.enable_turbo_mode)) {
+		if ((num_online_cpus() > 1) && (dbs_tuners_ins.enable_turbo_mode = 1)) {
 			if (max_load_other_cpu >
 			(dbs_tuners_ins.up_threshold_multi_core -
 			dbs_tuners_ins.down_differential) &&
@@ -1278,7 +1278,6 @@ static void do_dbs_timer(struct work_struct *work)
 			dbs_info->freq_lo, CPUFREQ_RELATION_H);
 		delay = dbs_info->freq_lo_jiffies;
 	}
-
 	queue_delayed_work_on(cpu, dbs_wq, &dbs_info->work, delay);
 	mutex_unlock(&dbs_info->timer_mutex);
 }
