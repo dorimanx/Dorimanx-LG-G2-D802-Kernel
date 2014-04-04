@@ -160,10 +160,8 @@ static void intelli_plug_active_eval_fn(unsigned int status)
 		if (!delayed_work_pending(&intelli_plug_work))
 			queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
 					msecs_to_jiffies(sampling_time_on));
-	} else {
-		flush_workqueue(intelliplug_wq);
+	} else
 		cancel_delayed_work_sync(&intelli_plug_work);
-	}
 }
 
 static ssize_t store_intelli_plug_active(struct kobject *kobj,
