@@ -218,7 +218,7 @@ static ssize_t show_##file_name						\
 (struct kobject *kobj, struct attribute *attr, char *buf)		\
 {									\
 	return sprintf(buf, "%d\n", \
-		atomic_read(&hotplug_tuners_ins.object));		\
+			atomic_read(&hotplug_tuners_ins.object));	\
 }
 
 #define show_one(file_name, object)					\
@@ -226,7 +226,7 @@ static ssize_t show_##file_name						\
 (struct kobject *kobj, struct attribute *attr, char *buf)		\
 {									\
 	return sprintf(buf, "%d\n", \
-					hotplug_tuners_ins.object);				\
+			hotplug_tuners_ins.object);			\
 }
 
 show_one(hotplug_sampling_rate, hotplug_sampling_rate);
@@ -242,7 +242,7 @@ static ssize_t show_##file_name##_##num_core##_##up_down		\
 (struct kobject *kobj, struct attribute *attr, char *buf)		\
 {									\
 	return sprintf(buf, "%d\n", \
-					file_name[num_core - 1][up_down]);			\
+			file_name[num_core - 1][up_down]);		\
 }
 
 #define store_hotplug_param(file_name, num_core, up_down)		\
@@ -255,10 +255,10 @@ static ssize_t store_##file_name##_##num_core##_##up_down		\
 	ret = sscanf(buf, "%d", &input);				\
 	if (ret != 1)							\
 		return -EINVAL;						\
-	if (input == file_name[num_core - 1][up_down]) {			\
+	if (input == file_name[num_core - 1][up_down]) {		\
 		return count;						\
 	}								\
-	file_name[num_core - 1][up_down] = input;					\
+	file_name[num_core - 1][up_down] = input;			\
 	return count;							\
 }
 
@@ -376,7 +376,8 @@ static void cpus_hotplugging(bool state) {
 		/* Initiate timer time stamp */
 		time_stamp = ktime_get();
 
-		delay = msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate);
+		delay = msecs_to_jiffies(
+			hotplug_tuners_ins.hotplug_sampling_rate);
 		queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
 				delay);
 	} else {
@@ -543,8 +544,9 @@ static ssize_t store_maxcoreslimit(struct kobject *a, struct attribute *b,
 }
 
 /* maxcoreslimit_sleep */
-static ssize_t store_maxcoreslimit_sleep(struct kobject *a, struct attribute *b,
-				  const char *buf, size_t count)
+static ssize_t store_maxcoreslimit_sleep(struct kobject *a,
+				struct attribute *b,
+				const char *buf, size_t count)
 {
 	int input;
 	int ret;
@@ -564,8 +566,9 @@ static ssize_t store_maxcoreslimit_sleep(struct kobject *a, struct attribute *b,
 }
 
 /* core_thermal_enable */
-static ssize_t store_core_thermal_enable(struct kobject *a, struct attribute *b,
-				  const char *buf, size_t count)
+static ssize_t store_core_thermal_enable(struct kobject *a,
+				struct attribute *b,
+				const char *buf, size_t count)
 {
 	int input;
 	int ret;
@@ -672,17 +675,21 @@ static inline int do_core_control(int online, int num_cores_limit)
 	}
 
 	if (temp >= core_thermal_info.core_limit_temp_degC) {
-		core_thermal_info.num_cores = min(max(1, (online - core_thermal_info.core_step)), NR_CPUS);
+		core_thermal_info.num_cores =
+				min(max(1, (online -
+				core_thermal_info.core_step)),
+				NR_CPUS);
 		atomic_set(&core_thermal_lock, 1);
 	} else if (temp <= (core_thermal_info.core_limit_temp_degC -
-						core_thermal_info.core_temp_hysteresis_degC)) {
+				core_thermal_info.core_temp_hysteresis_degC)) {
 		core_thermal_info.num_cores = num_cores_limit;
 		atomic_set(&core_thermal_lock, 0);
 	} else {
 		core_thermal_info.num_cores = online;
 	}
 
-	pr_info("Core Sensor Temp.[%u], Max Cores[%d]\n", temp, core_thermal_info.num_cores);
+	pr_info("Core Sensor Temp.[%u], Max Cores[%d]\n",
+			temp, core_thermal_info.num_cores);
 
 	return core_thermal_info.num_cores;
 }
@@ -719,10 +726,12 @@ static void hotplug_work_fn(struct work_struct *work)
 
 	upmaxcoreslimit = atomic_read(&hotplug_tuners_ins.maxcoreslimit);
 	online_cpus = num_online_cpus();
-	core_thermal_enable = atomic_read(&hotplug_tuners_ins.core_thermal_enable);
+	core_thermal_enable = atomic_read(
+			&hotplug_tuners_ins.core_thermal_enable);
 
 	if (core_thermal_enable > 0 || atomic_read(&core_thermal_lock) > 0)
-		upmaxcoreslimit = do_core_control(online_cpus, upmaxcoreslimit);
+		upmaxcoreslimit = do_core_control(online_cpus,
+					upmaxcoreslimit);
 
 	for_each_cpu_not(cpu, cpu_online_mask) {
 		struct hotplug_cpuinfo *this_hotplug_cpuinfo;
@@ -829,8 +838,9 @@ static void hotplug_work_fn(struct work_struct *work)
 				++online_cpu;
 				--schedule_down_cpu;
 			} else if (check_up
-					&& (online_cpus + offline_cpu) < upmaxcoreslimit
-					&& this_hotplug_cpuinfo->up_cpu > 0
+					&& (online_cpus + offline_cpu) <
+					upmaxcoreslimit &&
+					this_hotplug_cpuinfo->up_cpu > 0
 					&& schedule_up_cpu > 0
 					&& cur_load >= up_load
 					&& cur_freq >= up_freq
@@ -905,10 +915,12 @@ static void alucard_hotplug_early_suspend(struct early_suspend *handler)
 
 	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0) {
 		flush_workqueue(alucardhp_wq);
-		maxcoreslimit_sleep = atomic_read(&hotplug_tuners_ins.maxcoreslimit_sleep);
+		maxcoreslimit_sleep =
+			atomic_read(&hotplug_tuners_ins.maxcoreslimit_sleep);
 
 		/* put rest of the cores to sleep! */
-		for (i = num_possible_cpus() - 1; i >= maxcoreslimit_sleep; i--) {
+		for (i = num_possible_cpus() - 1; i >=
+				maxcoreslimit_sleep; i--) {
 			if (cpu_online(i))
 				cpu_down(i);
 		}
@@ -918,7 +930,8 @@ static void alucard_hotplug_early_suspend(struct early_suspend *handler)
 #ifdef CONFIG_POWERSUSPEND
 static void __cpuinit alucard_hotplug_resume(struct power_suspend *handler)
 #else
-static void __cpuinit alucard_hotplug_late_resume(struct early_suspend *handler)
+static void __cpuinit alucard_hotplug_late_resume(
+				struct early_suspend *handler)
 #endif
 {
 	int maxcoreslimit = 0;
