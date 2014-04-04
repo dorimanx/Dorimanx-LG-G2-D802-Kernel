@@ -32,7 +32,7 @@
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 #define INTELLI_PLUG_MAJOR_VERSION	3
-#define INTELLI_PLUG_MINOR_VERSION	1
+#define INTELLI_PLUG_MINOR_VERSION	2
 
 #define DEF_SAMPLING_MS			(40)
 #define BUSY_SAMPLING_MS		(20)
@@ -560,8 +560,14 @@ static int __init intelli_plug_init(void)
 #endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
+#ifdef CONFIG_MACH_LGE
+	intelliplug_wq = alloc_workqueue("intelliplug",
+				WQ_HIGHPRI | WQ_UNBOUND, 1);
+#else
 	intelliplug_wq = alloc_workqueue("intelliplug",
 				WQ_POWER_EFFICIENT, 0);
+#endif
+
 	if (!intelliplug_wq) {
 		printk(KERN_ERR "Failed to create intelliplug_wq \
 				workqueue\n");

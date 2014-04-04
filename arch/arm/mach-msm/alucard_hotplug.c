@@ -884,10 +884,17 @@ static int __init alucard_hotplug_init(void)
 #endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
+#ifdef CONFIG_MACH_LGE
 	alucardhp_wq = alloc_workqueue("alucardhp_wq_efficient",
-					      WQ_POWER_EFFICIENT, 0);
+				WQ_HIGHPRI | WQ_UNBOUND, 1);
+#else
+	alucardhp_wq = alloc_workqueue("alucardhp_wq_efficient",
+				WQ_POWER_EFFICIENT, 0);
+#endif
+
 	if (!alucardhp_wq) {
-		printk(KERN_ERR "Failed to create alucardhp_wq_efficient workqueue\n");
+		printk(KERN_ERR "Failed to create \
+				alucardhp_wq_efficient workqueue\n");
 		return -EFAULT;
 	}
 
