@@ -189,7 +189,6 @@ static struct dbs_tuners {
 	unsigned int smart_slow_up_freq;
 	unsigned int smart_slow_up_dur;
 	unsigned int smart_each_off;
-	int          enable_turbo_mode;
 	unsigned int input_boost;
 } dbs_tuners_ins = {
 	.up_threshold_multi_core = DEF_FREQUENCY_UP_THRESHOLD_MULTI_CORE,
@@ -208,7 +207,6 @@ static struct dbs_tuners {
 	.smart_slow_up_freq = SUP_SLOW_UP_FREQUENCY,
 	.smart_slow_up_dur = SUP_SLOW_UP_DUR_DEFAULT,
 	.smart_each_off = 0,
-	.enable_turbo_mode = 1,
 	.input_boost = 0,
 	.io_is_busy = 0,
 	.sampling_rate = DEF_SAMPLING_RATE,
@@ -354,7 +352,6 @@ show_one(smart_slow_up_dur, smart_slow_up_dur);
 show_one(smart_each_off, smart_each_off);
 show_one(down_differential_multi_core, down_differential_multi_core);
 show_one(micro_freq_up_threshold, micro_freq_up_threshold);
-show_one(enable_turbo_mode, enable_turbo_mode);
 show_one(input_boost, input_boost);
 
 static ssize_t show_powersave_bias
@@ -870,23 +867,6 @@ static ssize_t store_smart_each_off(struct kobject *a, struct attribute *b,
 	return count;
 }
 
-static ssize_t store_enable_turbo_mode(struct kobject *a,
-			struct attribute *b, const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-
-	ret = sscanf(buf, "%u", &input);
-
-	if (ret != 1 || !(input == 0 || input == 1)) {
-		return -EINVAL;
-	}
-
-	dbs_tuners_ins.enable_turbo_mode = input;
-	pr_info("[%s] enable_turbo_mode = %d\n", __func__, dbs_tuners_ins.enable_turbo_mode);
-	return count;
-}
-
 define_one_global_rw(sampling_rate);
 define_one_global_rw(up_threshold);
 define_one_global_rw(up_threshold_multi_core);
@@ -902,7 +882,6 @@ define_one_global_rw(smart_slow_up_load);
 define_one_global_rw(smart_slow_up_freq);
 define_one_global_rw(smart_slow_up_dur);
 define_one_global_rw(smart_each_off);
-define_one_global_rw(enable_turbo_mode);
 define_one_global_rw(input_boost);
 
 static struct attribute *dbs_attributes[] = {
@@ -922,7 +901,6 @@ static struct attribute *dbs_attributes[] = {
 	&smart_slow_up_dur.attr,
 	&smart_each_off.attr,
 	&micro_freq_up_threshold.attr,
-	&enable_turbo_mode.attr,
 	&input_boost.attr,
 	NULL
 };
@@ -1166,7 +1144,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		}
 	}
 
-	if ((num_online_cpus() > 1) && (dbs_tuners_ins.enable_turbo_mode = 1)) {
+	if (num_online_cpus() > 1) {
 		if (max_load_other_cpu >
 				dbs_tuners_ins.up_threshold_any_cpu_load) {
 			if (policy->cur < dbs_tuners_ins.sync_freq)
@@ -1222,7 +1200,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		/* No longer fully busy, reset rate_mult */
 		this_dbs_info->rate_mult = 1;
 
-		if ((num_online_cpus() > 1) && (dbs_tuners_ins.enable_turbo_mode = 1)) {
+		if (num_online_cpus() > 1) {
 			if (max_load_other_cpu >
 			(dbs_tuners_ins.up_threshold_multi_core -
 			dbs_tuners_ins.down_differential) &&
