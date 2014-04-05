@@ -111,7 +111,7 @@ static unsigned int *above_hispeed_delay = default_above_hispeed_delay;
 static int nabove_hispeed_delay = ARRAY_SIZE(default_above_hispeed_delay);
 
 /* Duration of a boot pulse in usecs */
-static int boostpulse_duration_val = 250000;
+static int boostpulse_duration_val = 750000;
 
 #define DEFAULT_INPUT_BOOST_FREQ 1497600
 int input_boost_freq = DEFAULT_INPUT_BOOST_FREQ;
