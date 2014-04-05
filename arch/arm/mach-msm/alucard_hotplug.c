@@ -38,9 +38,9 @@ static struct delayed_work alucard_hotplug_work;
 static struct workqueue_struct *alucardhp_wq;
 static struct work_struct up_work;
 static struct work_struct down_work;
-
+#if 0
 static ktime_t time_stamp;
-
+#endif
 static struct hotplug_cpuinfo {
 	cputime64_t prev_cpu_wall;
 	cputime64_t prev_cpu_idle;
@@ -346,10 +346,10 @@ static void cpus_hotplugging(bool state) {
 		/* Initial thermal core control */
 		atomic_set(&core_thermal_lock, 0);
 		core_thermal_info.num_cores = NR_CPUS;
-
+#if 0
 		/* Initiate timer time stamp */
 		time_stamp = ktime_get();
-
+#endif
 		init_rq_avg_stats;
 
 		delay = msecs_to_jiffies(
@@ -1024,10 +1024,10 @@ static int __init alucard_hotplug_init(void)
 	}
 	hotplugging_rate = 0;
 	mutex_init(&timer_mutex);
-
+#if 0
 	/* Initiate timer time stamp */
 	time_stamp = ktime_get();
-
+#endif
 	INIT_DELAYED_WORK(&alucard_hotplug_work, hotplug_work_fn);
 	INIT_WORK(&up_work, cpu_up_work);
 	INIT_WORK(&down_work, cpu_down_work);
