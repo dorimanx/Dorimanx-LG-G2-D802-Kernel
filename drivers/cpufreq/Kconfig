@@ -136,6 +136,16 @@ config CPU_FREQ_DEFAULT_GOV_NIGHTMARE
 	select CPU_FREQ_GOV_NIGHTMARE
 	help
 
+config CPU_FREQ_DEFAULT_GOV_DARKNESS
+	bool "darkness"
+	select CPU_FREQ_GOV_DARKNESS
+	help
+
+config CPU_FREQ_DEFAULT_GOV_ALUCARD
+	bool "alucard"
+	select CPU_FREQ_GOV_ALUCARD
+	help
+
 config CPU_FREQ_DEFAULT_GOV_HYPER
 	bool "HYPER"
 	select CPU_FREQ_GOV_HYPER
@@ -320,6 +330,14 @@ config INTELLI_MAX_INACTIVE_FREQ
 
 config CPU_FREQ_GOV_NIGHTMARE
 	tristate "'nightmare' cpufreq governor"
+	depends on CPU_FREQ
+
+config CPU_FREQ_GOV_DARKNESS
+	tristate "'darkness' cpufreq governor"
+	depends on CPU_FREQ
+
+config CPU_FREQ_GOV_ALUCARD
+	tristate "'alucard' cpufreq governor"
 	depends on CPU_FREQ
 
 config CPU_FREQ_GOV_HYPER
