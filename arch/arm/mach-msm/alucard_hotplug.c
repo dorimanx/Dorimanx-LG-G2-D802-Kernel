@@ -34,7 +34,6 @@
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 static struct mutex timer_mutex;
-
 static struct delayed_work alucard_hotplug_work;
 static struct workqueue_struct *alucardhp_wq;
 static struct work_struct up_work;
@@ -57,6 +56,7 @@ static struct hotplug_tuners {
 	atomic_t hotplug_enable;
 	int cpu_up_rate;
 	int cpu_down_rate;
+	int hotplug_debug;
 	atomic_t maxcoreslimit;
 	atomic_t maxcoreslimit_sleep;
 	atomic_t core_thermal_enable;
@@ -65,6 +65,7 @@ static struct hotplug_tuners {
 	.hotplug_enable = ATOMIC_INIT(0),
 	.cpu_up_rate = 2,
 	.cpu_down_rate = 20,
+	.hotplug_debug = 0,
 	.maxcoreslimit = ATOMIC_INIT(NR_CPUS),
 	.maxcoreslimit_sleep = ATOMIC_INIT(1),
 	.core_thermal_enable = ATOMIC_INIT(0),
@@ -87,7 +88,6 @@ static struct core_thermal_data core_thermal_info = {
 	.core_step = 1,
 	.num_cores = NR_CPUS,
 };
-
 
 #define MAX_HOTPLUG_RATE	(40)
 #define DOWN_INDEX		(0)
@@ -207,6 +207,7 @@ show_one(hotplug_sampling_rate, hotplug_sampling_rate);
 show_atomic(hotplug_enable, hotplug_enable);
 show_one(cpu_up_rate, cpu_up_rate);
 show_one(cpu_down_rate, cpu_down_rate);
+show_one(hotplug_debug, hotplug_debug);
 show_atomic(maxcoreslimit, maxcoreslimit);
 show_atomic(maxcoreslimit_sleep, maxcoreslimit_sleep);
 show_atomic(core_thermal_enable, core_thermal_enable);
@@ -463,6 +464,7 @@ static ssize_t store_cpu_up_rate(struct kobject *a, struct attribute *b,
 {
 	int input;
 	int ret;
+
 	ret = sscanf(buf, "%d", &input);
 	if (ret != 1)
 		return -EINVAL;
@@ -494,6 +496,26 @@ static ssize_t store_cpu_down_rate(struct kobject *a, struct attribute *b,
 		return count;
 
 	hotplug_tuners_ins.cpu_down_rate = input;
+
+	return count;
+}
+
+/* hotplug_debug */
+static ssize_t store_hotplug_debug(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	int input;
+	int ret;
+
+	ret = sscanf(buf, "%d", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (input == hotplug_tuners_ins.hotplug_debug)
+		return count;
+
+	hotplug_tuners_ins.hotplug_debug = input;
+
 	return count;
 }
 
@@ -566,6 +588,7 @@ define_one_global_rw(hotplug_sampling_rate);
 define_one_global_rw(hotplug_enable);
 define_one_global_rw(cpu_up_rate);
 define_one_global_rw(cpu_down_rate);
+define_one_global_rw(hotplug_debug);
 define_one_global_rw(maxcoreslimit);
 define_one_global_rw(maxcoreslimit_sleep);
 define_one_global_rw(core_thermal_enable);
@@ -599,6 +622,7 @@ static struct attribute *alucard_hotplug_attributes[] = {
 #endif
 	&cpu_up_rate.attr,
 	&cpu_down_rate.attr,
+	&hotplug_debug.attr,
 	&maxcoreslimit.attr,
 	&maxcoreslimit_sleep.attr,
 	&core_thermal_enable.attr,
@@ -662,10 +686,10 @@ static inline int do_core_control(int online, int num_cores_limit)
 	} else {
 		core_thermal_info.num_cores = online;
 	}
-#if 0
-	pr_info("Core Sensor Temp.[%u], Max Cores[%d]\n",
-			temp, core_thermal_info.num_cores);
-#endif
+
+	if (hotplug_tuners_ins.hotplug_debug == 1)
+		pr_info("Core Sensor Temp.[%u], Max Cores[%d]\n",
+				temp, core_thermal_info.num_cores);
 
 	return core_thermal_info.num_cores;
 }
@@ -708,11 +732,12 @@ static void hotplug_work_fn(struct work_struct *work)
 	if (core_thermal_enable > 0 || atomic_read(&core_thermal_lock) > 0)
 		upmaxcoreslimit = do_core_control(online_cpus,
 					upmaxcoreslimit);
-#if 0
-	pr_info("ONLINE CPUS[%u], CPU[%u], \
+
+	if (hotplug_tuners_ins.hotplug_debug == 1)
+		pr_info("ONLINE CPUS[%u], CPU[%u], \
 				rq_avg[%u]\n", online_cpus, \
 				cpu, rq_avg);
-#endif
+
 	for_each_cpu_not(cpu, cpu_online_mask) {
 		struct hotplug_cpuinfo *this_hotplug_cpuinfo;
 		cputime64_t cur_wall_time, cur_idle_time;
@@ -787,25 +812,28 @@ static void hotplug_work_fn(struct work_struct *work)
 			up_rq = hotplug_rq[cpu][UP_INDEX];
 			down_rq = hotplug_rq[cpu][DOWN_INDEX];
 
-#if 0
-			pr_info("ONLINE CPUS[%u], CPU[%u], \
-				cur_freq[%u], cur_load[%d], \
-				rq_avg[%u]\n", online_cpus, \
-				cpu, cur_freq, cur_load, rq_avg);
-			printk(KERN_ERR "U CPU[%u], cur_freq[%u], \
-				up_freq[%u], cur_load[%d], up_load[%d], \
-				offline_cpu[%d], schedule_up_cpu[%d]\n", \
-				cpu, cur_freq, up_freq, cur_load, up_load, \
-				offline_cpu, schedule_up_cpu);
-			printk(KERN_ERR "D CPU[%u], cur_freq[%u], \
-				down_freq[%u], cur_load[%d], down_load[%d], \
-				schedule_down_cpu[%d]\n", cpu, cur_freq, \
-				down_freq, cur_load, down_load, \
-				schedule_down_cpu);
-#endif
+			if (hotplug_tuners_ins.hotplug_debug == 1) {
+				pr_info("ONLINE CPUS[%u], CPU[%u], \
+					cur_freq[%u], cur_load[%d], \
+					rq_avg[%u]\n", online_cpus,
+					cpu, cur_freq, cur_load, rq_avg);
+				printk(KERN_ERR "U CPU[%u], cur_freq[%u], \
+					up_freq[%u], cur_load[%d], \
+					up_load[%d], offline_cpu[%d], \
+					schedule_up_cpu[%d]\n",
+					cpu, cur_freq, up_freq, cur_load,
+					up_load, offline_cpu,
+					schedule_up_cpu);
+				printk(KERN_ERR "D CPU[%u], cur_freq[%u], \
+					down_freq[%u], cur_load[%d], \
+					down_load[%d], \
+					schedule_down_cpu[%d]\n",
+					cpu, cur_freq, down_freq, cur_load,
+					down_load, schedule_down_cpu);
+			}
 
-			if (cpu > 0
-					&& (online_cpus - online_cpu) > upmaxcoreslimit) {
+			if (cpu > 0 && (online_cpus - online_cpu) >
+					upmaxcoreslimit) {
 				ref_cpu = this_hotplug_cpuinfo->up_by_cpu;
 				if (ref_cpu >= 0) {
 					ref_hotplug_cpuinfo =
@@ -1007,7 +1035,8 @@ static int __init alucard_hotplug_init(void)
 	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0) {
 		init_rq_avg_stats();
 
-		delay = msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate);
+		delay = msecs_to_jiffies(
+				hotplug_tuners_ins.hotplug_sampling_rate);
 
 		queue_delayed_work_on(0, alucardhp_wq,
 			&alucard_hotplug_work, delay);
@@ -1023,7 +1052,6 @@ static void __exit alucard_hotplug_exit(void)
 	cancel_work_sync(&up_work);
 	cancel_work_sync(&down_work);
 	exit_rq_avg;
-
 
 	mutex_destroy(&timer_mutex);
 
@@ -1043,5 +1071,6 @@ MODULE_AUTHOR("Alucard_24@XDA");
 MODULE_DESCRIPTION("'alucard_hotplug' - A cpu hotplug driver for "
 	"capable processors");
 MODULE_LICENSE("GPL");
+
 late_initcall(alucard_hotplug_init);
 late_initexit(alucard_hotplug_exit);
