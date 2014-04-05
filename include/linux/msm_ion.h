@@ -5,11 +5,14 @@
 
 enum msm_ion_heap_types {
 	ION_HEAP_TYPE_MSM_START = ION_HEAP_TYPE_CUSTOM + 1,
-	ION_HEAP_TYPE_IOMMU = ION_HEAP_TYPE_MSM_START,
-	ION_HEAP_TYPE_DMA,
+	ION_HEAP_TYPE_DMA = ION_HEAP_TYPE_MSM_START,
 	ION_HEAP_TYPE_CP,
 	ION_HEAP_TYPE_SECURE_DMA,
 	ION_HEAP_TYPE_REMOVED,
+	/*
+	 * if you add a heap type here you should also add it to
+	 * heap_types_info[] in msm_ion.c
+	 */
 };
 
 /**
@@ -31,16 +34,22 @@ enum ion_heap_ids {
 	ION_ADSP_HEAP_ID = 22,
 	ION_PIL1_HEAP_ID = 23, /* Currently used for other PIL images */
 	ION_SF_HEAP_ID = 24,
-	ION_IOMMU_HEAP_ID = 25,
+	ION_SYSTEM_HEAP_ID = 25,
 	ION_PIL2_HEAP_ID = 26, /* Currently used for modem firmware images */
 	ION_QSECOM_HEAP_ID = 27,
 	ION_AUDIO_HEAP_ID = 28,
 
 	ION_MM_FIRMWARE_HEAP_ID = 29,
-	ION_SYSTEM_HEAP_ID = 30,
 
 	ION_HEAP_ID_RESERVED = 31 /** Bit reserved for ION_FLAG_SECURE flag */
 };
+
+/*
+ * The IOMMU heap is deprecated! Here are some aliases for backwards
+ * compatibility:
+ */
+#define ION_IOMMU_HEAP_ID ION_SYSTEM_HEAP_ID
+#define ION_HEAP_TYPE_IOMMU ION_HEAP_TYPE_SYSTEM
 
 enum ion_fixed_position {
 	NOT_FIXED,
@@ -72,6 +81,12 @@ enum cp_mem_usage {
  */
 #define ION_FLAG_FORCE_CONTIGUOUS (1 << 30)
 
+/*
+ * Used in conjunction with heap which pool memory to force an allocation
+ * to come from the page allocator directly instead of from the pool allocation
+ */
+#define ION_FLAG_POOL_FORCE_ALLOC (1 << 16)
+
 /**
 * Deprecated! Please use the corresponding ION_FLAG_*
 */
@@ -84,7 +99,8 @@ enum cp_mem_usage {
 #define ION_HEAP(bit) (1 << (bit))
 
 #define ION_ADSP_HEAP_NAME	"adsp"
-#define ION_VMALLOC_HEAP_NAME	"vmalloc"
+#define ION_SYSTEM_HEAP_NAME	"system"
+#define ION_VMALLOC_HEAP_NAME	ION_SYSTEM_HEAP_NAME
 #define ION_KMALLOC_HEAP_NAME	"kmalloc"
 #define ION_AUDIO_HEAP_NAME	"audio"
 #define ION_SF_HEAP_NAME	"sf"
@@ -97,7 +113,6 @@ enum cp_mem_usage {
 #define ION_PIL1_HEAP_NAME  "pil_1"
 #define ION_PIL2_HEAP_NAME  "pil_2"
 #define ION_QSECOM_HEAP_NAME	"qsecom"
-#define ION_FMEM_HEAP_NAME	"fmem"
 
 #define ION_SET_CACHED(__cache)		(__cache | ION_FLAG_CACHED)
 #define ION_SET_UNCACHED(__cache)	(__cache & ~ION_FLAG_CACHED)
@@ -129,12 +144,7 @@ enum cp_mem_usage {
  * @secure_size:	Memory size for securing the heap.
  *			Note: This might be different from actual size
  *			of this heap in the case of a shared heap.
- * @reusable		Flag indicating whether this heap is reusable of not.
- *			(see FMEM)
- * @mem_is_fmem		Flag indicating whether this memory is coming from fmem
- *			or not.
  * @fixed_position	If nonzero, position in the fixed area.
- * @virt_addr:		Virtual address used when using fmem.
  * @iommu_map_all:	Indicates whether we should map whole heap into IOMMU.
  * @iommu_2x_map_domain: Indicates the domain to use for overmapping.
  * @request_region:	function to be called when the number of allocations
@@ -153,13 +163,10 @@ struct ion_cp_heap_pdata {
 	unsigned int align;
 	ion_phys_addr_t secure_base; /* Base addr used when heap is shared */
 	size_t secure_size; /* Size used for securing heap when heap is shared*/
-	int reusable;
-	int mem_is_fmem;
 	int is_cma;
 	enum ion_fixed_position fixed_position;
 	int iommu_map_all;
 	int iommu_2x_map_domain;
-	void *virt_addr;
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *(*setup_region)(void);
@@ -171,8 +178,6 @@ struct ion_cp_heap_pdata {
  * struct ion_co_heap_pdata - defines a carveout heap in the given platform
  * @adjacent_mem_id:	Id of heap that this heap must be adjacent to.
  * @align:		Alignment requirement for the memory
- * @mem_is_fmem		Flag indicating whether this memory is coming from fmem
- *			or not.
  * @fixed_position	If nonzero, position in the fixed area.
  * @request_region:	function to be called when the number of allocations
  *			goes from 0 -> 1
@@ -185,12 +190,19 @@ struct ion_cp_heap_pdata {
 struct ion_co_heap_pdata {
 	int adjacent_mem_id;
 	unsigned int align;
-	int mem_is_fmem;
 	enum ion_fixed_position fixed_position;
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *(*setup_region)(void);
 	enum ion_memory_types memory_type;
+};
+
+/*
+ * struct ion_cma_pdata - extra data for CMA regions
+ * @default_prefetch_size - default size to use for prefetching
+ */
+struct ion_cma_pdata {
+	unsigned long default_prefetch_size;
 };
 
 #ifdef CONFIG_ION
@@ -500,6 +512,11 @@ struct ion_flush_data {
 	unsigned int length;
 };
 
+struct ion_prefetch_data {
+       int heap_id;
+       unsigned long len;
+};
+
 #define ION_IOC_MSM_MAGIC 'M'
 
 /**
@@ -523,5 +540,11 @@ struct ion_flush_data {
  */
 #define ION_IOC_CLEAN_INV_CACHES	_IOWR(ION_IOC_MSM_MAGIC, 2, \
 						struct ion_flush_data)
+
+#define ION_IOC_PREFETCH               _IOWR(ION_IOC_MSM_MAGIC, 3, \
+                                               struct ion_prefetch_data)
+
+#define ION_IOC_DRAIN                  _IOWR(ION_IOC_MSM_MAGIC, 4, \
+                                               struct ion_prefetch_data)
 
 #endif

@@ -396,6 +396,19 @@ static void audit_printk_skb(struct sk_buff *skb)
 	audit_hold_skb(skb);
 }
 
+//jaejyn.shin@lge.com
+static void audit_printk_skb_without_drop(struct sk_buff *skb)
+{
+	struct nlmsghdr *nlh = nlmsg_hdr(skb);
+	char *data = NLMSG_DATA(nlh);
+	if (nlh->nlmsg_type != AUDIT_EOE) {
+		if (printk_ratelimit())
+			printk(KERN_NOTICE "type=%d %s\n", nlh->nlmsg_type, data);
+		else
+			audit_log_lost("printk limit exceeded\n");
+	}
+}
+
 static void kauditd_send_skb(struct sk_buff *skb)
 {
 	int err;
@@ -409,9 +422,11 @@ static void kauditd_send_skb(struct sk_buff *skb)
 		audit_pid = 0;
 		/* we might get lucky and get this in the next auditd */
 		audit_hold_skb(skb);
-	} else
+	} else {
+		audit_printk_skb_without_drop(skb); //jaejyn.shin@lge.com
 		/* drop the extra reference if sent ok */
 		consume_skb(skb);
+	}
 }
 
 static int kauditd_thread(void *dummy)
@@ -447,7 +462,7 @@ static int kauditd_thread(void *dummy)
 		wake_up(&audit_backlog_wait);
 		if (skb) {
 			if (audit_pid)
-				kauditd_send_skb(skb);
+				kauditd_send_skb(skb); 
 			else
 				audit_printk_skb(skb);
 		} else {

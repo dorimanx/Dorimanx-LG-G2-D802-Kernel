@@ -17,9 +17,9 @@
 			revision = "rev_b";
 			interrupts = <91 0x0>;
 			max17048,alert_gpio = <&msmgpio 91 0x00>;
-			max17048,rcomp = <96>;
-			max17048,temp_co_hot = <25>;
-			max17048,temp_co_cold = <7400>;
+			max17048,rcomp = <88>;
+			max17048,temp_co_hot = <475>;
+			max17048,temp_co_cold = <6750>;
 			max17048,full_design = <2540>;
 		};
 
@@ -32,9 +32,9 @@
 			interrupts = <20 0x0>;
 			max17048,alert_gpio = <&pm8941_gpios 20 0x00>;
 			max17048,alert_threshold = <2>;
-			max17048,rcomp = <96>;
-			max17048,temp_co_hot = <25>;
-			max17048,temp_co_cold = <7400>;
+			max17048,rcomp = <88>;
+			max17048,temp_co_hot = <475>;
+			max17048,temp_co_cold = <6750>;
 			max17048,full_design = <2540>;
 		};
 	};
@@ -91,8 +91,8 @@
 			qcom,vbatdet-delta-mv = <50>;
 			qcom,ibatterm-ma = <100>;
 			qcom,tchg-mins = <480>;
-			qcom,ibatmax-ma = <1800>;
-			qcom,ibatsafe-ma = <1800>;
+			qcom,ibatmax-ma = <1600>;
+			qcom,ibatsafe-ma = <1600>;
 			qcom,vddmax-mv = <4350>;
 			qcom,vddsafe-mv = <4380>;
 			qcom,bpd-detection = "bpd_thm";

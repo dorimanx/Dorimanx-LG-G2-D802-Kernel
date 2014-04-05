@@ -32,7 +32,7 @@ struct smb349_platform_data {
 	int chg_current_ma;
 	int stat_gpio;
 	int term_current_ma;
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 	int otg_en_gpio;
 #endif
 };

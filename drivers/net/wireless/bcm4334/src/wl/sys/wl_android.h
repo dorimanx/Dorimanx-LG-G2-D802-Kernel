@@ -1,7 +1,7 @@
 /*
  * Linux cfg80211 driver - Android related functions
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_android.h 363350 2012-10-17 08:29:23Z $
+ * $Id: wl_android.h 367305 2012-11-07 13:49:55Z $
  */
 
 #include <linux/module.h>
@@ -66,6 +66,11 @@ void *wifi_get_country_code(char *ccode);
 #endif /* CONFIG_WIFI_CONTROL_FUNC */
 
 #ifdef WL_GENL
+typedef struct bcm_event_hdr {
+	u16 event_type;
+	u16 len;
+} bcm_event_hdr_t;
+
 /* attributes (variables): the index in this enum is used as a reference for the type,
  *             userspace application has to indicate the corresponding type
  *             the policy is used for security considerations
@@ -88,5 +93,15 @@ enum {
 };
 #define BCM_GENL_CMD_MAX (__BCM_GENL_CMD_MAX - 1)
 
-s32 wl_genl_send_msg(struct net_device *ndev, int pid, u8 *string, u8 len, int mcast);
+/* Enum values used by the BCM supplicant to identify the events */
+enum {
+	BCM_E_UNSPEC,
+	BCM_E_SVC_FOUND,
+	BCM_E_DEV_FOUND,
+	BCM_E_DEV_LOST,
+	BCM_E_MAX
+};
+
+s32 wl_genl_send_msg(struct net_device *ndev, u32 event_type,
+	u8 *string, u16 len, u8 *hdr, u16 hdrlen);
 #endif /* WL_GENL */

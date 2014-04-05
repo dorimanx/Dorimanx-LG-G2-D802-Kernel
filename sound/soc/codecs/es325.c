@@ -10,7 +10,6 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
 #define DEBUG
 #define CONFIG_HRTIMER_SLEEP_DELAYED
 
@@ -199,6 +198,7 @@ static int is_fw_download = 0;
 static int es325_codec_sleep_delay_get_time(struct timed_output_dev *dev);
 static void es325_codec_sleep_delay_enable(struct timed_output_dev *timed_dev, int value);
 static enum hrtimer_restart es325_codec_sleep_delay_timer_func(struct hrtimer *timer);
+static int es325_bootup(struct es325_priv *es325);
 
 static struct timed_output_dev sleep_delay = {
 	.name = "es325_sleep_delay",
@@ -451,7 +451,7 @@ static int es325_rx_ch_num_to_idx(int ch_num)
 	int i;
 	int idx = -1;
 
-	pr_info("%s(ch_num = %d)\n", __func__, ch_num);
+	pr_debug("%s(ch_num = %d)\n", __func__, ch_num);
 	// for (i = 0; i < ES325_SLIM_RX_PORTS; i++) {
 	for (i = 0; i < 6; i++) {
 		if (ch_num == es325_slim_rx_port_to_ch[i]) {
@@ -468,7 +468,7 @@ static int es325_tx_ch_num_to_idx(int ch_num)
 	int i;
 	int idx = -1;
 
-	pr_info("%s(ch_num = %d)\n", __func__, ch_num);
+	pr_debug("%s(ch_num = %d)\n", __func__, ch_num);
 	for (i = 0; i < ES325_SLIM_TX_PORTS; i++) {
 		if (ch_num == es325_slim_tx_port_to_ch[i]) {
 			idx = i;
@@ -610,7 +610,7 @@ static int es325_cfg_slim_rx(struct slim_device *sbdev, unsigned int *ch_num,
 		ch_h[i] = rx[idx].ch_h;
 		sph[i] = rx[idx].sph;
 
-		pr_info("%s(): idx = %d\n", __func__, idx);
+		pr_debug("%s(): idx = %d\n", __func__, idx);
 		dev_dbg(&sbdev->dev, "%s(): ch_num[i] = %d\n", __func__, ch_num[i]);
 		dev_dbg(&sbdev->dev, "%s(): ch_h[i] = %d\n", __func__, ch_h[i]);
 		dev_dbg(&sbdev->dev, "%s(): sph[i] = 0x%08x\n", __func__, sph[i]);
@@ -647,7 +647,7 @@ static int es325_cfg_slim_rx(struct slim_device *sbdev, unsigned int *ch_num,
 	}
 	for (i = 0; i < ch_cnt; i++) {
 		idx = es325_rx_ch_num_to_idx(ch_num[i]);
-		pr_info("%s(): idx = %d\n", __func__, idx);
+		pr_debug("%s(): idx = %d\n", __func__, idx);
 		rx[idx].grph = grph;
 	}
 	return 0;
@@ -679,7 +679,7 @@ static int es325_cfg_slim_tx(struct slim_device *sbdev, unsigned int *ch_num,
 		idx = es325_tx_ch_num_to_idx(ch_num[i]);
 		ch_h[i] = tx[idx].ch_h;
 		sph[i] = tx[idx].sph;
-		pr_info("%s(): idx = %d\n", __func__, idx);
+		pr_debug("%s(): idx = %d\n", __func__, idx);
 		dev_dbg(&sbdev->dev, "%s(): ch_num[i] = %d\n", __func__, ch_num[i]);
 		dev_dbg(&sbdev->dev, "%s(): ch_h[i] = %d\n", __func__, ch_h[i]);
 		dev_dbg(&sbdev->dev, "%s(): sph[i] = 0x%08x\n", __func__, sph[i]);
@@ -719,7 +719,7 @@ static int es325_cfg_slim_tx(struct slim_device *sbdev, unsigned int *ch_num,
 	}
 	for (i = 0; i < ch_cnt; i++) {
 		idx = es325_tx_ch_num_to_idx(ch_num[i]);
-		pr_info("%s(): idx = %d\n", __func__, idx);
+		pr_debug("%s(): idx = %d\n", __func__, idx);
 		tx[idx].grph = grph;
 	}
 	return 0;
@@ -745,7 +745,7 @@ static int es325_close_slim_rx(struct slim_device *sbdev, unsigned int *ch_num,
 
 	for (i = 0; i < ch_cnt; i++) {
 		idx = es325_rx_ch_num_to_idx(ch_num[i]);
-		pr_info("%s(): idx = %d\n", __func__, idx);
+		pr_debug("%s(): idx = %d\n", __func__, idx);
 		sph[i] = rx[idx].sph;
 		grph = rx[idx].grph;
 	}
@@ -759,7 +759,7 @@ static int es325_close_slim_rx(struct slim_device *sbdev, unsigned int *ch_num,
 	}
 	for (i = 0; i < ch_cnt; i++) {
 		idx = es325_rx_ch_num_to_idx(ch_num[i]);
-		pr_info("%s(): idx = %d\n", __func__, idx);
+		pr_debug("%s(): idx = %d\n", __func__, idx);
 		rx[idx].grph = 0;
 	}
 	ret = slim_disconnect_ports(sbdev, sph, ch_cnt);
@@ -787,7 +787,7 @@ static int es325_close_slim_tx(struct slim_device *sbdev, unsigned int *ch_num,
 
 	for (i = 0; i < ch_cnt; i++) {
 		idx = es325_tx_ch_num_to_idx(ch_num[i]);
-		pr_info("%s(): idx = %d\n", __func__, idx);
+		pr_debug("%s(): idx = %d\n", __func__, idx);
 		sph[i] = tx[idx].sph;
 		grph = tx[idx].grph;
 	}
@@ -801,7 +801,7 @@ static int es325_close_slim_tx(struct slim_device *sbdev, unsigned int *ch_num,
 	}
 	for (i = 0; i < ch_cnt; i++) {
 		idx = es325_tx_ch_num_to_idx(ch_num[i]);
-		pr_info("%s(): idx = %d\n", __func__, idx);
+		pr_debug("%s(): idx = %d\n", __func__, idx);
 		tx[idx].grph = 0;
 	}
 	ret = slim_disconnect_ports(sbdev, sph, ch_cnt);
@@ -1065,7 +1065,7 @@ static void es325_ping(struct es325_priv *es325)
 	mdelay(20);
 	es325_slim_read(es325, ES325_READ_VE_OFFSET,
 			ES325_READ_VE_WIDTH, ack_msg, 4, 1);
-	pr_info("%s(): ping ack = %02x%02x%02x%02x\n", __func__,
+	pr_debug("%s(): ping ack = %02x%02x%02x%02x\n", __func__,
 		ack_msg[0], ack_msg[1], ack_msg[2], ack_msg[3]);
 }
 #endif
@@ -1085,7 +1085,7 @@ static int es325_i2c_read(struct es325_priv *es325, char *buf, int len)
 	int rc = 0;
 
 #if 0
-	pr_info("%s(): entry\n", __func__);
+	pr_debug("%s(): entry\n", __func__);
 
 	rc = i2c_transfer(es325->this_client->adapter, msg, 1);
 	if (rc < 0) {
@@ -1095,13 +1095,13 @@ static int es325_i2c_read(struct es325_priv *es325, char *buf, int len)
 
 	{
 		int i;
-		pr_info("%s(): i2c msg:\n", __func__);
+		pr_debug("%s(): i2c msg:\n", __func__);
 		for (i = 0; i < len; ++i) {
-			pr_info("\t[%d] = 0x%02x\n", i, buf[i]);
+			pr_debug("\t[%d] = 0x%02x\n", i, buf[i]);
 		}
 	}
 
-	pr_info("%s(): exit\n", __func__);
+	pr_debug("%s(): exit\n", __func__);
 #endif
 	return rc;
 }
@@ -1119,14 +1119,14 @@ static int es325_i2c_write(struct es325_priv *es325, char *buf, int len)
 	int rc = 0;
 
 #if 0
-	pr_info("%s(): entry\n", __func__);
+	pr_debug("%s(): entry\n", __func__);
 
 	{
 		int i;
 
-		pr_info("%s(): i2c msg:\n", __func__);
+		pr_debug("%s(): i2c msg:\n", __func__);
 		for (i = 0; i < len; ++i) {
-			pr_info("\t[%d] = 0x%02x\n", i, buf[i]);
+			pr_debug("\t[%d] = 0x%02x\n", i, buf[i]);
 		}
 	}
 
@@ -1136,7 +1136,7 @@ static int es325_i2c_write(struct es325_priv *es325, char *buf, int len)
 		return rc;
 	}
 
-	pr_info("%s(): exit\n", __func__);
+	pr_debug("%s(): exit\n", __func__);
 #endif
 	return rc;
 }
@@ -1471,6 +1471,51 @@ static int es325_write(struct snd_soc_codec *codec, unsigned int reg,
 	return rc;
 }
 
+static void es325_hard_reset(void)
+{
+	int rc;
+	struct es325_priv *es325 = &es325_priv;
+	const char *filename = "audience-es325-fw.aud";
+
+	gpio_direction_output(es325->pdata->reset_gpio, 0);
+	gpio_direction_output(es325->pdata->wakeup_gpio, 0);
+	msleep(10);
+
+	gpio_direction_output(es325->pdata->reset_gpio, 1);
+	gpio_direction_output(es325->pdata->wakeup_gpio, 1);
+	mdelay(30);
+
+	rc = request_firmware((const struct firmware **)&es325_priv.fw,
+				filename, &es325->gen0_client->dev);
+	if (rc) {
+		dev_err(&es325->gen0_client->dev,
+				"%s(): request_firmware(%s) failed %d\n",
+				__func__, filename, rc);
+		goto request_firmware_error;
+	}
+	es325_bootup(es325);
+	release_firmware(es325->fw);
+request_firmware_error:
+
+	return;
+}
+
+static ssize_t es325_fw_reload_set(struct device *dev,
+				struct device_attribute *attr, const char *buf, size_t count)
+{
+	int rc;
+
+	rc = clk_prepare_enable(xo_handle_a2);
+	if (IS_ERR_VALUE(rc)) {
+		rc = PTR_ERR(xo_handle_a2);
+		pr_err("%s: Failed to enable the msm_xo_mode_vote(%d)\n", __func__, rc);
+		clk_put(xo_handle_a2);
+	}
+
+	es325_hard_reset();
+	return count;
+}
+
 static ssize_t es325_route_status_show(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
@@ -1499,7 +1544,7 @@ static ssize_t es325_route_status_show(struct device *dev,
 			return sprintf(buf, "Failed to SLIMBus Read\n");
 		}
 		else {
-			pr_info("%s(): ping ack = %02x%02x%02x%02x\n", __func__,
+			pr_debug("%s(): ping ack = %02x%02x%02x%02x\n", __func__,
 					ack_msg[0], ack_msg[1], ack_msg[2], ack_msg[3]);
 			return sprintf(buf, "status=0x%02x%02x%02x%02x\n",
 					ack_msg[0], ack_msg[1], ack_msg[2], ack_msg[3]);
@@ -1510,7 +1555,7 @@ static ssize_t es325_route_status_show(struct device *dev,
 static ssize_t es325_route_config_show(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
-	pr_info("%s(): route=%s\n", __func__,
+	pr_debug("%s(): route=%s\n", __func__,
 		es325_internal_route_configs_text[es325_internal_route_num]);
 	return sprintf(buf, "route=%s\n",
 		es325_internal_route_configs_text[es325_internal_route_num]);
@@ -1526,12 +1571,12 @@ static ssize_t es325_route_config_set(struct device *dev,
 	u8 *msg_ptr;
 	int rc;
 
-	pr_info("%s():buf = %s\n", __func__, buf);
+	pr_debug("%s():buf = %s\n", __func__, buf);
 	rc = kstrtol(buf, 10, &route_num);
 	if (route_num > ES325_STOP)
 		return count;
 	es325_internal_route_num = route_num;
-	pr_info("%s():es325_internal_route_num = %ld\n",
+	pr_debug("%s():es325_internal_route_num = %ld\n",
 		__func__, es325_internal_route_num);
 	msg_ptr = &es325_internal_route_configs[es325_internal_route_num][0];
 	for (i = 0; ; msg_ptr +=4) {
@@ -1540,7 +1585,7 @@ static ssize_t es325_route_config_set(struct device *dev,
 		memcpy(msg, msg_ptr, 4);
 		es325_slim_write(es325, ES325_WRITE_VE_OFFSET,
 				ES325_WRITE_VE_WIDTH, msg, 4, 1);
-		pr_info("%s(): msg = %02x%02x%02x%02x\n", __func__,
+		pr_debug("%s(): msg = %02x%02x%02x%02x\n", __func__,
 			msg[0], msg[1], msg[2], msg[3]);
 	}
 
@@ -1593,7 +1638,7 @@ static int es325_get_fw_version(void)
 		mdelay(2);
 		rc = ES325_BUS_READ(es325, ES325_READ_VE_OFFSET,
 				    ES325_READ_VE_WIDTH, bmsg, 4, 1);
-//		pr_info("%s() : get fw read %x %x %x %x\n", __func__, bmsg[0], bmsg[1], bmsg[2], bmsg[3]);
+//		pr_debug("%s() : get fw read %x %x %x %x\n", __func__, bmsg[0], bmsg[1], bmsg[2], bmsg[3]);
 
 		if (rc < 0) {
 			pr_err("%s: ES325_BUS_READ()=%d\n", __func__, rc);
@@ -1618,7 +1663,7 @@ static int es325_get_fw_version(void)
 
 	strcpy(es325->fw_version, verbuf);
 
-	pr_info("Audience fw ver %s\n", verbuf);
+	pr_debug("Audience fw ver %s\n", verbuf);
 
 	return rc;
 }
@@ -1628,7 +1673,7 @@ static ssize_t es325_fw_version_show(struct device *dev,
 {
 	struct es325_priv *es325 = &es325_priv;
 
-	pr_info("Audience fw ver %s\n", es325->fw_version);
+	pr_debug("Audience fw ver %s\n", es325->fw_version);
 
 	return sprintf(buf, "FW Version is [%s]\n", es325->fw_version);
 
@@ -1637,7 +1682,7 @@ static ssize_t es325_fw_version_show(struct device *dev,
 static ssize_t es325_sleep_test_show(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
-	pr_info("%s(): debug_val=%d %d %d\n", __func__,
+	pr_debug("%s(): debug_val=%d %d %d\n", __func__,
 		es325_rx1_route_ena, es325_rx2_route_ena, es325_tx1_route_ena);
 	return sprintf(buf, "debug_val=%d %d %d\n",
 		es325_rx1_route_ena, es325_rx2_route_ena, es325_tx1_route_ena);
@@ -1649,7 +1694,7 @@ static ssize_t es325_sleep_test_set(struct device *dev,
 	long debug_val;
 	int rc;
 
-	pr_info("%s():buf = %s\n", __func__, buf);
+	pr_debug("%s():buf = %s\n", __func__, buf);
 	rc = kstrtol(buf, 10, &debug_val);
 	switch(debug_val)
 		{
@@ -1694,7 +1739,7 @@ static ssize_t es325_mic_sealed_show(struct device *dev,
 			return sprintf(buf, "Failed to SLIMBus Read\n");
 		}
 		else {
-			pr_info("%s(): ping ack = %02x%02x%02x%02x\n", __func__,
+			pr_debug("%s(): ping ack = %02x%02x%02x%02x\n", __func__,
 					ack_msg[0], ack_msg[1], ack_msg[2], ack_msg[3]);
 			return sprintf(buf, "status=0x%02x%02x%02x%02x\n",
 					ack_msg[0], ack_msg[1], ack_msg[2], ack_msg[3]);
@@ -1878,7 +1923,8 @@ static struct device_attribute es325_device_attrs[] = {
 			es325_sleep_test_show,	es325_sleep_test_set),
 	__ATTR(mic_sealed,	S_IRUGO|S_IWUSR, \
 			es325_mic_sealed_show,	es325_mic_sealed_set),
-
+	__ATTR(fw_reload,    S_IWUSR, \
+			NULL,   es325_fw_reload_set),
 };
 
 
@@ -1963,7 +2009,7 @@ static int es325_firmware_reload(struct snd_kcontrol *kcontrol,
 	unsigned int buf_frames;
 	const char *buf_ptr;
 
-	pr_info("%s(): entry\n", __func__);
+	pr_debug("%s(): entry\n", __func__);
 
 	for(rc = 0; rc < 10; rc++) {
 		if (es325->power_state == ES325_POWER_BOOT)
@@ -1983,7 +2029,7 @@ static int es325_firmware_reload(struct snd_kcontrol *kcontrol,
 			gpio_direction_output(es325->pdata->wakeup_gpio, 1);
 			mdelay(30);
 
-			pr_info("%s(): write ES325_BOOT_CMD\n", __func__);
+			pr_debug("%s(): write ES325_BOOT_CMD\n", __func__);
 			memset(msg, 0, 16);
 			msg[0] = ES325_BOOT_CMD & 0x00ff;
 			msg[1] = ES325_BOOT_CMD >> 8;
@@ -1994,7 +2040,7 @@ static int es325_firmware_reload(struct snd_kcontrol *kcontrol,
 				return  0; // rc;
 			}
 			mdelay(100);
-			pr_info("%s(): read boot cmd ack\n", __func__);
+			pr_debug("%s(): read boot cmd ack\n", __func__);
 			memset(msg, 0, 16);
 			rc = ES325_BUS_READ(es325, ES325_READ_VE_OFFSET, ES325_READ_VE_WIDTH,
 								msg, 4, 0);
@@ -2008,10 +2054,10 @@ static int es325_firmware_reload(struct snd_kcontrol *kcontrol,
 			}
 			mdelay(100);
 
-			pr_info("%s(): write firmware image\n", __func__);
+			pr_debug("%s(): write firmware image\n", __func__);
 			/* send image */
 			buf_frames = sizeof_strawberry / ES325_FW_LOAD_BUF_SZ;
-			pr_info("%s(): buf_frames = %d fw size=%d\n", __func__, buf_frames, sizeof_strawberry);
+			pr_debug("%s(): buf_frames = %d fw size=%d\n", __func__, buf_frames, sizeof_strawberry);
 			buf_ptr = fp;
 			for ( ; buf_frames; --buf_frames, buf_ptr += ES325_FW_LOAD_BUF_SZ) {
 				rc = ES325_BUS_WRITE(es325, ES325_WRITE_VE_OFFSET,
@@ -2035,7 +2081,7 @@ static int es325_firmware_reload(struct snd_kcontrol *kcontrol,
 			 * download. */
 			mdelay(100);
 
-			pr_info("%s(): write ES325_SYNC_CMD\n", __func__);
+			pr_debug("%s(): write ES325_SYNC_CMD\n", __func__);
 			memset(msg, 0, 16);
 			msg[0] = ES325_SYNC_CMD >> 8;
 			msg[1] = ES325_SYNC_CMD & 0x00ff;
@@ -2048,7 +2094,7 @@ static int es325_firmware_reload(struct snd_kcontrol *kcontrol,
 				return rc;
 			}
 			mdelay(100);
-			pr_info("%s(): read sync cmd ack\n", __func__);
+			pr_debug("%s(): read sync cmd ack\n", __func__);
 			memset(msg, 0, 16);
 			rc = ES325_BUS_READ(es325, ES325_READ_VE_OFFSET, ES325_READ_VE_WIDTH,
 				msg, 4, 1);
@@ -2058,7 +2104,7 @@ static int es325_firmware_reload(struct snd_kcontrol *kcontrol,
 				return rc;
 			}
 			if (memcmp(msg, sync_ok, 4) == 0) {
-				pr_info("%s(): firmware sync ack good=0x%02x%02x%02x%02x\n",
+				pr_debug("%s(): firmware sync ack good=0x%02x%02x%02x%02x\n",
 					__func__, msg[0], msg[1], msg[2], msg[3]);
 			}
 			else {
@@ -2071,7 +2117,7 @@ static int es325_firmware_reload(struct snd_kcontrol *kcontrol,
 
 			es325_codec_sleep();
 
-			pr_info("%s(): exit rc=%d\n", __func__, rc);
+			pr_debug("%s(): exit rc=%d\n", __func__, rc);
 
 			return rc;
 		} else {
@@ -2093,11 +2139,11 @@ static int es325_bootup(struct es325_priv *es325)
 	int rc;
 	int retry =0;
 
-	pr_info("%s(): entry\n", __func__);
+	pr_debug("%s(): entry\n", __func__);
 
 reload_firmware:
 	mdelay(100);
-	pr_info("%s(): write ES325_BOOT_CMD\n", __func__);
+	pr_debug("%s(): write ES325_BOOT_CMD\n", __func__);
 	memset(msg, 0, 16);
 	msg[0] = ES325_BOOT_CMD & 0x00ff;
 	msg[1] = ES325_BOOT_CMD >> 8;
@@ -2108,7 +2154,7 @@ reload_firmware:
 		return  0; // rc;
 	}
 	mdelay(100);
-	pr_info("%s(): read boot cmd ack\n", __func__);
+	pr_debug("%s(): read boot cmd ack\n", __func__);
 	memset(msg, 0, 16);
 	rc = ES325_BUS_READ(es325, ES325_READ_VE_OFFSET, ES325_READ_VE_WIDTH,
 						msg, 4, 0);
@@ -2122,11 +2168,11 @@ reload_firmware:
 	}
 	mdelay(100);
 
-	pr_info("%s(): write firmware image\n", __func__);
+	pr_debug("%s(): write firmware image\n", __func__);
 
 	/* send image */
 	buf_frames = es325->fw->size / ES325_FW_LOAD_BUF_SZ;
-	pr_info("%s(): buf_frames = %d fw size=%d\n", __func__, buf_frames,es325->fw->size);
+	pr_debug("%s(): buf_frames = %d fw size=%d\n", __func__, buf_frames,es325->fw->size);
 	buf_ptr = es325->fw->data;
 	for ( ; buf_frames; --buf_frames, buf_ptr += ES325_FW_LOAD_BUF_SZ) {
 		rc = ES325_BUS_WRITE(es325, ES325_WRITE_VE_OFFSET,
@@ -2156,7 +2202,7 @@ reload_firmware:
 	 * download. */
 	mdelay(100);
 
-	pr_info("%s(): write ES325_SYNC_CMD\n", __func__);
+	pr_debug("%s(): write ES325_SYNC_CMD\n", __func__);
 	memset(msg, 0, 16);
 	msg[0] = ES325_SYNC_CMD >> 8;
 	msg[1] = ES325_SYNC_CMD & 0x00ff;
@@ -2169,7 +2215,7 @@ reload_firmware:
 		return rc;
 	}
 	mdelay(200);
-	pr_info("%s(): read sync cmd ack\n", __func__);
+	pr_debug("%s(): read sync cmd ack\n", __func__);
 	memset(msg, 0, 16);
 	rc = ES325_BUS_READ(es325, ES325_READ_VE_OFFSET, ES325_READ_VE_WIDTH,
 		msg, 4, 1);
@@ -2179,7 +2225,7 @@ reload_firmware:
 		return rc;
 	}
 	if (memcmp(msg, sync_ok, 4) == 0) {
-		pr_info("%s(): firmware sync ack good=0x%02x%02x%02x%02x\n",
+		pr_debug("%s(): firmware sync ack good=0x%02x%02x%02x%02x\n",
 			__func__, msg[0], msg[1], msg[2], msg[3]);
 	}
 	else {
@@ -2190,7 +2236,7 @@ reload_firmware:
 
 	es325_get_fw_version();
 
-	pr_info("%s(): exit\n", __func__);
+	pr_debug("%s(): exit\n", __func__);
 	return 0;
 }
 
@@ -2200,7 +2246,7 @@ static int fw_download(void *arg)
 	struct es325_priv *priv = (struct es325_priv *)arg;
 	int rc;
 
-	pr_info("%s(): entry\n", __func__);
+	pr_debug("%s(): entry\n", __func__);
 #ifdef BUS_TRANSACTIONS
 	rc = es325_bootup(priv);
 #endif
@@ -2210,7 +2256,7 @@ static int fw_download(void *arg)
 	}
 
 	if(is_fw_download){
-		pr_info("%s():already exist fw\n",__func__);
+		pr_debug("%s():already exist fw\n",__func__);
 		return 0;
 	}
 	release_firmware(priv->fw);
@@ -2230,7 +2276,7 @@ static int fw_download(void *arg)
 	 */
 	es325_codec_sleep();
 	module_put(THIS_MODULE);
-	pr_info("%s(): exit\n", __func__);
+	pr_debug("%s(): exit\n", __func__);
 	is_fw_download = 1;
 	return 0;
 }
@@ -2240,15 +2286,15 @@ static int es325_defer_fw_download(struct es325_priv *priv)
 {
 	struct task_struct *task;
 
-	pr_info("%s(): called\n", __func__);
+	pr_debug("%s(): called\n", __func__);
 	if (!try_module_get(THIS_MODULE)) {
-		pr_info("%s(): failed to increment module ref count\n", __func__);
+		pr_debug("%s(): failed to increment module ref count\n", __func__);
 		return -EFAULT;
 	}
 	task = kthread_run(fw_download, priv, "es325-firmware-dload");
 	if (IS_ERR(task)) {
 		module_put(THIS_MODULE);
-		pr_info("%s(): failed to create kernel task\n", __func__);
+		pr_debug("%s(): failed to create kernel task\n", __func__);
 		return PTR_ERR(task);
 	}
 	return 0;
@@ -2267,12 +2313,12 @@ static void delayed_sleep(struct work_struct *w)
 	ch_tot += es325_priv.dai[ES325_SLIM_2_PB].ch_tot;
 	ch_tot += es325_priv.dai[ES325_SLIM_1_CAP].ch_tot;
 
-	pr_info("%s %d active channels.\n", __func__, ch_tot);
+	pr_debug("%s %d active channels.\n", __func__, ch_tot);
 	if ((ch_tot <= 0) && (es325_rx1_route_ena == 0) && (es325_tx1_route_ena == 0) && (es325_rx2_route_ena == 0)) {
-		pr_info("%s : call es325_codec_sleep()\n", __func__);
+		pr_debug("%s : call es325_codec_sleep()\n", __func__);
 		es325_codec_sleep();
 	} else {
-		pr_info("%s : restart hrtimer\n", __func__);
+		pr_debug("%s : restart hrtimer\n", __func__);
 		es325_codec_sleep_delay_enable(&sleep_delay, sleep_delay_time);
 	}
 }
@@ -2288,7 +2334,7 @@ int es325_codec_sleep(void)
 		0x01, 0x00, 0x10, 0x80	/* sleep command */
 	};
 	int rc = -1;
-	pr_info("%s(): entry", __func__);
+	pr_debug("%s(): entry", __func__);
 
 	mutex_lock(&es325->power_lock);
 
@@ -2334,7 +2380,7 @@ static int es325_codec_sleep_delay_get_time(struct timed_output_dev *dev)
 		return t.tv_sec * 1000 + t.tv_usec / 1000;
 	}
 
-	pr_info("%s(): hrtimer_active does not activated\n", __func__);
+	pr_debug("%s(): hrtimer_active does not activated\n", __func__);
 	return 0;
 }
 
@@ -2347,26 +2393,26 @@ static void es325_codec_sleep_delay_enable(struct timed_output_dev *timed_dev, i
 	rc = hrtimer_start(&sleep_delay_timer,
 			  ktime_set(value / 1000, (value % 1000) * 1000000),
 			  HRTIMER_MODE_REL);
-	pr_info("%s(): hrtimer_start returns = %d\n", __func__, rc);
+	pr_debug("%s(): hrtimer_start returns = %d\n", __func__, rc);
 }
 
 static void es325_sleep_work(struct work_struct *work)
 {
-	pr_info("%s()\n", __func__);
+	pr_debug("%s()\n", __func__);
 
 	delayed_sleep(work);
 }
 
 static void timed_es325_sleep(struct timed_output_dev *sdev)
 {
-	pr_info("%s()\n", __func__);
+	pr_debug("%s()\n", __func__);
 
 	schedule_work(&work_es325_sleep);
 }
 
 static enum hrtimer_restart es325_codec_sleep_delay_timer_func(struct hrtimer *timer)
 {
-	pr_info("%s()\n", __func__);
+	pr_debug("%s()\n", __func__);
 
 	timed_es325_sleep(NULL);
 
@@ -2376,6 +2422,7 @@ static enum hrtimer_restart es325_codec_sleep_delay_timer_func(struct hrtimer *t
 
 int es325_codec_wakeup(void)
 {
+	int recover_es325_cnt = 0;
 	unsigned int offset = ES325_WRITE_VE_OFFSET;
 	unsigned int width = ES325_WRITE_VE_WIDTH;
 	char msg[16];
@@ -2385,7 +2432,7 @@ int es325_codec_wakeup(void)
 	struct device *dev = &es325->gen0_client->dev;
 	int rc = -ENXIO;
 	int ret, cnt;
-	pr_info("%s(): entry", __func__);
+	pr_debug("%s(): entry", __func__);
 
 	mutex_lock(&es325->power_lock);
 
@@ -2404,6 +2451,8 @@ int es325_codec_wakeup(void)
 		pr_err("%s: Failed to enable the msm_xo_mode_vote(%d)\n", __func__, rc);
 		goto EXIT_WAKEUP;
 	}
+
+retry:
 	usleep_range(800, 1000);
 	/* Wakeup signal H -> L. */
 	ret = gpio_direction_output(es325->pdata->wakeup_gpio, 0);
@@ -2455,8 +2504,14 @@ EXIT_WAKEUP_NOGPIO:
 	if (rc == 0) {
 		dev_info(dev, "Wakeup successful.\n");
 		es325->power_state = ES325_POWER_AWAKE;
-	} else
+	} else {
 		dev_err(dev, "Wakeup FAILED.\n");
+		if (recover_es325_cnt == 0) {
+			es325_hard_reset();
+			recover_es325_cnt = 1;
+			goto retry;
+		}
+	}
 
 	mutex_unlock(&es325->power_lock);
 
@@ -2474,6 +2529,9 @@ static int es325_put_control_value(struct snd_kcontrol *kcontrol,
 	unsigned int invert = mc->invert;
 	unsigned int value;
 	int rc = 0;
+
+	if(!is_fw_download)
+		return 0;
 
 	pr_debug("%s(): reg = %d\n", __func__, reg);
 	pr_debug("%s(): shift = %d\n", __func__, shift);
@@ -2498,6 +2556,9 @@ static int es325_get_control_value(struct snd_kcontrol *kcontrol,
 	unsigned int invert = mc->invert;
 	unsigned int value;
 
+	if(!is_fw_download)
+		return 0;
+
 	pr_debug("%s(): reg = %d\n", __func__, reg);
 	pr_debug("%s(): shift = %d\n", __func__, shift);
 	pr_debug("%s(): max = %d\n", __func__, max);
@@ -2521,6 +2582,9 @@ static int es325_put_control_enum(struct snd_kcontrol *kcontrol,
 	unsigned int value;
 	int rc = 0;
 
+	if(!is_fw_download)
+		return 0;
+
 	pr_debug("%s(): reg = 0x%x\n", __func__, reg);
 	pr_debug("%s(): max = %d\n", __func__, max);
 	pr_debug("%s(): value.integer.value[0] = %ld\n", __func__,
@@ -2539,6 +2603,9 @@ static int es325_get_control_enum(struct snd_kcontrol *kcontrol,
 	unsigned int reg = e->reg;
 	unsigned int value;
 
+	if(!is_fw_download)
+		return 0;
+
 	pr_debug("%s(): reg = 0x%x\n", __func__, reg);
 	value = es325_read(NULL, reg);
 	ucontrol->value.enumerated.item[0] = value;
@@ -2552,7 +2619,7 @@ static int es325_get_rx1_route_enable_value(struct snd_kcontrol *kcontrol,
 				       struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = es325_rx1_route_ena;
-	pr_info("%s(): is = %d\n", __func__,
+	pr_debug("%s(): is = %d\n", __func__,
 		es325_rx1_route_ena);
 
 	return 0;
@@ -2564,7 +2631,7 @@ static int es325_put_rx1_route_enable_value(struct snd_kcontrol *kcontrol,
 	if(!is_fw_download)
 		return 0;
 	es325_rx1_route_ena = ucontrol->value.integer.value[0];
-	pr_info("%s(): is = %d\n", __func__,
+	pr_debug("%s(): is = %d\n", __func__,
 		es325_rx1_route_ena);
 
 	return 0;
@@ -2574,7 +2641,7 @@ static int es325_get_tx1_route_enable_value(struct snd_kcontrol *kcontrol,
 				       struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = es325_tx1_route_ena;
-	pr_info("%s(): is = %d\n", __func__,
+	pr_debug("%s(): is = %d\n", __func__,
 		es325_tx1_route_ena);
 
 	return 0;
@@ -2586,7 +2653,7 @@ static int es325_put_tx1_route_enable_value(struct snd_kcontrol *kcontrol,
 	if(!is_fw_download)
 		return 0;
 	es325_tx1_route_ena = ucontrol->value.integer.value[0];
-	pr_info("%s(): is = %d\n", __func__,
+	pr_debug("%s(): is = %d\n", __func__,
 		es325_tx1_route_ena);
 
 	return 0;
@@ -2596,7 +2663,7 @@ static int es325_get_rx2_route_enable_value(struct snd_kcontrol *kcontrol,
 				       struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = es325_rx2_route_ena;
-	pr_info("%s(): is = %d\n", __func__,
+	pr_debug("%s(): is = %d\n", __func__,
 		es325_rx2_route_ena);
 
 	return 0;
@@ -2608,7 +2675,7 @@ static int es325_put_rx2_route_enable_value(struct snd_kcontrol *kcontrol,
 	if(!is_fw_download)
 		return 0;
 	es325_rx2_route_ena = ucontrol->value.integer.value[0];
-	pr_info("%s(): is = %d\n", __func__,
+	pr_debug("%s(): is = %d\n", __func__,
 		es325_rx2_route_ena);
 
 	return 0;
@@ -2630,7 +2697,7 @@ int es325_remote_route_enable(struct snd_soc_dai *dai)
 	default:
 		return 0;
 	}
-	pr_info("%s:(dai->id = %d)(rx1_ena = %d)(tx1_ena = %d)(rx2_ena = %d)\n",
+	pr_debug("%s:(dai->id = %d)(rx1_ena = %d)(tx1_ena = %d)(rx2_ena = %d)\n",
 			__func__, dai->id,
 			es325_rx1_route_ena, es325_tx1_route_ena, es325_rx2_route_ena);
 	return ret;
@@ -2640,7 +2707,7 @@ EXPORT_SYMBOL_GPL(es325_remote_route_enable);
 
 int es325_get_tx1_enabled(void)
 {
-	pr_info("%s:(tx1_ena = %d)\n",
+	pr_debug("%s:(tx1_ena = %d)\n",
 			__func__, es325_tx1_route_ena);
 
 	return es325_tx1_route_ena;
@@ -2661,7 +2728,7 @@ static int es325_put_internal_route_config(struct snd_kcontrol *kcontrol,
 
 	route_num = ucontrol->value.integer.value[0];
 
-	pr_info("%s(): route_num = %s es325_internal_route_num = %s\n",
+	pr_debug("%s(): route_num = %s es325_internal_route_num = %s\n",
 			__func__, es325_internal_route_configs_text[route_num],
 			es325_internal_route_configs_text[es325_internal_route_num]);
 
@@ -2672,34 +2739,34 @@ static int es325_put_internal_route_config(struct snd_kcontrol *kcontrol,
 		is_wideband = false;
 		if (es325_rx1_route_ena == 1 && es325_tx1_route_ena == 1) {
 			if (route_num_old == ES325_TWO_MIC_CT_WB) {
-				pr_info("%s : 2-mic CT Handover WB -> NB\n", __func__);
+				pr_debug("%s : 2-mic CT Handover WB -> NB\n", __func__);
 				route_num = ES325_TWO_MIC_CT;
 			} else if (route_num_old == ES325_TWO_MIC_FT_WB) {
-				pr_info("%s : 2-mic FT Handover WB -> NB\n", __func__);
+				pr_debug("%s : 2-mic FT Handover WB -> NB\n", __func__);
 				route_num = ES325_TWO_MIC_FT;
 			} else {
-				pr_info("%s : Narrowband to Narrowband case -> No Change :: sungmin test\n", __func__);
+				pr_debug("%s : Narrowband to Narrowband case -> No Change :: sungmin test\n", __func__);
 				route_num = route_num_old;
 			}
 		} else {
-			pr_info("%s() : sungmin : AMR Codec type is changed but Voice call is NOT activated.", __func__);
+			pr_debug("%s() : sungmin : AMR Codec type is changed but Voice call is NOT activated.", __func__);
 			return 0;
 		}
 	} else if (route_num == ES325_WB) {
 		is_wideband = true;
 		if (es325_rx1_route_ena == 1 && es325_tx1_route_ena == 1) {
 			if (route_num_old == ES325_TWO_MIC_CT) {
-				pr_info("%s : 2-mic CT Handover NB -> WB\n", __func__);
+				pr_debug("%s : 2-mic CT Handover NB -> WB\n", __func__);
 				route_num = ES325_TWO_MIC_CT_WB;
 			} else if (route_num_old == ES325_TWO_MIC_FT) {
-				pr_info("%s : 2-mic FT Handover NB -> WB\n", __func__);
+				pr_debug("%s : 2-mic FT Handover NB -> WB\n", __func__);
 				route_num = ES325_TWO_MIC_FT_WB;
 			} else {
-				pr_info("%s : Wideband to Wideband case -> No Change :: sungmin test\n", __func__);
+				pr_debug("%s : Wideband to Wideband case -> No Change :: sungmin test\n", __func__);
 				route_num = route_num_old;
 			}
 		} else {
-			pr_info("%s() : sungmin : AMR Codec type is changed but Voice call is NOT activated.", __func__);
+			pr_debug("%s() : sungmin : AMR Codec type is changed but Voice call is NOT activated.", __func__);
 			return 0;
 		}
 	}
@@ -2714,10 +2781,10 @@ static int es325_put_internal_route_config(struct snd_kcontrol *kcontrol,
 	if(es325_internal_route_num != route_num) {
 		es325_internal_route_num = route_num_old = route_num;
 		/* Flag to setup slimbus channel for es325 */
-		/*                  
-                             
-                      
-  */
+		/* jeremy.pi@lge.com
+		*   blocked ch mapping flag
+		*   controled by UCM
+		*/
 //		es325_rx1_route_ena = 1;
 //		es325_tx1_route_ena = 1;
 //		es325_rx2_route_ena = 1;
@@ -2734,23 +2801,11 @@ static int es325_put_internal_route_config(struct snd_kcontrol *kcontrol,
 					memcpy(msg, msg_ptr, 4);
 					es325_slim_write(es325, ES325_WRITE_VE_OFFSET,
 										ES325_WRITE_VE_WIDTH, msg, 4, 1);
-					pr_info("%s(): msg = %02x%02x%02x%02x\n", __func__,
+					pr_debug("%s(): msg = %02x%02x%02x%02x\n", __func__,
 							msg[0], msg[1], msg[2], msg[3]);
 				}
 			}
-		} else if (es325_internal_route_num == ES325_STOP) {
-			if (es325->power_state == ES325_POWER_AWAKE) {
-				msg_ptr = &es325_internal_route_configs[ES325_STOP][0];
-				for (i = 0; ; msg_ptr +=4) {
-					if (*msg_ptr == 0xff)
-						break;
-					memcpy(msg, msg_ptr, 4);
-					es325_slim_write(es325, ES325_WRITE_VE_OFFSET,
-										ES325_WRITE_VE_WIDTH, msg, 4, 1);
-					pr_info("%s(): msg = %02x%02x%02x%02x\n", __func__,
-							msg[0], msg[1], msg[2], msg[3]);
-				}
-			}
+		} else {
 			/* Flag to setup slimbus channel for without es325 */
 			// lock power lock
 			es325_rx1_route_ena = 0;
@@ -2775,9 +2830,9 @@ static int es325_get_internal_route_config(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = es325_internal_route_num;
-	pr_info("%s(): internal_route_num = %ld\n", __func__,
+	pr_debug("%s(): internal_route_num = %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
-	pr_info("%s(): internal_route_num = %ld\n", __func__,
+	pr_debug("%s(): internal_route_num = %ld\n", __func__,
 		es325_internal_route_num);
 
 	return 0;
@@ -2804,11 +2859,14 @@ static int es325_put_dereverb_gain_value(struct snd_kcontrol *kcontrol,
 	unsigned int value;
 	int rc = 0;
 
+	if(!is_fw_download)
+		return 0;
+
 	if (ucontrol->value.integer.value[0] <= 12) {
-		pr_info("%s() ucontrol = %ld\n", __func__,
+		pr_debug("%s() ucontrol = %ld\n", __func__,
 			ucontrol->value.integer.value[0]);
 		value = es325_index_to_gain(-12, 1, ucontrol->value.integer.value[0]);
-		pr_info("%s() value = %d\n", __func__, value);
+		pr_debug("%s() value = %d\n", __func__, value);
 		rc = es325_write(NULL, reg, value);
 	}
 
@@ -2823,10 +2881,13 @@ static int es325_get_dereverb_gain_value(struct snd_kcontrol *kcontrol,
 	unsigned int reg = mc->reg;
 	unsigned int value;
 
+	if(!is_fw_download)
+		return 0;
+
 	value = es325_read(NULL, reg);
-	pr_info("%s() value = %d\n", __func__, value);
+	pr_debug("%s() value = %d\n", __func__, value);
 	ucontrol->value.integer.value[0] = es325_gain_to_index(-12, 1, value);
-	pr_info("%s() ucontrol = %ld\n", __func__,
+	pr_debug("%s() ucontrol = %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
 
 	return 0;
@@ -2842,11 +2903,14 @@ static int es325_put_bwe_high_band_gain_value(struct snd_kcontrol *kcontrol,
 	unsigned int value;
 	int rc = 0;
 
+	if(!is_fw_download)
+		return 0;
+
 	if (ucontrol->value.integer.value[0] <= 30) {
-		pr_info("%s() ucontrol = %ld\n", __func__,
+		pr_debug("%s() ucontrol = %ld\n", __func__,
 			ucontrol->value.integer.value[0]);
 		value = es325_index_to_gain(-10, 1, ucontrol->value.integer.value[0]);
-		pr_info("%s() value = %d\n", __func__,
+		pr_debug("%s() value = %d\n", __func__,
 			value);
 		rc = es325_write(NULL, reg, value);
 	}
@@ -2862,10 +2926,13 @@ static int es325_get_bwe_high_band_gain_value(struct snd_kcontrol *kcontrol,
 	unsigned int reg = mc->reg;
 	unsigned int value;
 
+	if(!is_fw_download)
+		return 0;
+
 	value = es325_read(NULL, reg);
-	pr_info("%s() value = %d\n", __func__, value);
+	pr_debug("%s() value = %d\n", __func__, value);
 	ucontrol->value.integer.value[0] = es325_gain_to_index(-10, 1, value);
-	pr_info("%s() ucontrol = %ld\n", __func__,
+	pr_debug("%s() ucontrol = %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
 
 	return 0;
@@ -2881,11 +2948,14 @@ static int es325_put_bwe_max_snr_value(struct snd_kcontrol *kcontrol,
 	unsigned int value;
 	int rc = 0;
 
+	if(!is_fw_download)
+		return 0;
+
 	if (ucontrol->value.integer.value[0] <= 70) {
-		pr_info("%s() ucontrol = %ld\n", __func__,
+		pr_debug("%s() ucontrol = %ld\n", __func__,
 			ucontrol->value.integer.value[0]);
 		value = es325_index_to_gain(-20, 1, ucontrol->value.integer.value[0]);
-		pr_info("%s() value = %d\n", __func__,
+		pr_debug("%s() value = %d\n", __func__,
 			value);
 		rc = es325_write(NULL, reg, value);
 	}
@@ -2901,10 +2971,13 @@ static int es325_get_bwe_max_snr_value(struct snd_kcontrol *kcontrol,
 	unsigned int reg = mc->reg;
 	unsigned int value;
 
+	if(!is_fw_download)
+		return 0;
+
 	value = es325_read(NULL, reg);
-	pr_info("%s() value = %d\n", __func__, value);
+	pr_debug("%s() value = %d\n", __func__, value);
 	ucontrol->value.integer.value[0] = es325_gain_to_index(-20, 1, value);
-	pr_info("%s() ucontrol = %ld\n", __func__,
+	pr_debug("%s() ucontrol = %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
 
 	return 0;
@@ -3026,7 +3099,10 @@ static int es325_put_digital_gain_value(struct snd_kcontrol *kcontrol,
 	unsigned int value;
 	int rc = 0;
 
-	pr_info("%s() ucontrol = %ld\n", __func__,
+	if(!is_fw_download)
+		return 0;
+
+	pr_debug("%s() ucontrol = %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
 	value = ucontrol->value.integer.value[0];
 	rc = es325_write(NULL, reg, value);
@@ -3042,9 +3118,12 @@ static int es325_get_digital_gain_value(struct snd_kcontrol *kcontrol,
 	unsigned int reg = mc->reg;
 	unsigned int value;
 
+	if(!is_fw_download)
+		return 0;
+
 	value = es325_read(NULL, reg);
-	pr_info("%s() value = %d\n", __func__, value);
-	pr_info("%s() ucontrol = %ld\n", __func__,
+	pr_debug("%s() value = %d\n", __func__, value);
+	pr_debug("%s() ucontrol = %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
 
 	return 0;
@@ -3672,18 +3751,18 @@ int es325_slim_set_channel_map(struct snd_soc_dai *dai, unsigned int tx_num,
 		es325->dai[id].ch_act = 0;
 		for (i = 0; i < rx_num; i++) {
 			es325->dai[id].ch_num[i] = rx_slot[i];
-			pr_info("%s() rx_slot[] = %d\n", __func__, rx_slot[i]);
+			pr_debug("%s() rx_slot[] = %d\n", __func__, rx_slot[i]);
 		}
 	} else if (id == ES325_SLIM_1_CAP ||
 			id == ES325_SLIM_2_CAP ||
 			id == ES325_SLIM_3_CAP) {
 		es325->dai[id].ch_tot = tx_num;
 		es325->dai[id].ch_act = 0;
-		pr_info("%s() id = %d\n", __func__, id);
-		pr_info("%s() ch_tot = %d\n", __func__, tx_num);
+		pr_debug("%s() id = %d\n", __func__, id);
+		pr_debug("%s() ch_tot = %d\n", __func__, tx_num);
 		for (i = 0; i < tx_num; i++) {
 			es325->dai[id].ch_num[i] = tx_slot[i];
-			pr_info("%s() tx_slot[] = %d\n", __func__, tx_slot[i]);
+			pr_debug("%s() tx_slot[] = %d\n", __func__, tx_slot[i]);
 		}
 	}
 
@@ -4448,7 +4527,7 @@ static int es325_slim_probe(struct slim_device *sbdev)
 		return 0;
 	}
 
-	pr_info("%s initalized mutex for power state management\n", __func__);
+	pr_debug("%s initalized mutex for power state management\n", __func__);
 
 	mutex_init(&es325_priv.power_lock);
 
@@ -4463,7 +4542,7 @@ static int es325_slim_probe(struct slim_device *sbdev)
 	}
 
 #ifndef CONFIG_SLIMBUS_DEVICE_UP_COND
-	pr_info("%s(): deferring firmware download...\n", __func__);
+	pr_debug("%s(): deferring firmware download...\n", __func__);
 	rc = es325_defer_fw_download(&es325_priv);
 #endif
 
@@ -4603,28 +4682,28 @@ static __init int es325_init(void)
 {
 	int ret = 0;
 
-	pr_info("%s(): entry", __func__);
+	pr_debug("%s(): entry", __func__);
 #if defined(CONFIG_SND_SOC_ES325_I2C)
 	ret = i2c_add_driver(&es325_i2c_driver);
 	if (ret) {
 		pr_err("Failed to register Audience es325 I2C driver: %d\n", ret);
 	}
 #else
-	pr_info("%s(): slim_driver_register()", __func__);
+	pr_debug("%s(): slim_driver_register()", __func__);
 	ret = slim_driver_register(&es325_slim_driver);
 	if (ret) {
 		pr_err("Failed to register Audience es325 SLIMbus driver: %d\n", ret);
 	}
 #endif
 
-	pr_info("%s(): exit\n", __func__);
+	pr_debug("%s(): exit\n", __func__);
 	return ret;
 }
 module_init(es325_init);
 
 static __exit void es325_exit(void)
 {
-	pr_info("%s(): entry\n", __func__);
+	pr_debug("%s(): entry\n", __func__);
 #if defined(CONFIG_SND_SOC_ES325_I2C)
 	i2c_del_driver(&es325_i2c_driver);
 #else
@@ -4632,7 +4711,7 @@ static __exit void es325_exit(void)
 	 * slim_driver_unregister(&es325_slim_driver);
 	 */
 #endif
-	pr_info("%s(): exit\n", __func__);
+	pr_debug("%s(): exit\n", __func__);
 }
 module_exit(es325_exit);
 

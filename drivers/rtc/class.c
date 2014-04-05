@@ -17,6 +17,7 @@
 #include <linux/idr.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
+#include <linux/zwait.h>
 
 #include "rtc-core.h"
 
@@ -198,6 +199,13 @@ struct rtc_device *rtc_device_register(const char *name, struct device *dev,
 		goto exit_kfree;
 	}
 
+	err = zw_rtc_info_register(rtc);
+	if (err) {
+		device_unregister(&rtc->dev);
+		put_device(&rtc->dev);
+		goto exit_kfree;
+	}
+
 	rtc_dev_add_device(rtc);
 	rtc_sysfs_add_device(rtc);
 	rtc_proc_add_device(rtc);
@@ -236,6 +244,7 @@ void rtc_device_unregister(struct rtc_device *rtc)
 		rtc_sysfs_del_device(rtc);
 		rtc_dev_del_device(rtc);
 		rtc_proc_del_device(rtc);
+		zw_rtc_info_unregister(rtc);
 		device_unregister(&rtc->dev);
 		rtc->ops = NULL;
 		mutex_unlock(&rtc->ops_lock);

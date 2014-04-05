@@ -22,7 +22,7 @@
 #if (VIBRATOR_INFO_PRINT)
 #define INFO_MSG(fmt, args...) \
 			printk(KERN_INFO "[%s] " \
-				fmt, __FUNCTION__, ##args);
+				fmt, __func__, ##args);
 #else
 #define INFO_MSG(fmt, args...)
 #endif
@@ -30,7 +30,7 @@
 #if (VIBRATOR_DEBUG_PRINT)
 #define DEBUG_MSG(fmt, args...) \
 			printk(KERN_INFO "[%s %d] " \
-				fmt, __FUNCTION__, __LINE__, ##args);
+				fmt, __func__, __LINE__, ##args);
 #else
 #define DEBUG_MSG(fmt, args...)
 #endif
@@ -38,7 +38,7 @@
 #if (VIBRATOR_ERROR_PRINT)
 #define ERR_MSG(fmt, args...) \
 			printk(KERN_ERR "[%s %d] " \
-				fmt, __FUNCTION__, __LINE__, ##args);
+				fmt, __func__, __LINE__, ##args);
 #else
 #define ERR_MSG(fmt, args...)
 #endif

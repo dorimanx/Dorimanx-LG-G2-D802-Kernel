@@ -19,8 +19,13 @@
 	soc: soc { };
 };
 
+/include/ "msm-gdsc.dtsi"
 /include/ "apq8084-ion.dtsi"
+/include/ "apq8084-iommu.dtsi"
 /include/ "apq8084-smp2p.dtsi"
+/include/ "apq8084-coresight.dtsi"
+/include/ "apq8084-mdss.dtsi"
+/include/ "apq8084-gpu.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -70,8 +75,6 @@
 		compatible = "qcom,cache_dump";
 		qcom,l1-dump-size = <0x100000>;
 		qcom,l2-dump-size = <0x500000>;
-		qcom,memory-reservation-type = "EBI1";
-		qcom,memory-reservation-size = <0x600000>; /* 6M EBI1 buffer */
 	};
 
 	rpm_bus: qcom,rpm-smd {
@@ -117,6 +120,14 @@
 		status = "disabled";
 	};
 
+	qcom,sps@f9980000 {
+		compatible = "qcom,msm_sps";
+		reg = <0xf9984000 0x15000>,
+		      <0xf9999000 0xb000>;
+		interrupts = <0 94 0>;
+		qcom,pipe-attr-ee;
+	};
+
 	spmi_bus: qcom,spmi@fc4c0000 {
 		cell-index = <0>;
 		compatible = "qcom,spmi-pmic-arb";
@@ -134,6 +145,52 @@
 		#size-cells = <0>;
 		interrupt-controller;
 		#interrupt-cells = <3>;
+	};
+
+	i2c_0: i2c@f9925000 { /* BLSP1 QUP3 */
+		cell-index = <0>;
+		compatible = "qcom,i2c-qup";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0xf9925000 0x1000>;
+		interrupt-names = "qup_err_intr";
+		interrupts = <0 97 0>;
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <50000000>;
+		qcom,sda-gpio = <&msmgpio 10 0>;
+		qcom,scl-gpio = <&msmgpio 11 0>;
+	};
+
+	qcom,usbbam@f9304000 {
+		compatible = "qcom,usb-bam-msm";
+		reg = <0xf9304000 0x5000>,
+		      <0xf92f880c 0x4>;
+		reg-names = "ssusb", "qscratch_ram1_reg";
+		interrupts = <0 132 0>;
+		interrupt-names = "ssusb";
+		qcom,usb-bam-num-pipes = <16>;
+		qcom,usb-bam-fifo-baseaddr = <0x00000000 0xf9200000>;
+		qcom,ignore-core-reset-ack;
+		qcom,disable-clk-gating;
+
+		qcom,pipe0 {
+			label = "ssusb-qdss-in-0";
+			qcom,usb-bam-mem-type = <1>;
+			qcom,bam-type = <0>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <1>;
+			qcom,src-bam-physical-address = <0xfc37C000>;
+			qcom,src-bam-pipe-index = <0>;
+			qcom,dst-bam-physical-address = <0xf9304000>;
+			qcom,dst-bam-pipe-index = <2>;
+			qcom,data-fifo-offset = <0xf0000>;
+			qcom,data-fifo-size = <0x1800>;
+			qcom,descriptor-fifo-offset = <0xf4000>;
+			qcom,descriptor-fifo-size = <0x1400>;
+			qcom,reset-bam-on-connect;
+		};
 	};
 
 	usb3: qcom,ssusb@f9200000 {
@@ -165,6 +222,18 @@
 
 	android_usb {
 		compatible = "qcom,android-usb";
+	};
+
+	tsens: tsens@fc4a8000 {
+		compatible = "qcom,msm-tsens";
+		reg = <0xfc4a8000 0x2000>,
+		      <0xfc4bc000 0x1000>;
+		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		interrupts = <0 184 0>;
+		qcom,sensors = <11>;
+		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
+				3200 3200>;
+		qcom,calib-mode = "fuse_map1";
 	};
 
 	qcom,ocmem@fdd00000 {
@@ -205,7 +274,7 @@
 
 	memory_hole: qcom,msm-mem-hole {
 		compatible = "qcom,msm-mem-hole";
-		qcom,memblock-remove = <0x0dc00000 0x2000000>; /* Address and Size of Hole */
+		qcom,memblock-remove = <0x0d200000 0x02c00000>; /* Address and Size of Hole */
 	};
 
 	qcom,ipc-spinlock@fd484000 {
@@ -247,7 +316,159 @@
 			qcom,irq-no-suspend;
 		};
 	};
+
+	qcom,venus@fdce0000 {
+		compatible = "qcom,pil-venus";
+		reg = <0xfdce0000 0x4000>,
+		      <0xfdc80000 0x400>;
+		reg-names = "wrapper_base", "vbif_base";
+		vdd-supply = <&gdsc_venus>;
+
+		qcom,firmware-name = "venus";
+	};
+
+	ufs1: ufshc@0xfc598000 {
+		compatible = "jedec,ufs-1.1";
+		reg = <0xfc598000 0x800>;
+		interrupts = <0 28 0>;
+		status = "disabled";
+	};
+
+	qcom,wdt@f9017000 {
+		compatible = "qcom,msm-watchdog";
+		reg = <0xf9017000 0x1000>;
+		interrupts = <0 3 0>, <0 4 0>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <10000>;
+		qcom,ipi-ping;
+	};
+
+	qcom,msm-rng@f9bff000{
+		compatible = "qcom,msm-rng";
+		reg = <0xf9bff000 0x200>;
+		qcom,msm-rng-iface-clk;
+	};
+};
+
+&gdsc_venus {
+	status = "ok";
+};
+
+&gdsc_venus_core0 {
+	status = "ok";
+};
+
+&gdsc_venus_core1 {
+	status = "ok";
+};
+
+&gdsc_vpu {
+	status = "ok";
+};
+
+&gdsc_mdss {
+	status = "ok";
+};
+
+&gdsc_jpeg {
+	status = "ok";
+};
+
+&gdsc_vfe {
+	status = "ok";
+};
+
+&gdsc_oxili_gx {
+	status = "ok";
+};
+
+&gdsc_oxili_cx {
+	status = "ok";
+};
+
+&gdsc_usb_hsic {
+	status = "ok";
+};
+
+&gdsc_pcie_0{
+	status = "ok";
+};
+
+&gdsc_pcie_1{
+	status = "ok";
+};
+
+&gdsc_usb30{
+	status = "ok";
+};
+
+&gdsc_usb30_sec{
+	status = "ok";
 };
 
 /include/ "msm-pma8084.dtsi"
 /include/ "apq8084-regulator.dtsi"
+
+&pma8084_vadc {
+	chan@b0 {
+		label = "apq_therm";
+		reg = <0xb0>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@b3 {
+		label = "quiet_therm";
+		reg = <0xb3>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+};
+
+&pma8084_adc_tm {
+	chan@8 {
+		label = "die_temp";
+		reg = <8>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <3>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <3>;
+		qcom,btm-channel-number = <0x48>;
+	};
+
+	chan@b0 {
+		label = "apq_therm";
+		reg = <0xb0>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <3>;
+		qcom,btm-channel-number = <0x68>;
+		qcom,thermal-node;
+	};
+
+	chan@b3 {
+		label = "quiet_therm";
+		reg = <0xb3>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <3>;
+		qcom,btm-channel-number = <0x70>;
+		qcom,thermal-node;
+	};
+};

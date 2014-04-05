@@ -148,7 +148,7 @@
 		interrupts = <0 109 0>;
 	};
 
-	usb@f9a55000 {
+	hsusb_otg: usb@f9a55000 {
 		compatible = "qcom,hsusb-otg";
 		reg = <0xf9a55000 0x400>;
 		interrupts = <0 134 0 0 140 0>;
@@ -165,6 +165,7 @@
 		qcom,hsusb-otg-lpm-on-dev-suspend;
 		qcom,hsusb-otg-clk-always-on-workaround;
 		qcom,hsusb-otg-delay-lpm-hndshk-on-disconnect;
+		qcom,hsusb-otg-delay-lpm;
 
 		qcom,msm-bus,name = "usb2";
 		qcom,msm-bus,num-cases = <2>;
@@ -172,6 +173,7 @@
 		qcom,msm-bus,vectors-KBps =
 				<87 512 0 0>,
 				<87 512 40000 640000>;
+		qcom,hsusb-log2-itc = <4>;
 	};
 
 	hsic_host: hsic@f9a15000 {
@@ -191,7 +193,9 @@
 		qcom,pool-64-bit-align;
 		qcom,enable-hbm;
 		hsic,consider-ipa-handshake;
+		hsic,log2-itc = <3>;
 		qcom,ahb-async-bridge-bypass;
+		hsic,disable-cerr;
 	};
 
 	qcom,usbbam@f9a44000 {
@@ -243,9 +247,9 @@
 			qcom,dst-bam-physical-address = <0xf9a44000>;
 			qcom,dst-bam-pipe-index = <2>;
 			qcom,data-fifo-offset = <0x4100>;
-			qcom,data-fifo-size = <0x400>;
+			qcom,data-fifo-size = <0x700>;
 			qcom,descriptor-fifo-offset = <0x4000>;
-			qcom,descriptor-fifo-size = <0x400>;
+			qcom,descriptor-fifo-size = <0x100>;
 		};
 		qcom,pipe3 {
 			label = "hsic-ipa-in-0";
@@ -256,8 +260,8 @@
 			qcom,peer-bam = <2>;
 			qcom,dst-bam-physical-address = <0xf9a04000>;
 			qcom,dst-bam-pipe-index = <3>;
-			qcom,data-fifo-size = <0xD480>;
-			qcom,descriptor-fifo-size = <0x3200>;
+			qcom,data-fifo-size = <0xF800>;
+			qcom,descriptor-fifo-size = <0x3A58>;
 			qcom,reset-bam-on-connect;
 		};
 		qcom,pipe4 {
@@ -269,8 +273,8 @@
 			qcom,usb-bam-mem-type = <2>;
 			qcom,dst-bam-physical-address = <0xf9a04000>;
 			qcom,dst-bam-pipe-index = <4>;
-			qcom,data-fifo-size = <0xD480>;
-			qcom,descriptor-fifo-size = <0x3200>;
+			qcom,data-fifo-size = <0xF800>;
+			qcom,descriptor-fifo-size = <0x3A58>;
 			qcom,reset-bam-on-connect;
 		};
 		qcom,pipe5 {
@@ -282,8 +286,8 @@
 			qcom,peer-bam = <2>;
 			qcom,dst-bam-physical-address = <0xf9a04000>;
 			qcom,dst-bam-pipe-index = <5>;
-			qcom,data-fifo-size = <0xD480>;
-			qcom,descriptor-fifo-size = <0x3200>;
+			qcom,data-fifo-size = <0xF800>;
+			qcom,descriptor-fifo-size = <0x3A58>;
 			qcom,reset-bam-on-connect;
 		};
 		qcom,pipe6 {
@@ -295,8 +299,8 @@
 			qcom,peer-bam = <2>;
 			qcom,dst-bam-physical-address = <0xf9a04000>;
 			qcom,dst-bam-pipe-index = <6>;
-			qcom,data-fifo-size = <0xD480>;
-			qcom,descriptor-fifo-size = <0x3200>;
+			qcom,data-fifo-size = <0xF800>;
+			qcom,descriptor-fifo-size = <0x3A58>;
 			qcom,reset-bam-on-connect;
 		};
 		qcom,pipe7 {
@@ -324,18 +328,26 @@
 		interrupt-names = "bam_irq";
 	};
 
-	spi_0: spi@f9924000 {
+	spi_0: spi@f9924000 { /* BLSP1 QUP2 */
 		compatible = "qcom,spi-qup-v2";
-		reg = <0xf9924000 0x1000>;
-		interrupts = <0 96 0>;
-		spi-max-frequency = <25000000>;
 		#address-cells = <1>;
 		#size-cells = <0>;
-		gpios = <&msmgpio 7 0>, /* CLK  */
-			<&msmgpio 5 0>, /* MISO */
-			<&msmgpio 4 0>; /* MOSI */
+		reg-names = "spi_physical", "spi_bam_physical";
+		reg = <0xf9924000 0x1000>,
+		      <0xf9904000 0x11000>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+		interrupts = <0 96 0>, <0 238 0>;
+		spi-max-frequency = <19200000>;
+		qcom,gpio-mosi = <&msmgpio 4 0>;
+		qcom,gpio-miso = <&msmgpio 5 0>;
+		qcom,gpio-clk  = <&msmgpio 7 0>;
+		qcom,gpio-cs0  = <&msmgpio 6 0>;
 
-		cs-gpios = <&msmgpio 6 0>;
+		qcom,infinite-mode = <0>;
+		qcom,ver-reg-exists;
+		qcom,bam-consumer-pipe-index = <14>;
+		qcom,bam-producer-pipe-index = <15>;
+		qcom,master-id = <86>;
 
 		ethernet-switch@0 {
 			compatible = "simtec,ks8851";
@@ -507,12 +519,31 @@
 	tsens@fc4a8000 {
 		compatible = "qcom,msm-tsens";
 		reg = <0xfc4a8000 0x2000>,
-		      <0xfc4b8000 0x1000>;
+		      <0xfc4bc000 0x1000>;
 		reg-names = "tsens_physical", "tsens_eeprom_physical";
 		interrupts = <0 184 0>;
 		qcom,sensors = <5>;
 		qcom,slope = <3200 3200 3200 3200 3200>;
 		qcom,calib-mode = "fuse_map1";
+	};
+
+	qcom,msm-thermal {
+		compatible = "qcom,msm-thermal";
+		qcom,sensor-id = <0>;
+		qcom,poll-ms = <250>;
+		qcom,limit-temp = <60>;
+		qcom,temp-hysteresis = <10>;
+		qcom,freq-step = <2>;
+		qcom,freq-control-mask = <0x0>;
+		qcom,vdd-restriction-temp = <5>;
+		qcom,vdd-restriction-temp-hysteresis = <10>;
+		vdd-dig-supply = <&pm8019_l10_floor_corner>;
+
+		qcom,vdd-dig-rstr{
+			qcom,vdd-rstr-reg = "vdd-dig";
+			qcom,levels = <5 7 7>; /* Nominal, Super Turbo, Super Turbo */
+			qcom,min-level = <1>; /* No Request */
+		};
 	};
 
 	qcom,msm-rng@f9bff000 {
@@ -713,7 +744,23 @@
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <240>;
 		};
+
+		qcom,msm-dai-q6-incall-record-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <32771>;
+		};
+
+		qcom,msm-dai-q6-incall-record-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <32772>;
+		};
+
+		qcom,msm-dai-q6-incall-music-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <32773>;
+		};
 	};
+
 	qcom,msm-pcm-dtmf {
 		compatible = "qcom,msm-pcm-dtmf";
 	};
@@ -726,9 +773,8 @@
 		compatible = "qcom,msm-stub-codec";
 	};
 
-	qcom,msm-auxpcm {
-		compatible = "qcom,msm-auxpcm-resource";
-		qcom,msm-cpudai-auxpcm-clk = "pcm_clk";
+	qcom,msm-pri-auxpcm {
+		compatible = "qcom,msm-auxpcm-dev";
 		qcom,msm-cpudai-auxpcm-mode = <0>, <0>;
 		qcom,msm-cpudai-auxpcm-sync = <1>, <1>;
 		qcom,msm-cpudai-auxpcm-frame = <5>, <4>;
@@ -736,16 +782,7 @@
 		qcom,msm-cpudai-auxpcm-slot = <1>, <1>;
 		qcom,msm-cpudai-auxpcm-data = <0>, <0>;
 		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
-
-		qcom,msm-auxpcm-rx {
-			qcom,msm-auxpcm-dev-id = <4106>;
-			compatible = "qcom,msm-auxpcm-dev";
-		};
-
-		qcom,msm-auxpcm-tx {
-			qcom,msm-auxpcm-dev-id = <4107>;
-			compatible = "qcom,msm-auxpcm-dev";
-		};
+		qcom,msm-auxpcm-interface = "primary";
 	};
 
 	qcom,msm-dai-mi2s {
@@ -771,6 +808,7 @@
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
 		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
 		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
+		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_1_in 3 0>;
 
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
@@ -843,6 +881,12 @@
 		reg-names = "crypto-base","crypto-bam-base";
 		interrupts = <0 207 0>;
 		qcom,bam-pipe-pair = <2>;
+	};
+
+	jtag_fuse: jtagfuse@fc4be024 {
+		compatible = "qcom,jtag-fuse";
+		reg = <0xfc4be024 0x8>;
+		reg-names = "fuse-base";
 	};
 
 	jtag_mm: jtagmm@fc332000 {

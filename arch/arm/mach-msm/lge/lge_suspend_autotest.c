@@ -344,7 +344,7 @@ static int __init suspend_autotest_init(void)
 
 	platform_device_register(&suspend_autotest_device);
 
-    return platform_driver_register(&suspend_autotest_driver);
+	return platform_driver_register(&suspend_autotest_driver);
 }
 
 static void __exit suspend_autotest_exit(void)

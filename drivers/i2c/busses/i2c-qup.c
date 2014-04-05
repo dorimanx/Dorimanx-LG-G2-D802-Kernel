@@ -134,7 +134,9 @@ enum {
 #define I2C_STATUS_CLK_STATE		13
 #define QUP_OUT_FIFO_NOT_EMPTY		0x10
 #define I2C_GPIOS_DT_CNT		(2)		/* sda and scl */
-
+#if defined(CONFIG_TOUCHSCREEN_ATMEL_S540)
+bool i2c_suspended = false;		/* Use atme touch IC for checking i2c suspend */
+#endif
 static char const * const i2c_rsrcs[] = {"i2c_clk", "i2c_sda"};
 
 static struct gpiomux_setting recovery_config = {
@@ -191,6 +193,10 @@ struct qup_i2c_dev {
 	int                          i2c_gpios[ARRAY_SIZE(i2c_rsrcs)];
 	struct qup_i2c_clk_path_vote clk_path_vote;
 };
+
+#ifdef CONFIG_PM
+static int i2c_qup_pm_resume_runtime(struct device *device);
+#endif
 
 #ifdef DEBUG
 static void
@@ -944,7 +950,13 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	long timeout;
 	int err;
 
-	pm_runtime_get_sync(dev->dev);
+	/* Alternate if runtime power management is disabled */
+	if (!pm_runtime_enabled(dev->dev)) {
+		dev_dbg(dev->dev, "Runtime PM is disabled\n");
+		i2c_qup_pm_resume_runtime(dev->dev);
+	} else {
+		pm_runtime_get_sync(dev->dev);
+	}
 	mutex_lock(&dev->mlock);
 
 	if (dev->suspended) {
@@ -1385,7 +1397,8 @@ qup_i2c_probe(struct platform_device *pdev)
 	qup_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"qup_phys_addr");
 	if (!qup_mem) {
-		dev_err(&pdev->dev, "no qup mem resource?\n");
+		dev_err(&pdev->dev,
+			"platform_get_resource_byname(qup_phys_addr) failed\n");
 		ret = -ENODEV;
 		goto get_res_failed;
 	}
@@ -1655,11 +1668,22 @@ get_res_failed:
 	return ret;
 }
 
+static void qup_i2c_mem_release(struct platform_device *pdev, const char *name)
+{
+	struct resource *res =
+		platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
+
+	if (res)
+		release_mem_region(res->start, resource_size(res));
+	else
+		dev_dbg(&pdev->dev,
+			"platform_get_resource_byname(%s) failed\n", name);
+}
+
 static int __devexit
 qup_i2c_remove(struct platform_device *pdev)
 {
-	struct qup_i2c_dev	*dev = platform_get_drvdata(pdev);
-	struct resource		*qup_mem, *gsbi_mem;
+	struct qup_i2c_dev *dev = platform_get_drvdata(pdev);
 
 	/* Grab mutex to ensure ongoing transaction is over */
 	mutex_lock(&dev->mlock);
@@ -1693,14 +1717,11 @@ qup_i2c_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 
-	if (!(dev->pdata->use_gsbi_shared_mode)) {
-		gsbi_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-							"gsbi_qup_i2c_addr");
-		release_mem_region(gsbi_mem->start, resource_size(gsbi_mem));
-	}
-	qup_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						"qup_phys_addr");
-	release_mem_region(qup_mem->start, resource_size(qup_mem));
+	if (!(dev->pdata->use_gsbi_shared_mode))
+		qup_i2c_mem_release(pdev, "gsbi_qup_i2c_addr");
+
+	qup_i2c_mem_release(pdev, "qup_phys_addr");
+
 	if (dev->dev->of_node)
 		kfree(dev->pdata);
 	kfree(dev);
@@ -1745,22 +1766,30 @@ static int qup_i2c_suspend(struct device *device)
 	if (!pm_runtime_enabled(device) || !pm_runtime_suspended(device)) {
 		dev_dbg(device, "system suspend");
 		i2c_qup_pm_suspend_runtime(device);
+		/*
+		 * set the device's runtime PM status to 'suspended'
+		 */
+		pm_runtime_disable(device);
+		pm_runtime_set_suspended(device);
+		pm_runtime_enable(device);
 	}
+#if defined(CONFIG_TOUCHSCREEN_ATMEL_S540)
+	i2c_suspended = true;
+#endif
 	return 0;
 }
 
 static int qup_i2c_resume(struct device *device)
 {
-	int ret = 0;
-	if (!pm_runtime_enabled(device) || !pm_runtime_suspended(device)) {
-		dev_dbg(device, "system resume");
-		ret = i2c_qup_pm_resume_runtime(device);
-		if (!ret) {
-			pm_runtime_mark_last_busy(device);
-			pm_request_autosuspend(device);
-		}
-		return ret;
-	}
+	/*
+	 * Rely on runtime-PM to call resume in case it is enabled
+	 * Even if it's not enabled, rely on 1st client transaction to do
+	 * clock ON and gpio configuration
+	 */
+	dev_dbg(device, "system resume");
+#if defined(CONFIG_TOUCHSCREEN_ATMEL_S540)
+	i2c_suspended = false;
+#endif
 	return 0;
 }
 #endif /* CONFIG_PM */

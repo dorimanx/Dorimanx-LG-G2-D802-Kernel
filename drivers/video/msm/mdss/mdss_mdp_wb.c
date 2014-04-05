@@ -123,6 +123,34 @@ struct mdss_mdp_data *mdss_mdp_wb_debug_buffer(struct msm_fb_data_type *mfd)
 }
 #endif
 
+/*
+ * mdss_mdp_get_secure() - Queries the secure status of a writeback session
+ * @mfd:                   Frame buffer device structure
+ * @enabled:               Pointer to convey if session is secure
+ *
+ * This api enables an entity (userspace process, driver module, etc.) to
+ * query the secure status of a writeback session. The secure status is
+ * then supplied via a pointer.
+ */
+int mdss_mdp_wb_get_secure(struct msm_fb_data_type *mfd, uint8_t *enabled)
+{
+	struct mdss_mdp_wb *wb = mfd_to_wb(mfd);
+	if (!wb)
+		return -EINVAL;
+	*enabled = wb->is_secure;
+	return 0;
+}
+
+/*
+ * mdss_mdp_set_secure() - Updates the secure status of a writeback session
+ * @mfd:                   Frame buffer device structure
+ * @enable:                New secure status (1: secure, 0: non-secure)
+ *
+ * This api enables an entity to modify the secure status of a writeback
+ * session. If enable is 1, we allocate a secure pipe so that MDP is
+ * allowed to write back into the secure buffer. If enable is 0, we
+ * deallocate the secure pipe (if it was allocated previously).
+ */
 int mdss_mdp_wb_set_secure(struct msm_fb_data_type *mfd, int enable)
 {
 	struct mdss_mdp_wb *wb = mfd_to_wb(mfd);
@@ -131,6 +159,20 @@ int mdss_mdp_wb_set_secure(struct msm_fb_data_type *mfd, int enable)
 	struct mdss_mdp_mixer *mixer;
 
 	pr_debug("setting secure=%d\n", enable);
+	if ((enable != 1) && (enable != 0)) {
+		pr_err("Invalid enable value = %d\n", enable);
+		return -EINVAL;
+	}
+
+	if (!ctl || !ctl->mdata) {
+		pr_err("%s : ctl is NULL", __func__);
+		return -EINVAL;
+	}
+
+	if (!wb) {
+		pr_err("unable to start, writeback is not initialized\n");
+		return -ENODEV;
+	}
 
 	ctl->is_secure = enable;
 	wb->is_secure = enable;
@@ -476,23 +518,13 @@ static int mdss_mdp_wb_dequeue(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
-static void mdss_mdp_wb_callback(void *arg)
-{
-	if (arg)
-		complete((struct completion *) arg);
-}
-
 int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_wb *wb = mfd_to_wb(mfd);
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	struct mdss_mdp_wb_data *node = NULL;
 	int ret = 0;
-	DECLARE_COMPLETION_ONSTACK(comp);
-	struct mdss_mdp_writeback_arg wb_args = {
-		.callback_fnc = mdss_mdp_wb_callback,
-		.priv_data = &comp,
-	};
+	struct mdss_mdp_writeback_arg wb_args;
 
 	if (!ctl->power_on)
 		return 0;
@@ -524,16 +556,16 @@ int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd)
 		pr_err("unable to get writeback buf ctl=%d\n", ctl->num);
 		/* drop buffer but don't return error */
 		ret = 0;
+		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_DONE);
 		goto kickoff_fail;
 	}
 
-	ret = mdss_mdp_display_commit(ctl, &wb_args);
+	ret = mdss_mdp_writeback_display_commit(ctl, &wb_args);
 	if (ret) {
 		pr_err("error on commit ctl=%d\n", ctl->num);
 		goto kickoff_fail;
 	}
 
-	wait_for_completion_interruptible(&comp);
 	if (wb && node) {
 		mutex_lock(&wb->lock);
 		list_add_tail(&node->active_entry, &wb->busy_queue);
@@ -572,6 +604,86 @@ int mdss_mdp_wb_set_mirr_hint(struct msm_fb_data_type *mfd, int hint)
 	}
 }
 
+int mdss_mdp_wb_get_format(struct msm_fb_data_type *mfd,
+					struct mdp_mixer_cfg *mixer_cfg)
+{
+	int dst_format;
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+
+	if (!ctl) {
+		pr_err("No panel data!\n");
+		return -EINVAL;
+	}
+
+	switch (ctl->dst_format) {
+	case MDP_RGB_888:
+		dst_format = WB_FORMAT_RGB_888;
+		break;
+	case MDP_RGB_565:
+		dst_format = WB_FORMAT_RGB_565;
+		break;
+	case MDP_XRGB_8888:
+		dst_format = WB_FORMAT_xRGB_8888;
+		break;
+	case MDP_ARGB_8888:
+		dst_format = WB_FORMAT_ARGB_8888;
+		break;
+	case MDP_BGRA_8888:
+		dst_format = WB_FORMAT_BGRA_8888;
+		break;
+	case MDP_BGRX_8888:
+		dst_format = WB_FORMAT_BGRX_8888;
+		break;
+	case MDP_Y_CBCR_H2V2_VENUS:
+		dst_format = WB_FORMAT_NV12;
+		break;
+	default:
+		return -EINVAL;
+	}
+	mixer_cfg->writeback_format = dst_format;
+	return 0;
+}
+
+int mdss_mdp_wb_set_format(struct msm_fb_data_type *mfd, int dst_format)
+{
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+
+	if (!ctl) {
+		pr_err("No panel data!\n");
+		return -EINVAL;
+	}
+
+	switch (dst_format) {
+	case WB_FORMAT_RGB_888:
+		ctl->dst_format = MDP_RGB_888;
+		break;
+	case WB_FORMAT_RGB_565:
+		ctl->dst_format = MDP_RGB_565;
+		break;
+	case WB_FORMAT_xRGB_8888:
+		ctl->dst_format = MDP_XRGB_8888;
+		break;
+	case WB_FORMAT_ARGB_8888:
+		ctl->dst_format = MDP_ARGB_8888;
+		break;
+	case WB_FORMAT_BGRA_8888:
+		ctl->dst_format = MDP_BGRA_8888;
+		break;
+	case WB_FORMAT_BGRX_8888:
+		ctl->dst_format = MDP_BGRX_8888;
+		break;
+	case WB_FORMAT_NV12:
+		ctl->dst_format = MDP_Y_CBCR_H2V2_VENUS;
+		break;
+	default:
+		pr_err("wfd format not supported\n");
+		return -EINVAL;
+	}
+
+	pr_debug("wfd format %d\n", ctl->dst_format);
+	return 0;
+}
+
 int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd,
 				void *arg)
 {
@@ -590,7 +702,8 @@ int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd,
 		break;
 	case MSMFB_WRITEBACK_QUEUE_BUFFER:
 		if (!copy_from_user(&data, arg, sizeof(data))) {
-			ret = mdss_mdp_wb_queue(mfd, arg, false);
+			ret = mdss_mdp_wb_queue(mfd, &data, false);
+			ret = copy_to_user(arg, &data, sizeof(data));
 		} else {
 			pr_err("wb queue buf failed on copy_from_user\n");
 			ret = -EFAULT;
@@ -598,7 +711,8 @@ int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd,
 		break;
 	case MSMFB_WRITEBACK_DEQUEUE_BUFFER:
 		if (!copy_from_user(&data, arg, sizeof(data))) {
-			ret = mdss_mdp_wb_dequeue(mfd, arg);
+			ret = mdss_mdp_wb_dequeue(mfd, &data);
+			ret = copy_to_user(arg, &data, sizeof(data));
 		} else {
 			pr_err("wb dequeue buf failed on copy_from_user\n");
 			ret = -EFAULT;

@@ -122,6 +122,8 @@ static int msm_isp_prepare_v4l2_buf(struct msm_isp_buf_mgr *buf_mgr,
 {
 	int i, rc = -1;
 	struct msm_isp_buffer_mapped_info *mapped_info;
+	struct buffer_cmd *buf_pending = NULL;
+
 	for (i = 0; i < v4l2_buf->length; i++) {
 		mapped_info = &buf_info->mapped_info[i];
 		mapped_info->handle =
@@ -144,6 +146,15 @@ static int msm_isp_prepare_v4l2_buf(struct msm_isp_buf_mgr *buf_mgr,
 		mapped_info->paddr += v4l2_buf->m.planes[i].data_offset;
 		CDBG("%s: plane: %d addr:%lu\n",
 			__func__, i, mapped_info->paddr);
+
+		buf_pending = kzalloc(sizeof(struct buffer_cmd), GFP_ATOMIC);
+		if (!buf_pending) {
+			pr_err("No free memory for buf_pending\n");
+			return rc;
+		}
+
+		buf_pending->mapped_info = mapped_info;
+		list_add_tail(&buf_pending->list, &buf_mgr->buffer_q);
 	}
 	buf_info->num_planes = v4l2_buf->length;
 	return 0;
@@ -163,11 +174,26 @@ static void msm_isp_unprepare_v4l2_buf(
 {
 	int i;
 	struct msm_isp_buffer_mapped_info *mapped_info;
+	struct buffer_cmd *buf_pending = NULL;
+
 	for (i = 0; i < buf_info->num_planes; i++) {
 		mapped_info = &buf_info->mapped_info[i];
-		ion_unmap_iommu(buf_mgr->client, mapped_info->handle,
-			buf_mgr->iommu_domain_num, 0);
-		ion_free(buf_mgr->client, mapped_info->handle);
+
+		list_for_each_entry(buf_pending, &buf_mgr->buffer_q, list) {
+			if (!buf_pending)
+				break;
+
+			if (buf_pending->mapped_info == mapped_info) {
+				ion_unmap_iommu(buf_mgr->client,
+					mapped_info->handle,
+					buf_mgr->iommu_domain_num, 0);
+				ion_free(buf_mgr->client, mapped_info->handle);
+
+				list_del_init(&buf_pending->list);
+				kfree(buf_pending);
+				break;
+			}
+		}
 	}
 	return;
 }
@@ -286,6 +312,10 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 	bufq = msm_isp_get_bufq(buf_mgr, bufq_handle);
 	if (!bufq) {
 		pr_err("%s: Invalid bufq\n", __func__);
+		return rc;
+	}
+	if (!bufq->bufq_handle) {
+		pr_err("%s: Invalid bufq handle\n", __func__);
 		return rc;
 	}
 
@@ -420,7 +450,7 @@ static int msm_isp_put_buf(struct msm_isp_buf_mgr *buf_mgr,
 
 static int msm_isp_buf_done(struct msm_isp_buf_mgr *buf_mgr,
 	uint32_t bufq_handle, uint32_t buf_index,
-	struct timeval *tv, uint32_t frame_id)
+	struct timeval *tv, uint32_t frame_id, uint32_t output_format)
 {
 	int rc = -1;
 	unsigned long flags;
@@ -467,6 +497,7 @@ static int msm_isp_buf_done(struct msm_isp_buf_mgr *buf_mgr,
 		} else {
 			buf_info->vb2_buf->v4l2_buf.timestamp = *tv;
 			buf_info->vb2_buf->v4l2_buf.sequence  = frame_id;
+			buf_info->vb2_buf->v4l2_buf.reserved = output_format;
 			buf_mgr->vb2_ops->buf_done(buf_info->vb2_buf,
 				bufq->session_id, bufq->stream_id);
 		}
@@ -567,14 +598,21 @@ static int msm_isp_buf_enqueue(struct msm_isp_buf_mgr *buf_mgr,
 	if (buf_state == MSM_ISP_BUFFER_STATE_DIVERTED) {
 		buf_info = msm_isp_get_buf_ptr(buf_mgr,
 						info->handle, info->buf_idx);
-		if (info->dirty_buf)
-			msm_isp_put_buf(buf_mgr, info->handle, info->buf_idx);
-		else
-			msm_isp_buf_done(buf_mgr, info->handle, info->buf_idx,
-				buf_info->tv, buf_info->frame_id);
+		if (info->dirty_buf) {
+			rc = msm_isp_put_buf(buf_mgr,
+				info->handle, info->buf_idx);
+		} else {
+			if (BUF_SRC(bufq->stream_id))
+				pr_err("%s: Invalid native buffer state\n",
+					__func__);
+			else
+				rc = msm_isp_buf_done(buf_mgr,
+					info->handle, info->buf_idx,
+					buf_info->tv, buf_info->frame_id, 0);
+		}
 	} else {
 		bufq = msm_isp_get_bufq(buf_mgr, info->handle);
-		if (BUF_SRC(bufq->stream_id)) {
+		if (bufq && BUF_SRC(bufq->stream_id)) {
 			rc = msm_isp_put_buf(buf_mgr,
 					info->handle, info->buf_idx);
 			if (rc < 0) {
@@ -679,6 +717,7 @@ static void msm_isp_release_all_bufq(
 		if (!bufq->bufq_handle)
 			continue;
 		msm_isp_buf_unprepare(buf_mgr, bufq->bufq_handle);
+
 		kfree(bufq->bufs);
 		msm_isp_free_buf_handle(buf_mgr, bufq->bufq_handle);
 	}
@@ -727,9 +766,10 @@ static int msm_isp_init_isp_buf_mgr(
 		pr_err("Invalid buffer queue number\n");
 		return rc;
 	}
-
 	CDBG("%s: E\n", __func__);
+
 	msm_isp_attach_ctx(buf_mgr);
+	INIT_LIST_HEAD(&buf_mgr->buffer_q);
 	buf_mgr->num_buf_q = num_buf_q;
 	buf_mgr->bufq =
 		kzalloc(sizeof(struct msm_isp_bufq) * num_buf_q,

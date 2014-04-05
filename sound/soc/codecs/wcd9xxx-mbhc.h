@@ -16,8 +16,10 @@
 
 #define WCD9XXX_CFILT_FAST_MODE 0x00
 #define WCD9XXX_CFILT_SLOW_MODE 0x40
-#define WCD9XXX_CFILT_EXT_PRCHG_EN 0x70
-#define WCD9XXX_CFILT_EXT_PRCHG_DSBL 0x40
+#define WCD9XXX_CFILT_EXT_PRCHG_EN 0x30
+#define WCD9XXX_CFILT_EXT_PRCHG_DSBL 0x00
+
+#define WCD9XXX_USLEEP_RANGE_MARGIN_US 100
 
 struct mbhc_micbias_regs {
 	u16 cfilt_val;
@@ -40,9 +42,16 @@ enum mbhc_cal_type {
 	MBHC_CAL_NUM,
 };
 
+enum mbhc_impedance_detect_stages {
+	PRE_MEAS,
+	POST_MEAS,
+	PA_DISABLE,
+};
+
 /* Data used by MBHC */
 struct mbhc_internal_cal_data {
 	u16 dce_z;
+	u16 dce_nsc_cs_z;
 	u16 dce_mb;
 	u16 sta_z;
 	u16 sta_mb;
@@ -59,12 +68,7 @@ struct mbhc_internal_cal_data {
 	u16 v_no_mic;
 	s16 v_inval_ins_low;
 	s16 v_inval_ins_high;
-};
-
-enum wcd9xxx_mbhc_version {
-	WCD9XXX_MBHC_VERSION_UNKNOWN = 0,
-	WCD9XXX_MBHC_VERSION_TAIKO,
-	WCD9XXX_MBHC_VERSION_TAPAN,
+	u16 v_cs_ins_h;
 };
 
 enum wcd9xxx_mbhc_plug_type {
@@ -87,6 +91,12 @@ enum wcd9xxx_micbias_num {
 enum wcd9xx_mbhc_micbias_enable_bits {
 	MBHC_MICBIAS_ENABLE_THRESHOLD_HEADSET,
 	MBHC_MICBIAS_ENABLE_REGULAR_HEADSET,
+};
+
+enum wcd9xx_mbhc_cs_enable_bits {
+	MBHC_CS_ENABLE_POLLING,
+	MBHC_CS_ENABLE_INSERTION,
+	MBHC_CS_ENABLE_REMOVAL,
 };
 
 enum wcd9xxx_mbhc_state {
@@ -113,6 +123,8 @@ enum wcd9xxx_mbhc_clk_freq {
 enum wcd9xxx_mbhc_event_state {
 	MBHC_EVENT_PA_HPHL,
 	MBHC_EVENT_PA_HPHR,
+	MBHC_EVENT_PRE_TX_3_ON,
+	MBHC_EVENT_POST_TX_3_OFF,
 };
 
 struct wcd9xxx_mbhc_general_cfg {
@@ -216,9 +228,50 @@ struct wcd9xxx_mbhc_config {
 	unsigned long micbias_enable_flags;
 	/* swap_gnd_mic returns true if extern GND/MIC swap switch toggled */
 	bool (*swap_gnd_mic) (struct snd_soc_codec *);
+	unsigned long cs_enable_flags;
 #ifdef CONFIG_MACH_LGE
 	int debounce_time_us;
 #endif
+	bool use_int_rbias;
+	bool do_recalibration;
+	bool use_vddio_meas;
+};
+
+struct wcd9xxx_cfilt_mode {
+	u8 reg_mode_val;
+	u8 cur_mode_val;
+	u8 reg_mask;
+};
+
+struct wcd9xxx_mbhc_intr {
+	int poll_plug_rem;
+	int shortavg_complete;
+	int potential_button_press;
+	int button_release;
+	int dce_est_complete;
+	int insertion;
+	int hph_left_ocp;
+	int hph_right_ocp;
+	int hs_jack_switch;
+};
+
+struct wcd9xxx_mbhc_cb {
+	void (*enable_mux_bias_block) (struct snd_soc_codec *);
+	void (*cfilt_fast_mode) (struct snd_soc_codec *, struct wcd9xxx_mbhc *);
+	void (*codec_specific_cal) (struct snd_soc_codec *,
+				    struct wcd9xxx_mbhc *);
+	struct wcd9xxx_cfilt_mode (*switch_cfilt_mode) (struct wcd9xxx_mbhc *,
+							bool);
+	void (*select_cfilt) (struct snd_soc_codec *, struct wcd9xxx_mbhc *);
+	enum wcd9xxx_cdc_type (*get_cdc_type) (void);
+	void (*enable_clock_gate) (struct snd_soc_codec *, bool);
+	int (*setup_zdet) (struct wcd9xxx_mbhc *,
+			   enum mbhc_impedance_detect_stages stage);
+	void (*compute_impedance) (s16 *, s16 *, uint32_t *, uint32_t *);
+	void (*enable_mbhc_txfe) (struct snd_soc_codec *, bool);
+	int (*enable_mb_source) (struct snd_soc_codec *, bool);
+	void (*setup_int_rbias) (struct snd_soc_codec *, bool);
+	void (*pull_mb_to_vddio) (struct snd_soc_codec *, bool);
 };
 
 struct wcd9xxx_mbhc {
@@ -228,6 +281,7 @@ struct wcd9xxx_mbhc {
 	int buttons_pressed;
 	enum wcd9xxx_mbhc_state mbhc_state;
 	struct wcd9xxx_mbhc_config *mbhc_cfg;
+	const struct wcd9xxx_mbhc_cb *mbhc_cb;
 
 	struct mbhc_internal_cal_data mbhc_data;
 
@@ -282,9 +336,15 @@ struct wcd9xxx_mbhc {
 	bool micbias_enable;
 	int (*micbias_enable_cb) (struct snd_soc_codec*,  bool);
 
-	enum wcd9xxx_mbhc_version mbhc_version;
+	bool impedance_detect;
+	/* impedance of hphl and hphr */
+	uint32_t zl, zr;
 
 	u32 rco_clk_rate;
+
+	bool update_z;
+	/* Holds codec specific interrupt mapping */
+	const struct wcd9xxx_mbhc_intr *intr_ids;
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_poke;
@@ -349,13 +409,18 @@ struct wcd9xxx_mbhc {
 
 int wcd9xxx_mbhc_start(struct wcd9xxx_mbhc *mbhc,
 		       struct wcd9xxx_mbhc_config *mbhc_cfg);
+void wcd9xxx_mbhc_stop(struct wcd9xxx_mbhc *mbhc);
 int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 		      struct snd_soc_codec *codec,
 		      int (*micbias_enable_cb) (struct snd_soc_codec*,  bool),
-		      int version,
-		      int rco_clk_rate);
+		      const struct wcd9xxx_mbhc_cb *mbhc_cb,
+		      const struct wcd9xxx_mbhc_intr *mbhc_cdc_intr_ids,
+		      int rco_clk_rate,
+		      bool impedance_det_en);
 void wcd9xxx_mbhc_deinit(struct wcd9xxx_mbhc *mbhc);
 void *wcd9xxx_mbhc_cal_btn_det_mp(
 			    const struct wcd9xxx_mbhc_btn_detect_cfg *btn_det,
 			    const enum wcd9xxx_mbhc_btn_det_mem mem);
+int wcd9xxx_mbhc_get_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
+			       uint32_t *zr);
 #endif /* __WCD9XXX_MBHC_H__ */

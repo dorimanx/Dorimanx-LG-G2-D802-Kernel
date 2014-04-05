@@ -24,7 +24,14 @@
 #define DISABLE_LOG_MASK	0
 #define MAX_EVENT_SIZE		512
 #define DCI_CLIENT_INDEX_INVALID -1
+#define DCI_PKT_REQ_MIN_LEN		5
+#define DCI_LOG_CON_MIN_LEN		14
+#define DCI_EVENT_CON_MIN_LEN		16
 
+#ifdef CONFIG_DEBUG_FS
+#define DIAG_DCI_DEBUG_CNT	100
+#define DIAG_DCI_DEBUG_LEN	100
+#endif
 
 /* 16 log code categories, each has:
  * 1 bytes equip id + 1 dirty byte + 512 byte max log mask
@@ -35,15 +42,18 @@
 #define DCI_MAX_LOG_CODES		16
 #define DCI_MAX_ITEMS_PER_LOG_CODE	512
 
+#define MIN_DELAYED_RSP_LEN		12
+
 extern unsigned int dci_max_reg;
 extern unsigned int dci_max_clients;
 extern struct mutex dci_health_mutex;
 
-struct dci_pkt_req_tracking_tbl {
+struct dci_pkt_req_entry_t {
 	int pid;
 	int uid;
 	int tag;
-};
+	struct list_head track;
+} __packed;
 
 struct diag_dci_client_tbl {
 	struct task_struct *client;
@@ -58,6 +68,8 @@ struct diag_dci_client_tbl {
 	int dropped_events;
 	int received_logs;
 	int received_events;
+	struct mutex data_mutex;
+	uint8_t real_time;
 };
 
 /* This is used for DCI health stats */
@@ -86,6 +98,19 @@ enum {
 	DIAG_DCI_TABLE_ERR	/* Error dealing with registration tables */
 };
 
+#ifdef CONFIG_DEBUG_FS
+/* To collect debug information during each smd read */
+struct diag_dci_data_info {
+	unsigned long iteration;
+	int data_size;
+	char time_stamp[DIAG_TS_SIZE];
+	uint8_t ch_type;
+};
+
+extern struct diag_dci_data_info *dci_data_smd;
+extern struct mutex dci_stat_mutex;
+#endif
+
 int diag_dci_init(void);
 void diag_dci_exit(void);
 void diag_update_smd_dci_work_fn(struct work_struct *);
@@ -93,8 +118,6 @@ void diag_dci_notify_client(int peripheral_mask, int data);
 int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 								int recd_bytes);
 int diag_process_dci_transaction(unsigned char *buf, int len);
-int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
-							 int len, int index);
 void extract_dci_pkt_rsp(struct diag_smd_info *smd_info, unsigned char *buf);
 int diag_dci_find_client_index(int client_id);
 /* DCI Log streaming functions */
@@ -114,4 +137,10 @@ void extract_dci_events(unsigned char *buf);
 void create_dci_event_mask_tbl(unsigned char *tbl_buf);
 int diag_dci_clear_event_mask(void);
 int diag_dci_query_event_mask(uint16_t event_id);
+void diag_dci_smd_record_info(int read_bytes, uint8_t ch_type);
+uint8_t diag_dci_get_cumulative_real_time(void);
+int diag_dci_set_real_time(int client_id, uint8_t real_time);
+/* Functions related to DCI wakeup sources */
+void diag_dci_try_activate_wakeup_source(smd_channel_t *channel);
+void diag_dci_try_deactivate_wakeup_source(smd_channel_t *channel);
 #endif

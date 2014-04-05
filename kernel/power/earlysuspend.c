@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/rtc.h>
+#include <linux/syscalls.h> /* sys_sync */
 #include <linux/wakelock.h>
 #include <linux/workqueue.h>
 #ifdef CONFIG_MACH_LGE
@@ -169,6 +170,7 @@ static void early_suspend(struct work_struct *work)
 			printk(KERN_INFO"%s: %s\n", __func__, sym);
 			early_suspend_call_chain(pos);
 #else
+
 			if (debug_mask & DEBUG_VERBOSE)
 				pr_info("early_suspend: calling %pf\n", pos->suspend);
 			pos->suspend(pos);
@@ -183,11 +185,15 @@ static void early_suspend(struct work_struct *work)
 	save_earlysuspend_step(EARLYSUSPEND_CHAINDONE);
 #endif
 	mutex_unlock(&early_suspend_lock);
+
 #ifdef CONFIG_MACH_LGE
 	save_earlysuspend_step(EARLYSUSPEND_MUTEXUNLOCK);
 #endif
 
-	suspend_sys_sync_queue();
+	if (debug_mask & DEBUG_SUSPEND)
+		pr_info("early_suspend: sync\n");
+
+	sys_sync();
 #ifdef CONFIG_MACH_LGE
 	save_earlysuspend_step(EARLYSUSPEND_SYNCDONE);
 #endif

@@ -270,4 +270,3 @@ int sdmx_reset_dbg_counters(int session_handle);
 int sdmx_set_log_level(int session_handle, enum sdmx_log_level level);
 
 #endif /* _MPQ_SDMX_H */
-

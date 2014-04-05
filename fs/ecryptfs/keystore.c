@@ -1774,6 +1774,11 @@ int ecryptfs_parse_packet_set(struct ecryptfs_crypt_stat *crypt_stat,
 	size_t tag_11_packet_size;
 	struct key *auth_tok_key = NULL;
 	int rc = 0;
+#if 1 /* FEATURE_SDCARD_ENCRYPTION DEBUG */
+struct ecryptfs_mount_crypt_stat *mount_crypt_stat =
+                &ecryptfs_superblock_to_private(
+                        ecryptfs_dentry->d_sb)->mount_crypt_stat;
+#endif
 
 	INIT_LIST_HEAD(&auth_tok_list);
 	/* Parse the header to find as many packets as we can; these will be
@@ -1826,6 +1831,12 @@ int ecryptfs_parse_packet_set(struct ecryptfs_crypt_stat *crypt_stat,
 			new_auth_tok->token.password.signature[
 				ECRYPTFS_PASSWORD_SIG_SIZE] = '\0';
 			crypt_stat->flags |= ECRYPTFS_ENCRYPTED;
+#if 1 /* FEATURE_SDCARD_ENCRYPTION DEBUG */
+if (mount_crypt_stat && (mount_crypt_stat->flags
+                        & ECRYPTFS_DECRYPTION_ONLY)) {
+ecryptfs_printk(KERN_ERR, "%s:%d:: Error decryption_only set : ENCRYPTION DISABLED\n", __FUNCTION__, __LINE__);
+}
+#endif
 			break;
 		case ECRYPTFS_TAG_1_PACKET_TYPE:
 			rc = parse_tag_1_packet(crypt_stat,
@@ -1840,6 +1851,12 @@ int ecryptfs_parse_packet_set(struct ecryptfs_crypt_stat *crypt_stat,
 			}
 			i += packet_size;
 			crypt_stat->flags |= ECRYPTFS_ENCRYPTED;
+#if 1 /* FEATURE_SDCARD_ENCRYPTION DEBUG */
+if (mount_crypt_stat && (mount_crypt_stat->flags
+                        & ECRYPTFS_DECRYPTION_ONLY)) {
+ecryptfs_printk(KERN_ERR, "%s:%d:: Error decryption_only set : ENCRYPTION DISABLED\n", __FUNCTION__, __LINE__);
+}
+#endif
 			break;
 		case ECRYPTFS_TAG_11_PACKET_TYPE:
 			ecryptfs_printk(KERN_WARNING, "Invalid packet set "

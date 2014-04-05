@@ -1,0 +1,7 @@
+menu "LGE specific device drivers"
+	depends on MACH_LGE
+
+source "drivers/platform/lge/mock_power/Kconfig"
+source "drivers/platform/lge/zwait/Kconfig"
+
+endmenu

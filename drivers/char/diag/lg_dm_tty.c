@@ -338,6 +338,31 @@ static int lge_dm_tty_read_thread(void *data)
 				}
 			}
 			
+			for (i = 0; i < NUM_SMD_CMD_CHANNELS; i++) {
+				struct diag_smd_info *cmd = &driver->smd_cmd[i];
+					if (cmd->in_busy_1 == 1) {
+						if(cmd->write_ptr_1->length > 0 && cmd->buf_in_1 != NULL){
+							lge_dm_tty_modem_response(
+							lge_dm_tty_drv,
+							Primary_modem_chip,
+							cmd->buf_in_1,
+							cmd->write_ptr_1->length);
+						}
+
+						cmd->in_busy_1 = 0;
+					}
+					if (cmd->in_busy_2 == 1) {
+						if(cmd->write_ptr_2->length > 0 && cmd->buf_in_2 != NULL){
+							lge_dm_tty_modem_response(
+							lge_dm_tty_drv,
+							Primary_modem_chip,
+							cmd->buf_in_2,
+							cmd->write_ptr_2->length);
+						}
+
+						cmd->in_busy_2 = 0;
+					}
+			}
 
 			lge_dm_tty->set_logging = 0;
 

@@ -124,6 +124,7 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 	FMT_RGB_8888(MDP_RGBA_8888, 1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
 	FMT_RGB_8888(MDP_RGBX_8888, 0, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
 	FMT_RGB_8888(MDP_BGRA_8888, 1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
+	FMT_RGB_8888(MDP_BGRX_8888, 0, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
 
 	FMT_YUV_PSEUDO(MDP_Y_CRCB_H1V1, MDSS_MDP_CHROMA_RGB, C2_R_Cr, C1_B_Cb),
 	FMT_YUV_PSEUDO(MDP_Y_CBCR_H1V1, MDSS_MDP_CHROMA_RGB, C1_B_Cb, C2_R_Cr),
@@ -164,5 +165,14 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 		.bpp = 2,
 		.element = { C1_B_Cb, C0_G_Y, C2_R_Cr, C0_G_Y },
 	},
+	{
+		FMT_YUV_COMMON(MDP_YCBYCR_H2V1),
+		.fetch_planes = MDSS_MDP_PLANE_INTERLEAVED,
+		.chroma_sample = MDSS_MDP_CHROMA_H2V1,
+		.unpack_count = 4,
+		.bpp = 2,
+		.element = { C2_R_Cr, C0_G_Y, C1_B_Cb, C0_G_Y },
+	},
+
 };
 #endif

@@ -19,6 +19,7 @@
 /include/ "msm8974-z-tmo-camera.dtsi"
 /include/ "msm8974-z-tmo-nfc.dtsi" /* [NFC][wongab.jeon@lge.com], 2013-02-13, NFC Bring up */
 /include/ "msm8974-z-tmo-sound.dtsi"
+/include/ "msm8974-z-tmo-lp5521.dtsi"
 
 &soc {
 	serial@f991d000 {
@@ -38,6 +39,13 @@
 		};
 	};
 	/*  LGE_CHANGE_E, [NFC][wongab.jeon@lge.com], 2013-02-13, NFC Bring up */
+
+	i2c@f9967000 {  
+		lp5521@32 {  
+			status = "ok"; 
+			revision = "rev_d..."; 
+		};  
+	};
 
 	qcom,msm-dai-mi2s {
 		compatible = "qcom,msm-dai-mi2s";
@@ -89,7 +97,7 @@
 		qcom,sup-voltages = <1800 2950>;
 		qcom,bus-width = <4>;
 		qcom,xpc;
-		/* qcom,nonremovable; */
+		qcom,nonremovable;
 		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "SDR104";
 		qcom,current-limit = <800>;
 
@@ -146,7 +154,7 @@
 		qcom,sup-voltages = <1800 2950>;
 		qcom,bus-width = <4>;
 		qcom,xpc;
-		/* qcom,nonremovable; */
+		qcom,nonremovable;
 		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "SDR104";
 		qcom,current-limit = <800>;
 
@@ -168,7 +176,25 @@
 		status = "ok";
 	};
 
+	memory_hole: qcom,msm-mem-hole {
+		compatible = "qcom,msm-mem-hole";
+		qcom,memblock-remove = <0x5d00000 0x7d00000
+		                       0xfa00000 0x500000>; /* Address and Size of Hole */
+	};
 
+	qcom,ion {
+		compatible = "qcom,msm-ion";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ion-heap@23 { /* OTHER PIL HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <23>;
+			qcom,heap-align = <0x1000>;
+			qcom,memory-fixed = <0x05d00000 0x1e00000>;
+			qcom,ion-heap-type = "CARVEOUT";
+		};
+	};
 
 };
 

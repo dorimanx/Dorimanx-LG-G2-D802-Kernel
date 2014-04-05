@@ -22,6 +22,69 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			interrupts = <0x0 0x8 0x0>,
+				     <0x0 0x8 0x1>,
+				     <0x0 0x8 0x4>,
+				     <0x0 0x8 0x5>;
+			interrupt-names = "kpdpwr", "resin",
+					"resin-bark", "kpdpwr-resin-bark";
+			qcom,pon-dbc-delay = <15625>;
+			qcom,system-reset;
+			qcom,s3-debounce = <32>;
+
+			qcom,pon_1 {
+				qcom,pon-type = <0>;
+				qcom,pull-up = <1>;
+				linux,code = <116>;
+			};
+
+			qcom,pon_2 {
+				qcom,pon-type = <1>;
+				qcom,support-reset = <1>;
+				qcom,pull-up = <1>;
+				qcom,s1-timer = <0>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <1>;
+				linux,code = <114>;
+			};
+
+			qcom,pon_3 {
+				qcom,pon-type = <3>;
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <6720>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <7>;
+				qcom,pull-up = <1>;
+			};
+		};
+
+		pma8084_misc: qcom,misc@900 {
+			compatible = "qcom,qpnp-misc";
+			reg = <0x900 0x100>;
+		};
+
+		qcom,temp-alarm@2400 {
+			compatible = "qcom,qpnp-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x0 0x24 0x0>;
+			label = "pma8084_tz";
+			qcom,threshold-set = <0>;
+			qcom,temp_alarm-vadc = <&pma8084_vadc>;
+		};
+
+		qcom,coincell@2800 {
+			compatible = "qcom,qpnp-coincell";
+			reg = <0x2800 0x100>;
+		};
+
 		pma8084_gpios: gpios {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
@@ -189,6 +252,95 @@
 			mpp@a700 {
 				reg = <0xa700 0x100>;
 				qcom,pin-num = <8>;
+			};
+		};
+
+		pma8084_vadc: vadc@3100 {
+			compatible = "qcom,qpnp-vadc";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x0 0x31 0x0>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-bit-resolution = <15>;
+			qcom,adc-vdd-reference = <1800>;
+			qcom,vadc-poll-eoc;
+
+			chan@8 {
+				label = "die_temp";
+				reg = <8>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <3>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@9 {
+				label = "ref_625mv";
+				reg = <9>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@a {
+				label = "ref_1250v";
+				reg = <0xa>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@c {
+				label = "ref_buf_625mv";
+				reg = <0xc>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+		};
+
+		pma8084_adc_tm: vadc@3400 {
+			compatible = "qcom,qpnp-adc-tm";
+			reg = <0x3400 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts =	<0x0 0x34 0x0>,
+					<0x0 0x34 0x3>,
+				     <0x0 0x34 0x4>;
+			interrupt-names =	"eoc-int-en-set",
+						"high-thr-en-set",
+						"low-thr-en-set";
+			qcom,adc-bit-resolution = <15>;
+			qcom,adc-vdd-reference = <1800>;
+			qcom,adc_tm-vadc = <&pma8084_vadc>;
+		};
+
+		qcom,rtc {
+			compatible = "qcom,qpnp-rtc";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,qpnp-rtc-write = <0>;
+			qcom,qpnp-rtc-alarm-pwrup = <0>;
+
+			qcom,rtc_rw@6000 {
+				reg = <0x6000 0x100>;
+			};
+			qcom,rtc_alarm@6100 {
+				reg = <0x6100 0x100>;
+				interrupts = <0x0 0x61 0x1>;
 			};
 		};
 	};
@@ -661,6 +813,29 @@
 			reg = <0x8400 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
+		};
+
+		krait_regulator_pmic: qcom,krait-regulator-pmic@2900 {
+			spmi-dev-container;
+			compatible = "qcom,krait-regulator-pmic";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+
+			qcom,ctl@2900 {
+				reg = <0x2900 0x100>;
+				status = "disabled";
+			};
+
+			qcom,ps@2a00 {
+				reg = <0x2a00 0x100>;
+				status = "disabled";
+			};
+
+			qcom,freq@2b00 {
+				reg = <0x2b00 0x100>;
+				status = "disabled";
+			};
 		};
 	};
 };

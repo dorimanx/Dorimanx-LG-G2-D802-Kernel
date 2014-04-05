@@ -32,7 +32,7 @@
 #undef FEATURE_FIC_BER
 #define LOCK_TIME_TUNING0	/* Fast Channel Scan */
 
-//        
+// LGE ADD
 #define	FREQ_SEARCH_IN_TABLE		/* Freq conversion in Table Searching */
 #define	CH_LOW_NUM		71		/* 7A index 71 for UI */
 
@@ -50,7 +50,7 @@
 #define	CH_GAP_FREQ 		1728	/* Channel Center frequency interval between channel number */
 #define	TDMB_ENS_NUM		7		/* Korea TDMB Ensemble Number 7 ~ 13 */
 #endif
-//        
+// LGE ADD
 
 #define MAX_MSC_BER			20000
 #define MAX_VA_BER			20000
@@ -136,7 +136,7 @@ fci_u8 msc_multi_data[188*8*8];
 /*============================================================
 **    7.   Static Variables
 *============================================================*/
-//       
+//LGE ADD
 #ifdef FREQ_SEARCH_IN_TABLE
 
 	static int32 gKOREnsembleFullFreqTbl[MAX_KOREABAND_FULL_CHANNEL][2] =
@@ -206,7 +206,7 @@ int tunerbb_drv_fc8050_is_on(void)
 	return tdmb_fc8050_tdmb_is_on();
 }
 
-//        
+// LGE ADD
 static int32	tunerbb_drv_convert_chnum_to_freq(uint32 ch_num)
 {
 #ifdef FREQ_SEARCH_IN_TABLE
@@ -244,7 +244,7 @@ static int32	tunerbb_drv_convert_chnum_to_freq(uint32 ch_num)
 #endif
 }
 
-//        
+// LGE ADD
 /*======================================================= 
     Function 		: tunerbb_drv_fc8050_fic_cb
     Description		: set fic data param after ISR process
@@ -1294,7 +1294,7 @@ static uint32 tunerbb_drv_fc8050_get_viterbi_ber(void)	//msc_ber
 
 	if(bper == 0)
 	{
-		//                
+		// LGE_INTG_090217
 		ber = MAX_MSC_BER;
 	}
 	else if(tbe == 0)
@@ -1357,7 +1357,7 @@ static uint32 tunerbb_drv_fc8050_get_rs_ber(void)	//va_ber
 
 	if(nframe == 0)
 	{
-		//                
+		// LGE_INTG_090217
 		ber = MAX_VA_BER;
 	}
 	else if((esum == 0) && (rserror == 0))
@@ -1366,7 +1366,7 @@ static uint32 tunerbb_drv_fc8050_get_rs_ber(void)	//va_ber
 	}
 	else
 	{
-		//               
+		//LGE_INTG_090217
 		#if (1)	//include corrected bit
 		ber = esum;
 		#else	//not include

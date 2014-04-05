@@ -23,10 +23,10 @@ $(obj)/version.o: include/generated/compile.h
 # mkcompile_h will make sure to only update the
 # actual file if its content has changed.
 
-#pragma RUNLOCAL
        chk_compile.h = :
  quiet_chk_compile.h = echo '  CHK     $@'
 silent_chk_compile.h = :
+#pragma RUNLOCAL
 include/generated/compile.h: FORCE
 	@$($(quiet)chk_compile.h)
 	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/mkcompile_h $@ \

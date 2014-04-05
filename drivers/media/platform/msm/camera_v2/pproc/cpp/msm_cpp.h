@@ -21,6 +21,15 @@
 #include <media/v4l2-subdev.h>
 #include "msm_sd.h"
 
+/* hw version info:
+  31:28  Major version
+  27:16  Minor version
+  15:0   Revision bits
+**/
+#define CPP_HW_VERSION_1_1_0  0x10010000
+#define CPP_HW_VERSION_1_1_1  0x10010001
+#define CPP_HW_VERSION_2_0_0  0x20000000
+
 #define MAX_ACTIVE_CPP_INSTANCE 8
 #define MAX_CPP_PROCESSING_FRAME 2
 #define MAX_CPP_V4l2_EVENTS 30
@@ -147,14 +156,10 @@ struct msm_cpp_buff_queue_info_t {
 	struct list_head native_buff_head;
 };
 
-/*                                                                                   */
-#ifdef CONFIG_USE_DUAL_ISP
 struct msm_cpp_work_t {
-  struct work_struct my_work;
-  struct cpp_device *cpp_dev;
+	struct work_struct my_work;
+	struct cpp_device *cpp_dev;
 };
-#endif
-/*                                                                                 */
 
 struct cpp_device {
 	struct platform_device *pdev;
@@ -174,14 +179,12 @@ struct cpp_device {
 	struct mutex mutex;
 	enum cpp_state state;
 	uint8_t is_firmware_loaded;
-/*                                                                                   */
-#ifdef CONFIG_USE_DUAL_ISP
 	char *fw_name_bin;
 	struct workqueue_struct *timer_wq;
 	struct msm_cpp_work_t *work;
-#endif
-/*                                                                                 */
-
+/*QCT_PATCH S, fix lockup when start camera with 13M resolution, 2013-10-31, yt.kim@lge.com */
+	uint8_t stream_cnt;
+/*QCT_PATCH E, fix lockup when start camera with 13M resolution, 2013-10-31, yt.kim@lge.com */
 	int domain_num;
 	struct iommu_domain *domain;
 	struct device *iommu_ctx;

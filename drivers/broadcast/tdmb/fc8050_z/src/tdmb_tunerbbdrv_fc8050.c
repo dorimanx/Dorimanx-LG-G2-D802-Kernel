@@ -32,7 +32,7 @@
 #undef FEATURE_FIC_BER
 #define LOCK_TIME_TUNING0	/* Fast Channel Scan */
 
-//        
+// LGE ADD
 #define	FREQ_SEARCH_IN_TABLE		/* Freq conversion in Table Searching */
 #define	CH_LOW_NUM		71		/* 7A index 71 for UI */
 
@@ -50,7 +50,7 @@
 #define	CH_GAP_FREQ 		1728	/* Channel Center frequency interval between channel number */
 #define	TDMB_ENS_NUM		7		/* Korea TDMB Ensemble Number 7 ~ 13 */
 #endif
-//        
+// LGE ADD
 
 #define MAX_MSC_BER			20000
 #define MAX_VA_BER			20000
@@ -105,7 +105,7 @@ typedef enum	fc8050_service_type
 	FC8050_DMB = 2,
 	FC8050_VISUAL =3,
 	FC8050_DATA,
-	FC8050_ENSQUERY = 6,	/*           */
+	FC8050_ENSQUERY = 6,	/* LGE Added */
 	FC8050_BLT_TEST = 9,
 	FC8050_SERVICE_MAX
 } fc8050_service_type;
@@ -145,7 +145,7 @@ fci_u8 msc_multi_data[188*8*8];
 /*============================================================
 **    7.   Static Variables
 *============================================================*/
-//       
+//LGE ADD
 #ifdef FREQ_SEARCH_IN_TABLE
 
 	static int32 gKOREnsembleFullFreqTbl[MAX_KOREABAND_FULL_CHANNEL][2] =
@@ -215,7 +215,7 @@ int tunerbb_drv_fc8050_is_on(void)
 	return tdmb_fc8050_tdmb_is_on();
 }
 
-//        
+// LGE ADD
 static int32	tunerbb_drv_convert_chnum_to_freq(uint32 ch_num)
 {
 #ifdef FREQ_SEARCH_IN_TABLE
@@ -253,7 +253,7 @@ static int32	tunerbb_drv_convert_chnum_to_freq(uint32 ch_num)
 #endif
 }
 
-//        
+// LGE ADD
 /*======================================================= 
     Function 		: tunerbb_drv_fc8050_fic_cb
     Description		: set fic data param after ISR process
@@ -962,31 +962,31 @@ int8	tunerbb_drv_fc8050_read_data(uint8* buffer, uint32* buffer_size)
 	return retval;
 }
 
-/*                                                                                     
-                                                                                                                   
-                                                                                                                           
-                                                                                        
-                      
-                     
-                                                                 
-                  
-                               
-                                           
-                                
-                                                                                                                             
-                                 
-                                             
-                                      
-                                                                     
+/*-------------------------------------------------------------------------------------
+int8 tunerbb_drv_fc8050_process_multi_data(uint8 subch_cnt, uint8* input_buf, uint32 input_size, uint32* read_size)
+    (1)   Process Multi or Single Service Data. The Driver must process multi or single data and stroe them in other buffer
+           for supplying data requested by tunerbb_drv_fc8050_get_multi_data( ) function
+    (2)   Return Value
+           Sucess : 1
+           Fail : 0 or negative interger (If there is error code)
+    (3)   Argument
+           uint8 subch_cnt (IN)
+                - Service Sub-Channel Count
+           uint8* input_buf (IN)
+               - The buffer pointer  containing Multi or Single Data(FIC/DMB/DAB or Mixed data) read from TSIF or EBI2 buffer
+           uint32 input_size (IN)
+              - input_buf has input_size data
+           uint32* read_size (IN /OUT)
+             - data size + subch_id header size supply to Application
 
-                 
-                                                                     
-                                          
-                            
-                                                                                            
-                                                   
-                                                                                                                         
-                                                                                        */
+        <notice> 
+             (1) read_size is the mulit or single data + header size.
+             (2) LGE supply the headr type
+             (3) For example
+                 - DMB Single Service case : read_size = DMB MSC Data size + dmb_header size
+                 - FIC + DMB + PACKET multi case : 
+                       read_size FIC data size + dmb_header + DMB data size + dmb_header + Packet data size + dmb_header 
+--------------------------------------------------------------------------------------- */
 #ifdef STREAM_TS_UPLOAD
 int8	tunerbb_drv_fc8050_process_multi_data(uint8 subch_cnt, uint8* input_buf, uint32 input_size, uint32* read_size)
 {
@@ -1304,7 +1304,7 @@ static uint32 tunerbb_drv_fc8050_get_viterbi_ber(void)	//msc_ber
 
 	if(bper == 0)
 	{
-		//                
+		// LGE_INTG_090217
 		ber = MAX_MSC_BER;
 	}
 	else if(tbe == 0)
@@ -1367,7 +1367,7 @@ static uint32 tunerbb_drv_fc8050_get_rs_ber(void)	//va_ber
 
 	if(nframe == 0)
 	{
-		//                
+		// LGE_INTG_090217
 		ber = MAX_VA_BER;
 	}
 	else if((esum == 0) && (rserror == 0))
@@ -1376,7 +1376,7 @@ static uint32 tunerbb_drv_fc8050_get_rs_ber(void)	//va_ber
 	}
 	else
 	{
-		//               
+		//LGE_INTG_090217
 		#if (1)	//include corrected bit
 		ber = esum;
 		#else	//not include

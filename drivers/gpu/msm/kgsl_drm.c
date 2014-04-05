@@ -385,6 +385,7 @@ kgsl_gem_free_object(struct drm_gem_object *obj)
 	kgsl_gem_free_memory(obj);
 	drm_gem_object_release(obj);
 	kfree(obj->driver_private);
+	kfree(obj);
 }
 
 int
@@ -722,7 +723,7 @@ kgsl_gem_get_ion_fd_ioctl(struct drm_device *dev, void *data,
 		ret = -EINVAL;
 	else if (TYPE_IS_PMEM(priv->type) || TYPE_IS_MEM(priv->type)) {
 		if (priv->ion_handle) {
-			args->ion_fd = ion_share_dma_buf(
+			args->ion_fd = ion_share_dma_buf_fd(
 				kgsl_drm_ion_client, priv->ion_handle);
 			if (args->ion_fd < 0) {
 				DRM_ERROR(

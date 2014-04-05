@@ -27,23 +27,23 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/rfkill.h>
-#include <asm/gpio.h>
+#include <linux/gpio.h>
 #include <asm/mach-types.h>
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/machine.h>
 
 #if defined(CONFIG_BCM4335BT)
-//+++BRCM 4335 AXI Patch
+/* +++BRCM 4335 AXI Patch */
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/miscdevice.h>
-//---BRCM
-#endif // defined(CONFIG_BCM4335BT)
+/* ---BRCM */
+#endif /* defined(CONFIG_BCM4335BT) */
 
 #define GPIO_BT_RESET_N     41
 #define BTRFKILL_DBG    1
 #if (BTRFKILL_DBG)
-#define BTRFKILLDBG(fmt, arg...) printk(KERN_ERR " ** [ BTRFKILL :  %s ( %d ) ] " fmt "\n" , __FUNCTION__, __LINE__, ## arg)
+#define BTRFKILLDBG(fmt, arg...) printk(KERN_ERR " ** [ BTRFKILL :  %s ( %d ) ] " fmt "\n" , __func__, __LINE__, ## arg)
 #else
 #define BTRFKILLDBG(fmt, arg...)
 #endif
@@ -52,13 +52,13 @@ static struct rfkill *bt_rfk;
 static const char bt_name[] = "brcm_Bluetooth_rfkill";
 
 #if defined(CONFIG_BCM4335BT)
-//+++BRCM 4335 AXI Patch
+/* +++BRCM 4335 AXI Patch */
 #define BTLOCK_NAME     "btlock"
 #define BTLOCK_MINOR    224
 /* BT lock waiting timeout, in second */
 #define BTLOCK_TIMEOUT	2
 
-#define PR(msg, ...) printk("####"msg, ##__VA_ARGS__)
+#define PR(msg, ...) printk(KERN_WARNING "####"msg, ##__VA_ARGS__)
 
 struct btlock {
 	int lock;
@@ -99,7 +99,7 @@ void bcm_bt_unlock(int cookie)
 		PR("btlock released, cookie: %s\n", cookie_msg);
 	} else {
 		memcpy(owner_msg, &owner_cookie, sizeof(owner_cookie));
-		PR("ignore lock release,  cookie mismatch: %s owner %s \n", cookie_msg, 
+		PR("ignore lock release,  cookie mismatch: %s owner %s\n", cookie_msg,
 				owner_cookie == 0 ? "NULL" : owner_msg);
 	}
 }
@@ -123,17 +123,15 @@ static ssize_t btlock_write(struct file *file, const char __user *buffer, size_t
 	if (count < sizeof(struct btlock))
 		return -EINVAL;
 
-	if (copy_from_user(&lock_para, buffer, sizeof(struct btlock))) {
+	if (copy_from_user(&lock_para, buffer, sizeof(struct btlock)))
 		return -EFAULT;
-	}
 
-	if (lock_para.lock == 0) {
-		bcm_bt_unlock(lock_para.cookie);	
-	} else if (lock_para.lock == 1) {
-		ret = bcm_bt_lock(lock_para.cookie);	
-	} else if (lock_para.lock == 2) {
-		ret = bcm_bt_lock(lock_para.cookie);	
-	}
+	if (lock_para.lock == 0)
+		bcm_bt_unlock(lock_para.cookie);
+	else if (lock_para.lock == 1)
+		ret = bcm_bt_lock(lock_para.cookie);
+	else if (lock_para.lock == 2)
+		ret = bcm_bt_lock(lock_para.cookie);
 
 	return ret;
 }
@@ -179,25 +177,24 @@ static void bcm_btlock_exit(void)
 
 	misc_deregister(&btlock_misc);
 }
-//---BRCM
-#endif // defined(CONFIG_BCM4335BT) 
+/* ---BRCM */
+#endif /* defined(CONFIG_BCM4335BT) */
 static int bluetooth_set_power(void *data, bool blocked)
 {
 #if defined(CONFIG_BCM4335BT)
-//+++BRCM 4335 AXI Patch
+	/* +++BRCM 4335 AXI Patch */
 	int lock_cookie_bt = 'B' | 'T'<<8 | '3'<<16 | '5'<<24;	/* cookie is "BT35" */
-//---BRCM
-#endif // defined(CONFIG_BCM4335BT) 
-    
+	/* ---BRCM */
+#endif /* defined(CONFIG_BCM4335BT) */
+
 	BTRFKILLDBG("bluetooth_set_power set blocked=%d", blocked);
 	if (!blocked) {
-
 #if defined(CONFIG_BCM4335BT)
-//+++BRCM 4335 AXI Patch
+		/* +++BRCM 4335 AXI Patch */
 		if (bcm_bt_lock(lock_cookie_bt) != 0)
 			printk("** BT rfkill: timeout in acquiring bt lock**\n");
-//---BRCM
-#endif // defined(CONFIG_BCM4335BT) 
+		/* ---BRCM */
+#endif /* defined(CONFIG_BCM4335BT) */
 
 		gpio_direction_output(GPIO_BT_RESET_N, 0);
 		msleep(30);
@@ -220,10 +217,10 @@ static int bluetooth_rfkill_probe(struct platform_device *pdev)
 	bool default_state = true;  /* off */
 
 #if defined(CONFIG_BCM4335BT)
-//+++BRCM 4335 AXI Patch
+/* +++BRCM 4335 AXI Patch */
 	bcm_btlock_init();
-//---BRCM
-#endif // defined(CONFIG_BCM4335BT) 
+/* ---BRCM */
+#endif /* defined(CONFIG_BCM4335BT) */
 
 	BTRFKILLDBG("bluetooth_rfkill_probe");
 	rc = gpio_request(GPIO_BT_RESET_N, "bt_reset");
@@ -232,7 +229,7 @@ static int bluetooth_rfkill_probe(struct platform_device *pdev)
 		BTRFKILLDBG("GPIO req error no=%d", rc);
 		gpio_free(GPIO_BT_RESET_N);
 		rc = gpio_request(GPIO_BT_RESET_N, "bt_reset");
-		if(rc) {
+		if (rc) {
 			BTRFKILLDBG("GPIO req error no=%d", rc);
 			goto err_gpio_reset;
 		}
@@ -276,10 +273,10 @@ static int bluetooth_rfkill_remove(struct platform_device *dev)
 	gpio_free(GPIO_BT_RESET_N);
 
 #if defined(CONFIG_BCM4335BT)
-//+++BRCM 4335 AXI Patch
+/* +++BRCM 4335 AXI Patch */
 	bcm_btlock_exit();
-//---BRCM
-#endif // defined(CONFIG_BCM4335BT)	
+/* ---BRCM */
+#endif /* defined(CONFIG_BCM4335BT) */
 	return 0;
 }
 struct bluetooth_rfkill_platform_data {
@@ -310,12 +307,11 @@ static int __init bluetooth_rfkill_init(void)
 	int ret;
 	BTRFKILLDBG("bluetooth_rfkill_init.");
 	ret = platform_driver_register(&bluetooth_rfkill_driver);
-	if (ret) {
+	if (ret)
 		BTRFKILLDBG("Fail to register rfkill platform driver");
-	}
 	BTRFKILLDBG("bluetooth_rfkill_init done");
 
-	return platform_device_register(&bluetooth_rfkill_device);;
+	return platform_device_register(&bluetooth_rfkill_device);
 }
 
 static void __exit bluetooth_rfkill_exit(void)

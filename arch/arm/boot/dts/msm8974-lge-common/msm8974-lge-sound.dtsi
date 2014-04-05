@@ -53,15 +53,37 @@
 	};
 
 	maxim_detic:maxim_max1462x {
-		compatible = "maxim,max1462x";
-		status = "disable";
-		interrupt-parent = <&msmgpio>;
-		interrupts = <65 0x3 64 0x3>;
-		max1462x,gpio_detect = <&msmgpio 65 0x00>;
-		max1462x,gpio_mic_en = <&pm8941_gpios 29 0x00>;
-		max1462x,gpio_key = <&msmgpio 64 0x00>;
+			compatible = "maxim,max1462x";
+			status = "disable";
+			interrupt-parent = <&msmgpio>;
+			interrupts = <65 0x3 64 0x3>;
+			max1462x,gpio_detect = <&msmgpio 65 0x00>;
+			max1462x,gpio_mic_en = <&pm8941_gpios 29 0x00>;
+			max1462x,gpio_key = <&msmgpio 64 0x00>;
 	};
 
+	i2c@f9967000 {
+		maxim_max14688_rev_a@15 {
+			compatible = "maxim,max14688";
+			status = "disable";
+			reg = <0x15>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <65 0x3 64 0x3>;
+			max14688,gpio_detect = <&msmgpio 65 0x00>;
+			max14688,gpio_int = <&msmgpio 64 0x00>;
+                     max14688,gpio_mic_en = <&pm8941_gpios 29 0x00>;
+                     max14688,gpio_mic_en_2 = <&pm8941_gpios 10 0x00>;
+			};
+              maxim_max14688@15 {
+			compatible = "maxim,max14688";
+			status = "disable";
+			reg = <0x15>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <65 0x3 64 0x3>;
+			max14688,gpio_detect = <&msmgpio 65 0x00>;
+			max14688,gpio_int = <&msmgpio 64 0x00>;
+			};
+       };
 };
 
 &vph_pwr_vreg {

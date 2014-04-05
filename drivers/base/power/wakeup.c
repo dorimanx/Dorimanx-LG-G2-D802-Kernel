@@ -377,7 +377,8 @@ EXPORT_SYMBOL_GPL(device_set_wakeup_enable);
 static void wakeup_source_activate(struct wakeup_source *ws)
 {
 	unsigned int cec;
-#ifdef CONFIG_LGE_PM
+#ifdef CONFIG_MACH_MSM8974_B1_KR
+	extern int boost_freq;
 	extern bool suspend_marker_entry;
 	unsigned int cnt, inpr;
 	bool wakeup_pending = true;
@@ -401,12 +402,16 @@ static void wakeup_source_activate(struct wakeup_source *ws)
 
 	trace_wakeup_source_activate(ws->name, cec);
 
-#ifdef CONFIG_LGE_PM
+#ifdef CONFIG_MACH_MSM8974_B1_KR
 	if (suspend_marker_entry) {
 		if (!wakeup_pending) {
-			split_counters(&cnt, &inpr);
-			printk(KERN_ERR "%s: %s, cnt:%d, saved_cnt:%d, inpr:%d\n",
-				__func__, ws->name, cnt, saved_count, inpr);
+			if (boost_freq == 1) {
+				if (!strcmp(ws->name, "touch_irq") || !strcmp(ws->name, "hall_ic_wakeups")){
+					printk(KERN_ERR "ws->name=%s, boost_Freq=%d\n", ws->name, boost_freq);
+					boost_freq++;
+					printk(KERN_ERR "ws->name=%s, boost_Freq=%d\n", ws->name, boost_freq);
+				}
+			}
 		}
 	}
 #endif
@@ -671,6 +676,31 @@ void pm_wakeup_event(struct device *dev, unsigned int msec)
 }
 EXPORT_SYMBOL_GPL(pm_wakeup_event);
 
+static void print_active_wakeup_sources(void)
+{
+	struct wakeup_source *ws;
+	int active = 0;
+	struct wakeup_source *last_activity_ws = NULL;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
+		if (ws->active) {
+			pr_info("active wakeup source: %s\n", ws->name);
+			active = 1;
+		} else if (!active &&
+			   (!last_activity_ws ||
+			    ktime_to_ns(ws->last_time) >
+			    ktime_to_ns(last_activity_ws->last_time))) {
+			last_activity_ws = ws;
+		}
+	}
+
+	if (!active && last_activity_ws)
+		pr_info("last active wakeup source: %s\n",
+			last_activity_ws->name);
+	rcu_read_unlock();
+}
+
 /**
  * pm_wakeup_pending - Check if power transition in progress should be aborted.
  *
@@ -693,6 +723,10 @@ bool pm_wakeup_pending(void)
 		events_check_enabled = !ret;
 	}
 	spin_unlock_irqrestore(&events_lock, flags);
+
+	if (ret)
+		print_active_wakeup_sources();
+
 	return ret;
 }
 
@@ -784,6 +818,54 @@ void pm_wakep_autosleep_enabled(bool set)
 	rcu_read_unlock();
 }
 #endif /* CONFIG_PM_AUTOSLEEP */
+
+#ifdef CONFIG_ZERO_WAIT_DEBUGFS
+int dump_wakeup_source_list(char *buf, size_t max, int which)
+{
+	unsigned long flags;
+	int count = 0;
+	struct wakeup_source *ws;
+
+	switch (which) {
+	case 2:
+		list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
+			spin_lock_irqsave(&ws->lock, flags);
+			count += scnprintf(buf + count, max - count,
+					"%s ws name = %s\n",
+					ws->active ? "[ active ]" : "[deactive]",
+					ws->name);
+			spin_unlock_irqrestore(&ws->lock, flags);
+		}
+		break;
+
+	case 1:
+		list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
+			spin_lock_irqsave(&ws->lock, flags);
+			if (ws->active) {
+				count += scnprintf(buf + count, max - count,
+						"[ active ] ws name = %s\n", ws->name);
+			}
+			spin_unlock_irqrestore(&ws->lock, flags);
+		}
+		break;
+
+	case 0:
+		list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
+			spin_lock_irqsave(&ws->lock, flags);
+			if (!ws->active) {
+				count += scnprintf(buf + count, max - count,
+						"[deactive] ws name = %s\n", ws->name);
+			}
+			spin_unlock_irqrestore(&ws->lock, flags);
+		}
+		break;
+
+	default:
+		break;
+	}
+	return count;
+}
+#endif /* CONFIG_ZERO_WAIT_DEBUGFS */
 
 static struct dentry *wakeup_sources_stats_dentry;
 

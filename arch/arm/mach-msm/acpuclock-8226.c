@@ -49,7 +49,7 @@ static struct msm_bus_paths bw_level_tbl_8610[] = {
 	[2] =  BW_MBPS(400), /* At least 50 MHz on bus. */
 	[3] =  BW_MBPS(800), /* At least 100 MHz on bus. */
 	[4] = BW_MBPS(1600), /* At least 200 MHz on bus. */
-	[5] = BW_MBPS(2128), /* At least 266 MHz on bus. */
+	[5] = BW_MBPS(2664), /* At least 333 MHz on bus. */
 };
 
 static struct msm_bus_scale_pdata bus_client_pdata = {
@@ -59,19 +59,55 @@ static struct msm_bus_scale_pdata bus_client_pdata = {
 	.name = "acpuclock",
 };
 
-/* TODO:
- * 1) Update MX voltage when data is avaiable
- * 2) Update bus bandwidth
- * 3) Depending on Frodo version, may need minimum of LVL_NOM
- */
-static struct clkctl_acpu_speed acpu_freq_tbl_8226[] = {
+static struct clkctl_acpu_speed acpu_freq_tbl_8226_1p1[] = {
 	{ 1,  300000, PLL0,    4, 2,   CPR_CORNER_SVS,    0, 4 },
 	{ 1,  384000, ACPUPLL, 5, 2,   CPR_CORNER_SVS,    0, 4 },
 	{ 1,  600000, PLL0,    4, 0,   CPR_CORNER_NORMAL, 0, 6 },
-	{ 1,  787200, ACPUPLL, 5, 0,   CPR_CORNER_NORMAL, 0, 7 },
+	{ 1,  787200, ACPUPLL, 5, 0,   CPR_CORNER_NORMAL, 0, 6 },
 	{ 1,  998400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
 	{ 1, 1094400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
 	{ 0, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 0 }
+};
+
+static struct clkctl_acpu_speed acpu_freq_tbl_8226_1p2[] = {
+	{ 1,  300000, PLL0,    4, 2,   CPR_CORNER_SVS,    0, 4 },
+	{ 1,  384000, ACPUPLL, 5, 2,   CPR_CORNER_SVS,    0, 4 },
+	{ 1,  600000, PLL0,    4, 0,   CPR_CORNER_NORMAL, 0, 6 },
+	{ 1,  787200, ACPUPLL, 5, 0,   CPR_CORNER_NORMAL, 0, 6 },
+	{ 1,  998400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 1, 1094400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 1, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 0 }
+};
+
+static struct clkctl_acpu_speed acpu_freq_tbl_8226_1p4[] = {
+	{ 1,  300000, PLL0,    4, 2,   CPR_CORNER_SVS,    0, 4 },
+	{ 1,  384000, ACPUPLL, 5, 2,   CPR_CORNER_SVS,    0, 4 },
+	{ 1,  600000, PLL0,    4, 0,   CPR_CORNER_NORMAL, 0, 6 },
+	{ 1,  787200, ACPUPLL, 5, 0,   CPR_CORNER_NORMAL, 0, 6 },
+	{ 1,  998400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 1, 1094400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 1, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 1, 1305600, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 1, 1344000, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 1, 1401600, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 0 }
+};
+
+static struct clkctl_acpu_speed acpu_freq_tbl_8226_1p6[] = {
+	{ 1,  300000, PLL0,    4, 2,   CPR_CORNER_SVS,    0, 4 },
+	{ 1,  384000, ACPUPLL, 5, 2,   CPR_CORNER_SVS,    0, 4 },
+	{ 1,  600000, PLL0,    4, 0,   CPR_CORNER_NORMAL, 0, 6 },
+	{ 1,  787200, ACPUPLL, 5, 0,   CPR_CORNER_NORMAL, 0, 6 },
+	{ 1,  998400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 1, 1094400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 1, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 1, 1305600, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 1, 1344000, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 1, 1401600, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 1, 1497600, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
+	{ 1, 1593600, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
 	{ 0 }
 };
 
@@ -85,9 +121,19 @@ static struct clkctl_acpu_speed acpu_freq_tbl_8610[] = {
 	{ 0 }
 };
 
+static struct clkctl_acpu_speed *pvs_tables_8226[NUM_SPEED_BIN] = {
+	[0] = acpu_freq_tbl_8226_1p2,
+	[6] = acpu_freq_tbl_8226_1p2,
+	[2] = acpu_freq_tbl_8226_1p4,
+	[5] = acpu_freq_tbl_8226_1p4,
+	[4] = acpu_freq_tbl_8226_1p4,
+	[7] = acpu_freq_tbl_8226_1p4,
+	[1] = acpu_freq_tbl_8226_1p6,
+};
+
 static struct acpuclk_drv_data drv_data = {
-	.freq_tbl = acpu_freq_tbl_8226,
-	.current_speed = &(struct clkctl_acpu_speed){ 0 },
+	.freq_tbl = acpu_freq_tbl_8226_1p1,
+	.pvs_tables = pvs_tables_8226,
 	.bus_scale = &bus_client_pdata,
 	.vdd_max_cpu = CPR_CORNER_TURBO,
 	.src_clocks = {
@@ -121,6 +167,14 @@ static int __init acpuclk_a7_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	drv_data.apcs_rcg_config = drv_data.apcs_rcg_cmd + 4;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pte_efuse");
+	if (res) {
+		drv_data.pte_efuse_base = devm_ioremap(&pdev->dev, res->start,
+			resource_size(res));
+		if (!drv_data.pte_efuse_base)
+			return -ENOMEM;
+	}
 
 	drv_data.vdd_cpu = devm_regulator_get(&pdev->dev, "a7_cpu");
 	if (IS_ERR(drv_data.vdd_cpu)) {

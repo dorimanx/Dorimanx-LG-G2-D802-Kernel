@@ -289,10 +289,10 @@ static int vdd_corner[] = {
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
-/* TODO: Needs to confirm the below values */
 #define RPM_MISC_CLK_TYPE	0x306b6c63
 #define RPM_BUS_CLK_TYPE	0x316b6c63
 #define RPM_MEM_CLK_TYPE	0x326b6c63
+#define RPM_QPIC_CLK_TYPE	0x63697071
 
 #define RPM_SMD_KEY_ENABLE	0x62616E45
 
@@ -304,6 +304,8 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define CNOC_ID		0x2
 
 #define BIMC_ID		0x0
+
+#define QPIC_ID		0x0
 
 #define D0_ID		 1
 #define D1_ID		 2
@@ -319,6 +321,8 @@ DEFINE_CLK_RPM_SMD(pnoc_clk, pnoc_a_clk, RPM_BUS_CLK_TYPE, PNOC_ID, NULL);
 DEFINE_CLK_RPM_SMD(snoc_clk, snoc_a_clk, RPM_BUS_CLK_TYPE, SNOC_ID, NULL);
 
 DEFINE_CLK_RPM_SMD(bimc_clk, bimc_a_clk, RPM_MEM_CLK_TYPE, BIMC_ID, NULL);
+
+DEFINE_CLK_RPM_SMD(qpic_clk, qpic_a_clk, RPM_QPIC_CLK_TYPE, QPIC_ID, NULL);
 
 DEFINE_CLK_RPM_SMD_QDSS(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE, QDSS_ID);
 
@@ -390,10 +394,6 @@ static struct pll_freq_tbl apcs_pll_freq[] = {
 	PLL_F_END
 };
 
-/*
- * Need to skip handoff of the acpu pll to avoid handoff code
- * to turn off the pll when the acpu is running off this pll.
- */
 static struct pll_clk apcspll_clk_src = {
 	.mode_reg = (void __iomem *)APCS_CPU_PLL_MODE_REG,
 	.l_reg = (void __iomem *)APCS_CPU_PLL_L_REG,
@@ -415,7 +415,6 @@ static struct pll_clk apcspll_clk_src = {
 		.dbg_name = "apcspll_clk_src",
 		.ops = &clk_ops_local_pll,
 		CLK_INIT(apcspll_clk_src.c),
-		.flags = CLKFLAG_SKIP_HANDOFF,
 	},
 };
 
@@ -431,8 +430,9 @@ static DEFINE_CLK_VOTER(bimc_msmbus_a_clk, &bimc_a_clk.c, LONG_MAX);
 
 static DEFINE_CLK_VOTER(pnoc_sdcc2_clk, &pnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_sdcc3_clk, &pnoc_clk.c, LONG_MAX);
-
 static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, LONG_MAX);
+
+static DEFINE_CLK_BRANCH_VOTER(cxo_lpm_clk, &cxo_clk_src.c);
 
 static struct clk_freq_tbl ftbl_gcc_ipa_clk[] = {
 	F( 50000000,    gpll0,   12,   0,   0),
@@ -826,26 +826,6 @@ static struct rcg_clk pdm2_clk_src = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 60000000),
 		CLK_INIT(pdm2_clk_src.c),
-	},
-};
-
-static struct clk_freq_tbl ftbl_gcc_qpic_clk[] = {
-	F( 50000000,    gpll0,   12,   0,   0),
-	F(100000000,    gpll0,    6,   0,   0),
-	F_END
-};
-
-static struct rcg_clk qpic_clk_src = {
-	.cmd_rcgr_reg =  QPIC_CMD_RCGR,
-	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_gcc_qpic_clk,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "qpic_clk_src",
-		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP2(LOW, 50000000, NOMINAL, 100000000),
-		CLK_INIT(qpic_clk_src.c)
 	},
 };
 
@@ -1392,29 +1372,6 @@ static struct local_vote_clk gcc_prng_ahb_clk = {
 	},
 };
 
-static struct branch_clk gcc_qpic_ahb_clk = {
-	.cbcr_reg = QPIC_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_qpic_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_qpic_ahb_clk.c),
-	},
-};
-
-static struct branch_clk gcc_qpic_clk = {
-	.cbcr_reg = QPIC_CBCR,
-	.has_sibling = 0,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.parent = &qpic_clk_src.c,
-		.dbg_name = "gcc_qpic_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_qpic_clk.c),
-	},
-};
-
 static struct branch_clk gcc_sdcc2_ahb_clk = {
 	.cbcr_reg = SDCC2_AHB_CBCR,
 	.has_sibling = 1,
@@ -1579,6 +1536,10 @@ struct measure_mux_entry {
 };
 
 struct measure_mux_entry measure_mux_common[] __initdata = {
+	{&snoc_clk.c,				GCC_BASE, 0x0000},
+	{&cnoc_clk.c,				GCC_BASE, 0x0008},
+	{&pnoc_clk.c,				GCC_BASE, 0x0010},
+	{&bimc_clk.c,				GCC_BASE, 0x0155},
 	{&gcc_pdm_ahb_clk.c,			GCC_BASE, 0x00d0},
 	{&gcc_usb_hsic_io_cal_sleep_clk.c,	GCC_BASE, 0x005c},
 	{&gcc_usb_hsic_xcvr_fs_clk.c,		GCC_BASE, 0x005d},
@@ -1630,8 +1591,7 @@ struct measure_mux_entry measure_mux_v2_only[] __initdata = {
 	{&gcc_ipa_clk.c,			GCC_BASE, 0x01E0},
 	{&gcc_ipa_cnoc_clk.c,			GCC_BASE, 0x01E1},
 	{&gcc_ipa_sleep_clk.c,			GCC_BASE, 0x01E2},
-	{&gcc_qpic_clk.c,			GCC_BASE, 0x01D8},
-	{&gcc_qpic_ahb_clk.c,			GCC_BASE, 0x01D9},
+	{&qpic_clk.c,				GCC_BASE, 0x01D8},
 };
 
 struct measure_mux_entry measure_mux[ARRAY_SIZE(measure_mux_common)
@@ -1803,6 +1763,7 @@ static struct measure_clk measure_clk = {
 
 static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("xo",	cxo_clk_src.c,	""),
+	CLK_LOOKUP("xo",        cxo_lpm_clk.c, "fc4281d0.qcom,mpm"),
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
 
 	CLK_LOOKUP("pll0", gpll0_activeonly_clk_src.c, "f9010008.qcom,acpuclk"),
@@ -1889,6 +1850,8 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("bus_clk", pnoc_a_clk.c, ""),
 	CLK_LOOKUP("bus_clk", cnoc_a_clk.c, ""),
 	CLK_LOOKUP("mem_clk", bimc_a_clk.c, ""),
+	CLK_LOOKUP("core_clk", qpic_clk.c, ""),
+	CLK_LOOKUP("core_clk", qpic_a_clk.c, ""),
 
 	CLK_LOOKUP("bus_clk",	cnoc_msmbus_clk.c,	"msm_config_noc"),
 	CLK_LOOKUP("bus_a_clk",	cnoc_msmbus_a_clk.c,	"msm_config_noc"),
@@ -1924,6 +1887,9 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc30f000.cti"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc310000.cti"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc333000.cti"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc350000.cti"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc354000.cti"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc358000.cti"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "f9011038.hwevent"),
 
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc322000.tmc"),
@@ -1946,6 +1912,9 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc30f000.cti"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc310000.cti"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc333000.cti"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc350000.cti"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc354000.cti"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc358000.cti"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "f9011038.hwevent"),
 };
 
@@ -1998,12 +1967,6 @@ static void __init reg_init(void)
 	regval = readl_relaxed(GCC_REG_BASE(APCS_GPLL_ENA_VOTE_REG));
 	regval |= BIT(0);
 	writel_relaxed(regval, GCC_REG_BASE(APCS_GPLL_ENA_VOTE_REG));
-
-	/*
-	 * TODO: Confirm that no clocks need to be voted on in this sleep vote
-	 * register.
-	 */
-	writel_relaxed(0x0, GCC_REG_BASE(APCS_CLOCK_SLEEP_ENA_VOTE));
 }
 
 static void __init msm9625_clock_post_init(void)

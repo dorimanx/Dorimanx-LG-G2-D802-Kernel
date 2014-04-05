@@ -223,7 +223,8 @@ config VECTORS_BASE
 	default DRAM_BASE if REMAP_VECTORS_TO_RAM
 	default 0x00000000
 	help
-	  The base address of exception vectors.
+	  The base address of exception vectors.  This must be two pages
+	  in size.
 
 config ARM_PATCH_PHYS_VIRT
 	bool "Patch physical to virtual translations at runtime" if EMBEDDED
@@ -290,6 +291,14 @@ config ARM_USER_ACCESSIBLE_TIMER_BASE
 	 Specify the base user-space virtual address where the user-accessible
 	 timer counter page should be mapped by the kernel.  User-space apps
 	 will read directly from the page at this address.
+
+config ARCH_RANDOM
+	bool "SOC specific random number generation"
+	help
+	 Allow the kernel to use an architecture specific implementation for
+	 random number generation
+
+	 If unsure, say N
 
 source "init/Kconfig"
 
@@ -1845,8 +1854,36 @@ config ARCH_MEMORY_REMOVE
 config ENABLE_DMM
 	def_bool n
 
+choice
+	prompt "Virtual Memory Reclaim"
+	default NO_VM_RECLAIM
+	help
+	  Select the method of reclaiming virtual memory
+
 config DONT_MAP_HOLE_AFTER_MEMBANK0
-	def_bool n
+	bool "Map around the largest hole"
+	help
+	  Do not map the memory belonging to the largest hole
+	  into the virtual space. This results in more lowmem.
+	  If multiple holes are present, only the largest hole
+	  in the first 256MB of memory is not mapped.
+	
+config ENABLE_VMALLOC_SAVING
+	bool "Reclaim memory for each subsystem"
+	help
+	  Enable this config to reclaim the virtual space belonging
+	  to any subsystem which is expected to have a lifetime of
+	  the entire system. This feature allows lowmem to be non-
+	  contiguous.
+
+config NO_VM_RECLAIM
+	bool "Do not reclaim memory"
+	help
+	  Do not reclaim any memory. This might result in less lowmem
+	  and wasting virtual memory space which could otherwise be
+	  reclaimed by using any of the other two config options.
+
+endchoice
 
 config HOLES_IN_ZONE
 	def_bool n
@@ -2018,6 +2055,21 @@ config USE_OF
 	select IRQ_DOMAIN
 	help
 	  Include support for flattened device tree machine descriptions.
+
+config BUILD_ARM_APPENDED_DTB_IMAGE
+	bool "Build a concatenated zImage/dtb by default"
+	depends on OF
+	help
+	  Enabling this option will cause a concatenated zImage and list of
+	  DTBs to be built by default (instead of a standalone zImage.)
+	  The image will built in arch/arm/boot/zImage-dtb
+
+config BUILD_ARM_APPENDED_DTB_IMAGE_NAMES
+	string "Default dtb names"
+	depends on BUILD_ARM_APPENDED_DTB_IMAGE
+	help
+	  Space separated list of names of dtbs to append when
+	  building a concatenated zImage-dtb.
 
 # Compressed boot loader in ROM.  Yes, we really want to ask about
 # TEXT and BSS so we preserve their values in the config files.

@@ -919,7 +919,7 @@ int	IniHfl( void )
 	{
 		RegWriteA( CsHalReg[UcVerLow][ UsAryIda].UsRegAdd, CsHalReg[UcVerLow][ UsAryIda].UcRegDat ) ;
 		UsAryIda++ ;
-		if( UsAryIda > HALREGTAB ){ return OIS_FW_POLLING_FAIL ; }
+		if( UsAryIda >= HALREGTAB ){ return OIS_FW_POLLING_FAIL ; }
 	}
 	
 	// Hall Filter Parameter Setting
@@ -930,7 +930,7 @@ int	IniHfl( void )
 			RamWriteA( CsHalFil[UcVerLow][ UsAryIdb].UsRamAdd, CsHalFil[UcVerLow][ UsAryIdb].UsRamDat ) ;
 		}
 		UsAryIdb++ ;
-		if( UsAryIdb > HALFILTAB ){ return OIS_FW_POLLING_FAIL ; }
+		if( UsAryIdb >= HALFILTAB ){ return OIS_FW_POLLING_FAIL ; }
 	}
 	
 	if( (unsigned char)(StCalDat.UsVerDat) <= (unsigned char)0x01 ){		// X Reverse 
@@ -953,7 +953,7 @@ int	IniGfl( void )
 			RamWrite32A( CsGyrFil[UcVerLow][ UsAryIda].UsRamAdd, CsGyrFil[UcVerLow][ UsAryIda].UlRamDat ) ;
 		}
 		UsAryIda++ ;
-		if( UsAryIda > GYRFILTAB ){ return OIS_FW_POLLING_FAIL ; }
+		if( UsAryIda >= GYRFILTAB ){ return OIS_FW_POLLING_FAIL ; }
 	}
 
 	return OIS_FW_POLLING_PASS ;

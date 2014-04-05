@@ -368,7 +368,20 @@ config BACKLIGHT_LM3630
 	  If you have a LM3630 backlight on the device, enable this feature
 
 config BACKLIGHT_CABC_DEBUG_ENABLE
-	bool " enable lm3630 CABC debugging "
+	bool "enable lm3630 CABC debugging"
+	depends on BACKLIGHT_LM3630
+	default n
+	help
+	  If you want to debug CABC operation with console, say Y
+
+config BACKLIGHT_LM3630
+	tristate "Backlight Driver for LM3630 using WLED"
+	depends on BACKLIGHT_CLASS_DEVICE && I2C
+	help
+	  If you have a LM3630 backlight on the device, enable this feature
+
+config BACKLIGHT_CABC_DEBUG_ENABLE
+	bool "enable lm3630 CABC debugging"
 	depends on BACKLIGHT_LM3630
 	default n
 	help

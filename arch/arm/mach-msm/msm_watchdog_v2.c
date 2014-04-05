@@ -74,7 +74,7 @@ struct msm_watchdog_data {
 
 /*
  * On the kernel command line specify
- * msm_watchdog.enable=1 to enable the watchdog
+ * msm_watchdog_v2.enable=1 to enable the watchdog
  * By default watchdog is turned on
  */
 static int enable = 1;
@@ -82,7 +82,7 @@ module_param(enable, int, 0);
 
 /*
  * On the kernel command line specify
- * msm_watchdog.WDT_HZ=<clock val in HZ> to set Watchdog
+ * msm_watchdog_v2.WDT_HZ=<clock val in HZ> to set Watchdog
  * ticks. By default it is set to 32765.
  */
 static long WDT_HZ = 32765;
@@ -317,6 +317,7 @@ static void pet_watchdog_work(struct work_struct *work)
 		schedule_delayed_work_on(0, &wdog_dd->dogwork_struct,
 							delay_time);
 #ifdef CONFIG_MACH_LGE
+	/* FIXME: LGE_MIG: refactoring required */
 	xo_therm_logging();
 #endif
 }
@@ -369,6 +370,11 @@ static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 	mb();
 	/* Delay to make sure bite occurs */
 	mdelay(1);
+	pr_err("Wdog - STS: 0x%x, CTL: 0x%x, BARK TIME: 0x%x, BITE TIME: 0x%x",
+		__raw_readl(wdog_dd->base + WDT0_STS),
+		__raw_readl(wdog_dd->base + WDT0_EN),
+		__raw_readl(wdog_dd->base + WDT0_BARK_TIME),
+		__raw_readl(wdog_dd->base + WDT0_BITE_TIME));
 	panic("Failed to cause a watchdog bite! - Falling back to kernel panic!");
 	return IRQ_HANDLED;
 }

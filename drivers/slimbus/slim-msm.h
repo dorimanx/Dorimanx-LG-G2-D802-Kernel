@@ -13,11 +13,14 @@
 #ifndef _SLIM_MSM_H
 #define _SLIM_MSM_H
 
+#include <linux/irq.h>
 #include <linux/kthread.h>
 #include <mach/msm_qmi_interface.h>
 
 /* Per spec.max 40 bytes per received message */
-#define SLIM_RX_MSGQ_BUF_LEN	40
+#define SLIM_MSGQ_BUF_LEN	40
+
+#define MSM_TX_BUFS	2
 
 #define SLIM_USR_MC_GENERIC_ACK		0x25
 #define SLIM_USR_MC_MASTER_CAPABILITY	0x0
@@ -46,6 +49,13 @@
 #define MSM_SLIM_PERF_SUMM_THRESHOLD	0x8000
 #define MSM_SLIM_NPORTS			24
 #define MSM_SLIM_NCHANS			32
+
+#define QC_MFGID_LSB	0x2
+#define QC_MFGID_MSB	0x17
+#define QC_CHIPID_SL	0x10
+#define QC_DEVID_SAT1	0x3
+#define QC_DEVID_SAT2	0x4
+#define QC_DEVID_PGD	0x5
 
 #define SLIM_MSG_ASM_FIRST_WORD(l, mt, mc, dt, ad) \
 		((l) | ((mt) << 5) | ((mc) << 8) | ((dt) << 15) | ((ad) << 16))
@@ -150,6 +160,12 @@ enum pgd_reg_v1 {
 	PGD_VE_STAT_V1		= 0x1710,
 };
 
+enum msm_slim_port_status {
+	MSM_PORT_OVERFLOW	= 1 << 2,
+	MSM_PORT_UNDERFLOW	= 1 << 3,
+	MSM_PORT_DISCONNECT	= 1 << 19,
+};
+
 enum msm_ctrl_state {
 	MSM_CTRL_AWAKE,
 	MSM_CTRL_SLEEPING,
@@ -175,7 +191,6 @@ struct msm_slim_endp {
 	struct sps_connect		config;
 	struct sps_register_event	event;
 	struct sps_mem_buffer		buf;
-	struct completion		*xcomp;
 	bool				connected;
 };
 
@@ -190,6 +205,11 @@ struct msm_slim_qmi {
 	struct work_struct		ssr_up;
 };
 
+struct msm_slim_pdata {
+	u32 apps_pipes;
+	u32 eapc;
+};
+
 struct msm_slim_ctrl {
 	struct slim_controller  ctrl;
 	struct slim_framer	framer;
@@ -200,7 +220,8 @@ struct msm_slim_ctrl {
 	u32			curr_bw;
 	u8			msg_cnt;
 	u32			tx_buf[10];
-	u8			rx_msgs[MSM_CONCUR_MSG][SLIM_RX_MSGQ_BUF_LEN];
+	u8			rx_msgs[MSM_CONCUR_MSG][SLIM_MSGQ_BUF_LEN];
+	int			tx_idx;
 	spinlock_t		rx_lock;
 	int			head;
 	int			tail;
@@ -211,6 +232,7 @@ struct msm_slim_ctrl {
 	struct msm_slim_sat	*satd[MSM_MAX_NSATS];
 	struct msm_slim_endp	pipes[7];
 	struct msm_slim_sps_bam	bam;
+	struct msm_slim_endp	tx_msgq;
 	struct msm_slim_endp	rx_msgq;
 	struct completion	rx_msgq_notify;
 	struct task_struct	*rx_msgq_thread;
@@ -219,7 +241,8 @@ struct msm_slim_ctrl {
 	struct mutex		tx_lock;
 	u8			pgdla;
 	enum msm_slim_msgq	use_rx_msgqs;
-	int			pipe_b;
+	enum msm_slim_msgq	use_tx_msgqs;
+	int			port_b;
 	struct completion	reconf;
 	bool			reconf_busy;
 	bool			chan_active;
@@ -229,6 +252,7 @@ struct msm_slim_ctrl {
 	u32			ver;
 	struct work_struct	slave_notify;
 	struct msm_slim_qmi	qmi;
+	struct msm_slim_pdata	pdata;
 };
 
 struct msm_sat_chan {
@@ -266,11 +290,13 @@ int msm_slim_rx_enqueue(struct msm_slim_ctrl *dev, u32 *buf, u8 len);
 int msm_slim_rx_dequeue(struct msm_slim_ctrl *dev, u8 *buf);
 int msm_slim_get_ctrl(struct msm_slim_ctrl *dev);
 void msm_slim_put_ctrl(struct msm_slim_ctrl *dev);
+irqreturn_t msm_slim_port_irq_handler(struct msm_slim_ctrl *dev, u32 pstat);
 int msm_slim_init_endpoint(struct msm_slim_ctrl *dev, struct msm_slim_endp *ep);
 void msm_slim_free_endpoint(struct msm_slim_endp *ep);
 void msm_hw_set_port(struct msm_slim_ctrl *dev, u8 pn);
+int msm_alloc_port(struct slim_controller *ctrl, u8 pn);
+void msm_dealloc_port(struct slim_controller *ctrl, u8 pn);
 int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn);
-int msm_config_port(struct slim_controller *ctrl, u8 pn);
 enum slim_port_err msm_slim_port_xfer_status(struct slim_controller *ctr,
 				u8 pn, u8 **done_buf, u32 *done_len);
 int msm_slim_port_xfer(struct slim_controller *ctrl, u8 pn, u8 *iobuf,
@@ -285,6 +311,9 @@ void msm_slim_sps_exit(struct msm_slim_ctrl *dev, bool dereg);
 int msm_slim_connect_endp(struct msm_slim_ctrl *dev,
 				struct msm_slim_endp *endpoint,
 				struct completion *notify);
+void msm_slim_disconnect_endp(struct msm_slim_ctrl *dev,
+					struct msm_slim_endp *endpoint,
+					enum msm_slim_msgq *msgq_flag);
 void msm_slim_qmi_exit(struct msm_slim_ctrl *dev);
 int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master);
 int msm_slim_qmi_power_request(struct msm_slim_ctrl *dev, bool active);

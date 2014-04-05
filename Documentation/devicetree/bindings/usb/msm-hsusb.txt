@@ -50,7 +50,10 @@ Optional properties :
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
   below optional properties:
     - qcom,msm_bus,name
-    - qcom,msm_bus,num_cases
+    - qcom,msm_bus,num_cases - There are three valid cases for this: NONE, MAX
+		and MIN bandwidth votes. Minimum two cases must be defined for
+		both NONE and MAX votes. If MIN vote is different from NONE VOTE
+		then specify third case for MIN VOTE.
     - qcom,msm_bus,active_only
     - qcom,msm_bus,num_paths
     - qcom,msm_bus,vectors
@@ -74,6 +77,22 @@ Optional properties :
 	starting controller using usbcmd run/stop bit.
 - qcom,usb2-enable-hsphy2: If present then USB2 controller is connected to 2nd
 	HSPHY.
+- qcom,hsusb-log2-itc: value of 2^(log2_itc-1) will be used as the
+	interrupt threshold (ITC), when log2_itc is between 1 to 7.
+- qcom,hsusb-l1-supported: If present, the device supports l1 (Link power
+	management).
+- qcom,no-selective-suspend: If present selective suspend is disabled on hub ports.
+- qcom,hsusb-otg-dpsehv-int: If present, indicates mpm interrupt to be configured
+	for detection of dp line transition during VDD minimization.
+- qcom,hsusb-otg-dmsehv-int: If present, indicates mpm interrupt to be configured
+	for detection of dm line transition during VDD minimization.
+- qcom,ahb-async-bridge-bypass: If present, indicates that enable AHB2AHB By Pass
+	mode with device controller for better throughput. With this mode, USB Core
+	runs using PNOC clock and synchronous to it. Hence it is must to have proper
+	"qcom,msm_bus,vectors" to have high bus frequency. User shouldn't try to
+	enable this feature without proper bus voting.
+-qcom,disable-retention-with-vdd-min: If present dont allow phy retention but allow
+	vdd min.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
@@ -98,6 +117,9 @@ Example HSUSB OTG controller device node :
                 HSUSB_3p3-supply = <&pm8226_l20>;
 		qcom,vdd-voltage-level = <1 5 7>;
 		qcom,dp-manual-pullup;
+		qcom,disable-retention-with-vdd-min;
+		qcom,hsusb-otg-dpsehv-int = <49>;
+		qcom,hsusb-otg-dmsehv-int = <58>;
 		qcom,msm_bus,name = "usb2";
 		qcom,msm_bus,num_cases = <2>;
 		qcom,msm_bus,active_only = <0>;
@@ -116,11 +138,24 @@ Required properties :
 - interrupt-names : Required interrupt resource entries are:
             HSUSB EHCI expects "core_irq" and optionally "async_irq".
 - <supply-name>-supply: handle to the regulator device tree node
-  Required "supply-name" is "HSUSB_VDDCX" "HSUSB_1p8-supply" "HSUSB_3p3-supply".
+  Required "supply-name" is either "hsusb_vdd_dig" or "HSUSB_VDDCX"
+  "HSUSB_1p8-supply" "HSUSB_3p3-supply".
 - qcom,usb2-power-budget: maximum vbus power (in mA) that can be provided.
 
 Optional properties :
 - qcom,usb2-enable-hsphy2: If present, select second PHY for USB operation.
+- qcom,resume-gpio: if present then peripheral connected to usb controller
+  cannot wakeup from XO shutdown using in-band usb bus resume. Use resume
+  gpio to wakeup peripheral.
+- qcom,vdd-voltage-level: This property must be a list of five integer
+  values (no, 0.5vsuspend, 0.75suspend, min, max) where each value respresents
+  either a voltage in microvolts or a value corresponding to voltage corner.
+  First value represents value to vote when USB is not at all active, second
+  value represents value to vote when target is not connected to dock during low
+  power mode, third value represents vlaue to vote when target is connected to dock
+  and no peripheral connected over dock during low power mode, fourth value represents
+  minimum value to vote when USB is operational, fifth item represents maximum value
+  to vote for USB is operational.
 
 Example MSM HSUSB EHCI controller device node :
 	ehci: qcom,ehci-host@f9a55000 {
@@ -128,11 +163,12 @@ Example MSM HSUSB EHCI controller device node :
 		reg = <0xf9a55000 0x400>;
 		interrupts = <0 134 0>, <0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
-		HSUSB_VDDCX-supply = <&pm8841_s2>;
+		hsusb_vdd_dig-supply = <&pm8841_s2_corner>;
 		HSUSB_1p8-supply = <&pm8941_l6>;
 		HSUSB_3p3-supply = <&pm8941_l24>;
 		qcom,usb2-enable-hsphy2;
 		qcom,usb2-power-budget = <500>;
+		qcom,vdd-voltage-level = <1 2 3 5 7>;
 	};
 
 ANDROID USB:
@@ -147,12 +183,20 @@ Optional properties :
   for DMA latency in microsecs.
 - qcom,android-usb-cdrom : if this property is present then device creates
   a new LUN as CD-ROM
-
+- qcom,android-usb-internal-ums : if this property is present then device
+  creates a new LUN as internal usb mass storage.
+- qcom,streaming-func : add list of usb function name. If mention usb function
+  is being enable as part of USB composition, streaming mode is enable with
+  usb device controller to get better throughput. NOTE: Inverted CRC and
+  turnaround timeout is observed on enabling streaming. Hence it is required
+  to see these errors and number of erros on enabling this at USB level to make
+  final decision to enable this feature or not.
 Example Android USB device node :
 	android_usb@fc42b0c8 {
 		compatible = "qcom,android-usb";
 		reg = <0xfc42b0c8 0xc8>;
 		qcom,android-usb-swfi-latency = <1>;
+		qcom,streaming-func = "rndis","mtp";
 	};
 
 

@@ -311,7 +311,7 @@ int fc8050_deinit(HANDLE hDevice)
 
 int fc8050_channel_select(HANDLE hDevice, fci_u8 subChId,fci_u8 svcChId)
 {
-//                                      
+//	fci_u16 cuSize = 0; //LGE_BROADCAST_I
 
 	bbm_write(hDevice, BBM_DIDP_CH0_SUBCH + svcChId, 0x40 | subChId);
 

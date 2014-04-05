@@ -15,11 +15,13 @@
 #include "vidc_hfi_api.h"
 
 #define MAX_DBG_BUF_SIZE 4096
-int msm_vidc_debug = 0x3;
+int msm_vidc_debug = VIDC_ERR | VIDC_WARN;
+int msm_vidc_debug_out = VIDC_OUT_PRINTK;
 int msm_fw_debug = 0x18;
 int msm_fw_debug_mode = 0x1;
 int msm_fw_low_power_mode = 0x1;
 int msm_vp8_low_tier = 0x1;
+int msm_vidc_hw_rsp_timeout = 1000;
 
 struct debug_buffer {
 	char ptr[MAX_DBG_BUF_SIZE];
@@ -32,6 +34,10 @@ static struct debug_buffer dbg_buf;
 #define INIT_DBG_BUF(__buf) ({ \
 	__buf.curr = __buf.ptr;\
 	__buf.filled_size = 0; \
+})
+
+#define DYNAMIC_BUF_OWNER(__binfo) ({ \
+	atomic_read(&__binfo->ref_count) == 2 ? "video driver" : "firmware";\
 })
 
 static int core_info_open(struct inode *inode, struct file *file)
@@ -80,6 +86,18 @@ static ssize_t core_info_read(struct file *file, char __user *buf,
 	write_str(&dbg_buf, "irq: %u\n",
 		call_hfi_op(hdev, get_fw_info, hdev->hfi_device_data,
 					FW_IRQ));
+	write_str(&dbg_buf, "clock count: %d\n",
+		call_hfi_op(hdev, get_info, hdev->hfi_device_data,
+					DEV_CLOCK_COUNT));
+	write_str(&dbg_buf, "clock enabled: %u\n",
+		call_hfi_op(hdev, get_info, hdev->hfi_device_data,
+					DEV_CLOCK_ENABLED));
+	write_str(&dbg_buf, "power count: %d\n",
+		call_hfi_op(hdev, get_info, hdev->hfi_device_data,
+					DEV_PWR_COUNT));
+	write_str(&dbg_buf, "power enabled: %u\n",
+		call_hfi_op(hdev, get_info, hdev->hfi_device_data,
+					DEV_PWR_ENABLED));
 	for (i = SYS_MSG_START; i < SYS_MSG_END; i++) {
 		write_str(&dbg_buf, "completions[%d]: %s\n", i,
 			completion_done(&core->completions[SYS_MSG_INDEX(i)]) ?
@@ -171,6 +189,16 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}
+	if (!debugfs_create_u32("debug_output", S_IRUGO | S_IWUSR,
+			parent, &msm_vidc_debug_out)) {
+		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
+		goto failed_create_dir;
+	}
+	if (!debugfs_create_u32("hw_rsp_timeout", S_IRUGO | S_IWUSR,
+			parent, &msm_vidc_hw_rsp_timeout)) {
+		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
+		goto failed_create_dir;
+	}
 failed_create_dir:
 	return dir;
 }
@@ -178,6 +206,37 @@ failed_create_dir:
 static int inst_info_open(struct inode *inode, struct file *file)
 {
 	file->private_data = inode->i_private;
+	return 0;
+}
+
+static int publish_unreleased_reference(struct msm_vidc_inst *inst)
+{
+	struct buffer_info *temp = NULL;
+	struct buffer_info *dummy = NULL;
+	struct list_head *list = NULL;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s: invalid param\n", __func__);
+		return -EINVAL;
+	}
+
+	list = &inst->registered_bufs;
+	mutex_lock(&inst->lock);
+	if (inst->buffer_mode_set[CAPTURE_PORT] == HAL_BUFFER_MODE_DYNAMIC) {
+		list_for_each_entry_safe(temp, dummy, list, list) {
+			if (temp && temp->type ==
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
+			!temp->inactive && atomic_read(&temp->ref_count)) {
+				write_str(&dbg_buf,
+				"\tpending buffer: 0x%x fd[0] = %d ref_count = %d held by: %s\n",
+				temp->device_addr[0],
+				temp->fd[0],
+				atomic_read(&temp->ref_count),
+				DYNAMIC_BUF_OWNER(temp));
+			}
+		}
+	}
+	mutex_unlock(&inst->lock);
 	return 0;
 }
 
@@ -209,6 +268,19 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 		write_str(
 		&dbg_buf, "type: %s\n", inst->fmts[i]->type == OUTPUT_PORT ?
 		"Output" : "Capture");
+		switch (inst->buffer_mode_set[i]) {
+		case HAL_BUFFER_MODE_STATIC:
+			write_str(&dbg_buf, "buffer mode : %s\n", "static");
+			break;
+		case HAL_BUFFER_MODE_RING:
+			write_str(&dbg_buf, "buffer mode : %s\n", "ring");
+			break;
+		case HAL_BUFFER_MODE_DYNAMIC:
+			write_str(&dbg_buf, "buffer mode : %s\n", "dynamic");
+			break;
+		default:
+			write_str(&dbg_buf, "buffer mode : unsupported\n");
+		}
 		for (j = 0; j < inst->fmts[i]->num_planes; j++)
 			write_str(&dbg_buf, "size for plane %d: %u\n", j,
 			inst->bufq[i].vb2_bufq.plane_sizes[j]);
@@ -223,6 +295,8 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	write_str(&dbg_buf, "EBD Count: %d\n", inst->count.ebd);
 	write_str(&dbg_buf, "FTB Count: %d\n", inst->count.ftb);
 	write_str(&dbg_buf, "FBD Count: %d\n", inst->count.fbd);
+	publish_unreleased_reference(inst);
+
 	return simple_read_from_buffer(buf, count, ppos,
 		dbg_buf.ptr, dbg_buf.filled_size);
 }

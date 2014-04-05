@@ -121,23 +121,25 @@ struct snd_pcm_ops {
 #define SNDRV_PCM_RATE_5512		(1<<0)		/* 5512Hz */
 #define SNDRV_PCM_RATE_8000		(1<<1)		/* 8000Hz */
 #define SNDRV_PCM_RATE_11025		(1<<2)		/* 11025Hz */
-#define SNDRV_PCM_RATE_16000		(1<<3)		/* 16000Hz */
-#define SNDRV_PCM_RATE_22050		(1<<4)		/* 22050Hz */
-#define SNDRV_PCM_RATE_32000		(1<<5)		/* 32000Hz */
-#define SNDRV_PCM_RATE_44100		(1<<6)		/* 44100Hz */
-#define SNDRV_PCM_RATE_48000		(1<<7)		/* 48000Hz */
-#define SNDRV_PCM_RATE_64000		(1<<8)		/* 64000Hz */
-#define SNDRV_PCM_RATE_88200		(1<<9)		/* 88200Hz */
-#define SNDRV_PCM_RATE_96000		(1<<10)		/* 96000Hz */
-#define SNDRV_PCM_RATE_176400		(1<<11)		/* 176400Hz */
-#define SNDRV_PCM_RATE_192000		(1<<12)		/* 192000Hz */
+#define SNDRV_PCM_RATE_12000		(1<<3)		/* 12000Hz */
+#define SNDRV_PCM_RATE_16000		(1<<4)		/* 16000Hz */
+#define SNDRV_PCM_RATE_22050		(1<<5)		/* 22050Hz */
+#define SNDRV_PCM_RATE_24000		(1<<6)		/* 24000Hz */
+#define SNDRV_PCM_RATE_32000		(1<<7)		/* 32000Hz */
+#define SNDRV_PCM_RATE_44100		(1<<8)		/* 44100Hz */
+#define SNDRV_PCM_RATE_48000		(1<<9)		/* 48000Hz */
+#define SNDRV_PCM_RATE_64000		(1<<10)		/* 64000Hz */
+#define SNDRV_PCM_RATE_88200		(1<<11)		/* 88200Hz */
+#define SNDRV_PCM_RATE_96000		(1<<12)		/* 96000Hz */
+#define SNDRV_PCM_RATE_176400		(1<<13)		/* 176400Hz */
+#define SNDRV_PCM_RATE_192000		(1<<14)		/* 192000Hz */
 
 #define SNDRV_PCM_RATE_CONTINUOUS	(1<<30)		/* continuous range */
 #define SNDRV_PCM_RATE_KNOT		(1<<31)		/* supports more non-continuos rates */
 
 #define SNDRV_PCM_RATE_8000_44100	(SNDRV_PCM_RATE_8000|SNDRV_PCM_RATE_11025|\
-					 SNDRV_PCM_RATE_16000|SNDRV_PCM_RATE_22050|\
-					 SNDRV_PCM_RATE_32000|SNDRV_PCM_RATE_44100)
+					 SNDRV_PCM_RATE_12000|SNDRV_PCM_RATE_16000|SNDRV_PCM_RATE_22050|\
+					 SNDRV_PCM_RATE_24000|SNDRV_PCM_RATE_32000|SNDRV_PCM_RATE_44100)
 #define SNDRV_PCM_RATE_8000_48000	(SNDRV_PCM_RATE_8000_44100|SNDRV_PCM_RATE_48000)
 #define SNDRV_PCM_RATE_8000_96000	(SNDRV_PCM_RATE_8000_48000|SNDRV_PCM_RATE_64000|\
 					 SNDRV_PCM_RATE_88200|SNDRV_PCM_RATE_96000)
@@ -465,6 +467,7 @@ struct snd_pcm {
 	void *private_data;
 	void (*private_free) (struct snd_pcm *pcm);
 	struct device *dev; /* actual hw device this belongs to */
+	bool internal; /* pcm is for internal use only */
 #if defined(CONFIG_SND_PCM_OSS) || defined(CONFIG_SND_PCM_OSS_MODULE)
 	struct snd_pcm_oss oss;
 #endif
@@ -489,6 +492,9 @@ int snd_pcm_new(struct snd_card *card, const char *id, int device,
 int snd_pcm_new_soc_be(struct snd_card *card, const char *id, int device,
 		int playback_count, int capture_count,
 		struct snd_pcm ** rpcm);
+int snd_pcm_new_internal(struct snd_card *card, const char *id, int device,
+		int playback_count, int capture_count,
+		struct snd_pcm **rpcm);
 int snd_pcm_new_stream(struct snd_pcm *pcm, int stream, int substream_count);
 
 int snd_pcm_notify(struct snd_pcm_notify *notify, int nfree);

@@ -6,12 +6,15 @@
 #endif
 #include <linux/videodev2.h>
 #include <linux/types.h>
+#include <media/msmb_generic_buf_mgr.h>
 
 /* Should be same as VIDEO_MAX_PLANES in videodev2.h */
 #define MAX_PLANES VIDEO_MAX_PLANES
 
 #define MAX_NUM_CPP_STRIPS 8
 #define MSM_CPP_MAX_NUM_PLANES 3
+#define MSM_CPP_MAX_FRAME_LENGTH 1024
+#define MSM_CPP_MAX_FW_NAME_LEN 32
 
 enum msm_cpp_frame_type {
 	MSM_CPP_OFFLINE_FRAME,
@@ -69,7 +72,7 @@ struct msm_cpp_frame_strip_info {
 	int bytes_per_pixel;
 	unsigned int source_address;
 	unsigned int destination_address;
-	unsigned int compl_destination_address;	/*LGE_CHANGE, CTS test - testPreviewFormats, 2013-06-08, ejoon.kim@lge.com */
+	unsigned int compl_destination_address;
 	unsigned int src_stride;
 	unsigned int dst_stride;
 	int rotate_270;
@@ -87,6 +90,7 @@ struct msm_cpp_buffer_info_t {
 	uint32_t offset;
 	uint8_t native_buff;
 	uint8_t processed_divert;
+	uint32_t identity;
 };
 
 struct msm_cpp_stream_buff_info_t {
@@ -174,6 +178,10 @@ struct msm_vpe_frame_info_t {
 	struct msm_vpe_buffer_info_t output_buffer_info;
 };
 
+struct msm_pproc_queue_buf_info {
+	struct msm_buf_mngr_info buff_mgr_info;
+	uint8_t is_buf_dirty;
+};
 
 #define VIDIOC_MSM_CPP_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE, struct msm_camera_v4l2_ioctl_t)
@@ -217,6 +225,9 @@ struct msm_vpe_frame_info_t {
 
 #define VIDIOC_MSM_VPE_DEQUEUE_STREAM_BUFF_INFO \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 13, struct msm_camera_v4l2_ioctl_t)
+
+#define VIDIOC_MSM_CPP_QUEUE_BUF \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 14, struct msm_camera_v4l2_ioctl_t)
 
 #define V4L2_EVENT_CPP_FRAME_DONE  (V4L2_EVENT_PRIVATE_START + 0)
 #define V4L2_EVENT_VPE_FRAME_DONE  (V4L2_EVENT_PRIVATE_START + 1)

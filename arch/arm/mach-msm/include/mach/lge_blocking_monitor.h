@@ -1,4 +1,4 @@
-/* 
+/*
  * arch/arm/mach-msm/include/mach/lge/lge_blocking_monitor.h
  *
  * Copyright (C) 2012 LGE, Inc

@@ -23,6 +23,13 @@
 		qcom,hw-sel = "NoC";
 		qcom,rpm-en;
 
+		coresight-id = <52>;
+		coresight-name = "coresight-mnoc";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <5>;
+
 		mas-mdp-port0 {
 			cell-id = <22>;
 			label = "mas-mdp-port0";
@@ -49,8 +56,8 @@
 			qcom,ws = <10000>;
 			qcom,qport = <2>;
 			qcom,mas-hw-id = <11>;
-			qcom,prio1 = <2>;
-			qcom,prio0 = <2>;
+			qcom,prio1 = <3>;
+			qcom,prio0 = <3>;
 		};
 
 		mas-mdpe {
@@ -64,8 +71,8 @@
 			qcom,ws = <10000>;
 			qcom,qport = <7>;
 			qcom,mas-hw-id = <11>;
-			qcom,prio1 = <2>;
-			qcom,prio0 = <2>;
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
 		};
 
 		fab-bimc {
@@ -220,6 +227,13 @@
 		qcom,qos-freq = <4800>;
 		qcom,hw-sel = "NoC";
 		qcom,rpm-en;
+
+		coresight-id = <50>;
+		coresight-name = "coresight-snoc";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <3>;
 
 		mas-lpass-ahb {
 			cell-id = <52>;
@@ -421,6 +435,13 @@
 		qcom,ntieredslaves = <0>;
 		qcom,hw-sel = "NoC";
 		qcom,rpm-en;
+
+		coresight-id = <54>;
+		coresight-name = "coresight-pnoc";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <6>;
 
 		mas-pnoc-cfg {
 			cell-id = <88>;
@@ -892,9 +913,16 @@
 		qcom,fabclk-dual = "mem_clk";
 		qcom,fabclk-active = "mem_a_clk";
 		qcom,ntieredslaves = <0>;
-		qcom,qos-freq = <4800>;
+		qcom,qos-freq = <19200>;
 		qcom,hw-sel = "BIMC";
 		qcom,rpm-en;
+
+		coresight-id = <55>;
+		coresight-name = "coresight-bimc";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in1>;
+		coresight-child-ports = <3>;
 
 		mas-ampss-m0 {
 			cell-id = <1>;
@@ -902,13 +930,19 @@
 			qcom,masterp = <0>;
 			qcom,tier = <2>;
 			qcom,hw-sel = "BIMC";
-			qcom,mode = "Fixed";
+			qcom,mode = "Limiter";
 			qcom,qport = <0>;
 			qcom,ws = <10000>;
 			qcom,mas-hw-id = <0>;
-			qcom,prio-rd = <1>;
-			qcom,prio-wr = <1>;
-			qcom,prio-lvl = <1>;
+			qcom,prio-rd = <0>;
+			qcom,prio-wr = <0>;
+			qcom,prio-lvl = <0>;
+			qcom,mode-thresh = "Fixed";
+			qcom,thresh = <800000>;
+			qcom,dual-conf;
+			qcom,bimc,bw = <300000>;
+			qcom,bimc,gp = <5000>;
+			qcom,bimc,thmp = <50>;
 		};
 
 		mas-mss-proc {
@@ -924,6 +958,7 @@
 			cell-id = <2048>;
 			label = "fab_mmss_noc";
 			qcom,masterp = <1>;
+			qcom,gateway;
 			qcom,qport = <1>;
 			qcom,buswidth = <8>;
 			qcom,ws = <10000>;

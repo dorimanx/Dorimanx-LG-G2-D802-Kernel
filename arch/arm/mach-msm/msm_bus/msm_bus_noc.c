@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -511,7 +511,7 @@ static void msm_bus_noc_update_bw(struct msm_bus_inode_info *hop,
 	struct msm_bus_noc_info *ninfo;
 	struct msm_bus_noc_qos_bw qos_bw;
 	int i, ports;
-	long int bw;
+	int64_t bw;
 	struct msm_bus_noc_commit *sel_cd =
 		(struct msm_bus_noc_commit *)sel_cdata;
 
@@ -619,6 +619,7 @@ int msm_bus_noc_hw_init(struct msm_bus_fabric_registration *pdata,
 	hw_algo->commit = msm_bus_noc_commit;
 	hw_algo->port_halt = msm_bus_noc_port_halt;
 	hw_algo->port_unhalt = msm_bus_noc_port_unhalt;
+	hw_algo->config_master = NULL;
 
 	return 0;
 }

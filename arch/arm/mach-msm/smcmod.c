@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,7 @@
 #include <linux/msm_ion.h>
 #include <asm/smcmod.h>
 #include <mach/scm.h>
+#include <mach/socinfo.h>
 
 static DEFINE_MUTEX(ioctl_lock);
 
@@ -91,27 +92,6 @@ struct smcmod_msg_digest_scm_req {
 	uint32_t output_size;
 	uint8_t verify;
 } __packed;
-
-static void smcmod_inv_range(unsigned long start, unsigned long end)
-{
-	uint32_t cacheline_size;
-	uint32_t ctr;
-
-	/* get cache line size */
-	asm volatile("mrc p15, 0, %0, c0, c0, 1" : "=r" (ctr));
-	cacheline_size =  4 << ((ctr >> 16) & 0xf);
-
-	/* invalidate the range */
-	start = round_down(start, cacheline_size);
-	end = round_up(end, cacheline_size);
-	while (start < end) {
-		asm ("mcr p15, 0, %0, c7, c6, 1" : : "r" (start)
-			 : "memory");
-		start += cacheline_size;
-	}
-	mb();
-	isb();
-}
 
 static int smcmod_ion_fd_to_phys(int32_t fd, struct ion_client *ion_clientp,
 	struct ion_handle **ion_handlep, uint32_t *phys_addrp, size_t *sizep)
@@ -234,9 +214,17 @@ static int smcmod_send_buf_cmd(struct smcmod_buf_req *reqp)
 		}
 	}
 
+	/* No need to flush the cache lines for the command buffer here,
+	 * because the buffer will be flushed by scm_call.
+	 */
+
 	/* call scm function to switch to secure world */
 	reqp->return_val = scm_call(reqp->service_id, reqp->command_id,
 		cmd_vaddrp, reqp->cmd_len, resp_vaddrp, reqp->resp_len);
+
+	/* The cache lines for the response buffer have already been
+	 * invalidated by scm_call before returning.
+	 */
 
 buf_cleanup:
 	/* if the client and handle(s) are valid, free them */
@@ -355,45 +343,36 @@ static int smcmod_send_cipher_cmd(struct smcmod_cipher_req *reqp)
 		goto buf_cleanup;
 	}
 
+	/* Only the scm_req structure will be flushed by scm_call,
+	 * so we must flush the cache for the input ion buffers here.
+	 */
+	msm_ion_do_cache_op(ion_clientp, ion_key_handlep, NULL,
+		scm_req.key_size, ION_IOC_CLEAN_CACHES);
+	msm_ion_do_cache_op(ion_clientp, ion_iv_handlep, NULL,
+		scm_req.init_vector_size, ION_IOC_CLEAN_CACHES);
+
+	/* For decrypt, cipher text is input, otherwise it's plain text. */
+	if (reqp->operation)
+		msm_ion_do_cache_op(ion_clientp, ion_cipher_handlep, NULL,
+			scm_req.cipher_text_size, ION_IOC_CLEAN_CACHES);
+	else
+		msm_ion_do_cache_op(ion_clientp, ion_plain_handlep, NULL,
+			scm_req.plain_text_size, ION_IOC_CLEAN_CACHES);
+
 	/* call scm function to switch to secure world */
 	reqp->return_val = scm_call(SMCMOD_SVC_CRYPTO,
 		SMCMOD_CRYPTO_CMD_CIPHER, &scm_req,
 		sizeof(scm_req), NULL, 0);
 
+	/* Invalidate the output buffer, since it's not done by scm_call */
+
 	/* for decrypt, plain text is the output, otherwise it's cipher text */
-	if (reqp->operation) {
-		void *vaddrp = NULL;
-
-		/* map the plain text region to get the virtual address */
-		vaddrp = ion_map_kernel(ion_clientp, ion_plain_handlep);
-		if (IS_ERR_OR_NULL(vaddrp)) {
-			ret = -EINVAL;
-			goto buf_cleanup;
-		}
-
-		/* invalidate the range */
-		smcmod_inv_range((unsigned long)vaddrp,
-			(unsigned long)(vaddrp + scm_req.plain_text_size));
-
-		/* unmap the mapped area */
-		ion_unmap_kernel(ion_clientp, ion_plain_handlep);
-	} else {
-		void *vaddrp = NULL;
-
-		/* map the cipher text region to get the virtual address */
-		vaddrp = ion_map_kernel(ion_clientp, ion_cipher_handlep);
-		if (IS_ERR_OR_NULL(vaddrp)) {
-			ret = -EINVAL;
-			goto buf_cleanup;
-		}
-
-		/* invalidate the range */
-		smcmod_inv_range((unsigned long)vaddrp,
-			(unsigned long)(vaddrp + scm_req.cipher_text_size));
-
-		/* unmap the mapped area */
-		ion_unmap_kernel(ion_clientp, ion_cipher_handlep);
-	}
+	if (reqp->operation)
+		msm_ion_do_cache_op(ion_clientp, ion_plain_handlep, NULL,
+			scm_req.plain_text_size, ION_IOC_INV_CACHES);
+	else
+		msm_ion_do_cache_op(ion_clientp, ion_cipher_handlep, NULL,
+			scm_req.cipher_text_size, ION_IOC_INV_CACHES);
 
 buf_cleanup:
 	/* if the client and handles are valid, free them */
@@ -424,7 +403,6 @@ static int smcmod_send_msg_digest_cmd(struct smcmod_msg_digest_req *reqp)
 	struct ion_handle *ion_input_handlep = NULL;
 	struct ion_handle *ion_output_handlep = NULL;
 	size_t size = 0;
-	void *vaddrp = NULL;
 
 	if (IS_ERR_OR_NULL(reqp))
 		return -EINVAL;
@@ -492,6 +470,14 @@ static int smcmod_send_msg_digest_cmd(struct smcmod_msg_digest_req *reqp)
 		goto buf_cleanup;
 	}
 
+	/* Only the scm_req structure will be flushed by scm_call,
+	 * so we must flush the cache for the input ion buffers here.
+	 */
+	msm_ion_do_cache_op(ion_clientp, ion_key_handlep, NULL,
+		scm_req.key_size, ION_IOC_CLEAN_CACHES);
+	msm_ion_do_cache_op(ion_clientp, ion_input_handlep, NULL,
+		scm_req.input_size, ION_IOC_CLEAN_CACHES);
+
 	/* call scm function to switch to secure world */
 	if (reqp->fixed_block)
 		reqp->return_val = scm_call(SMCMOD_SVC_CRYPTO,
@@ -506,20 +492,9 @@ static int smcmod_send_msg_digest_cmd(struct smcmod_msg_digest_req *reqp)
 			sizeof(scm_req),
 			NULL, 0);
 
-
-	/* map the output region to get the virtual address */
-	vaddrp = ion_map_kernel(ion_clientp, ion_output_handlep);
-	if (IS_ERR_OR_NULL(vaddrp)) {
-		ret = -EINVAL;
-		goto buf_cleanup;
-	}
-
-	/* invalidate the range */
-	smcmod_inv_range((unsigned long)vaddrp,
-		(unsigned long)(vaddrp + scm_req.output_size));
-
-	/* unmap the mapped area */
-	ion_unmap_kernel(ion_clientp, ion_output_handlep);
+	/* Invalidate the output buffer, since it's not done by scm_call */
+	msm_ion_do_cache_op(ion_clientp, ion_output_handlep, NULL,
+		scm_req.output_size, ION_IOC_INV_CACHES);
 
 buf_cleanup:
 	/* if the client and handles are valid, free them */
@@ -539,6 +514,110 @@ buf_cleanup:
 	return ret;
 }
 
+static int smcmod_send_dec_cmd(struct smcmod_decrypt_req *reqp)
+{
+	struct ion_client *ion_clientp;
+	struct ion_handle *ion_handlep = NULL;
+	int ion_fd;
+	int ret;
+	u32 pa;
+	size_t size;
+	struct {
+		u32 args[4];
+	} req;
+	struct {
+		u32 args[3];
+	} rsp;
+
+	ion_clientp = msm_ion_client_create(UINT_MAX, "smcmod");
+	if (IS_ERR_OR_NULL(ion_clientp))
+		return PTR_ERR(ion_clientp);
+
+	switch (reqp->operation) {
+	case SMCMOD_DECRYPT_REQ_OP_METADATA: {
+		ion_fd = reqp->request.metadata.ion_fd;
+		ret = smcmod_ion_fd_to_phys(ion_fd, ion_clientp,
+					    &ion_handlep, &pa, &size);
+		if (ret)
+			goto error;
+
+		req.args[0] = reqp->request.metadata.len;
+		req.args[1] = pa;
+		break;
+	}
+	case SMCMOD_DECRYPT_REQ_OP_IMG_FRAG: {
+		ion_fd = reqp->request.img_frag.ion_fd;
+		ret = smcmod_ion_fd_to_phys(ion_fd, ion_clientp,
+					    &ion_handlep, &pa, &size);
+		if (ret)
+			goto error;
+
+		req.args[0] = reqp->request.img_frag.ctx_id;
+		req.args[1] = reqp->request.img_frag.last_frag;
+		req.args[2] = reqp->request.img_frag.frag_len;
+		req.args[3] = pa + reqp->request.img_frag.offset;
+		break;
+	}
+	default:
+		ret = -EINVAL;
+		goto error;
+	}
+
+	/*
+	 * scm_call does cache maintenance over request and response buffers.
+	 * The userspace must flush/invalidate ion input/output buffers itself.
+	 */
+
+	ret = scm_call(reqp->service_id, reqp->command_id,
+		       &req, sizeof(req), &rsp, sizeof(rsp));
+	if (ret)
+		goto error;
+
+	switch (reqp->operation) {
+	case SMCMOD_DECRYPT_REQ_OP_METADATA:
+		reqp->response.metadata.status = rsp.args[0];
+		reqp->response.metadata.ctx_id = rsp.args[1];
+		reqp->response.metadata.end_offset = rsp.args[2] - pa;
+		break;
+	case SMCMOD_DECRYPT_REQ_OP_IMG_FRAG: {
+		reqp->response.img_frag.status = rsp.args[0];
+		break;
+	}
+	default:
+		break;
+	}
+
+error:
+	if (!IS_ERR_OR_NULL(ion_clientp)) {
+		if (!IS_ERR_OR_NULL(ion_handlep))
+			ion_free(ion_clientp, ion_handlep);
+		ion_client_destroy(ion_clientp);
+	}
+	return ret;
+}
+
+static int smcmod_ioctl_check(unsigned cmd)
+{
+	switch (cmd) {
+	case SMCMOD_IOCTL_SEND_REG_CMD:
+	case SMCMOD_IOCTL_SEND_BUF_CMD:
+	case SMCMOD_IOCTL_SEND_CIPHER_CMD:
+	case SMCMOD_IOCTL_SEND_MSG_DIGEST_CMD:
+	case SMCMOD_IOCTL_GET_VERSION:
+		if (!cpu_is_fsm9xxx())
+			return -EINVAL;
+		break;
+	case SMCMOD_IOCTL_SEND_DECRYPT_CMD:
+		if (!cpu_is_msm8226())
+			return -EINVAL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static long smcmod_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 {
 	void __user *argp = (void __user *)arg;
@@ -556,6 +635,10 @@ static long smcmod_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	 * prevent that from happening.
 	 */
 	mutex_lock(&ioctl_lock);
+
+	ret = smcmod_ioctl_check(cmd);
+	if (ret)
+		goto cleanup;
 
 	switch (cmd) {
 	case SMCMOD_IOCTL_SEND_REG_CMD:
@@ -671,6 +754,26 @@ static long smcmod_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			req = scm_get_version();
 
 			/* copy result back to user */
+			if (copy_to_user(argp, (void *)&req, sizeof(req))) {
+				ret = -EFAULT;
+				goto cleanup;
+			}
+		}
+		break;
+
+	case SMCMOD_IOCTL_SEND_DECRYPT_CMD:
+		{
+			struct smcmod_decrypt_req req;
+
+			if (copy_from_user((void *)&req, argp, sizeof(req))) {
+				ret = -EFAULT;
+				goto cleanup;
+			}
+
+			ret = smcmod_send_dec_cmd(&req);
+			if (ret < 0)
+				goto cleanup;
+
 			if (copy_to_user(argp, (void *)&req, sizeof(req))) {
 				ret = -EFAULT;
 				goto cleanup;

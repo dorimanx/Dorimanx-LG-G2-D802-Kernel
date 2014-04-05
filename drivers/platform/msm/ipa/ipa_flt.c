@@ -634,12 +634,13 @@ static int __ipa_add_ep_flt_rule(enum ipa_ip_type ip, enum ipa_client_type ep,
 		return -EINVAL;
 	}
 	ipa_ep_idx = ipa_get_ep_mapping(ipa_ctx->mode, ep);
-	if (ipa_ep_idx == IPA_FLT_TABLE_INDEX_NOT_FOUND ||
-				ipa_ctx->ep[ipa_ep_idx].valid == 0) {
-		IPAERR("ep not valid and/or connected ep_idx=%d\n", ipa_ep_idx);
-
+	if (ipa_ep_idx == IPA_FLT_TABLE_INDEX_NOT_FOUND) {
+		IPAERR("ep not valid ep=%d\n", ep);
 		return -EINVAL;
 	}
+	if (ipa_ctx->ep[ipa_ep_idx].valid == 0)
+		IPADBG("ep not connected ep_idx=%d\n", ipa_ep_idx);
+
 	tbl = &ipa_ctx->flt_tbl[ipa_ep_idx][ip];
 	IPADBG("add ep flt rule ip=%d ep=%d\n", ip, ep);
 
@@ -801,8 +802,11 @@ int ipa_reset_flt(enum ipa_ip_type ip)
 	IPADBG("reset flt ip=%d\n", ip);
 	list_for_each_entry_safe(entry, next, &tbl->head_flt_rule_list, link) {
 		node = ipa_search(&ipa_ctx->flt_rule_hdl_tree, (u32)entry);
-		if (node == NULL)
+		if (node == NULL) {
 			WARN_ON(1);
+			mutex_unlock(&ipa_ctx->lock);
+			return -EFAULT;
+		}
 
 		if ((ip == IPA_IP_v4 &&
 		     entry->rule.attrib.attrib_mask == IPA_FLT_PROTOCOL &&
@@ -832,8 +836,11 @@ int ipa_reset_flt(enum ipa_ip_type ip)
 				link) {
 			node = ipa_search(&ipa_ctx->flt_rule_hdl_tree,
 					(u32)entry);
-			if (node == NULL)
+			if (node == NULL) {
 				WARN_ON(1);
+				mutex_unlock(&ipa_ctx->lock);
+				return -EFAULT;
+			}
 			list_del(&entry->link);
 			entry->tbl->rule_cnt--;
 			if (entry->rt_tbl)

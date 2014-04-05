@@ -39,6 +39,7 @@
 #include "smd_private.h"
 #include "smd_rpc_sym.h"
 #include "modem_notifier.h"
+#include "smem_private.h"
 
 #define DEBUG
 #undef DEBUG
@@ -158,7 +159,10 @@ struct sym base_syms[] = {
 	{ SMEM_LOG_ERROR_EVENT_BASE, "ERROR" },
 	{ SMEM_LOG_DCVS_EVENT_BASE, "DCVS" },
 	{ SMEM_LOG_SLEEP_EVENT_BASE, "SLEEP" },
-	{ SMEM_LOG_RPC_ROUTER_EVENT_BASE, "ROUTER" },
+	{ SMEM_LOG_RPC_ROUTER_EVENT_BASE, "RPCROUTER" },
+	{ SMEM_LOG_QMI_CCI_EVENT_BASE, "QCCI" },
+	{ SMEM_LOG_QMI_CSI_EVENT_BASE, "QCSI" },
+	{ SMEM_LOG_IPC_ROUTER_EVENT_BASE, "IPCROUTER" },
 };
 
 struct sym event_syms[] = {
@@ -2005,7 +2009,7 @@ static int smem_log_initialize(void)
 	return ret;
 }
 
-static int smd_module_init_notifier(struct notifier_block *this,
+static int smem_module_init_notifier(struct notifier_block *this,
 				    unsigned long code,
 				    void *_cmd)
 {
@@ -2016,12 +2020,12 @@ static int smd_module_init_notifier(struct notifier_block *this,
 }
 
 static struct notifier_block nb = {
-	.notifier_call = smd_module_init_notifier,
+	.notifier_call = smem_module_init_notifier,
 };
 
 static int __init smem_log_init(void)
 {
-	return smd_module_init_notifier_register(&nb);
+	return smem_module_init_notifier_register(&nb);
 }
 
 

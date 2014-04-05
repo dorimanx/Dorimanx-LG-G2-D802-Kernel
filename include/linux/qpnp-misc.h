@@ -40,6 +40,8 @@ static int qpnp_misc_irqs_available(struct device *consumer_dev)
 /* PMIC USB Override function for smb349 charger */
 int smb349_pmic_usb_override(bool mode);
 bool smb349_pmic_batt_present(void);
-void smb349_pmic_reg_dump(void);
+#endif
+#ifdef CONFIG_BQ24192_CHARGER
+bool bq24192_pmic_batt_present(void);
 #endif
 #endif

@@ -64,20 +64,20 @@ static const struct b206x_init_tab_entry b2062_init_tab[] = {
 	/* { .offset = B2062_N_GEN_CTL0, .value_a = 0x0000, .value_g = 0x0000, .flags = 0, }, */
 	/* { .offset = B2062_N_IQ_CALIB, .value_a = 0x0001, .value_g = 0x0001, .flags = 0, }, */
 	{ .offset = B2062_N_LGENC, .value_a = 0x00DB, .value_g = 0x00FF, .flags = B206X_FLAG_A, },
-	/*                                                                                     */
-	/*                                                                                       */
+	/* { .offset = B2062_N_LGENA_LPF, .value_a = 0x0001, .value_g = 0x0001, .flags = 0, }, */
+	/* { .offset = B2062_N_LGENA_BIAS0, .value_a = 0x0041, .value_g = 0x0041, .flags = 0, }, */
 	/* { .offset = B2062_N_LGNEA_BIAS1, .value_a = 0x0002, .value_g = 0x0002, .flags = 0, }, */
-	/*                                                                                      */
-	/*                                                                                      */
-	/*                                                                                      */
+	/* { .offset = B2062_N_LGENA_CTL0, .value_a = 0x0032, .value_g = 0x0032, .flags = 0, }, */
+	/* { .offset = B2062_N_LGENA_CTL1, .value_a = 0x0000, .value_g = 0x0000, .flags = 0, }, */
+	/* { .offset = B2062_N_LGENA_CTL2, .value_a = 0x0000, .value_g = 0x0000, .flags = 0, }, */
 	{ .offset = B2062_N_LGENA_TUNE0, .value_a = 0x00DD, .value_g = 0x0000, .flags = B206X_FLAG_A | B206X_FLAG_G, },
-	/*                                                                                       */
+	/* { .offset = B2062_N_LGENA_TUNE1, .value_a = 0x0000, .value_g = 0x0000, .flags = 0, }, */
 	{ .offset = B2062_N_LGENA_TUNE2, .value_a = 0x00DD, .value_g = 0x0000, .flags = B206X_FLAG_A | B206X_FLAG_G, },
 	{ .offset = B2062_N_LGENA_TUNE3, .value_a = 0x0077, .value_g = 0x00B5, .flags = B206X_FLAG_A | B206X_FLAG_G, },
 	{ .offset = B2062_N_LGENA_CTL3, .value_a = 0x0000, .value_g = 0x00FF, .flags = B206X_FLAG_A | B206X_FLAG_G, },
-	/*                                                                                      */
-	/*                                                                                      */
-	/*                                                                                      */
+	/* { .offset = B2062_N_LGENA_CTL4, .value_a = 0x001F, .value_g = 0x001F, .flags = 0, }, */
+	/* { .offset = B2062_N_LGENA_CTL5, .value_a = 0x0032, .value_g = 0x0032, .flags = 0, }, */
+	/* { .offset = B2062_N_LGENA_CTL6, .value_a = 0x0032, .value_g = 0x0032, .flags = 0, }, */
 	{ .offset = B2062_N_LGENA_CTL7, .value_a = 0x0033, .value_g = 0x0033, .flags = B206X_FLAG_A | B206X_FLAG_G, },
 	/* { .offset = B2062_N_RXA_CTL0, .value_a = 0x0009, .value_g = 0x0009, .flags = 0, }, */
 	{ .offset = B2062_N_RXA_CTL1, .value_a = 0x0000, .value_g = 0x0000, .flags = B206X_FLAG_G, },
@@ -172,16 +172,16 @@ static const struct b206x_init_tab_entry b2062_init_tab[] = {
 	/* { .offset = B2062_S_BG_CTL2, .value_a = 0x0011, .value_g = 0x0011, .flags = 0, }, */
 	{ .offset = B2062_S_LGENG_CTL0, .value_a = 0x00F8, .value_g = 0x00D8, .flags = B206X_FLAG_A | B206X_FLAG_G, },
 	{ .offset = B2062_S_LGENG_CTL1, .value_a = 0x003C, .value_g = 0x0024, .flags = B206X_FLAG_A | B206X_FLAG_G, },
-	/*                                                                                      */
-	/*                                                                                      */
-	/*                                                                                      */
-	/*                                                                                      */
-	/*                                                                                      */
-	/*                                                                                      */
+	/* { .offset = B2062_S_LGENG_CTL2, .value_a = 0x0000, .value_g = 0x0000, .flags = 0, }, */
+	/* { .offset = B2062_S_LGENG_CTL3, .value_a = 0x0041, .value_g = 0x0041, .flags = 0, }, */
+	/* { .offset = B2062_S_LGENG_CTL4, .value_a = 0x0002, .value_g = 0x0002, .flags = 0, }, */
+	/* { .offset = B2062_S_LGENG_CTL5, .value_a = 0x0033, .value_g = 0x0033, .flags = 0, }, */
+	/* { .offset = B2062_S_LGENG_CTL6, .value_a = 0x0022, .value_g = 0x0022, .flags = 0, }, */
+	/* { .offset = B2062_S_LGENG_CTL7, .value_a = 0x0000, .value_g = 0x0000, .flags = 0, }, */
 	{ .offset = B2062_S_LGENG_CTL8, .value_a = 0x0088, .value_g = 0x0080, .flags = B206X_FLAG_A | B206X_FLAG_G, },
-	/*                                                                                      */
+	/* { .offset = B2062_S_LGENG_CTL9, .value_a = 0x0088, .value_g = 0x0088, .flags = 0, }, */
 	{ .offset = B2062_S_LGENG_CTL10, .value_a = 0x0088, .value_g = 0x0080, .flags = B206X_FLAG_A | B206X_FLAG_G, },
-	/*                                                                                       */
+	/* { .offset = B2062_S_LGENG_CTL11, .value_a = 0x0000, .value_g = 0x0000, .flags = 0, }, */
 	/* { .offset = B2062_S_REFPLL_CTL0, .value_a = 0x0000, .value_g = 0x0000, .flags = 0, }, */
 	/* { .offset = B2062_S_REFPLL_CTL1, .value_a = 0x0007, .value_g = 0x0007, .flags = 0, }, */
 	/* { .offset = B2062_S_REFPLL_CTL2, .value_a = 0x00AF, .value_g = 0x00AF, .flags = 0, }, */

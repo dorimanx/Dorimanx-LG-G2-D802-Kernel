@@ -28,12 +28,10 @@
 		interrupt-names = "spi_irq", "spi_bam_irq";
 
 	spi-max-frequency = <7400000>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		gpios = <&msmgpio 48 0>, /* CLK  */
-			<&msmgpio 46 0>, /* MISO */
-			<&msmgpio 45 0>; /* MOSI */
-		cs-gpios = <&msmgpio 47 0>;
+		qcom,gpio-mosi = <&msmgpio 45 0>;
+                qcom,gpio-miso = <&msmgpio 46 0>;
+                qcom,gpio-clk = <&msmgpio 48 0>;
+                qcom,gpio-cs0 = <&msmgpio 47 0>;
 
 		qcom,use-bam; /* enable BAM-mode */
 		qcom,bam-consumer-pipe-index = <14>; /* Consumer PIPE for BLSP8 */

@@ -22,6 +22,7 @@
 
 /* Reference: HDMI 1.4a Specification section 7.1 */
 #define RETRANSMIT_MAX_NUM	5
+#define MAX_OPERAND_SIZE	15
 
 /*
  * Ref. HDMI 1.4a: Supplement-1 CEC Section 6, 7
@@ -30,7 +31,7 @@ struct hdmi_cec_msg {
 	u8 sender_id;
 	u8 recvr_id;
 	u8 opcode;
-	u8 operand[15];
+	u8 operand[MAX_OPERAND_SIZE];
 	u8 frame_size;
 	u8 retransmit;
 };
@@ -349,7 +350,8 @@ static int hdmi_cec_msg_send(struct hdmi_cec_ctrl *cec_ctrl,
 			(msg->operand[i] << 8) | frame_type);
 
 	while ((DSS_REG_R(io, HDMI_CEC_STATUS) & BIT(0)) &&
-		line_check_retry--) {
+		line_check_retry) {
+		line_check_retry--;
 		DEV_DBG("%s: CEC line is busy(%d)\n", __func__,
 			line_check_retry);
 		schedule();
@@ -738,6 +740,10 @@ static ssize_t hdmi_wta_cec_msg(struct device *dev,
 	}
 	spin_unlock_irqrestore(&cec_ctrl->lock, flags);
 
+	if (msg->frame_size > MAX_OPERAND_SIZE) {
+		DEV_ERR("%s: msg frame too big!\n", __func__);
+		return -EINVAL;
+	}
 	rc = hdmi_cec_msg_send(cec_ctrl, msg);
 	if (rc) {
 		DEV_ERR("%s: hdmi_cec_msg_send failed\n", __func__);
@@ -751,7 +757,7 @@ static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, hdmi_rda_cec_enable,
 	hdmi_wta_cec_enable);
 static DEVICE_ATTR(enable_compliance, S_IRUGO | S_IWUSR,
 	hdmi_rda_cec_enable_compliance, hdmi_wta_cec_enable_compliance);
-static DEVICE_ATTR(logical_addr, S_IRUGO | S_IWUSR,
+static DEVICE_ATTR(logical_addr, S_IRUSR | S_IWUSR,
 	hdmi_rda_cec_logical_addr, hdmi_wta_cec_logical_addr);
 static DEVICE_ATTR(rd_msg, S_IRUGO, hdmi_rda_cec_msg,	NULL);
 static DEVICE_ATTR(wr_msg, S_IWUSR, NULL, hdmi_wta_cec_msg);

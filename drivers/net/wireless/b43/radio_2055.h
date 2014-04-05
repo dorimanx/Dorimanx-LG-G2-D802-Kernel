@@ -23,7 +23,7 @@
 #define B2055_C2_SP_TXGC2		0x10 /* SP TX GC2 Core 2 */
 #define B2055_MASTER1			0x11 /* Master control 1 */
 #define B2055_MASTER2			0x12 /* Master control 2 */
-#define B2055_PD_LGEN			0x13 /*         */
+#define B2055_PD_LGEN			0x13 /* PD LGEN */
 #define B2055_PD_PLLTS			0x14 /* PD PLL TS */
 #define B2055_C1_PD_LGBUF		0x15 /* PD Core 1 LGBUF */
 #define B2055_C1_PD_TX			0x16 /* PD Core 1 TX */
@@ -33,7 +33,7 @@
 #define B2055_C2_PD_TX			0x1A /* PD Core 2 TX */
 #define B2055_C2_PD_RXTX		0x1B /* PD Core 2 RXTX */
 #define B2055_C2_PD_RSSIMISC		0x1C /* PD Core 2 RSSI MISC */
-#define B2055_PWRDET_LGEN		0x1D /*             */
+#define B2055_PWRDET_LGEN		0x1D /* PWRDET LGEN */
 #define B2055_C1_PWRDET_LGBUF		0x1E /* PWRDET LGBUF Core 1 */
 #define B2055_C1_PWRDET_RXTX		0x1F /* PWRDET RXTX Core 1 */
 #define B2055_C2_PWRDET_LGBUF		0x20 /* PWRDET LGBUF Core 2 */
@@ -90,15 +90,15 @@
 #define B2055_VCO_REG			0x53 /* VCO Regulator */
 #define B2055_PLL_RFVTH			0x54 /* PLL RF VTH */
 #define B2055_LGBUF_CENBUF		0x55 /* LGBUF CEN BUF */
-#define B2055_LGEN_TUNE1		0x56 /*             */
-#define B2055_LGEN_TUNE2		0x57 /*             */
-#define B2055_LGEN_IDAC1		0x58 /*             */
-#define B2055_LGEN_IDAC2		0x59 /*             */
-#define B2055_LGEN_BIASC		0x5A /*                   */
-#define B2055_LGEN_BIASIDAC		0x5B /*                */
-#define B2055_LGEN_RCAL			0x5C /*           */
-#define B2055_LGEN_DIV			0x5D /*          */
-#define B2055_LGEN_SPARE2		0x5E /*              */
+#define B2055_LGEN_TUNE1		0x56 /* LGEN tune 1 */
+#define B2055_LGEN_TUNE2		0x57 /* LGEN tune 2 */
+#define B2055_LGEN_IDAC1		0x58 /* LGEN IDAC 1 */
+#define B2055_LGEN_IDAC2		0x59 /* LGEN IDAC 2 */
+#define B2055_LGEN_BIASC		0x5A /* LGEN BIAS counter */
+#define B2055_LGEN_BIASIDAC		0x5B /* LGEN BIAS IDAC */
+#define B2055_LGEN_RCAL			0x5C /* LGEN RCAL */
+#define B2055_LGEN_DIV			0x5D /* LGEN div */
+#define B2055_LGEN_SPARE2		0x5E /* LGEN spare 2 */
 #define B2055_C1_LGBUF_ATUNE		0x5F /* Core 1 LGBUF A tune */
 #define B2055_C1_LGBUF_GTUNE		0x60 /* Core 1 LGBUF G tune */
 #define B2055_C1_LGBUF_DIV		0x61 /* Core 1 LGBUF div */

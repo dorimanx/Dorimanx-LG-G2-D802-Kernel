@@ -405,6 +405,10 @@
 #define __NR_process_vm_readv		(__NR_SYSCALL_BASE+376)
 #define __NR_process_vm_writev		(__NR_SYSCALL_BASE+377)
 
+//FEATURE_SDCARD_MEDIAEXN_SYSTEMCALL_ENCRYPTION[S]
+#define __NR_set_media_property	(__NR_SYSCALL_BASE+378)
+#define __NR_set_media_ext	(__NR_SYSCALL_BASE+379)
+//FEATURE_SDCARD_MEDIAEXN_SYSTEMCALL_ENCRYPTION[E]
 /*
  * The following SWIs are ARM private.
  */

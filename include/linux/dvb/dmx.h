@@ -152,6 +152,8 @@ enum dmx_video_codec {
 #define DMX_IDX_VC1_FIRST_SEQ_FRAME_END     0x00800000
 #define DMX_IDX_VC1_FRAME_START             0x01000000
 #define DMX_IDX_VC1_FRAME_END               0x02000000
+#define DMX_IDX_H264_ACCESS_UNIT_DEL        0x04000000
+#define DMX_IDX_H264_SEI                    0x08000000
 
 struct dmx_pes_filter_params
 {
@@ -528,6 +530,12 @@ typedef struct dmx_caps {
 /* Indicates whether demux support sending data directly to subtitle decoder */
 #define DMX_CAP_SUBTITLE_DECODER_DATA	0x10
 
+/* Indicates whether TS insertion is supported */
+#define DMX_CAP_TS_INSERTION	0x20
+
+/* Indicates whether playback from secured input is supported */
+#define DMX_CAP_SECURED_INPUT_PLAYBACK	0x40
+
 	/* Number of decoders demux can output data to */
 	int num_decoders;
 
@@ -566,6 +574,12 @@ typedef struct dmx_caps {
 
 	/* Max bitrate from single memory input. Mbit/sec */
 	int memory_input_max_bitrate;
+
+	/* Max number of supported cipher operations per PID */
+	int num_cipher_ops;
+
+	/* Max possible value of STC reported by demux, in 27MHz */
+	__u64 max_stc;
 
 	struct dmx_buffer_requirement section;
 
@@ -654,6 +668,15 @@ enum dmx_buffer_mode {
 struct dmx_buffer {
 	unsigned int size;
 	int handle;
+
+	/*
+	 * The following indication is relevant only when setting
+	 * DVR input buffer. It indicates whether the input buffer
+	 * being set is secured one or not. Secured (locked) buffers
+	 * are required for playback from secured input. In such case
+	 * write() syscall is not allowed.
+	 */
+	int is_protected;
 };
 
 struct dmx_decoder_buffers {
@@ -678,16 +701,41 @@ struct dmx_decoder_buffers {
 
 struct dmx_secure_mode {
 	/*
-	 * Specifies whether secure mode should be set or not for the filter's
-	 * pid. Note that DMX_OUT_TSDEMUX_TAP filters can have more than 1 pid
+	 * Specifies whether the filter is secure or not.
+	 * Filter should be set as secured if the filter's data *may* include
+	 * encrypted data that would require decryption configured through
+	 * DMX_SET_CIPHER ioctl. The setting may be done while
+	 * filter is in idle state only.
 	 */
 	int is_secured;
+};
 
-	/* PID to associate with key ladder id */
+struct dmx_cipher_operation {
+	/* Indication whether the operation is encryption or decryption */
+	int encrypt;
+
+	/* The ID of the key used for decryption or encryption */
+	__u32 key_ladder_id;
+};
+
+#define DMX_MAX_CIPHER_OPERATIONS_COUNT	5
+struct dmx_cipher_operations {
+	/*
+	 * The PID to perform the cipher operations on.
+	 * In case of recording filter, multiple PIDs may exist in the same
+	 * filter through DMX_ADD_PID ioctl, each may have different
+	 * cipher operations.
+	 */
 	__u16 pid;
 
-	/* key ladder information to associate with the specified pid */
-	__u32 key_ladder_id;
+	/* Total number of operations */
+	__u8 operations_count;
+
+	/*
+	 * Cipher operation to perform on the given PID.
+	 * The operations are performed in the order they are given.
+	 */
+	struct dmx_cipher_operation operations[DMX_MAX_CIPHER_OPERATIONS_COUNT];
 };
 
 struct dmx_events_mask {
@@ -819,5 +867,7 @@ struct dmx_scrambling_bits {
 #define DMX_SET_TS_INSERTION _IOW('o', 70, struct dmx_set_ts_insertion)
 #define DMX_ABORT_TS_INSERTION _IOW('o', 71, struct dmx_abort_ts_insertion)
 #define DMX_GET_SCRAMBLING_BITS _IOWR('o', 72, struct dmx_scrambling_bits)
+#define DMX_SET_CIPHER _IOW('o', 73, struct dmx_cipher_operations)
+
 
 #endif /*_DVBDMX_H_*/

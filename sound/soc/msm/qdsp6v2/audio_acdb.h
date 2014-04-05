@@ -35,10 +35,9 @@ struct acdb_cal_block {
 	uint32_t		cal_paddr;
 };
 
-struct acdb_atomic_cal_block {
-	atomic_t		cal_size;
-	atomic_t		cal_kvaddr;
-	atomic_t		cal_paddr;
+struct hw_delay_entry {
+	uint32_t sample_rate;
+	uint32_t delay_usec;
 };
 
 uint32_t get_voice_rx_topology(void);
@@ -47,23 +46,24 @@ uint32_t get_adm_rx_topology(void);
 uint32_t get_adm_tx_topology(void);
 uint32_t get_asm_topology(void);
 void reset_custom_topology_flags(void);
-void get_adm_custom_topology(struct acdb_cal_block *cal_block);
-void get_asm_custom_topology(struct acdb_cal_block *cal_block);
-void get_voice_cal_allocation(struct acdb_cal_block *cal_block);
-void get_lsm_cal(struct acdb_cal_block *cal_block);
-void get_anc_cal(struct acdb_cal_block *cal_block);
-void get_afe_cal(int32_t path, struct acdb_cal_block *cal_block);
-void get_audproc_cal(int32_t path, struct acdb_cal_block *cal_block);
-void get_audstrm_cal(int32_t path, struct acdb_cal_block *cal_block);
-void get_audvol_cal(int32_t path, struct acdb_cal_block *cal_block);
-void get_voice_col_data(uint32_t vocproc_type,
+int get_adm_custom_topology(struct acdb_cal_block *cal_block);
+int get_asm_custom_topology(struct acdb_cal_block *cal_block);
+int get_voice_cal_allocation(struct acdb_cal_block *cal_block);
+int get_lsm_cal(struct acdb_cal_block *cal_block);
+int get_anc_cal(struct acdb_cal_block *cal_block);
+int get_afe_cal(int32_t path, struct acdb_cal_block *cal_block);
+int get_audproc_cal(int32_t path, struct acdb_cal_block *cal_block);
+int get_audstrm_cal(int32_t path, struct acdb_cal_block *cal_block);
+int get_audvol_cal(int32_t path, struct acdb_cal_block *cal_block);
+int get_voice_col_data(uint32_t vocproc_type,
 	struct acdb_cal_block *cal_block);
-void get_vocproc_dev_cfg_cal(struct acdb_cal_block *cal_block);
-void get_vocproc_cal(struct acdb_cal_block *cal_block);
-void get_vocstrm_cal(struct acdb_cal_block *cal_block);
-void get_vocvol_cal(struct acdb_cal_block *cal_block);
-void get_sidetone_cal(struct sidetone_cal *cal_data);
-void get_spk_protection_cfg(struct msm_spk_prot_cfg *prot_cfg);
-void get_aanc_cal(struct acdb_cal_block *cal_block);
+int get_vocproc_dev_cfg_cal(struct acdb_cal_block *cal_block);
+int get_vocproc_cal(struct acdb_cal_block *cal_block);
+int get_vocstrm_cal(struct acdb_cal_block *cal_block);
+int get_vocvol_cal(struct acdb_cal_block *cal_block);
+int get_sidetone_cal(struct sidetone_cal *cal_data);
+int get_spk_protection_cfg(struct msm_spk_prot_cfg *prot_cfg);
+int get_aanc_cal(struct acdb_cal_block *cal_block);
+int get_hw_delay(int32_t path, struct hw_delay_entry *delay_info);
 
 #endif

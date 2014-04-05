@@ -100,7 +100,7 @@ static struct vregs_info iris_vregs_pronto[] = {
 	{"qcom,iris-vddpa",  VREG_NULL_CONFIG, 2900000, 0,
 		3000000, 515000, NULL},
 	{"qcom,iris-vdddig", VREG_NULL_CONFIG, 1225000, 0,
-		1300000, 10000,  NULL},
+		1800000, 10000,  NULL},
 };
 
 /* WCNSS regulators for Pronto hardware */
@@ -117,12 +117,6 @@ static struct vregs_info pronto_vregs[] = {
 struct host_driver {
 	char name[20];
 	struct list_head list;
-};
-
-enum {
-	WCNSS_XO_48MHZ = 1,
-	WCNSS_XO_19MHZ,
-	WCNSS_XO_INVALID,
 };
 
 enum {
@@ -147,7 +141,8 @@ int xo_auto_detect(u32 reg)
 	}
 }
 
-static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on)
+static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on,
+			int *iris_xo_set)
 {
 	u32 reg = 0;
 	u32 iris_reg = WCNSS_INVALID_IRIS_REG;
@@ -254,8 +249,12 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on)
 		reg &= ~(WCNSS_PMU_CFG_IRIS_XO_MODE);
 
 		if ((use_48mhz_xo && auto_detect == WCNSS_XO_INVALID)
-				|| auto_detect ==  WCNSS_XO_48MHZ)
+				|| auto_detect ==  WCNSS_XO_48MHZ) {
 			reg |= WCNSS_PMU_CFG_IRIS_XO_MODE_48;
+
+			if (iris_xo_set)
+				*iris_xo_set = WCNSS_XO_48MHZ;
+		}
 
 		writel_relaxed(reg, pmu_conf_reg);
 
@@ -288,6 +287,8 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on)
 				pr_err("clk_rf enable failed\n");
 				goto fail;
 			}
+			if (iris_xo_set)
+				*iris_xo_set = WCNSS_XO_19MHZ;
 		}
 
 	}  else if ((!use_48mhz_xo && auto_detect == WCNSS_XO_INVALID)
@@ -491,7 +492,7 @@ static int wcnss_core_vregs_on(struct device *dev, enum wcnss_hw_type hw_type)
 
 int wcnss_wlan_power(struct device *dev,
 		struct wcnss_wlan_config *cfg,
-		enum wcnss_opcode on)
+		enum wcnss_opcode on, int *iris_xo_set)
 {
 	int rc = 0;
 	enum wcnss_hw_type hw_type = wcnss_hardware_type();
@@ -510,14 +511,14 @@ int wcnss_wlan_power(struct device *dev,
 
 		/* Configure IRIS XO */
 		rc = configure_iris_xo(dev, cfg->use_48mhz_xo,
-				WCNSS_WLAN_SWITCH_ON);
+				WCNSS_WLAN_SWITCH_ON, iris_xo_set);
 		if (rc)
 			goto fail_iris_xo;
 		up(&wcnss_power_on_lock);
 
 	} else {
 		configure_iris_xo(dev, cfg->use_48mhz_xo,
-				WCNSS_WLAN_SWITCH_OFF);
+				WCNSS_WLAN_SWITCH_OFF, NULL);
 		wcnss_iris_vregs_off(hw_type);
 		wcnss_core_vregs_off(hw_type);
 	}

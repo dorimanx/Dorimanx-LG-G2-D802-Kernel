@@ -20,6 +20,7 @@
 #include <linux/of_gpio.h>
 #include <linux/of_platform.h>
 #include <linux/types.h>
+#include <linux/sched.h>
 #include <mach/msm_hdmi_audio_codec.h>
 
 #define REG_DUMP 0
@@ -37,7 +38,7 @@
 #include "mdss_hdmi_slimport.h"
 #endif
 
-// enable DEV_DBG log
+/* enable DEV_DBG log */
 #ifdef DEV_DBG
 #undef DEV_DBG
 #define DEV_DBG(fmt, args...)   pr_info(fmt, ##args)
@@ -55,6 +56,14 @@
 #define HPD_DISCONNECT_POLARITY 0
 #define HPD_CONNECT_POLARITY    1
 
+/*
+ * Audio engine may take 1 to 3 sec to shutdown
+ * in normal cases. To handle worst cases, making
+ * timeout for audio engine shutdown as 5 sec.
+ */
+#define AUDIO_POLL_SLEEP_US   (5 * 1000)
+#define AUDIO_POLL_TIMEOUT_US (AUDIO_POLL_SLEEP_US * 1000)
+
 #define IFRAME_CHECKSUM_32(d)			\
 	((d & 0xff) + ((d >> 8) & 0xff) +	\
 	((d >> 16) & 0xff) + ((d >> 24) & 0xff))
@@ -64,8 +73,11 @@ static bool hdcp_feature_on = true;
 
 /* Supported HDMI Audio channels */
 #define MSM_HDMI_AUDIO_CHANNEL_2	2
+#define MSM_HDMI_AUDIO_CHANNEL_3	3
 #define MSM_HDMI_AUDIO_CHANNEL_4	4
+#define MSM_HDMI_AUDIO_CHANNEL_5	5
 #define MSM_HDMI_AUDIO_CHANNEL_6	6
+#define MSM_HDMI_AUDIO_CHANNEL_7	7
 #define MSM_HDMI_AUDIO_CHANNEL_8	8
 
 enum msm_hdmi_supported_audio_sample_rates {
@@ -92,13 +104,16 @@ struct hdmi_tx_audio_acr_arry {
 
 static int hdmi_tx_set_mhl_hpd(struct platform_device *pdev, uint8_t on);
 #ifdef CONFIG_SLIMPORT_DYNAMIC_HPD
-static int hdmi_tx_set_slimport_hpd(struct platform_device *pdev,uint8_t on);
+static int hdmi_tx_set_slimport_hpd(struct platform_device *pdev, uint8_t on);
 #endif
 static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on);
 static irqreturn_t hdmi_tx_isr(int irq, void *data);
 static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl);
 static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	enum hdmi_tx_power_module_type module, int enable);
+static inline void hdmi_tx_set_audio_switch_node(struct hdmi_tx_ctrl *hdmi_ctrl,
+	int val, bool force);
+static int hdmi_tx_audio_setup(struct hdmi_tx_ctrl *hdmi_ctrl);
 
 struct mdss_hw hdmi_tx_hw = {
 	.hw_ndx = MDSS_HW_HDMI,
@@ -124,6 +139,8 @@ struct dss_gpio cec_gpio_config[] = {
 	{0, 1, COMPATIBLE_NAME "-cec"}
 };
 
+struct completion power_off_done;
+
 const char *hdmi_pm_name(enum hdmi_tx_power_module_type module)
 {
 	switch (module) {
@@ -135,7 +152,13 @@ const char *hdmi_pm_name(enum hdmi_tx_power_module_type module)
 	}
 } /* hdmi_pm_name */
 
-static u8 hdmi_tx_avi_iframe_lut[][22] = {
+static DEFINE_MUTEX(avi_iframe_lut_lock);
+#define NUM_MODES_AVI 22
+#define SET_ITC_BIT(byte)  (byte | 0x80)
+#define CLR_ITC_BIT(byte)  (byte & 0x7F)
+#define CONFIG_CN_BITS(bits, byte)  ((byte & ~(0x03 << 4)) | (bits << 4))
+
+static u8 hdmi_tx_avi_iframe_lut[][NUM_MODES_AVI] = {
 	{0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,
 	 0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,
 	 0x10,	0x10, 0x10, 0x10}, /*00*/
@@ -202,12 +225,67 @@ static const struct hdmi_tx_audio_acr_arry hdmi_tx_audio_acr_lut[] = {
 		{20480, 247500} } },
 };
 
-static bool is_cea_format(int mode)
+/* To statically config ITC bit from sysfs attribute */
+static int hdmi_tx_config_itc_bit(int itc)
 {
-	if ((mode > 0) && (mode < HDMI_EVFRMT_END))
-		return true;
+	int ret = 0, loop = NUM_MODES_AVI;
+
+	if (mutex_lock_interruptible(&avi_iframe_lut_lock)) {
+		ret = -ERESTARTSYS;
+		goto signal_intr;
+	}
+
+	do {
+		--loop;
+		if (itc == 0)
+			hdmi_tx_avi_iframe_lut[2][loop] =
+				CLR_ITC_BIT(hdmi_tx_avi_iframe_lut[2][loop]);
+		if (itc == 1)
+			hdmi_tx_avi_iframe_lut[2][loop] =
+				SET_ITC_BIT(hdmi_tx_avi_iframe_lut[2][loop]);
+	} while (loop);
+
+	mutex_unlock(&avi_iframe_lut_lock);
+
+signal_intr:
+	return ret;
+}
+
+/* To configure CN0_1 bits from sysfs attribute */
+static int hdmi_tx_config_cn_bits(int cns)
+{
+	int ret = 0, loop = NUM_MODES_AVI;
+
+	if (mutex_lock_interruptible(&avi_iframe_lut_lock)) {
+		ret = -ERESTARTSYS;
+		goto signal_intr;
+	}
+
+	do {
+		--loop;
+		hdmi_tx_avi_iframe_lut[4][loop] =
+			CONFIG_CN_BITS(cns, hdmi_tx_avi_iframe_lut[4][loop]);
+	} while (loop);
+
+	mutex_unlock(&avi_iframe_lut_lock);
+
+signal_intr:
+	return ret;
+}
+
+
+static bool hdmi_tx_is_cea_format(int mode)
+{
+	bool cea_fmt;
+
+	if ((mode > 0) && (mode <= HDMI_EVFRMT_END))
+		cea_fmt = true;
 	else
-		return false;
+		cea_fmt = false;
+
+	DEV_DBG("%s: %s\n", __func__, cea_fmt ? "Yes" : "No");
+
+	return cea_fmt;
 }
 
 const char *hdmi_tx_pm_name(enum hdmi_tx_power_module_type module)
@@ -291,6 +369,70 @@ static int hdmi_tx_get_vic_from_panel_info(struct hdmi_tx_ctrl *hdmi_ctrl,
 	return new_vic;
 } /* hdmi_tx_get_vic_from_panel_info */
 
+static inline void hdmi_tx_send_cable_notification(
+	struct hdmi_tx_ctrl *hdmi_ctrl, int val)
+{
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	if (!hdmi_ctrl->pdata.primary && (hdmi_ctrl->sdev.state != val))
+		switch_set_state(&hdmi_ctrl->sdev, val);
+} /* hdmi_tx_send_cable_notification */
+
+static inline u32 hdmi_tx_is_dvi_mode(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	return hdmi_edid_get_sink_mode(
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) ? 0 : 1;
+} /* hdmi_tx_is_dvi_mode */
+
+static void hdmi_tx_wait_for_audio_engine(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	u32 status = 0;
+	u32 wait_for_vote = 50;
+	struct dss_io_data *io = NULL;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
+	if (!io->base) {
+		DEV_ERR("%s: core io not inititalized\n", __func__);
+		return;
+	}
+
+	/*
+	 * wait for 5 sec max for audio engine to acknowledge if hdmi tx core
+	 * can be safely turned off. Sleep for a reasonable time to make sure
+	 * vote_hdmi_core_on variable is updated properly by audio.
+	 */
+	while (hdmi_ctrl->vote_hdmi_core_on && --wait_for_vote)
+		msleep(100);
+
+
+	if (!wait_for_vote)
+		DEV_ERR("%s: HDMI core still voted for power on\n", __func__);
+#ifdef CONFIG_SLIMPORT_ANX7808
+	if (hdmi_ctrl->audio_enabled) {
+#endif
+		if (readl_poll_timeout(io->base + HDMI_AUDIO_PKT_CTRL, status,
+					(status & BIT(0)) == 0, AUDIO_POLL_SLEEP_US,
+					AUDIO_POLL_TIMEOUT_US))
+			DEV_ERR("%s: Error turning off audio packet transmission.\n",
+				__func__);
+
+		if (readl_poll_timeout(io->base + HDMI_AUDIO_CFG, status,
+					(status & BIT(0)) == 0, AUDIO_POLL_SLEEP_US,
+					AUDIO_POLL_TIMEOUT_US))
+			DEV_ERR("%s: Error turning off audio engine.\n", __func__);
+#ifdef CONFIG_SLIMPORT_ANX7808
+	}
+#endif
+}
+
 static struct hdmi_tx_ctrl *hdmi_tx_get_drvdata_from_panel_data(
 	struct mdss_panel_data *mpd)
 {
@@ -330,7 +472,7 @@ void *hdmi_get_featuredata_from_sysfs_dev(struct device *device,
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
 
-	if (!device || feature_type > HDMI_TX_FEAT_MAX) {
+	if (!device || feature_type >= HDMI_TX_FEAT_MAX) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return NULL;
 	}
@@ -464,6 +606,15 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 
 	if (0 == hpd && hdmi_ctrl->hpd_feature_on) {
 		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, false);
+
+		if (hdmi_ctrl->panel_power_on && hdmi_ctrl->hpd_state) {
+			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0, false);
+			hdmi_tx_wait_for_audio_engine(hdmi_ctrl);
+		}
+
+		hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
+		DEV_DBG("%s: Hdmi state switch to %d\n", __func__,
+			hdmi_ctrl->sdev.state);
 	} else if (1 == hpd && !hdmi_ctrl->hpd_feature_on) {
 		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, true);
 	} else {
@@ -488,7 +639,7 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 static ssize_t hdmi_tx_sysfs_wta_vendor_name(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	ssize_t ret;
+	ssize_t ret, sz;
 	u8 *s = (u8 *) buf;
 	u8 *d = NULL;
 	struct hdmi_tx_ctrl *hdmi_ctrl =
@@ -503,7 +654,8 @@ static ssize_t hdmi_tx_sysfs_wta_vendor_name(struct device *dev,
 	ret = strnlen(buf, PAGE_SIZE);
 	ret = (ret > 8) ? 8 : ret;
 
-	memset(hdmi_ctrl->spd_vendor_name, 0, 8);
+	sz = sizeof(hdmi_ctrl->spd_vendor_name);
+	memset(hdmi_ctrl->spd_vendor_name, 0, sz);
 	while (*s) {
 		if (*s & 0x60 && *s ^ 0x7f) {
 			*d = *s;
@@ -517,6 +669,7 @@ static ssize_t hdmi_tx_sysfs_wta_vendor_name(struct device *dev,
 
 		d++;
 	}
+	hdmi_ctrl->spd_vendor_name[sz - 1] = 0;
 
 	DEV_DBG("%s: '%s'\n", __func__, hdmi_ctrl->spd_vendor_name);
 
@@ -544,7 +697,7 @@ static ssize_t hdmi_tx_sysfs_rda_vendor_name(struct device *dev,
 static ssize_t hdmi_tx_sysfs_wta_product_description(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	ssize_t ret;
+	ssize_t ret, sz;
 	u8 *s = (u8 *) buf;
 	u8 *d = NULL;
 	struct hdmi_tx_ctrl *hdmi_ctrl =
@@ -559,7 +712,8 @@ static ssize_t hdmi_tx_sysfs_wta_product_description(struct device *dev,
 	ret = strnlen(buf, PAGE_SIZE);
 	ret = (ret > 16) ? 16 : ret;
 
-	memset(hdmi_ctrl->spd_product_description, 0, 16);
+	sz = sizeof(hdmi_ctrl->spd_product_description);
+	memset(hdmi_ctrl->spd_product_description, 0, sz);
 	while (*s) {
 		if (*s & 0x60 && *s ^ 0x7f) {
 			*d = *s;
@@ -573,6 +727,7 @@ static ssize_t hdmi_tx_sysfs_wta_product_description(struct device *dev,
 
 		d++;
 	}
+	hdmi_ctrl->spd_product_description[sz - 1] = 0;
 
 	DEV_DBG("%s: '%s'\n", __func__, hdmi_ctrl->spd_product_description);
 
@@ -598,6 +753,58 @@ static ssize_t hdmi_tx_sysfs_rda_product_description(struct device *dev,
 	return ret;
 } /* hdmi_tx_sysfs_rda_product_description */
 
+static ssize_t hdmi_tx_sysfs_wta_avi_itc(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	int err = 0;
+	int itc = 0, rc = 0;
+
+	rc = kstrtoint(buf, 10, &itc);
+	if (rc) {
+		DEV_ERR("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+		return rc;
+	}
+
+	if (itc == 0 || itc == 1) {
+		if (hdmi_tx_config_itc_bit(itc))
+			ret = err;
+		else
+			DEV_DBG("%s: '%d is configured'!\n", __func__, itc);
+	} else {
+		DEV_ERR("%s: unknown ITC '%d', should be either 0 or 1\n",
+				__func__, itc);
+	}
+
+	return ret;
+} /* hdmi_tx_sysfs_wta_avi_itc */
+
+static ssize_t hdmi_tx_sysfs_wta_avi_cn0_1(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	int err = 0;
+	int cns = 0, rc = 0;
+
+	rc = kstrtoint(buf, 10, &cns);
+	if (rc) {
+		DEV_ERR("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+		return rc;
+	}
+
+	if (cns == 0 || cns == 1 || cns == 2 || cns == 3) {
+		if (hdmi_tx_config_cn_bits(cns))
+			ret = err;
+		else
+			DEV_DBG("%s: '%d is configured'!\n", __func__, cns);
+	} else {
+		DEV_ERR("%s: unknown CN '%d' should be either 0 or 1, 2 ,3\n",
+				__func__, cns);
+	}
+
+	return ret;
+} /* hdmi_tx_sysfs_wta_avi_cn0_1 */
+
 static DEVICE_ATTR(connected, S_IRUGO, hdmi_tx_sysfs_rda_connected, NULL);
 #ifdef CONFIG_SLIMPORT_ANX7808
 static DEVICE_ATTR(hdmi_vga, S_IRUGO, hdmi_tx_sysfs_rda_hdmi_vga, NULL);
@@ -611,6 +818,8 @@ static DEVICE_ATTR(vendor_name, S_IRUGO | S_IWUSR,
 static DEVICE_ATTR(product_description, S_IRUGO | S_IWUSR,
 	hdmi_tx_sysfs_rda_product_description,
 	hdmi_tx_sysfs_wta_product_description);
+static DEVICE_ATTR(avi_itc, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_itc);
+static DEVICE_ATTR(avi_cn0_1, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_cn0_1);
 
 static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_connected.attr,
@@ -621,6 +830,8 @@ static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_hpd.attr,
 	&dev_attr_vendor_name.attr,
 	&dev_attr_product_description.attr,
+	&dev_attr_avi_itc.attr,
+	&dev_attr_avi_cn0_1.attr,
 	NULL,
 };
 static struct attribute_group hdmi_tx_fs_attrs_group = {
@@ -659,24 +870,6 @@ static void hdmi_tx_sysfs_remove(struct hdmi_tx_ctrl *hdmi_ctrl)
 		sysfs_remove_group(hdmi_ctrl->kobj, &hdmi_tx_fs_attrs_group);
 	hdmi_ctrl->kobj = NULL;
 } /* hdmi_tx_sysfs_remove */
-
-static inline u32 hdmi_tx_is_dvi_mode(struct hdmi_tx_ctrl *hdmi_ctrl)
-{
-	return hdmi_edid_get_sink_mode(
-		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) ? 0 : 1;
-} /* hdmi_tx_is_dvi_mode */
-
-static inline void hdmi_tx_send_cable_notification(
-	struct hdmi_tx_ctrl *hdmi_ctrl, int val)
-{
-	if (!hdmi_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return;
-	}
-
-	if (!hdmi_ctrl->pdata.primary && (hdmi_ctrl->sdev.state != val))
-		switch_set_state(&hdmi_ctrl->sdev, val);
-} /* hdmi_tx_send_cable_notification */
 
 static inline void hdmi_tx_set_audio_switch_node(struct hdmi_tx_ctrl *hdmi_ctrl,
 	int val, bool force)
@@ -784,7 +977,9 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	struct hdmi_edid_init_data edid_init_data;
 	struct hdmi_hdcp_init_data hdcp_init_data;
+#ifndef CONFIG_SLIMPORT_ANX7808
 	struct hdmi_cec_init_data cec_init_data;
+#endif
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -813,6 +1008,7 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdcp_init_data.qfprom_io =
 			&hdmi_ctrl->pdata.io[HDMI_TX_QFPROM_IO];
 		hdcp_init_data.mutex = &hdmi_ctrl->mutex;
+		hdcp_init_data.sysfs_kobj = hdmi_ctrl->kobj;
 		hdcp_init_data.ddc_ctrl = &hdmi_ctrl->ddc_ctrl;
 		hdcp_init_data.workq = hdmi_ctrl->workq;
 		hdcp_init_data.notify_status = hdmi_tx_hdcp_cb;
@@ -831,6 +1027,7 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 		DEV_DBG("%s: HDCP feature initialized\n", __func__);
 	}
 
+#ifndef CONFIG_SLIMPORT_ANX7808
 	/* Initialize CEC feature */
 	cec_init_data.io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
 	cec_init_data.sysfs_kobj = hdmi_ctrl->kobj;
@@ -838,6 +1035,10 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC] =
 		hdmi_cec_init(&cec_init_data);
+#else
+	hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC] = NULL;
+#endif
+
 	if (!hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC])
 		DEV_WARN("%s: hdmi_cec_init failed\n", __func__);
 
@@ -939,13 +1140,14 @@ error:
 static void hdmi_tx_hpd_int_work(struct work_struct *work)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+	struct dss_io_data *io;
 
 	hdmi_ctrl = container_of(work, struct hdmi_tx_ctrl, hpd_int_work);
 	if (!hdmi_ctrl || !hdmi_ctrl->hpd_initialized) {
 		DEV_DBG("%s: invalid input\n", __func__);
 		return;
 	}
-
+	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
 	DEV_DBG("%s: Got HPD interrupt\n", __func__);
 
 	if (hdmi_ctrl->hpd_state) {
@@ -953,15 +1155,17 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 			DEV_ERR("%s: Failed to enable ddc power\n", __func__);
 			return;
 		}
+		/* Enable SW DDC before EDID read */
+		DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION ,
+			DSS_REG_R(io, HDMI_DDC_ARBITRATION) & ~(BIT(4)));
 
 		hdmi_tx_read_sink_info(hdmi_ctrl);
 		hdmi_tx_send_cable_notification(hdmi_ctrl, 1);
 		DEV_INFO("%s: sense cable CONNECTED: state switch to %d\n",
 			__func__, hdmi_ctrl->sdev.state);
 	} else {
-		if (hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, false))
-			DEV_WARN("%s: Failed to disable ddc power\n", __func__);
-
+		hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0, false);
+		hdmi_tx_wait_for_audio_engine(hdmi_ctrl);	
 		hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
 		DEV_INFO("%s: sense cable DISCONNECTED: state switch to %d\n",
 			__func__, hdmi_ctrl->sdev.state);
@@ -1613,8 +1817,10 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	} else {
 		msm_dss_enable_clk(power_data->clk_config,
 			power_data->num_clk, 0);
+#ifdef CONFIG_MACH_LGE
 		msm_dss_clk_set_rate(power_data->clk_config,
-			power_data->num_clk);
+				power_data->num_clk);
+#endif
 		msm_dss_enable_gpio(power_data->gpio_config,
 			power_data->num_gpio, 0);
 		msm_dss_enable_vreg(power_data->vreg_config,
@@ -1758,16 +1964,19 @@ static void hdmi_tx_powerdown_phy(struct hdmi_tx_ctrl *hdmi_ctrl)
 } /* hdmi_tx_powerdown_phy */
 
 static int hdmi_tx_audio_acr_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
-	bool enabled, int num_of_channels)
+	bool enabled)
 {
 	/* Read first before writing */
 	u32 acr_pck_ctrl_reg;
+	u32 sample_rate;
 	struct dss_io_data *io = NULL;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: Invalid input\n", __func__);
 		return -EINVAL;
 	}
+
+	sample_rate = hdmi_ctrl->audio_data.sample_rate;
 
 	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
 	if (!io->base) {
@@ -1803,18 +2012,19 @@ static int hdmi_tx_audio_acr_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 			return -EPERM;
 		}
 
-		n = audio_acr->lut[hdmi_ctrl->audio_sample_rate].n;
-		cts = audio_acr->lut[hdmi_ctrl->audio_sample_rate].cts;
-		layout = (MSM_HDMI_AUDIO_CHANNEL_2 == num_of_channels) ? 0 : 1;
+		n = audio_acr->lut[sample_rate].n;
+		cts = audio_acr->lut[sample_rate].cts;
+		layout = (MSM_HDMI_AUDIO_CHANNEL_2 ==
+			hdmi_ctrl->audio_data.channel_num) ? 0 : 1;
 
 		if (
-		(AUDIO_SAMPLE_RATE_192KHZ == hdmi_ctrl->audio_sample_rate) ||
-		(AUDIO_SAMPLE_RATE_176_4KHZ == hdmi_ctrl->audio_sample_rate)) {
+		(AUDIO_SAMPLE_RATE_192KHZ == sample_rate) ||
+		(AUDIO_SAMPLE_RATE_176_4KHZ == sample_rate)) {
 			multiplier = 4;
 			n >>= 2; /* divide N by 4 and use multiplier */
 		} else if (
-		(AUDIO_SAMPLE_RATE_96KHZ == hdmi_ctrl->audio_sample_rate) ||
-		(AUDIO_SAMPLE_RATE_88_2KHZ == hdmi_ctrl->audio_sample_rate)) {
+		(AUDIO_SAMPLE_RATE_96KHZ == sample_rate) ||
+		(AUDIO_SAMPLE_RATE_88_2KHZ == sample_rate)) {
 			multiplier = 2;
 			n >>= 1; /* divide N by 2 and use multiplier */
 		} else {
@@ -1825,12 +2035,16 @@ static int hdmi_tx_audio_acr_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 
 		/* AUDIO_PRIORITY | SOURCE */
 		acr_pck_ctrl_reg |= 0x80000100;
+
+		/* Reset multiplier bits */
+		acr_pck_ctrl_reg &= ~(7 << 16);
+
 		/* N_MULTIPLE(multiplier) */
 		acr_pck_ctrl_reg |= (multiplier & 7) << 16;
 
-		if ((AUDIO_SAMPLE_RATE_48KHZ == hdmi_ctrl->audio_sample_rate) ||
-		(AUDIO_SAMPLE_RATE_96KHZ == hdmi_ctrl->audio_sample_rate) ||
-		(AUDIO_SAMPLE_RATE_192KHZ == hdmi_ctrl->audio_sample_rate)) {
+		if ((AUDIO_SAMPLE_RATE_48KHZ == sample_rate) ||
+		(AUDIO_SAMPLE_RATE_96KHZ == sample_rate) ||
+		(AUDIO_SAMPLE_RATE_192KHZ == sample_rate)) {
 			/* SELECT(3) */
 			acr_pck_ctrl_reg |= 3 << 4;
 			/* CTS_48 */
@@ -1841,9 +2055,9 @@ static int hdmi_tx_audio_acr_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 			/* N */
 			DSS_REG_W(io, HDMI_ACR_48_1, n);
 		} else if (
-		(AUDIO_SAMPLE_RATE_44_1KHZ == hdmi_ctrl->audio_sample_rate) ||
-		(AUDIO_SAMPLE_RATE_88_2KHZ == hdmi_ctrl->audio_sample_rate) ||
-		(AUDIO_SAMPLE_RATE_176_4KHZ == hdmi_ctrl->audio_sample_rate)) {
+		(AUDIO_SAMPLE_RATE_44_1KHZ == sample_rate) ||
+		(AUDIO_SAMPLE_RATE_88_2KHZ == sample_rate) ||
+		(AUDIO_SAMPLE_RATE_176_4KHZ == sample_rate)) {
 			/* SELECT(2) */
 			acr_pck_ctrl_reg |= 2 << 4;
 			/* CTS_44 */
@@ -1882,12 +2096,15 @@ static int hdmi_tx_audio_acr_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 } /* hdmi_tx_audio_acr_setup */
 
 static int hdmi_tx_audio_iframe_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
-	bool enabled, u32 num_of_channels, u32 channel_allocation,
-	u32 level_shift, bool down_mix)
+	bool enabled)
 {
 	struct dss_io_data *io = NULL;
 
 	u32 channel_count = 1; /* Def to 2 channels -> Table 17 in CEA-D */
+	u32 num_of_channels;
+	u32 channel_allocation;
+	u32 level_shift;
+	u32 down_mix;
 	u32 check_sum, audio_info_0_reg, audio_info_1_reg;
 	u32 audio_info_ctrl_reg;
 	u32 aud_pck_ctrl_2_reg;
@@ -1897,6 +2114,11 @@ static int hdmi_tx_audio_iframe_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -EINVAL;
 	}
+
+	num_of_channels    = hdmi_ctrl->audio_data.channel_num;
+	channel_allocation = hdmi_ctrl->audio_data.spkr_alloc;
+	level_shift        = hdmi_ctrl->audio_data.level_shift;
+	down_mix           = hdmi_ctrl->audio_data.down_mix;
 
 	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
 	if (!io->base) {
@@ -1930,12 +2152,15 @@ static int hdmi_tx_audio_iframe_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 		switch (num_of_channels) {
 		case MSM_HDMI_AUDIO_CHANNEL_2:
 			break;
+		case MSM_HDMI_AUDIO_CHANNEL_3:
 		case MSM_HDMI_AUDIO_CHANNEL_4:
 			channel_count = 3;
 			break;
+		case MSM_HDMI_AUDIO_CHANNEL_5:
 		case MSM_HDMI_AUDIO_CHANNEL_6:
 			channel_count = 5;
 			break;
+		case MSM_HDMI_AUDIO_CHANNEL_7:
 		case MSM_HDMI_AUDIO_CHANNEL_8:
 			channel_count = 7;
 			break;
@@ -2008,8 +2233,8 @@ static int hdmi_tx_audio_iframe_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 } /* hdmi_tx_audio_iframe_setup */
 
 static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
-	u32 num_of_channels, u32 channel_allocation, u32 level_shift,
-	bool down_mix)
+	u32 sample_rate, u32 num_of_channels, u32 channel_allocation,
+	u32 level_shift, bool down_mix)
 {
 	int rc = 0;
 	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
@@ -2019,10 +2244,31 @@ static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
 		return -ENODEV;
 	}
 
-	if (hdmi_ctrl->panel_power_on) {
-		rc = hdmi_tx_audio_iframe_setup(hdmi_ctrl, true,
-			num_of_channels, channel_allocation, level_shift,
-			down_mix);
+	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl) && hdmi_ctrl->panel_power_on) {
+
+		/* Map given sample rate to Enum */
+		if (sample_rate == 32000)
+			sample_rate = AUDIO_SAMPLE_RATE_32KHZ;
+		else if (sample_rate == 44100)
+			sample_rate = AUDIO_SAMPLE_RATE_44_1KHZ;
+		else if (sample_rate == 48000)
+			sample_rate = AUDIO_SAMPLE_RATE_48KHZ;
+		else if (sample_rate == 88200)
+			sample_rate = AUDIO_SAMPLE_RATE_88_2KHZ;
+		else if (sample_rate == 96000)
+			sample_rate = AUDIO_SAMPLE_RATE_96KHZ;
+		else if (sample_rate == 176400)
+			sample_rate = AUDIO_SAMPLE_RATE_176_4KHZ;
+		else if (sample_rate == 192000)
+			sample_rate = AUDIO_SAMPLE_RATE_192KHZ;
+
+		hdmi_ctrl->audio_data.sample_rate = sample_rate;
+		hdmi_ctrl->audio_data.channel_num = num_of_channels;
+		hdmi_ctrl->audio_data.spkr_alloc  = channel_allocation;
+		hdmi_ctrl->audio_data.level_shift = level_shift;
+		hdmi_ctrl->audio_data.down_mix    = down_mix;
+
+		rc = hdmi_tx_audio_setup(hdmi_ctrl);
 		if (rc)
 			DEV_ERR("%s: hdmi_tx_audio_iframe_setup failed.rc=%d\n",
 				__func__, rc);
@@ -2132,6 +2378,29 @@ int msm_hdmi_register_slimport(struct platform_device *pdev,
 }
 #endif
 
+static int hdmi_tx_get_cable_status(struct platform_device *pdev, u32 vote)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+	unsigned long flags;
+	u32 hpd;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -ENODEV;
+	}
+
+	spin_lock_irqsave(&hdmi_ctrl->hpd_state_lock, flags);
+	hpd = hdmi_ctrl->hpd_state;
+	spin_unlock_irqrestore(&hdmi_ctrl->hpd_state_lock, flags);
+
+	hdmi_ctrl->vote_hdmi_core_on = false;
+
+	if (vote && hpd)
+		hdmi_ctrl->vote_hdmi_core_on = true;
+
+	return hpd;
+}
+
 int msm_hdmi_register_audio_codec(struct platform_device *pdev,
 	struct msm_hdmi_audio_codec_ops *ops)
 {
@@ -2144,6 +2413,7 @@ int msm_hdmi_register_audio_codec(struct platform_device *pdev,
 
 	ops->audio_info_setup = hdmi_tx_audio_info_setup;
 	ops->get_audio_edid_blk = hdmi_tx_get_audio_edid_blk;
+	ops->hdmi_cable_status = hdmi_tx_get_cable_status;
 
 	return 0;
 } /* hdmi_tx_audio_register */
@@ -2152,7 +2422,6 @@ EXPORT_SYMBOL(msm_hdmi_register_audio_codec);
 static int hdmi_tx_audio_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	int rc = 0;
-	const int channels = MSM_HDMI_AUDIO_CHANNEL_2;
 	struct dss_io_data *io = NULL;
 
 	if (!hdmi_ctrl) {
@@ -2166,14 +2435,14 @@ static int hdmi_tx_audio_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return -EINVAL;
 	}
 
-	rc = hdmi_tx_audio_acr_setup(hdmi_ctrl, true, channels);
+	rc = hdmi_tx_audio_acr_setup(hdmi_ctrl, true);
 	if (rc) {
 		DEV_ERR("%s: hdmi_tx_audio_acr_setup failed. rc=%d\n",
 			__func__, rc);
 		return rc;
 	}
 
-	rc = hdmi_tx_audio_iframe_setup(hdmi_ctrl, true, channels, 0, 0, false);
+	rc = hdmi_tx_audio_iframe_setup(hdmi_ctrl, true);
 	if (rc) {
 		DEV_ERR("%s: hdmi_tx_audio_iframe_setup failed. rc=%d\n",
 			__func__, rc);
@@ -2181,13 +2450,15 @@ static int hdmi_tx_audio_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 
 	DEV_INFO("HDMI Audio: Enabled\n");
+#ifdef CONFIG_SLIMPORT_ANX7808
+	hdmi_ctrl->audio_enabled = 1;
+#endif
 
 	return 0;
 } /* hdmi_tx_audio_setup */
 
 static void hdmi_tx_audio_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	u32 i, status, sleep_us, timeout_us, timeout_sec = 15;
 	struct dss_io_data *io = NULL;
 
 	if (!hdmi_ctrl) {
@@ -2200,35 +2471,19 @@ static void hdmi_tx_audio_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 		DEV_ERR("%s: core io not inititalized\n", __func__);
 		return;
 	}
-
-	/* Check if audio engine is turned off by QDSP or not */
-	/* send off notification after every 1 sec for 15 seconds */
-	for (i = 0; i < timeout_sec; i++) {
-		sleep_us = 5000; /* Maximum time to sleep between two reads */
-		timeout_us = 1000 * 1000; /* Total time for condition to meet */
-
-		if (readl_poll_timeout((io->base + HDMI_AUDIO_CFG),
-			status, ((status & BIT(0)) == 0),
-			sleep_us, timeout_us)) {
-
-			DEV_ERR("%s: audio still on after %d sec. try again\n",
-				__func__, i+1);
-
-			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0, true);
-			continue;
-		}
-		break;
-	}
-	if (i == timeout_sec)
-		DEV_ERR("%s: Error: cannot turn off audio engine\n", __func__);
-
-	if (hdmi_tx_audio_iframe_setup(hdmi_ctrl, false, 0, 0, 0, false))
+	if (hdmi_tx_audio_iframe_setup(hdmi_ctrl, false))
 		DEV_ERR("%s: hdmi_tx_audio_iframe_setup failed.\n", __func__);
 
-	if (hdmi_tx_audio_acr_setup(hdmi_ctrl, false, 0))
+	if (hdmi_tx_audio_acr_setup(hdmi_ctrl, false))
 		DEV_ERR("%s: hdmi_tx_audio_acr_setup failed.\n", __func__);
 
+	hdmi_ctrl->audio_data.sample_rate = AUDIO_SAMPLE_RATE_48KHZ;
+	hdmi_ctrl->audio_data.channel_num = MSM_HDMI_AUDIO_CHANNEL_2;
+
 	DEV_INFO("HDMI Audio: Disabled\n");
+#ifdef CONFIG_SLIMPORT_ANX7808
+	hdmi_ctrl->audio_enabled = 0;
+#endif
 } /* hdmi_tx_audio_off */
 
 static int hdmi_tx_start(struct hdmi_tx_ctrl *hdmi_ctrl)
@@ -2261,7 +2516,7 @@ static int hdmi_tx_start(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 
 	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl) &&
-	    is_cea_format(hdmi_ctrl->video_resolution)) {
+	    hdmi_tx_is_cea_format(hdmi_ctrl->video_resolution)) {
 		rc = hdmi_tx_audio_setup(hdmi_ctrl);
 		if (rc) {
 			DEV_ERR("%s: hdmi_msm_audio_setup failed. rc=%d\n",
@@ -2342,20 +2597,17 @@ static void hdmi_tx_power_off_work(struct work_struct *work)
 		hdmi_hdcp_off(hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
 	}
 
-	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl)) {
-		hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0, false);
+	if (hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, false))
+		DEV_WARN("%s: Failed to disable ddc power\n", __func__);
+
+	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl))
 		hdmi_tx_audio_off(hdmi_ctrl);
-	}
 
 	hdmi_tx_powerdown_phy(hdmi_ctrl);
 
-	/*
-	 * this is needed to avoid pll lock failure due to
-	 * clk framework's rate caching.
-	 */
+#ifdef CONFIG_MACH_LGE
 	hdmi_ctrl->pdata.power_data[HDMI_TX_CORE_PM].clk_config[0].rate = 0;
-
-	/*LGE_CHANGE : prevent kernel crash */
+#endif
 	hdmi_cec_deconfig(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
 
 	hdmi_tx_core_off(hdmi_ctrl);
@@ -2364,14 +2616,16 @@ static void hdmi_tx_power_off_work(struct work_struct *work)
 		hdmi_tx_hpd_off(hdmi_ctrl);
 		hdmi_ctrl->hpd_off_pending = false;
 	}
-	/* QCT_ORIGINAL
-	hdmi_cec_deconfig(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);*/
 
 	mutex_lock(&hdmi_ctrl->mutex);
 	hdmi_ctrl->panel_power_on = false;
 	mutex_unlock(&hdmi_ctrl->mutex);
 
 	DEV_INFO("%s: HDMI Core: OFF\n", __func__);
+
+	if (hdmi_ctrl->hdmi_tx_hpd_done)
+		hdmi_ctrl->hdmi_tx_hpd_done(
+			hdmi_ctrl->downstream_data);
 } /* hdmi_tx_power_off_work */
 
 static int hdmi_tx_power_off(struct mdss_panel_data *panel_data)
@@ -2474,6 +2728,9 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 
 	hdmi_tx_hpd_polarity_setup(hdmi_ctrl, HPD_DISCONNECT_POLARITY);
 
+	if (hdmi_ctrl->hdmi_tx_hpd_done)
+		hdmi_ctrl->hdmi_tx_hpd_done(hdmi_ctrl->downstream_data);
+
 	return 0;
 } /* hdmi_tx_power_on */
 
@@ -2481,6 +2738,7 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	int rc = 0;
 	struct dss_io_data *io = NULL;
+	unsigned long flags;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -2523,7 +2781,9 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 		DEV_INFO("%s: Failed to disable hpd power. Error=%d\n",
 			__func__, rc);
 
+	spin_lock_irqsave(&hdmi_ctrl->hpd_state_lock, flags);
 	hdmi_ctrl->hpd_state = false;
+	spin_unlock_irqrestore(&hdmi_ctrl->hpd_state_lock, flags);
 	hdmi_ctrl->hpd_initialized = false;
 #ifdef CONFIG_SLIMPORT_DYNAMIC_HPD
 	mutex_unlock(&hdmi_ctrl->mutex_hpd);
@@ -2608,10 +2868,20 @@ static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on)
 	DEV_INFO("%s: %d\n", __func__, on);
 	if (on) {
 #ifdef CONFIG_SLIMPORT_DYNAMIC_HPD
-		if (hdmi_ctrl->panel_power_on){
-			DEV_DBG("%s: flush power off work\n",__func__);
-			flush_work(&hdmi_ctrl->power_off_work);
+		if (hdmi_ctrl->panel_power_on) {
+			DEV_DBG("%s: flush power off work\n", __func__);
+			flush_work_sync(&hdmi_ctrl->power_off_work);
 		}
+
+				DEV_DBG("%s: hpd off pending %d\n", __func__, hdmi_ctrl->hpd_off_pending);
+			if (hdmi_ctrl->hpd_off_pending) {
+				int timeout;
+				INIT_COMPLETION(power_off_done);
+				timeout = wait_for_completion_interruptible_timeout(&power_off_done, 5 * HZ);
+				if (!timeout) {
+					DEV_ERR("%s: tx_power_off hasn't happened yet\n", __func__);
+				}
+			}
 #endif
 		rc = hdmi_tx_hpd_on(hdmi_ctrl);
 	} else {
@@ -2622,10 +2892,6 @@ static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on)
 			hdmi_tx_hpd_off(hdmi_ctrl);
 		else
 			hdmi_ctrl->hpd_off_pending = true;
-
-		hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
-		DEV_DBG("%s: Hdmi state switch to %d\n", __func__,
-			hdmi_ctrl->sdev.state);
 	}
 
 	return rc;
@@ -2684,6 +2950,9 @@ static int hdmi_tx_set_slimport_hpd(struct platform_device *pdev, uint8_t on)
 
 	if (!on && hdmi_ctrl->hpd_feature_on) {
 		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, false);
+		hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0, false);
+		hdmi_tx_wait_for_audio_engine(hdmi_ctrl);
+		hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
 	} else if (on && !hdmi_ctrl->hpd_feature_on) {
 		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, true);
 	} else {
@@ -2711,6 +2980,7 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 {
 	struct dss_io_data *io = NULL;
 	struct hdmi_tx_ctrl *hdmi_ctrl = (struct hdmi_tx_ctrl *)data;
+	unsigned long flags;
 
 	if (!hdmi_ctrl) {
 		DEV_WARN("%s: invalid input data, ISR ignored\n", __func__);
@@ -2725,8 +2995,10 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 	}
 
 	if (DSS_REG_R(io, HDMI_HPD_INT_STATUS) & BIT(0)) {
+		spin_lock_irqsave(&hdmi_ctrl->hpd_state_lock, flags);
 		hdmi_ctrl->hpd_state =
 			(DSS_REG_R(io, HDMI_HPD_INT_STATUS) & BIT(1)) >> 1;
+		spin_unlock_irqrestore(&hdmi_ctrl->hpd_state_lock, flags);
 
 		/*
 		 * Ack the current hpd interrupt and stop listening to
@@ -2735,8 +3007,8 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 		DSS_REG_W(io, HDMI_HPD_INT_CTRL, BIT(0));
 
 #ifdef CONFIG_SLIMPORT_ANX7808
-		if(hdmi_ctrl->sp_test_mode){
-			if(hdmi_ctrl->hpd_state && hdmi_ctrl->hpd_off_pending){
+		if (hdmi_ctrl->sp_test_mode) {
+			if (hdmi_ctrl->hpd_state && hdmi_ctrl->hpd_off_pending) {
 				DEV_ERR("%s: sp_test_mode = true, return isr!\n", __func__);
 				return IRQ_HANDLED;
 			 }
@@ -2840,11 +3112,15 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 	hdmi_ctrl->sp_test_mode = false;
 #endif
 	init_completion(&hdmi_ctrl->hpd_done);
+	init_completion(&power_off_done);
 	INIT_WORK(&hdmi_ctrl->hpd_int_work, hdmi_tx_hpd_int_work);
 
 	INIT_WORK(&hdmi_ctrl->power_off_work, hdmi_tx_power_off_work);
 
-	hdmi_ctrl->audio_sample_rate = AUDIO_SAMPLE_RATE_48KHZ;
+	spin_lock_init(&hdmi_ctrl->hpd_state_lock);
+
+	hdmi_ctrl->audio_data.sample_rate = AUDIO_SAMPLE_RATE_48KHZ;
+	hdmi_ctrl->audio_data.channel_num = MSM_HDMI_AUDIO_CHANNEL_2;
 
 	hdmi_ctrl->sdev.name = "hdmi";
 	if (switch_dev_register(&hdmi_ctrl->sdev) < 0) {
@@ -2978,10 +3254,16 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		break;
 
 	case MDSS_EVENT_UNBLANK:
-		rc = hdmi_tx_power_on(panel_data);
-		if (rc)
-			DEV_ERR("%s: hdmi_tx_power_on failed. rc=%d\n",
-				__func__, rc);
+#ifdef CONFIG_SLIMPORT_DYNAMIC_HPD
+		if(hdmi_ctrl->hpd_state) {
+#endif
+			rc = hdmi_tx_power_on(panel_data);
+			if (rc)
+				DEV_ERR("%s: hdmi_tx_power_on failed. rc=%d\n",
+					__func__, rc);
+#ifdef CONFIG_SLIMPORT_DYNAMIC_HPD
+		}
+#endif
 		break;
 
 	case MDSS_EVENT_PANEL_ON:
@@ -3413,13 +3695,13 @@ static int hdmi_tx_get_dt_vreg_data(struct device *dev,
 				__func__, hdmi_tx_pm_name(module_type), rc);
 			goto error;
 		}
-		mp->vreg_config[j].peak_current = val_array[i];
+		mp->vreg_config[j].enable_load = val_array[i];
 
 		DEV_DBG("%s: %s min=%d, max=%d, pc=%d\n", __func__,
 			mp->vreg_config[j].vreg_name,
 			mp->vreg_config[j].min_voltage,
 			mp->vreg_config[j].max_voltage,
-			mp->vreg_config[j].peak_current);
+			mp->vreg_config[j].enable_load);
 
 		ndx_mask >>= 1;
 		j++;

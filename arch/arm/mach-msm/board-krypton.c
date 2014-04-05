@@ -24,21 +24,34 @@
 #include <mach/msm_iomap.h>
 #include <mach/msm_memtypes.h>
 #include <mach/msm_smd.h>
+#include <mach/rpm-smd.h>
 #include <mach/restart.h>
 #include <mach/socinfo.h>
 #include <mach/clk-provider.h>
+#include <mach/msm_smem.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "devices.h"
+#include "modem_notifier.h"
 
-static struct clk_lookup msm_clocks_dummy[] = {
-	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
+static struct memtype_reserve msmkrypton_reserve_table[] __initdata = {
+	[MEMTYPE_EBI1] = {
+		.flags = MEMTYPE_FLAGS_1M_ALIGN,
+	},
 };
 
-static struct clock_init_data msm_dummy_clock_init_data __initdata = {
-	.table = msm_clocks_dummy,
-	.size = ARRAY_SIZE(msm_clocks_dummy),
+static int msmkrypton_paddr_to_memtype(unsigned int paddr)
+{
+	return MEMTYPE_EBI1;
+}
+
+static struct reserve_info msmkrypton_reserve_info __initdata = {
+	.memtype_reserve_table = msmkrypton_reserve_table,
+	.paddr_to_memtype = msmkrypton_paddr_to_memtype,
+};
+
+static struct of_dev_auxdata msmkrypton_auxdata_lookup[] __initdata = {
+	{}
 };
 
 /*
@@ -49,10 +62,18 @@ static struct clock_init_data msm_dummy_clock_init_data __initdata = {
  */
 void __init msmkrypton_add_drivers(void)
 {
+	msm_smem_init();
+	msm_init_modem_notifier_list();
 	msm_smd_init();
-	msm_clock_init(&msm_dummy_clock_init_data);
+	msm_rpm_driver_init();
+	msm_clock_init(&msmkrypton_clock_init_data);
 }
 
+static void __init msmkrypton_early_memory(void)
+{
+	reserve_info = &msmkrypton_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_hole, msmkrypton_reserve_table);
+}
 static void __init msmkrypton_map_io(void)
 {
 	msm_map_msmkrypton_io();
@@ -64,7 +85,7 @@ void __init msmkrypton_init(void)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	msmkrypton_init_gpiomux();
-	board_dt_populate(adata);
+	board_dt_populate(msmkrypton_auxdata_lookup);
 	msmkrypton_add_drivers();
 }
 
@@ -80,5 +101,6 @@ DT_MACHINE_START(MSMKRYPTON_DT, "Qualcomm MSM Krypton (Flattened Device Tree)")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_dt_timer,
 	.dt_compat = msmkrypton_dt_match,
+	.init_very_early = msmkrypton_early_memory,
 	.restart = msm_restart,
 MACHINE_END

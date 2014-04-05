@@ -280,33 +280,86 @@ static void lge_moca_ch_notify(void *priv, unsigned event)
 		break;
 	}
 }
+#include <mach/msm_smsm.h>
+#include <linux/delay.h>
+
+#define MAX_SSR_REASON_LEN		81U
+#define SSR_IOCTL_MAGIC			'S'
+#define SSR_NOTI_REASON		_IOR(SSR_IOCTL_MAGIC, 0x01, char[MAX_SSR_REASON_LEN])
+static char ssr_reason[MAX_SSR_REASON_LEN];
+
+static void log_modem_sfr(void)
+{
+	u32 size;
+	char *smem_reason;
+	memset(ssr_reason, 0, MAX_SSR_REASON_LEN);
+
+	smem_reason = smem_get_entry(SMEM_SSR_REASON_MSS0, &size);
+	if (!smem_reason || !size) {
+		pr_err("modem subsystem failure reason: (unknown, smem_get_entry failed).\n");
+		return;
+	}
+	if (!smem_reason[0]) {
+		pr_err("modem subsystem failure reason: (unknown, empty string found).\n");
+		return;
+	}
+
+	strlcpy(ssr_reason, smem_reason, min(size, sizeof(ssr_reason)));
+	pr_err("modem subsystem failure reason: %s.\n", ssr_reason);
+
+	smem_reason[0] = '\0';
+	//wmb();
+}
 
 static long lge_moca_ioctl(struct file *file, unsigned int cmd,
 					     unsigned long arg)
 {
-	int ret;
+	int ret=0;
+
 	struct lge_moca_dev *lge_moca_devp;
 
 	lge_moca_devp = file->private_data;
 	if (!lge_moca_devp)
 		return -EINVAL;
 
-	mutex_lock(&lge_moca_devp->ch_lock);
-	switch (cmd) {
-	case TIOCMGET:
-		ret = smd_tiocmget(lge_moca_devp->ch);
-		break;
-	case TIOCMSET:
-		ret = smd_tiocmset(lge_moca_devp->ch, arg, ~arg);
-		break;
-	case SMD_PKT_IOCTL_BLOCKING_WRITE:
-		ret = get_user(lge_moca_devp->blocking_write, (int *)arg);
-		break;
-	default:
-		pr_err("%s: Unrecognized ioctl command %d\n", __func__, cmd);
-		ret = -1;
-	}
-	mutex_unlock(&lge_moca_devp->ch_lock);
+	//mutex_lock(&lge_moca_devp->ch_lock);
+
+	switch (cmd)
+	{
+
+		case TIOCMGET:
+		{
+			ret = smd_tiocmget(lge_moca_devp->ch);
+			break;
+		}
+		case TIOCMSET:
+		{
+			ret = smd_tiocmset(lge_moca_devp->ch, arg, ~arg);
+			break;
+		}
+		case SMD_PKT_IOCTL_BLOCKING_WRITE:
+		{
+			ret = get_user(lge_moca_devp->blocking_write, (int *)arg);
+			break;
+		}
+
+		case SSR_NOTI_REASON:
+		{
+			log_modem_sfr();
+			pr_err("ramdump_ioctl reason1 = %s\n", ssr_reason);
+			if (copy_to_user((void *)arg, (const void *)&ssr_reason, sizeof(ssr_reason)) == 0)
+			{
+				pr_err("ramdump_ioctl reason2 = %s\n", ssr_reason);
+			}
+			break;
+		}
+		default:
+		{
+			pr_err("%s: Unrecognized ioctl command %d\n", __func__, cmd);
+			ret = -1;
+		}
+    }
+	//mutex_unlock(&lge_moca_devp->ch_lock);
 
 	return ret;
 }

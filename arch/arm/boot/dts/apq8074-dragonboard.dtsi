@@ -13,14 +13,23 @@
 /include/ "dsi-panel-sharp-qhd-video.dtsi"
 /include/ "msm8974-camera-sensor-dragonboard.dtsi"
 /include/ "msm8974-leds.dtsi"
+/include/ "msm-rdbg.dtsi"
+
+&vph_pwr_vreg {
+	status = "ok";
+};
 
 &soc {
 	serial@f991e000 {
 		status = "ok";
 	};
 
-	qcom,mdss_dsi_sharp_qhd_video {
-		status = "ok";
+	qcom,mdss_dsi@fd922800 {
+		qcom,dsi-pref-prim-pan = <&dsi_sharp_qhd_vid>;
+	};
+
+	qcom,mdss_mdp@fd900000 {
+		qcom,mdss-pref-prim-intf = "dsi";
 	};
 
 	qcom,hdmi_tx@fd922100 {
@@ -57,10 +66,15 @@
 
 	hsic_hub {
 		compatible = "qcom,hsic-smsc-hub";
+		smsc,model-id = <4604>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
 		smsc,reset-gpio = <&pm8941_gpios 8 0x00>;
+		/* Dragonboard has an always-on VBUS supply for HSIC hub,
+		 * providing a dummy regulator for the hub driver
+		 */
+		hub_vbus-supply = <&vph_pwr_vreg>;
 
 		hsic_host: hsic@f9a00000 {
 			compatible = "qcom,hsic-host";
@@ -74,13 +88,15 @@
 				1 &intc 0 148 0
 				2 &msmgpio 144 0x8>;
 			interrupt-names = "core_irq", "async_irq", "wakeup";
-			HSIC_VDDCX-supply = <&pm8841_s2>;
+			hsic_vdd_dig-supply = <&pm8841_s2_corner>;
 			HSIC_GDSC-supply = <&gdsc_usb_hsic>;
 			hsic,strobe-gpio = <&msmgpio 144 0x00>;
 			hsic,data-gpio = <&msmgpio 145 0x00>;
 			hsic,ignore-cal-pad-config;
 			hsic,strobe-pad-offset = <0x2050>;
 			hsic,data-pad-offset = <0x2054>;
+			qcom,phy-susp-sof-workaround;
+			hsic,vdd-voltage-level = <1 5 7>;
 
 			qcom,msm-bus,name = "hsic";
 			qcom,msm-bus,num-cases = <2>;
@@ -182,10 +198,10 @@
 			"MIC BIAS2 External", "ANCRight Headset Mic",
 			"AMIC4", "MIC BIAS2 External",
 			"MIC BIAS2 External", "ANCLeft Headset Mic",
-			"AMIC5", "MIC BIAS1 External",
-			"MIC BIAS1 External", "Analog Mic6",
-			"AMIC6", "MIC BIAS1 External",
-			"MIC BIAS1 External", "Analog Mic7",
+			"AMIC5", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Analog Mic6",
+			"AMIC6", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Analog Mic7",
 			"DMIC1", "MIC BIAS3 External",
 			"MIC BIAS3 External", "Digital Mic1",
 			"DMIC2", "MIC BIAS3 External",
@@ -198,6 +214,35 @@
 			"MIC BIAS4 External", "Digital Mic5",
 			"DMIC6", "MIC BIAS4 External",
 			"MIC BIAS4 External", "Digital Mic6";
+
+
+		qcom,prim-auxpcm-gpio-clk  = <&msmgpio 74 0>;
+		qcom,prim-auxpcm-gpio-sync = <&msmgpio 75 0>;
+		qcom,prim-auxpcm-gpio-din  = <&msmgpio 76 0>;
+		qcom,prim-auxpcm-gpio-dout = <&msmgpio 77 0>;
+		qcom,prim-auxpcm-gpio-set = "prim-gpio-tert";
+
+		qcom,cdc-micbias2-headset-only;
+	};
+
+	qcom,pronto@fb21b000 {
+		status = "disabled";
+	};
+
+	qcom,iris-fm {
+		status = "disabled";
+	};
+
+	qcom,wcnss-wlan@fb000000 {
+		status = "disabled";
+	};
+
+	qcom,smd-wcnss {
+		status = "disabled";
+	};
+
+	qcom,smsm-wcnss {
+		status = "disabled";
 	};
 };
 
@@ -252,6 +297,7 @@
 };
 
 &usb3 {
+	interrupts = <0>;	/* remove pmic_id_irq; used by &usb_otg */
 	qcom,charging-disabled;
 	vbus_dwc3-supply = <0>;
 	dwc3@f9200000 {
@@ -261,8 +307,17 @@
 
 &slim_msm {
 	taiko_codec {
+		qcom,cdc-micbias1-ext-cap;
 		qcom,cdc-micbias2-ext-cap;
 		qcom,cdc-micbias3-ext-cap;
+		qcom,cdc-micbias4-ext-cap;
+
+		/* If boot isn't available, vph_pwr_vreg can be used instead */
+		cdc-vdd-spkdrv-supply = <&pm8941_boost>;
+		qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
+		qcom,cdc-vdd-spkdrv-current = <1250000>;
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-spkdrv";
 	};
 };
 
@@ -450,19 +505,13 @@
 	};
 
 	gpio@e300 { /* GPIO 36 */
-		qcom,mode = <1>;  /* QPNP_PIN_MODE_DIG_OUT */
-		qcom,output-type = <0>; /* QPNP_PIN_OUT_BUF_CMOS */
-		qcom,pull = <5>; /* QPNP_PIN_PULL_NO */
-		qcom,vin-sel = <2>; /* QPNP_PIN_VIN2 */
-		qcom,out-strength = <3>; /* QPNP_PIN_OUT_STRENGTH_HIGH */
-		qcom,src-sel = <3>; /* QPNP_PIN_SEL_FUNC_2 */
-		qcom,master-en = <1>;
 	};
 };
 
 &pm8941_mpps {
 
 	mpp@a000 { /* MPP 1 */
+		status = "disabled";
 	};
 
 	mpp@a100 { /* MPP 2 */
@@ -503,52 +552,35 @@
 };
 
 &spi_epm {
-	epm-adc@0 {
-		compatible = "cy,epm-adc-cy8c5568lti-114";
-		reg = <0>;
-		interrupt-parent = <&msmgpio>;
-		spi-max-frequency = <960000>;
-		qcom,channels = <31>;
-		qcom,gain = <50 50 50 50 50 100 50 50 50 50
-				50 50 50 50 100 50 50 50 50 100
-				50 50 50 100 50 50 50 1 1 1
-				1>;
-		qcom,rsense = <40 10 10 25 10 1000 75 25 10 25
-				33 500 200 10 500 100 33 200 25 100
-				75 500 50 200 5 5 3 1 1 1
-				1>;
-		qcom,channel-type = <0xf0000000>;
-	};
+	status = "disabled";
 };
 
-&spmi_bus {
-	qcom,pm8941@1 {
-		qcom,leds@d000 {
-			qcom,rgb_2 {
-				status = "ok";
-				qcom,default-state = "on";
-				qcom,turn-off-delay-ms = <1000>;
-			};
+&pm8941_lsid1 {
+	qcom,leds@d000 {
+		qcom,rgb_2 {
+			status = "ok";
+			qcom,default-state = "on";
+			qcom,turn-off-delay-ms = <1000>;
 		};
+	};
 
-		qcom,leds@d800 {
-			status = "okay";
-			qcom,wled_0 {
-				label = "wled";
-				linux,name = "wled:backlight";
-				linux,default-trigger = "bkl-trigger";
-				qcom,cs-out-en;
-				qcom,op-fdbck = <1>;
-				qcom,default-state = "on";
-				qcom,max-current = <20>;
-				qcom,ctrl-delay-us = <0>;
-				qcom,boost-curr-lim = <3>;
-				qcom,cp-sel = <0>;
-				qcom,switch-freq = <2>;
-				qcom,ovp-val = <1>;
-				qcom,num-strings = <1>;
-				qcom,id = <0>;
-			};
+	qcom,leds@d800 {
+		status = "okay";
+		qcom,wled_0 {
+			label = "wled";
+			linux,name = "wled:backlight";
+			linux,default-trigger = "bkl-trigger";
+			qcom,cs-out-en;
+			qcom,op-fdbck = <1>;
+			qcom,default-state = "on";
+			qcom,max-current = <20>;
+			qcom,ctrl-delay-us = <0>;
+			qcom,boost-curr-lim = <3>;
+			qcom,cp-sel = <0>;
+			qcom,switch-freq = <2>;
+			qcom,ovp-val = <1>;
+			qcom,num-strings = <1>;
+			qcom,id = <0>;
 		};
 	};
 };
@@ -571,7 +603,7 @@
 	};
 
 	qcom,dc-chgpth@1400 {
-		status = "ok";
+		status = "disabled";
 	};
 
 	qcom,boost@1500 {
@@ -617,6 +649,9 @@
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
 	cd-gpios = <&msmgpio 62 0x1>;
 
+	qcom,vdd-always-on;
+	qcom,vdd-lpm-sup;
+
 	vdd-supply = <&pm8941_l21>;
 	vdd-io-supply = <&pm8941_l13>;
 
@@ -631,4 +666,8 @@
 	qcom,pad-drv-on = <0x4 0x4 0x4>; /* 10mA, 10mA, 10mA */
 	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
 	status = "ok";
+};
+
+&dsi_sharp_qhd_vid {
+	qcom,cont-splash-enabled;
 };

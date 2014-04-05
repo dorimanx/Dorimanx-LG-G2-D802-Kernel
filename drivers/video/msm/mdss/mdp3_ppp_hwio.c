@@ -57,6 +57,8 @@ static int mdp_calc_scale_params(uint32_t org, uint32_t dim_in,
 	int64_t Od;
 	int64_t Odprime;
 	int64_t Oreq;
+	int64_t init_phase_temp;
+	int64_t delta;
 	uint32_t mult;
 
 	/*
@@ -149,7 +151,24 @@ static int mdp_calc_scale_params(uint32_t org, uint32_t dim_in,
 				Oreq = (Osprime & int_mask) - one;
 
 				/* calculate initial phase */
-				init_phase = (int)((Osprime - Oreq) >> 4);
+				init_phase_temp = Osprime - Oreq;
+				delta = ((int64_t) (org) << PQF_PLUS_4) - Oreq;
+				init_phase_temp -= delta;
+
+				/* limit to valid range before the left shift */
+				delta = (init_phase_temp & (1LL << 63)) ?
+						4 : -4;
+				delta <<= PQF_PLUS_4;
+				while (abs((int)(init_phase_temp >>
+							PQF_PLUS_4)) > 4)
+					init_phase_temp += delta;
+
+				/*
+				 * right shift to account for extra bits of
+				 * precision
+				 */
+				init_phase = (int)(init_phase_temp >> 4);
+
 			}
 		} else {
 			/*
@@ -181,7 +200,18 @@ static int mdp_calc_scale_params(uint32_t org, uint32_t dim_in,
 			Oreq = (Osprime & int_mask) - one;
 
 			/* calculate initial phase */
-			init_phase = (int)((Osprime - Oreq) >> 4);
+			init_phase_temp = Osprime - Oreq;
+			delta = ((int64_t) (org) << PQF_PLUS_4) - Oreq;
+			init_phase_temp -= delta;
+
+			/* limit to valid range before the left shift */
+			delta = (init_phase_temp & (1LL << 63)) ? 4 : -4;
+			delta <<= PQF_PLUS_4;
+			while (abs((int)(init_phase_temp >> PQF_PLUS_4)) > 4)
+				init_phase_temp += delta;
+
+			/* right shift to account for extra bits of precision */
+			init_phase = (int)(init_phase_temp >> 4);
 		}
 	}
 
@@ -324,6 +354,7 @@ bool check_if_rgb(int color)
 	case MDP_ARGB_8888:
 	case MDP_XRGB_8888:
 	case MDP_RGBX_8888:
+	case MDP_BGRX_8888:
 		rgb = true;
 	default:
 		break;
@@ -331,13 +362,11 @@ bool check_if_rgb(int color)
 	return rgb;
 }
 
-static uint8_t *mdp_adjust_rot_addr(struct ppp_blit_op *iBuf,
+uint8_t *mdp_dst_adjust_rot_addr(struct ppp_blit_op *iBuf,
 	uint8_t *addr, uint32_t bpp, uint32_t uv)
 {
 	uint32_t dest_ystride = iBuf->dst.prop.width * bpp;
 	uint32_t h_slice = 1;
-	if (0)
-		return 0;
 
 	if (uv && ((iBuf->dst.color_fmt == MDP_Y_CBCR_H2V2) ||
 		(iBuf->dst.color_fmt == MDP_Y_CRCB_H2V2)))
@@ -350,16 +379,10 @@ static uint8_t *mdp_adjust_rot_addr(struct ppp_blit_op *iBuf,
 			    MIN(16, iBuf->dst.roi.width)) * bpp;
 	}
 	if ((iBuf->mdp_op & MDPOP_UD) == MDPOP_UD) {
-		if (1) {
-			addr +=
-				((iBuf->dst.roi.height -
-				MIN(16, iBuf->dst.roi.height))/h_slice) *
-				dest_ystride;
-		} else {
-			addr +=
-			(iBuf->dst.roi.width -
-				MIN(16, iBuf->dst.roi.width)) * bpp;
-		}
+		addr +=
+			((iBuf->dst.roi.height -
+			MIN(16, iBuf->dst.roi.height))/h_slice) *
+			dest_ystride;
 	}
 
 	return addr;
@@ -376,17 +399,20 @@ void mdp_adjust_start_addr(struct ppp_blit_op *blit_op,
 
 	if (img->color_fmt == MDP_Y_CBCR_H2V2_ADRENO && layer == 0)
 		img->p0 += (x + y * ALIGN(width, 32)) * bpp;
+	else if (img->color_fmt == MDP_Y_CBCR_H2V2_VENUS && layer == 0)
+		img->p0 += (x + y * ALIGN(width, 128)) * bpp;
 	else
 		img->p0 += (x + y * width) * bpp;
 	if (layer != 0)
-		img->p0 = mdp_adjust_rot_addr(blit_op, img->p0, bpp, 0);
+		img->p0 = mdp_dst_adjust_rot_addr(blit_op, img->p0, bpp, 0);
 
 	if (img->p1) {
 		/*
 		 * MDP_Y_CBCR_H2V2/MDP_Y_CRCB_H2V2 cosite for now
 		 * we need to shift x direction same as y dir for offsite
 		 */
-		if (img->color_fmt == MDP_Y_CBCR_H2V2_ADRENO
+		if ((img->color_fmt == MDP_Y_CBCR_H2V2_ADRENO ||
+				img->color_fmt == MDP_Y_CBCR_H2V2_VENUS)
 							&& layer == 0)
 			img->p1 += ((x / h_slice) * h_slice + ((y == 0) ? 0 :
 			(((y + 1) / v_slice - 1) * (ALIGN(width/2, 32) * 2))))
@@ -394,8 +420,10 @@ void mdp_adjust_start_addr(struct ppp_blit_op *blit_op,
 		else
 			img->p1 += ((x / h_slice) * h_slice +
 			((y == 0) ? 0 : ((y + 1) / v_slice - 1) * width)) * bpp;
+
 		if (layer != 0)
-			img->p1 = mdp_adjust_rot_addr(blit_op, img->p1, bpp, 1);
+			img->p0 = mdp_dst_adjust_rot_addr(blit_op,
+					img->p0, bpp, 0);
 	}
 }
 
@@ -678,6 +706,7 @@ void ppp_edge_rep_chroma_pixel(struct ppp_blit_op *blit_op,
 
 	case MDP_Y_CBCR_H2V2:
 	case MDP_Y_CBCR_H2V2_ADRENO:
+	case MDP_Y_CBCR_H2V2_VENUS:
 	case MDP_Y_CRCB_H2V2:
 		er->chroma_interp_point_left = er->luma_interp_point_left >> 1;
 		er->chroma_interp_point_right =
@@ -716,6 +745,7 @@ void ppp_edge_rep_chroma_pixel(struct ppp_blit_op *blit_op,
 			break;
 		case MDP_Y_CBCR_H2V2:
 		case MDP_Y_CBCR_H2V2_ADRENO:
+		case MDP_Y_CBCR_H2V2_VENUS:
 		case MDP_Y_CRCB_H2V2:
 			/*
 			 * cosite in horizontal dir, and offsite in vertical dir
@@ -1044,7 +1074,6 @@ int config_ppp_blend(struct ppp_blit_op *blit_op,
 	}
 
 	if (*pppop_reg_ptr & PPP_OP_BLEND_ON) {
-		blit_op->bg = blit_op->dst;
 		config_ppp_background(&blit_op->bg);
 
 		if (blit_op->dst.color_fmt == MDP_YCRYCB_H2V1) {
@@ -1107,6 +1136,7 @@ int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 	switch (blit_op->src.color_fmt) {
 	case MDP_Y_CBCR_H2V2:
 	case MDP_Y_CBCR_H2V2_ADRENO:
+	case MDP_Y_CBCR_H2V2_VENUS:
 	case MDP_Y_CRCB_H2V2:
 		sh_slice = sv_slice = 2;
 		break;
@@ -1134,6 +1164,10 @@ int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 		blit_op->src.stride0 = ALIGN(blit_op->src.prop.width, 32) *
 			ppp_bpp(blit_op->src.color_fmt);
 		blit_op->src.stride1 = 2 * ALIGN(blit_op->src.prop.width/2, 32);
+	} else if (blit_op->src.color_fmt == MDP_Y_CBCR_H2V2_VENUS) {
+		blit_op->src.stride0 = ALIGN(blit_op->src.prop.width, 128)  *
+			ppp_bpp(blit_op->src.color_fmt);
+		blit_op->src.stride1 = blit_op->src.stride0;
 	} else {
 		blit_op->src.stride0 = blit_op->src.prop.width *
 			ppp_bpp(blit_op->src.color_fmt);
@@ -1152,9 +1186,11 @@ int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 		blit_op->dst.p1 = NULL;
 	}
 
+	blit_op->bg = blit_op->dst;
 	/* Jumping from Y-Plane to Chroma Plane */
 	/* first pixel addr calculation */
 	mdp_adjust_start_addr(blit_op, &blit_op->src, sv_slice, sh_slice, 0);
+	mdp_adjust_start_addr(blit_op, &blit_op->bg, dv_slice, dh_slice, 1);
 	mdp_adjust_start_addr(blit_op, &blit_op->dst, dv_slice, dh_slice, 2);
 
 	config_ppp_scale(blit_op, &ppp_operation_reg);

@@ -280,7 +280,7 @@ static int AKECS_SetMode(
 {
 	int err;
 
-#if 0 /*                                                              */
+#if 0 /* operation mode using 5bit(0x1F) seonghyon@lge.com	2012.10.26 */
 	switch (mode & 0x0F) {
 #else
 	switch (mode & 0x1F) {
@@ -1068,7 +1068,7 @@ static ssize_t akm8963_asa_show(
 	if (err < 0)
 		return err;
 
-/*                                           */
+/* Single Measurement Mode  seonghyon@lge.com*/
 	if (akm->irq == 0)
 		atomic_set(&akm->is_busy, 0);
 
@@ -1381,7 +1381,7 @@ static int akm8963_resume(struct device *dev)
 
 #endif /* CONFIG_PM */
 
-#ifdef CONFIG_OF /*                                  */
+#ifdef CONFIG_OF /* seonghyon.cho@lge.com 2012.10.25 */
 static int reg_set_optimum_mode_check(struct regulator *reg, int load_uA)
 {
 	return (regulator_count_voltages(reg) > 0) ?

@@ -115,10 +115,10 @@ typedef volatile U32		VU32;
 	#define RAONTV_CHIP_PKG_LGA	// MTV250/251/350/351
 #elif defined(CONFIG_MACH_LGE_P940)
 	#define RAONTV_CHIP_PKG_LGA	// MTV250/251/350/351
-//                                       
+//taew00k.kang@lge.com 2011-11-07 [start]
 #elif 1
 	#define RAONTV_CHIP_PKG_LGA	// MTV250/251/350/351
-//                                     
+//taew00k.kang@lge.com 2011-11-07 [end]
 #else
 	#error "Code not present"
 #endif
@@ -138,10 +138,10 @@ typedef volatile U32		VU32;
 	
 #elif defined(CONFIG_MACH_LGE_P940)
 	#define RTV_PWR_LDO
-//                                       
+//taew00k.kang@lge.com 2011-11-15 [start]
 #elif defined(CONFIG_MACH_MSM8960_L_DCM)
 	#define RTV_PWR_LDO
-//                                     
+//taew00k.kang@lge.com 2011-11-15 [end]
 #else
 	#error "Code not present"
 #endif

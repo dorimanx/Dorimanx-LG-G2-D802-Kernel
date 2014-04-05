@@ -18,6 +18,9 @@
 #include <mach/camera2.h>
 #include <media/msm_cam_sensor.h>
 
+#define NO_SET_RATE -1
+#define INIT_RATE -2
+
 void msm_camera_io_w(u32 data, void __iomem *addr);
 void msm_camera_io_w_mb(u32 data, void __iomem *addr);
 u32 msm_camera_io_r(void __iomem *addr);
@@ -25,7 +28,8 @@ u32 msm_camera_io_r_mb(void __iomem *addr);
 void msm_camera_io_dump(void __iomem *addr, int size);
 void msm_camera_io_memcpy(void __iomem *dest_addr,
 		void __iomem *src_addr, u32 len);
-
+int msm_cam_clk_sel_src(struct device *dev, struct msm_cam_clk_info *clk_info,
+		struct msm_cam_clk_info *clk_src_info, int num_clk);
 int msm_cam_clk_enable(struct device *dev, struct msm_cam_clk_info *clk_info,
 		struct clk **clk_ptr, int num_clk, int enable);
 

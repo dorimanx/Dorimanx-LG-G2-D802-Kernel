@@ -21,7 +21,8 @@
 
 #define QPNP_MISC_DEV_NAME "qcom,qpnp-misc"
 
-#define REVID_REVISION2	0x1
+#define REG_DIG_MAJOR_REV	0x01
+#define REG_SUBTYPE		0x05
 
 static DEFINE_MUTEX(qpnp_misc_dev_list_mutex);
 static LIST_HEAD(qpnp_misc_dev_list);
@@ -45,6 +46,11 @@ struct qpnp_misc_dev {
 	struct spmi_device		*spmi;
 };
 
+struct qpnp_misc_version {
+	u8				subtype;
+	u8				dig_major_rev;
+};
+
 static struct of_device_id qpnp_misc_match_table[] = {
 	{ .compatible = QPNP_MISC_DEV_NAME },
 	{}
@@ -62,9 +68,12 @@ static u8 qpnp_read_byte(struct spmi_device *spmi, u16 addr)
 	}
 	return val;
 }
+#if defined(CONFIG_SMB349_CHARGER) || defined(CONFIG_BQ24192_CHARGER)
+struct spmi_device		*the_spmi;
+#define SMBB_BAT_IF_BAT_PRES_STATUS 0x1208
+#endif
 
 #ifdef CONFIG_SMB349_CHARGER
-struct spmi_device		*the_spmi;
 static int
 smb349_qpnp_write(struct spmi_device *spmi, u16 addr, u8 val)
 {
@@ -114,7 +123,6 @@ int smb349_pmic_usb_override(bool mode)
 
 	return 0;
 }
-#define SMBB_BAT_IF_BAT_PRES_STATUS 0x1208
 bool smb349_pmic_batt_present(void)
 {
 	int rc;
@@ -133,44 +141,51 @@ bool smb349_pmic_batt_present(void)
 
 	return val & BIT(7);
 }
-static u16 smb349_pmic_regs[] = {
-	0xDD08, 0xDD10, 0xDD11, 0xDD12,
-	0xDD13, 0xDD14, 0xDD15, 0xDD16,
-	0xDD18, 0xDD19, 0xDD1A, 0xDD1B,
-	0xDD40, 0xDD41, 0xDD42, 0xDD43,
-	0xDD45, 0xDD46,
-};
-void smb349_pmic_reg_dump(void)
+#endif
+
+#ifdef CONFIG_BQ24192_CHARGER
+bool bq24192_pmic_batt_present(void)
 {
-	int i;
 	int rc;
 	u8  val;
 
 	if (!the_spmi) {
-		pr_err("fail to pmic_reg dump spmi not init\n");
-		return;
+		pr_err("fail to override spmi not init\n");
+		return true;
+	}
+	rc = spmi_ext_register_readl(the_spmi->ctrl,
+				the_spmi->sid, SMBB_BAT_IF_BAT_PRES_STATUS, &val, 1);
+	if (rc) {
+		pr_err("failed to read pmic 0x1208 rc:%d\n", rc);
+		return true;
 	}
 
-	for (i = 0 ; i < ARRAY_SIZE(smb349_pmic_regs) ; i++) {
-		rc = spmi_ext_register_readl(the_spmi->ctrl,
-					the_spmi->sid, smb349_pmic_regs[i], &val, 1);
-		pr_err("[DUMP] pmic 0x%04X: 0x%02X\n", smb349_pmic_regs[i], val);
-	}
-
+	return val & BIT(7);
 }
 #endif
 
-#define REV2_IRQ_AVAILABLE_VERSION	2
+static struct qpnp_misc_version irq_support_version[] = {
+	{0x01, 0x02}, /* PM8941 */
+	{0x07, 0x00}, /* PM8226 */
+	{0x09, 0x00}, /* PMA8084 */
+};
+
 static bool __misc_irqs_available(struct qpnp_misc_dev *dev)
 {
-	u8 rev2;
+	int i;
+	u8 subtype, dig_major_rev;
 
-	rev2 = qpnp_read_byte(dev->spmi,
-		dev->resource->start + REVID_REVISION2);
-	pr_debug("rev2 0x%x\n", rev2);
+	subtype = qpnp_read_byte(dev->spmi, dev->resource->start + REG_SUBTYPE);
+	pr_debug("subtype = 0x%02X\n", subtype);
 
-	if (rev2 >= REV2_IRQ_AVAILABLE_VERSION)
-		return 1;
+	dig_major_rev = qpnp_read_byte(dev->spmi,
+		dev->resource->start + REG_DIG_MAJOR_REV);
+	pr_debug("dig_major rev = 0x%02X\n", dig_major_rev);
+
+	for (i = 0; i < ARRAY_SIZE(irq_support_version); i++)
+		if (subtype == irq_support_version[i].subtype
+		    && dig_major_rev >= irq_support_version[i].dig_major_rev)
+			return 1;
 
 	return 0;
 }
@@ -180,6 +195,11 @@ int qpnp_misc_irqs_available(struct device *consumer_dev)
 	struct device_node *misc_node = NULL;
 	struct qpnp_misc_dev *mdev = NULL;
 	struct qpnp_misc_dev *mdev_found = NULL;
+
+	if (IS_ERR_OR_NULL(consumer_dev)) {
+		pr_err("Invalid consumer device pointer\n");
+		return -EINVAL;
+	}
 
 	misc_node = of_parse_phandle(consumer_dev->of_node, "qcom,misc-ref", 0);
 	if (!misc_node) {
@@ -228,7 +248,7 @@ static int __devinit qpnp_misc_probe(struct spmi_device *spmi)
 	mdev->spmi = spmi;
 	mdev->dev = &(spmi->dev);
 	mdev->resource = resource;
-#ifdef CONFIG_SMB349_CHARGER
+#if defined(CONFIG_SMB349_CHARGER) || defined(CONFIG_BQ24192_CHARGER)
 	the_spmi = spmi;
 #endif
 

@@ -37,7 +37,84 @@ void diag_clean_reg_fn(struct work_struct *work)
 	diag_clear_reg(smd_info->peripheral);
 	reg_dirty ^= smd_info->peripheral_mask;
 
+	/* Reset the feature mask flag */
+	driver->rcvd_feature_mask[smd_info->peripheral] = 0;
+
 	smd_info->notify_context = 0;
+}
+
+void diag_cntl_smd_work_fn(struct work_struct *work)
+{
+	struct diag_smd_info *smd_info = container_of(work,
+						struct diag_smd_info,
+						diag_general_smd_work);
+
+	if (!smd_info || smd_info->type != SMD_CNTL_TYPE)
+		return;
+
+	if (smd_info->general_context == UPDATE_PERIPHERAL_STM_STATE) {
+		if (driver->peripheral_supports_stm[smd_info->peripheral] ==
+								ENABLE_STM) {
+			int status = 0;
+			int index = smd_info->peripheral;
+			status = diag_send_stm_state(smd_info,
+				(uint8_t)(driver->stm_state_requested[index]));
+			if (status == 1)
+				driver->stm_state[index] =
+					driver->stm_state_requested[index];
+		}
+	}
+	smd_info->general_context = 0;
+}
+
+void diag_cntl_stm_notify(struct diag_smd_info *smd_info, int action)
+{
+	if (!smd_info || smd_info->type != SMD_CNTL_TYPE)
+		return;
+
+	if (action == CLEAR_PERIPHERAL_STM_STATE)
+		driver->peripheral_supports_stm[smd_info->peripheral] =
+								DISABLE_STM;
+}
+
+static void process_stm_feature(struct diag_smd_info *smd_info,
+			      uint8_t feature_mask)
+{
+	if (feature_mask & F_DIAG_OVER_STM) {
+		driver->peripheral_supports_stm[smd_info->peripheral] =
+								ENABLE_STM;
+		smd_info->general_context = UPDATE_PERIPHERAL_STM_STATE;
+		queue_work(driver->diag_cntl_wq,
+				&(smd_info->diag_general_smd_work));
+	} else {
+		driver->peripheral_supports_stm[smd_info->peripheral] =
+								DISABLE_STM;
+	}
+}
+
+static void process_hdlc_encoding_feature(struct diag_smd_info *smd_info,
+					uint8_t feature_mask)
+{
+	/*
+	 * Check if apps supports hdlc encoding and the
+	 * peripheral supports apps hdlc encoding
+	 */
+	if (driver->supports_apps_hdlc_encoding &&
+		(feature_mask & F_DIAG_HDLC_ENCODE_IN_APPS_MASK)) {
+		driver->smd_data[smd_info->peripheral].encode_hdlc =
+						ENABLE_APPS_HDLC_ENCODING;
+		if (driver->separate_cmdrsp[smd_info->peripheral] &&
+			smd_info->peripheral < NUM_SMD_CMD_CHANNELS)
+			driver->smd_cmd[smd_info->peripheral].encode_hdlc =
+						ENABLE_APPS_HDLC_ENCODING;
+	} else {
+		driver->smd_data[smd_info->peripheral].encode_hdlc =
+						DISABLE_APPS_HDLC_ENCODING;
+		if (driver->separate_cmdrsp[smd_info->peripheral] &&
+			smd_info->peripheral < NUM_SMD_CMD_CHANNELS)
+			driver->smd_cmd[smd_info->peripheral].encode_hdlc =
+						DISABLE_APPS_HDLC_ENCODING;
+	}
 }
 
 /* Process the data read from the smd control channel */
@@ -84,14 +161,21 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 			msg = buf+HDR_SIZ;
 			range = buf+HDR_SIZ+
 					sizeof(struct diag_ctrl_msg);
+			if (msg->count_entries == 0) {
+				pr_debug("diag: In %s, received reg tbl with no entries\n",
+								__func__);
+				buf = buf + HDR_SIZ + data_len;
+				continue;
+			}
 			pkt_params->count = msg->count_entries;
 			pkt_params->params = kzalloc(pkt_params->count *
 				sizeof(struct bindpkt_params), GFP_KERNEL);
-			if (pkt_params->params == NULL) {
-				pr_alert("diag: In %s, Memory alloc fail\n",
-					__func__);
-				kfree(pkt_params);
-				return flag;
+			if (!pkt_params->params) {
+				pr_alert("diag: In %s, Memory alloc fail for cmd_code: %d, subsys: %d\n",
+						__func__, msg->cmd_code,
+						msg->subsysid);
+				buf = buf + HDR_SIZ + data_len;
+				continue;
 			}
 			temp = pkt_params->params;
 			for (j = 0; j < pkt_params->count; j++) {
@@ -120,8 +204,11 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 			uint8_t feature_mask = 0;
 			int feature_mask_len = *(int *)(buf+8);
 			if (feature_mask_len > 0) {
+				int periph = smd_info->peripheral;
+				driver->rcvd_feature_mask[smd_info->peripheral]
+									= 1;
 				feature_mask = *(uint8_t *)(buf+12);
-				if (smd_info->peripheral == MODEM_DATA)
+				if (periph == MODEM_DATA)
 					driver->log_on_demand_support =
 						feature_mask &
 					F_DIAG_LOG_ON_DEMAND_RSP_ON_MASTER;
@@ -132,13 +219,22 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 				 */
 				if (driver->supports_separate_cmdrsp &&
 					(feature_mask & F_DIAG_REQ_RSP_CHANNEL))
-					driver->separate_cmdrsp
-						[smd_info->peripheral] =
+					driver->separate_cmdrsp[periph] =
 							ENABLE_SEPARATE_CMDRSP;
 				else
-					driver->separate_cmdrsp
-						[smd_info->peripheral] =
+					driver->separate_cmdrsp[periph] =
 							DISABLE_SEPARATE_CMDRSP;
+				/*
+				 * Check if apps supports hdlc encoding and the
+				 * peripheral supports apps hdlc encoding
+				 */
+				process_hdlc_encoding_feature(smd_info,
+								feature_mask);
+				if (feature_mask_len > 1) {
+					feature_mask = *(uint8_t *)(buf+13);
+					process_stm_feature(smd_info,
+								feature_mask);
+				}
 			}
 			flag = 1;
 		} else if (type != DIAG_CTRL_MSG_REG) {
@@ -151,14 +247,98 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 	return flag;
 }
 
-void diag_send_diag_mode_update(int real_time)
+void diag_update_proc_vote(uint16_t proc, uint8_t vote)
 {
-	int i;
-
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
-		diag_send_diag_mode_update_by_smd(&driver->smd_cntl[i],
-							real_time);
+	mutex_lock(&driver->real_time_mutex);
+	if (vote)
+		driver->proc_active_mask |= proc;
+	else {
+		driver->proc_active_mask &= ~proc;
+		driver->proc_rt_vote_mask |= proc;
+	}
+	mutex_unlock(&driver->real_time_mutex);
 }
+
+void diag_update_real_time_vote(uint16_t proc, uint8_t real_time)
+{
+	mutex_lock(&driver->real_time_mutex);
+	if (real_time)
+		driver->proc_rt_vote_mask |= proc;
+	else
+		driver->proc_rt_vote_mask &= ~proc;
+	mutex_unlock(&driver->real_time_mutex);
+}
+
+#ifdef CONFIG_DIAG_OVER_USB
+void diag_real_time_work_fn(struct work_struct *work)
+{
+	int temp_real_time = MODE_REALTIME, i;
+
+	if (driver->proc_active_mask == 0) {
+		/* There are no DCI or Memory Device processes. Diag should
+		 * be in Real Time mode irrespective of USB connection
+		 */
+		temp_real_time = MODE_REALTIME;
+	} else if (driver->proc_rt_vote_mask & driver->proc_active_mask) {
+		/* Atleast one process is alive and is voting for Real Time
+		 * data - Diag should be in real time mode irrespective of USB
+		 * connection.
+		 */
+		temp_real_time = MODE_REALTIME;
+	} else if (driver->usb_connected) {
+		/* If USB is connected, check individual process. If Memory
+		 * Device Mode is active, set the mode requested by Memory
+		 * Device process. Set to realtime mode otherwise.
+		 */
+		if ((driver->proc_rt_vote_mask & DIAG_PROC_MEMORY_DEVICE) == 0)
+			temp_real_time = MODE_NONREALTIME;
+		else
+			temp_real_time = MODE_REALTIME;
+	} else {
+		/* We come here if USB is not connected and the active
+		 * processes are voting for Non realtime mode.
+		 */
+		temp_real_time = MODE_NONREALTIME;
+	}
+
+	if (temp_real_time != driver->real_time_mode) {
+		for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+			diag_send_diag_mode_update_by_smd(&driver->smd_cntl[i],
+							temp_real_time);
+	} else {
+		pr_debug("diag: did not update real time mode, already in the req mode %d",
+					temp_real_time);
+	}
+	if (driver->real_time_update_busy > 0)
+		driver->real_time_update_busy--;
+}
+#else
+void diag_real_time_work_fn(struct work_struct *work)
+{
+	int temp_real_time = MODE_REALTIME, i;
+
+	if (driver->proc_active_mask == 0) {
+		/* There are no DCI or Memory Device processes. Diag should
+		 * be in Real Time mode.
+		 */
+		temp_real_time = MODE_REALTIME;
+	} else if (!(driver->proc_rt_vote_mask & driver->proc_active_mask)) {
+		/* No active process is voting for real time mode */
+		temp_real_time = MODE_NONREALTIME;
+	}
+
+	if (temp_real_time != driver->real_time_mode) {
+		for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+			diag_send_diag_mode_update_by_smd(&driver->smd_cntl[i],
+							temp_real_time);
+	} else {
+		pr_warn("diag: did not update real time mode, already in the req mode %d",
+					temp_real_time);
+	}
+	if (driver->real_time_update_busy > 0)
+		driver->real_time_update_busy--;
+}
+#endif
 
 void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 							int real_time)
@@ -167,10 +347,15 @@ void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 	char buf[sizeof(struct diag_ctrl_msg_diagmode)];
 	int msg_size = sizeof(struct diag_ctrl_msg_diagmode);
 	int wr_size = -ENOMEM, retry_count = 0, timer;
+	struct diag_smd_info *data = NULL;
 
 	/* For now only allow the modem to receive the message */
 	if (!smd_info || smd_info->type != SMD_CNTL_TYPE ||
 		(smd_info->peripheral != MODEM_DATA))
+		return;
+
+	data = &driver->smd_data[smd_info->peripheral];
+	if (!data)
 		return;
 
 	mutex_lock(&driver->diag_cntl_mutex);
@@ -208,11 +393,9 @@ void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 				for (timer = 0; timer < 5; timer++)
 					udelay(2000);
 			} else {
-				struct diag_smd_info *data =
+				data =
 				&driver->smd_data[smd_info->peripheral];
 				driver->real_time_mode = real_time;
-				process_lock_enabling(&data->nrt_lock,
-								real_time);
 				break;
 			}
 		}
@@ -224,8 +407,59 @@ void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 		pr_err("diag: ch invalid, feature update on proc %d\n",
 				smd_info->peripheral);
 	}
+	process_lock_enabling(&data->nrt_lock, real_time);
 
 	mutex_unlock(&driver->diag_cntl_mutex);
+}
+
+int diag_send_stm_state(struct diag_smd_info *smd_info,
+			  uint8_t stm_control_data)
+{
+	struct diag_ctrl_msg_stm stm_msg;
+	int msg_size = sizeof(struct diag_ctrl_msg_stm);
+	int retry_count = 0;
+	int wr_size = 0;
+	int success = 0;
+
+	if (!smd_info || (smd_info->type != SMD_CNTL_TYPE) ||
+		(driver->peripheral_supports_stm[smd_info->peripheral] ==
+								DISABLE_STM)) {
+		return -EINVAL;
+	}
+
+	if (smd_info->ch) {
+		stm_msg.ctrl_pkt_id = 21;
+		stm_msg.ctrl_pkt_data_len = 5;
+		stm_msg.version = 1;
+		stm_msg.control_data = stm_control_data;
+		while (retry_count < 3) {
+			wr_size = smd_write(smd_info->ch, &stm_msg, msg_size);
+			if (wr_size == -ENOMEM) {
+				/*
+				 * The smd channel is full. Delay while
+				 * smd processes existing data and smd
+				 * has memory become available. The delay
+				 * of 10000 was determined empirically as
+				 * best value to use.
+				 */
+				retry_count++;
+				usleep_range(10000, 10000);
+			} else {
+				success = 1;
+				break;
+			}
+		}
+		if (wr_size != msg_size) {
+			pr_err("diag: In %s, proc %d fail STM update %d, tried %d",
+				__func__, smd_info->peripheral, wr_size,
+				msg_size);
+			success = 0;
+		}
+	} else {
+		pr_err("diag: In %s, ch invalid, STM update on proc %d\n",
+				__func__, smd_info->peripheral);
+	}
+	return success;
 }
 
 static int diag_smd_cntl_probe(struct platform_device *pdev)
@@ -343,6 +577,7 @@ void diagfwd_cntl_exit(void)
 		diag_smd_destructor(&driver->smd_cntl[i]);
 
 	destroy_workqueue(driver->diag_cntl_wq);
+	destroy_workqueue(driver->diag_real_time_wq);
 
 	platform_driver_unregister(&msm_smd_ch1_cntl_driver);
 	platform_driver_unregister(&diag_smd_lite_cntl_driver);

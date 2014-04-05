@@ -132,6 +132,7 @@
 	qcom,msm-thermal {
 		qcom,limit-temp = <80>;
 		qcom,temp-hysteresis = <5>;
+                qcom,core-limit-temp = <90>;
 		qcom,core-temp-hysteresis = <5>;
 	};
 
@@ -148,7 +149,11 @@
 &spmi_bus {
 	qcom,pm8941@0 {
 		qcom,power-on@800 {
+			qcom,s3-debounce = <64>;
 			qcom,pon_2 {
+				qcom,disable = <1>;
+			};
+			qcom,pon_3 {
 				qcom,disable = <1>;
 			};
 		};
@@ -490,6 +495,18 @@
 
 		qcom,leds@e100 {
 			status = "disabled";
+		};
+
+		qcom,leds@e200 {
+			status = "okay";
+			qcom,kpdbl1 {
+				linux,name = "button-backlight1";
+			};
+
+			qcom,kpdbl2 {
+				linux,name = "button-backlight2";
+				qcom,mode = "pwm";
+			};
 		};
 	};
 

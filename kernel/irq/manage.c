@@ -531,6 +531,58 @@ int irq_set_irq_wake(unsigned int irq, unsigned int on)
 }
 EXPORT_SYMBOL(irq_set_irq_wake);
 
+#ifdef CONFIG_ZERO_WAIT
+int zw_irq_set_irq_wake(unsigned int irq, unsigned int on)
+{
+	unsigned long flags;
+	struct irq_desc *desc = irq_get_desc_buslock(irq, &flags, IRQ_GET_DESC_CHECK_GLOBAL);
+	int ret = 0;
+
+	if (!desc)
+		return -EINVAL;
+
+	if (on) {
+		if (desc->zw_wake_depth != 0) {
+			if (set_irq_wake_real(irq, on) == 0) {
+				irqd_set(&desc->irq_data, IRQD_WAKEUP_STATE);
+				desc->wake_depth = desc->zw_wake_depth;
+				desc->zw_wake_depth = 0;
+			}
+		}
+	} else {
+		if ((desc->zw_wake_depth == 0) && (desc->wake_depth > 0)) {
+			if (set_irq_wake_real(irq, on) == 0) {
+				irqd_clear(&desc->irq_data, IRQD_WAKEUP_STATE);
+				desc->zw_wake_depth = desc->wake_depth;
+				desc->wake_depth = 0x7FFFFFFFU;
+			}
+		}
+	}
+	irq_put_desc_busunlock(desc, flags);
+	return ret;
+}
+
+void set_irq_handler(unsigned int irq, irq_handler_t handler)
+{
+	unsigned long flags;
+	struct irq_desc *desc = irq_get_desc_buslock(irq, &flags,
+					IRQ_GET_DESC_CHECK_GLOBAL);
+
+	if (!desc)
+		return;
+
+	if (desc->action) {
+		__disable_irq(desc, irq, false);
+		if (desc->action->thread_fn)
+			desc->action->thread_fn = handler;
+		else
+			desc->action->handler = handler;
+		__enable_irq(desc, irq, false);
+	}
+	irq_put_desc_busunlock(desc, flags);
+}
+#endif	/* CONFIG_ZERO_WAIT */
+
 /**
  *     irq_read_line - read the value on an irq line
  *     @irq: Interrupt number representing a hardware line

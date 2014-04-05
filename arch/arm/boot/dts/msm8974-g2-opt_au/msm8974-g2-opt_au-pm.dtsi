@@ -15,9 +15,9 @@
 		max17048@36 {
 			status =  "ok";
 			revision = "rev_a...";
-			max17048,rcomp = <100>;
-			max17048,temp_co_hot = <850>;
-			max17048,temp_co_cold = <6250>;
+			max17048,rcomp = <104>;
+			max17048,temp_co_hot = <975>;
+			max17048,temp_co_cold = <7150>;
 			max17048,full_design = <3000>;
 		};
 
@@ -47,6 +47,17 @@
 
 &spmi_bus {
 	qcom,pm8941@0 {
+		qcom,temp-alarm@2400 {
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,chg-bat-if@1200 {
+				status = "ok";
+				reg = <0x1200 0x100>;
+				interrupts =	<0x0 0x12 0x0>;
+				interrupt-names = "batt-pres";
+			};
+		};
 
 		vadc@3100 {
 			chan@14 {
@@ -57,6 +68,19 @@
 				status = "ok";
 				revision = "rev_b...";
 			};
+
+			chan@16 {
+				status = "ok";
+				label="mpp7_adc";
+				reg = <0x16>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
 		};
 
 	};
@@ -297,6 +321,12 @@
 	};
 
 	mpp@a600 { /* MPP 7 */
+		status = "ok";
+		qcom,mode = <4>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,src-sel = <0>; /* CONSTANT */
+		qcom,master-en = <1>; /* ENABLE MPP */
+		qcom,ain-route = <2>;
 	};
 
 	mpp@a700 { /* MPP 8 */

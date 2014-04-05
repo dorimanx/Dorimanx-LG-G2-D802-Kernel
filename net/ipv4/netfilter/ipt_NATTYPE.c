@@ -58,13 +58,16 @@ static const char * const modes[] = {"MODE_DNAT", "MODE_FORWARD_IN",
 struct ipt_nattype {
 	struct list_head list;
 	struct timer_list timeout;
-	unsigned char is_valid;
+	unsigned long timeout_value;
+	unsigned int nattype_cookie;
 	unsigned short proto;		/* Protocol: TCP or UDP */
 	struct nf_nat_ipv4_range range;	/* LAN side source information */
 	unsigned short nat_port;	/* Routed NAT port */
 	unsigned int dest_addr;	/* Original egress packets destination addr */
 	unsigned short dest_port;/* Original egress packets destination port */
 };
+
+#define NATTYPE_COOKIE 0x11abcdef
 
 /*
  * TODO: It might be better to use a hash table for performance in
@@ -102,18 +105,19 @@ static void nattype_free(struct ipt_nattype *nte)
  * nattype_refresh_timer()
  *	Refresh the timer for this object.
  */
-bool nattype_refresh_timer(unsigned long nat_type)
+bool nattype_refresh_timer(unsigned long nat_type, unsigned long timeout_value)
 {
 	struct ipt_nattype *nte = (struct ipt_nattype *)nat_type;
 	if (!nte)
 		return false;
 	spin_lock_bh(&nattype_lock);
-	if (!nte->is_valid) {
+	if (nte->nattype_cookie != NATTYPE_COOKIE) {
 		spin_unlock_bh(&nattype_lock);
 		return false;
 	}
 	if (del_timer(&nte->timeout)) {
-		nte->timeout.expires = jiffies + NATTYPE_TIMEOUT * HZ;
+		nte->timeout_value = timeout_value - jiffies;
+		nte->timeout.expires = timeout_value;
 		add_timer(&nte->timeout);
 		spin_unlock_bh(&nattype_lock);
 		return true;
@@ -222,7 +226,8 @@ static bool nattype_packet_in_match(const struct ipt_nattype *nte,
  * nattype_compare
  *	Compare two entries, return true if relevant fields are the same.
  */
-static bool nattype_compare(struct ipt_nattype *n1, struct ipt_nattype *n2)
+static bool nattype_compare(struct ipt_nattype *n1, struct ipt_nattype *n2,
+		const struct ipt_nattype_info *info)
 {
 	/*
 	 * Protocol compare.
@@ -261,19 +266,15 @@ static bool nattype_compare(struct ipt_nattype *n1, struct ipt_nattype *n2)
 	}
 
 	/*
-	 * Destination compare
+	 * Destination Comapre for Address Restricted Cone NAT.
 	 */
-	if (n1->dest_addr != n2->dest_addr) {
+	if ((info->type == TYPE_ADDRESS_RESTRICTED) &&
+		(n1->dest_addr != n2->dest_addr)) {
 		DEBUGP("nattype_compare: dest_addr mismatch: %pI4:%pI4\n",
-				&n1->dest_addr, &n2->dest_addr);
+			&n1->dest_addr, &n2->dest_addr);
 		return false;
 	}
 
-	if (n1->dest_port != n2->dest_port) {
-		DEBUGP("nattype_compare: dest_port mismatch: %d:%d\n",
-				ntohs(n1->dest_port), ntohs(n2->dest_port));
-		return false;
-	}
 	return true;
 }
 
@@ -316,6 +317,15 @@ static unsigned int nattype_nat(struct sk_buff *skb,
 		}
 
 		/*
+		 * Refresh the timer, if we fail, break
+		 * out and forward fail as though we never
+		 * found the entry.
+		 */
+		if (!nattype_refresh_timer((unsigned long)nte,
+				jiffies + nte->timeout_value))
+			break;
+
+		/*
 		 * Expand the ingress conntrack to include the reply as source
 		 */
 		DEBUGP("Expand ingress conntrack=%p, type=%d, src[%pI4:%d]\n",
@@ -344,8 +354,18 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	enum ip_conntrack_info ctinfo;
 	const struct ipt_nattype_info *info = par->targinfo;
 	uint16_t nat_port;
+	enum ip_conntrack_dir dir;
+
 
 	if (par->hooknum != NF_INET_FORWARD)
+		return XT_CONTINUE;
+
+	/*
+	 * Egress packet, create a new rule in our list.  If conntrack does
+	 * not have an entry, skip this packet.
+	 */
+	ct = nf_ct_get(skb, &ctinfo);
+	if (!ct)
 		return XT_CONTINUE;
 
 	/*
@@ -366,7 +386,8 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 			 * out and forward fail as though we never
 			 * found the entry.
 			 */
-			if (!nattype_refresh_timer((unsigned long)nte))
+			if (!nattype_refresh_timer((unsigned long)nte,
+					ct->timeout.expires))
 				break;
 			/*
 			 * The entry is found and refreshed, the
@@ -382,15 +403,9 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 		return XT_CONTINUE;
 	}
 
-	/*
-	 * Egress packet, create a new rule in our list.  If conntrack does
-	 * not have an entry, skip this packet.
-	 */
-	ct = nf_ct_get(skb, &ctinfo);
-	if (!ct || (ctinfo == IP_CT_NEW && ctinfo == IP_CT_RELATED))
-		return XT_CONTINUE;
+	dir = CTINFO2DIR(ctinfo);
 
-	nat_port = ct->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u.all;
+	nat_port = ct->tuplehash[!dir].tuple.dst.u.all;
 
 	/*
 	 * Allocate a new entry
@@ -439,7 +454,7 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	 */
 	spin_lock_bh(&nattype_lock);
 	list_for_each_entry(nte2, &nattype_list, list) {
-		if (!nattype_compare(nte, nte2))
+		if (!nattype_compare(nte, nte2, info))
 			continue;
 		spin_unlock_bh(&nattype_lock);
 		/*
@@ -447,7 +462,9 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 		 * entry as this one is timed out and will be removed
 		 * from the list shortly.
 		 */
-		if (!nattype_refresh_timer((unsigned long)nte2))
+		nte2->timeout_value = ct->timeout.expires - jiffies;
+		if (!nattype_refresh_timer((unsigned long)nte2,
+				ct->timeout.expires))
 			break;
 		/*
 		 * Found and refreshed an existing entry.  Its values
@@ -463,11 +480,12 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	/*
 	 * Add the new entry to the list.
 	 */
-	nte->timeout.expires = jiffies + (NATTYPE_TIMEOUT  * HZ);
+	nte->timeout_value = ct->timeout.expires - jiffies;
+	nte->timeout.expires = ct->timeout.expires;
 	add_timer(&nte->timeout);
 	list_add(&nte->list, &nattype_list);
 	ct->nattype_entry = (unsigned long)nte;
-	nte->is_valid = 1;
+	nte->nattype_cookie = NATTYPE_COOKIE;
 	spin_unlock_bh(&nattype_lock);
 	nattype_nte_debug_print(nte, "ADD");
 	return XT_CONTINUE;

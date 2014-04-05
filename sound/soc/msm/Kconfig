@@ -215,6 +215,7 @@ config SND_SOC_MSM8226
 	select SND_SOC_MSM_HOSTLESS_PCM
 	select SND_SOC_WCD9306
 	select SND_DYNAMIC_MINORS
+	select DOLBY_DAP
 	help
 	 To add support for SoC audio on MSM8226.
 	 This will enable sound soc drivers which
@@ -290,5 +291,28 @@ config SND_VOIP_VOLUME
 	default 9
 	help
 	  Level of voice volume.
+
+config HIFI_SOUND
+	bool "HIFI 24bit SOUND"
+	default y
+	help
+	 HIFI 24bit sound
+
+config SND_LGE_EFFECT
+	bool "LGE DSP EFFECT"
+	default y
+	help
+	 To support LGE DSP EFFECT
 	 
+config SND_LGE_NORMALIZER
+	bool "LGE DSP NORMALIZER"
+	default y
+	help
+	 To support LGE DSP NORMALIZER
+
+config SND_LGE_MABL
+    bool "LGE DSP MABL"
+    default y
+    help
+     To support LGE DSP MABL
 endmenu

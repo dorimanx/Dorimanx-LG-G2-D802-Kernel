@@ -19,14 +19,17 @@
 #include "diagfwd_cntl.h"
 #include "diag_masks.h"
 
-int diag_event_config;
 int diag_event_num_bytes;
+
+#define DIAG_CTRL_MASK_INVALID		0
+#define DIAG_CTRL_MASK_ALL_DISABLED	1
+#define DIAG_CTRL_MASK_ALL_ENABLED	2
+#define DIAG_CTRL_MASK_VALID		3
 
 #define ALL_EQUIP_ID		100
 #define ALL_SSID		-1
-#define MAX_SSID_PER_RANGE	100
 
-#define FEATURE_MASK_LEN_BYTES		1
+#define FEATURE_MASK_LEN_BYTES		2
 
 struct mask_info {
 	int equip_id;
@@ -106,6 +109,8 @@ static void diag_set_msg_mask(int rt_mask)
 	uint8_t *parse_ptr, *ptr = driver->msg_masks;
 
 	mutex_lock(&driver->diagchar_mutex);
+	driver->msg_status = rt_mask ? DIAG_CTRL_MASK_ALL_ENABLED :
+						DIAG_CTRL_MASK_ALL_DISABLED;
 	while (*(uint32_t *)(ptr + 4)) {
 		first_ssid = *(uint32_t *)ptr;
 		ptr += 8; /* increment by 8 to skip 'last' */
@@ -129,9 +134,9 @@ static void diag_update_msg_mask(int start, int end , uint8_t *buf)
 	uint8_t *ptr = driver->msg_masks;
 	uint8_t *ptr_buffer_start = &(*(driver->msg_masks));
 	uint8_t *ptr_buffer_end = &(*(driver->msg_masks)) + MSG_MASK_SIZE;
+	uint32_t copy_len = (end - start + 1) * sizeof(int);
 
 	mutex_lock(&driver->diagchar_mutex);
-
 	/* First SSID can be zero : So check that last is non-zero */
 	while (*(uint32_t *)(ptr + 4)) {
 		first = *(uint32_t *)ptr;
@@ -148,11 +153,19 @@ static void diag_update_msg_mask(int start, int end , uint8_t *buf)
 				actual_last = end;
 				*(uint32_t *)(actual_last_ptr) = end;
 			}
+			if (actual_last-first >= MAX_SSID_PER_RANGE) {
+				pr_err("diag: In %s, truncating ssid range, %d-%d to max allowed: %d",
+						__func__, first, actual_last,
+						MAX_SSID_PER_RANGE);
+				copy_len = MAX_SSID_PER_RANGE;
+				actual_last = first + MAX_SSID_PER_RANGE;
+				*(uint32_t *)actual_last_ptr = actual_last;
+			}
 			if (CHK_OVERFLOW(ptr_buffer_start, ptr, ptr_buffer_end,
-					  (((end - start)+1)*4))) {
+								copy_len)) {
 				pr_debug("diag: update ssid start %d, end %d\n",
 								 start, end);
-				memcpy(ptr, buf , ((end - start)+1)*4);
+				memcpy(ptr, buf, copy_len);
 			} else
 				pr_alert("diag: Not enough space MSG_MASK\n");
 			found = 1;
@@ -177,6 +190,7 @@ static void diag_update_msg_mask(int start, int end , uint8_t *buf)
 		} else
 			pr_alert("diag: Not enough buffer space for MSG_MASK\n");
 	}
+	driver->msg_status = DIAG_CTRL_MASK_VALID;
 	mutex_unlock(&driver->diagchar_mutex);
 	diag_print_mask_table();
 }
@@ -186,107 +200,119 @@ void diag_toggle_event_mask(int toggle)
 	uint8_t *ptr = driver->event_masks;
 
 	mutex_lock(&driver->diagchar_mutex);
-	if (toggle)
+	if (toggle) {
+		driver->event_status = DIAG_CTRL_MASK_ALL_ENABLED;
 		memset(ptr, 0xFF, EVENT_MASK_SIZE);
-	else
+	} else {
+		driver->event_status = DIAG_CTRL_MASK_ALL_DISABLED;
 		memset(ptr, 0, EVENT_MASK_SIZE);
+	}
 	mutex_unlock(&driver->diagchar_mutex);
 }
 
 
-static void diag_update_event_mask(uint8_t *buf, int toggle, int num_bytes)
+static void diag_update_event_mask(uint8_t *buf, int num_bytes)
 {
 	uint8_t *ptr = driver->event_masks;
 	uint8_t *temp = buf + 2;
 
 	mutex_lock(&driver->diagchar_mutex);
-	if (!toggle)
-		memset(ptr, 0 , EVENT_MASK_SIZE);
-	else
-		if (CHK_OVERFLOW(ptr, ptr,
-				 ptr+EVENT_MASK_SIZE, num_bytes))
-			memcpy(ptr, temp , num_bytes);
-		else
-			printk(KERN_CRIT "Not enough buffer space for EVENT_MASK\n");
+	if (CHK_OVERFLOW(ptr, ptr, ptr+EVENT_MASK_SIZE, num_bytes)) {
+		memcpy(ptr, temp, num_bytes);
+		driver->event_status = DIAG_CTRL_MASK_VALID;
+	} else {
+		pr_err("diag: In %s, not enough buffer space\n", __func__);
+	}
 	mutex_unlock(&driver->diagchar_mutex);
 }
 
 static void diag_disable_log_mask(void)
 {
 	int i = 0;
-	struct mask_info *parse_ptr = (struct mask_info *)(driver->log_masks);
+	struct diag_log_mask_t *log_item = NULL;
 
-	pr_debug("diag: disable log masks\n");
-	mutex_lock(&driver->diagchar_mutex);
-	for (i = 0; i < MAX_EQUIP_ID; i++) {
-		pr_debug("diag: equip id %d\n", parse_ptr->equip_id);
-		if (!(parse_ptr->equip_id)) /* Reached a null entry */
-			break;
-		memset(driver->log_masks + parse_ptr->index, 0,
-			    (parse_ptr->num_items + 7)/8);
-		parse_ptr++;
-	}
-	mutex_unlock(&driver->diagchar_mutex);
+	mutex_lock(&driver->log_mask_mutex);
+	log_item = (struct diag_log_mask_t *)driver->log_masks;
+	for (i = 0; i < MAX_EQUIP_ID; i++, log_item++)
+		memset(log_item->ptr, 0, MAX_ITEMS_PER_EQUIP_ID);
+
+	driver->log_status = DIAG_CTRL_MASK_ALL_DISABLED;
+	mutex_unlock(&driver->log_mask_mutex);
 }
 
-int chk_equip_id_and_mask(int equip_id, uint8_t *buf)
+static int copy_log_mask_equip(int equip_id, uint8_t *buf)
 {
-	int i = 0, flag = 0, num_items, offset;
-	unsigned char *ptr_data;
-	struct mask_info *ptr = (struct mask_info *)(driver->log_masks);
+	int i, ret = 0;
+	uint8_t *temp = buf;
+	struct diag_log_mask_t *log_item = NULL;
+	uint32_t mask_size = 0;
 
-	pr_debug("diag: received equip id = %d\n", equip_id);
-	/* Check if this is valid equipment ID */
-	for (i = 0; i < MAX_EQUIP_ID; i++) {
-		if ((ptr->equip_id == equip_id) && (ptr->index != 0)) {
-			offset = ptr->index;
-			num_items = ptr->num_items;
-			flag = 1;
+	if (!buf)
+		return ret;
+
+	log_item = (struct diag_log_mask_t *)driver->log_masks;
+	for (i = 0; i < MAX_EQUIP_ID; i++, log_item++) {
+		if (log_item->equip_id != equip_id)
+			continue;
+		*(int *)temp = log_item->equip_id;
+		temp += sizeof(int);
+		*(int *)(temp) = log_item->num_items;
+		temp += sizeof(int);
+		mask_size = LOG_ITEMS_TO_SIZE(log_item->num_items);
+		if (mask_size > MAX_ITEMS_PER_EQUIP_ID) {
+			pr_err("diag: Invalid length: %d in %s, perimissible: %d",
+				mask_size, __func__, MAX_ITEMS_PER_EQUIP_ID);
 			break;
 		}
-		ptr++;
+		if (mask_size > 0) {
+			memcpy(temp, log_item->ptr, mask_size);
+			/*
+			 * Return the total number of bytes copied = size of
+			 * equip_id (int) + size of num_items (int) + mask_size
+			 */
+			ret = (2 * sizeof(int)) + mask_size;
+		}
+		break;
 	}
-	if (!flag)
-		return -EPERM;
-	ptr_data = driver->log_masks + offset;
-	memcpy(buf, ptr_data, (num_items+7)/8);
-	return 0;
+
+	return ret;
 }
 
 static void diag_update_log_mask(int equip_id, uint8_t *buf, int num_items)
 {
-	uint8_t *temp = buf;
 	int i = 0;
-	unsigned char *ptr_data;
-	int offset = (sizeof(struct mask_info))*MAX_EQUIP_ID;
-	struct mask_info *ptr = (struct mask_info *)(driver->log_masks);
+	struct diag_log_mask_t *log_item = NULL;
+	uint32_t mask_size = 0;
 
-	pr_debug("diag: received equip id = %d\n", equip_id);
-	mutex_lock(&driver->diagchar_mutex);
-	/* Check if we already know index of this equipment ID */
-	for (i = 0; i < MAX_EQUIP_ID; i++) {
-		if ((ptr->equip_id == equip_id) && (ptr->index != 0)) {
-			offset = ptr->index;
-			break;
-		}
-		if ((ptr->equip_id == 0) && (ptr->index == 0)) {
-			/* Reached a null entry */
-			ptr->equip_id = equip_id;
-			ptr->num_items = num_items;
-			ptr->index = driver->log_masks_length;
-			offset = driver->log_masks_length;
-			driver->log_masks_length += ((num_items+7)/8);
-			break;
-		}
-		ptr++;
+	mutex_lock(&driver->log_mask_mutex);
+	driver->log_status = DIAG_CTRL_MASK_INVALID;
+	if (!buf || (equip_id < 0 || equip_id >= MAX_EQUIP_ID) ||
+							num_items < 1) {
+		pr_err("diag: Invalid params in %s, buf: %x equip_id: %d, num_items: %d\n",
+		       __func__, (unsigned int)buf, equip_id, num_items);
+		mutex_unlock(&driver->log_mask_mutex);
+		return;
 	}
-	ptr_data = driver->log_masks + offset;
-	if (CHK_OVERFLOW(driver->log_masks, ptr_data, driver->log_masks
-					 + LOG_MASK_SIZE, (num_items+7)/8))
-		memcpy(ptr_data, temp , (num_items+7)/8);
-	else
-		pr_err("diag: Not enough buffer space for LOG_MASK\n");
-	mutex_unlock(&driver->diagchar_mutex);
+	mask_size = LOG_ITEMS_TO_SIZE(num_items);
+	if (mask_size > MAX_ITEMS_PER_EQUIP_ID) {
+		pr_err("diag: In %s, Invalid mask_size %d\n", __func__,
+								mask_size);
+		mutex_unlock(&driver->log_mask_mutex);
+		return;
+	}
+
+	log_item = (struct diag_log_mask_t *)driver->log_masks;
+	for (i = 0; i < MAX_EQUIP_ID; i++, log_item++) {
+		if (log_item->equip_id != equip_id)
+			continue;
+		/* Found the equip id */
+		log_item->num_items = num_items;
+		if (mask_size > 0)
+			memcpy(log_item->ptr, buf, mask_size);
+		driver->log_status = DIAG_CTRL_MASK_VALID;
+		break;
+	}
+	mutex_unlock(&driver->log_mask_mutex);
 }
 
 void diag_mask_update_fn(struct work_struct *work)
@@ -300,14 +326,15 @@ void diag_mask_update_fn(struct work_struct *work)
 		return;
 	}
 
+	diag_send_feature_mask_update(smd_info);
 	diag_send_msg_mask_update(smd_info->ch, ALL_SSID, ALL_SSID,
 						smd_info->peripheral);
 	diag_send_log_mask_update(smd_info->ch, ALL_EQUIP_ID);
 	diag_send_event_mask_update(smd_info->ch, diag_event_num_bytes);
-	diag_send_feature_mask_update(smd_info);
 
 	if (smd_info->notify_context == SMD_EVENT_OPEN)
-		diag_send_diag_mode_update_by_smd(smd_info, MODE_REALTIME);
+		diag_send_diag_mode_update_by_smd(smd_info,
+						driver->real_time_mode);
 
 	smd_info->notify_context = 0;
 }
@@ -315,51 +342,76 @@ void diag_mask_update_fn(struct work_struct *work)
 void diag_send_log_mask_update(smd_channel_t *ch, int equip_id)
 {
 	void *buf = driver->buf_log_mask_update;
-	int header_size = sizeof(struct diag_ctrl_log_mask);
-	struct mask_info *ptr = (struct mask_info *)driver->log_masks;
-	int i, size, wr_size = -ENOMEM, retry_count = 0;
+	struct diag_log_mask_t *log_item = NULL;
+	struct diag_ctrl_log_mask ctrl_pkt;
+	uint32_t log_mask_size = 0;
+	int wr_size = -ENOMEM, retry_count = 0;
+	int i, header_size, send_once = 0;
 
+	header_size = sizeof(struct diag_ctrl_log_mask);
+	log_item = (struct diag_log_mask_t *)driver->log_masks;
 	mutex_lock(&driver->diag_cntl_mutex);
-	for (i = 0; i < MAX_EQUIP_ID; i++) {
-		size = (ptr->num_items+7)/8;
-		/* reached null entry */
-		if ((ptr->equip_id == 0) && (ptr->index == 0))
+	for (i = 0; i < MAX_EQUIP_ID; i++, log_item++) {
+		if (equip_id != i && equip_id != ALL_EQUIP_ID)
+			continue;
+		log_mask_size = LOG_ITEMS_TO_SIZE(log_item->num_items);
+		ctrl_pkt.cmd_type = DIAG_CTRL_MSG_LOG_MASK;
+		ctrl_pkt.data_len = 11 + log_mask_size;
+		ctrl_pkt.stream_id = 1;
+		ctrl_pkt.status = driver->log_status;
+		switch (driver->log_status) {
+		case DIAG_CTRL_MASK_ALL_DISABLED:
+			ctrl_pkt.equip_id = 0;
+			ctrl_pkt.num_items = 0;
+			ctrl_pkt.log_mask_size = 0;
+			send_once = 1;
 			break;
-		driver->log_mask->cmd_type = DIAG_CTRL_MSG_LOG_MASK;
-		driver->log_mask->num_items = ptr->num_items;
-		driver->log_mask->data_len  = 11 + size;
-		driver->log_mask->stream_id = 1; /* 2, if dual stream */
-		driver->log_mask->status = 3; /* status for valid mask */
-		driver->log_mask->equip_id = ptr->equip_id;
-		driver->log_mask->log_mask_size = size;
-		/* send only desired update, NOT ALL */
-		if (equip_id == ALL_EQUIP_ID || equip_id ==
-					 driver->log_mask->equip_id) {
-			memcpy(buf, driver->log_mask, header_size);
-			memcpy(buf+header_size, driver->log_masks+ptr->index,
-									 size);
-			if (ch) {
-				while (retry_count < 3) {
-					wr_size = smd_write(ch, buf,
-							 header_size + size);
-					if (wr_size == -ENOMEM) {
-						retry_count++;
-						usleep_range(10000, 10100);
-					} else
-						break;
-				}
-				if (wr_size != header_size + size)
-					pr_err("diag: log mask update failed %d, tried %d",
-						wr_size, header_size + size);
-				else
-					pr_debug("diag: updated log equip ID %d,len %d\n",
-					driver->log_mask->equip_id,
-					driver->log_mask->log_mask_size);
-			} else
-				pr_err("diag: ch not valid for log update\n");
+		case DIAG_CTRL_MASK_ALL_ENABLED:
+			ctrl_pkt.equip_id = 0;
+			ctrl_pkt.num_items = 0;
+			ctrl_pkt.log_mask_size = 0;
+			send_once = 1;
+			break;
+		case DIAG_CTRL_MASK_VALID:
+			ctrl_pkt.equip_id = i;
+			ctrl_pkt.num_items = log_item->num_items;
+			ctrl_pkt.log_mask_size = log_mask_size;
+			send_once = 0;
+			break;
+		default:
+			pr_err("diag: In %s, invalid status %d", __func__,
+				 driver->log_status);
+			mutex_unlock(&driver->diag_cntl_mutex);
+			return;
 		}
-		ptr++;
+		memcpy(buf, &ctrl_pkt, header_size);
+		if (log_mask_size > 0) {
+			memcpy(buf + header_size, log_item->ptr,
+			       log_mask_size);
+		}
+
+		if (ch) {
+			while (retry_count < 3) {
+				wr_size = smd_write(ch, buf,
+						header_size + log_mask_size);
+				if (wr_size == -ENOMEM) {
+					retry_count++;
+					usleep_range(10000, 10100);
+				} else
+				break;
+			}
+			if (wr_size != header_size + log_mask_size)
+				pr_err("diag: log mask update failed %d, tried %d",
+					wr_size, header_size + log_mask_size);
+			else
+				pr_debug("diag: updated log equip ID %d,len %d\n",
+					 i, log_mask_size);
+		} else
+			pr_err("diag: ch not valid for log update\n");
+		if (send_once)
+			break;
 	}
+
 	mutex_unlock(&driver->diag_cntl_mutex);
 }
 
@@ -379,11 +431,34 @@ void diag_send_event_mask_update(smd_channel_t *ch, int num_bytes)
 	driver->event_mask->cmd_type = DIAG_CTRL_MSG_EVENT_MASK;
 	driver->event_mask->data_len = 7 + num_bytes;
 	driver->event_mask->stream_id = 1; /* 2, if dual stream */
-	driver->event_mask->status = 3; /* status for valid mask */
-	driver->event_mask->event_config = diag_event_config; /* event config */
-	driver->event_mask->event_mask_size = num_bytes;
+	driver->event_mask->status = driver->event_status;
+
+	switch (driver->event_status) {
+	case DIAG_CTRL_MASK_ALL_DISABLED:
+		driver->event_mask->event_config = 0;
+		driver->event_mask->event_mask_size = 0;
+		break;
+	case DIAG_CTRL_MASK_ALL_ENABLED:
+		driver->event_mask->event_config = 1;
+		driver->event_mask->event_mask_size = 0;
+		break;
+	case DIAG_CTRL_MASK_VALID:
+		driver->event_mask->event_config = 1;
+		driver->event_mask->event_mask_size = num_bytes;
+		memcpy(buf + header_size, driver->event_masks, num_bytes);
+		break;
+	default:
+		/* Event status is not set yet or the buffer is corrupted */
+		pr_err("diag: In %s, invalid status %d", __func__,
+							driver->event_status);
+		driver->event_mask->status = DIAG_CTRL_MASK_INVALID;
+	}
+
+	if (driver->event_mask->status == DIAG_CTRL_MASK_INVALID) {
+		mutex_unlock(&driver->diag_cntl_mutex);
+		return;
+	}
 	memcpy(buf, driver->event_mask, header_size);
-	memcpy(buf+header_size, driver->event_masks, num_bytes);
 	if (ch) {
 		while (retry_count < 3) {
 			wr_size = smd_write(ch, buf, header_size + num_bytes);
@@ -417,44 +492,78 @@ void diag_send_msg_mask_update(smd_channel_t *ch, int updated_ssid_first,
 		ptr += 4;
 		actual_last = *(uint32_t *)ptr;
 		ptr += 4;
-		if ((updated_ssid_first >= first && updated_ssid_last <=
-			 actual_last) || (updated_ssid_first == ALL_SSID)) {
-			/* send f3 mask update */
-			driver->msg_mask->cmd_type = DIAG_CTRL_MSG_F3_MASK;
-			driver->msg_mask->msg_mask_size = actual_last -
-								 first + 1;
-			driver->msg_mask->data_len = 11 +
-					 4 * (driver->msg_mask->msg_mask_size);
-			driver->msg_mask->stream_id = 1; /* 2, if dual stream */
-			driver->msg_mask->status = 3; /* status valid mask */
-			driver->msg_mask->msg_mode = 0; /* Legcay mode */
-			driver->msg_mask->ssid_first = first;
-			driver->msg_mask->ssid_last = actual_last;
-			memcpy(buf, driver->msg_mask, header_size);
+		if (!((updated_ssid_first >= first && updated_ssid_last <=
+			 actual_last) || (updated_ssid_first == ALL_SSID))) {
+			ptr += MAX_SSID_PER_RANGE*4;
+			continue;
+		}
+		/* send f3 mask update */
+		driver->msg_mask->cmd_type = DIAG_CTRL_MSG_F3_MASK;
+		driver->msg_mask->status = driver->msg_status;
+		switch (driver->msg_status) {
+		case DIAG_CTRL_MASK_ALL_DISABLED:
+			driver->msg_mask->msg_mask_size = 0;
+			break;
+		case DIAG_CTRL_MASK_ALL_ENABLED:
+			driver->msg_mask->msg_mask_size = 1;
 			memcpy(buf+header_size, ptr,
 				 4 * (driver->msg_mask->msg_mask_size));
-			if (ch) {
-				while (retry_count < 3) {
-					size = smd_write(ch, buf, header_size +
-					 4*(driver->msg_mask->msg_mask_size));
-					if (size == -ENOMEM) {
-						retry_count++;
-						usleep_range(10000, 10100);
-					} else
-						break;
-				}
-				if (size != header_size +
-					 4*(driver->msg_mask->msg_mask_size))
-					pr_err("diag: proc %d, msg mask update fail %d, tried %d\n",
-						proc, size, (header_size +
-					4*(driver->msg_mask->msg_mask_size)));
-				else
-					pr_debug("diag: sending mask update for ssid first %d, last %d on PROC %d\n",
-						first, actual_last, proc);
-			} else
-				pr_err("diag: proc %d, ch invalid msg mask update\n",
-					proc);
+			break;
+		case DIAG_CTRL_MASK_VALID:
+			driver->msg_mask->msg_mask_size = actual_last -
+								first + 1;
+			/* Limit the msg_mask_size to MAX_SSID_PER_RANGE */
+			if (driver->msg_mask->msg_mask_size >
+							MAX_SSID_PER_RANGE) {
+				pr_err("diag: in %s, Invalid msg mask size %d, max: %d",
+					__func__,
+				       driver->msg_mask->msg_mask_size,
+				       MAX_SSID_PER_RANGE);
+				driver->msg_mask->msg_mask_size =
+							MAX_SSID_PER_RANGE;
+			}
+			memcpy(buf+header_size, ptr,
+				 4 * (driver->msg_mask->msg_mask_size));
+			break;
+		default:
+			/* Msg status is not set or the buffer is corrupted */
+			pr_err("diag: In %s, invalid status %d", __func__,
+							driver->msg_status);
+			driver->msg_mask->status = DIAG_CTRL_MASK_INVALID;
 		}
+
+		if (driver->msg_mask->status == DIAG_CTRL_MASK_INVALID) {
+			mutex_unlock(&driver->diag_cntl_mutex);
+			return;
+		}
+		driver->msg_mask->data_len = 11 +
+					4 * (driver->msg_mask->msg_mask_size);
+		driver->msg_mask->stream_id = 1; /* 2, if dual stream */
+		driver->msg_mask->msg_mode = 0; /* Legcay mode */
+		driver->msg_mask->ssid_first = first;
+		driver->msg_mask->ssid_last = actual_last;
+		memcpy(buf, driver->msg_mask, header_size);
+		if (ch) {
+			while (retry_count < 3) {
+				size = smd_write(ch, buf, header_size +
+				 4*(driver->msg_mask->msg_mask_size));
+				if (size == -ENOMEM) {
+					retry_count++;
+					usleep_range(10000, 10100);
+				} else
+					break;
+			}
+			if (size != header_size +
+				 4*(driver->msg_mask->msg_mask_size))
+				pr_err("diag: proc %d, msg mask update fail %d, tried %d\n",
+					proc, size, (header_size +
+				4*(driver->msg_mask->msg_mask_size)));
+			else
+				pr_debug("diag: sending mask update for ssid first %d, last %d on PROC %d\n",
+					first, actual_last, proc);
+		} else
+			pr_err("diag: proc %d, ch invalid msg mask update\n",
+								proc);
 		ptr += MAX_SSID_PER_RANGE*4;
 	}
 	mutex_unlock(&driver->diag_cntl_mutex);
@@ -465,7 +574,7 @@ void diag_send_feature_mask_update(struct diag_smd_info *smd_info)
 	void *buf = driver->buf_feature_mask_update;
 	int header_size = sizeof(struct diag_ctrl_feature_mask);
 	int wr_size = -ENOMEM, retry_count = 0;
-	uint8_t feature_byte = 0;
+	uint8_t feature_bytes[FEATURE_MASK_LEN_BYTES] = {0, 0};
 	int total_len = 0;
 
 	if (!smd_info) {
@@ -486,11 +595,14 @@ void diag_send_feature_mask_update(struct diag_smd_info *smd_info)
 	driver->feature_mask->ctrl_pkt_data_len = 4 + FEATURE_MASK_LEN_BYTES;
 	driver->feature_mask->feature_mask_len = FEATURE_MASK_LEN_BYTES;
 	memcpy(buf, driver->feature_mask, header_size);
-	feature_byte |= F_DIAG_INT_FEATURE_MASK;
-	feature_byte |= F_DIAG_LOG_ON_DEMAND_RSP_ON_MASTER;
-	feature_byte |= driver->supports_separate_cmdrsp ?
+	feature_bytes[0] |= F_DIAG_INT_FEATURE_MASK;
+	feature_bytes[0] |= F_DIAG_LOG_ON_DEMAND_RSP_ON_MASTER;
+	feature_bytes[0] |= driver->supports_separate_cmdrsp ?
 				F_DIAG_REQ_RSP_CHANNEL : 0;
-	memcpy(buf+header_size, &feature_byte, FEATURE_MASK_LEN_BYTES);
+	feature_bytes[0] |= driver->supports_apps_hdlc_encoding ?
+				F_DIAG_HDLC_ENCODE_IN_APPS_MASK : 0;
+	feature_bytes[1] |= F_DIAG_OVER_STM;
+	memcpy(buf+header_size, &feature_bytes, FEATURE_MASK_LEN_BYTES);
 	total_len = header_size + FEATURE_MASK_LEN_BYTES;
 
 	while (retry_count < 3) {
@@ -522,7 +634,7 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 	int ssid_first, ssid_last, ssid_range;
 	int rt_mask, rt_first_ssid, rt_last_ssid, rt_mask_size;
 	uint8_t *rt_mask_ptr;
-	int equip_id, num_items;
+	int equip_id, copy_len;
 #if defined(CONFIG_DIAG_OVER_USB)
 	int payload_length;
 #endif
@@ -530,7 +642,6 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 	/* Set log masks */
 	if (*buf == 0x73 && *(int *)(buf+4) == 3) {
 		buf += 8;
-		/* Read Equip ID and pass as first param below*/
 		diag_update_log_mask(*(int *)buf, buf+8, *(int *)(buf+4));
 		diag_update_userspace_clients(LOG_MASKS_TYPE);
 #if defined(CONFIG_DIAG_OVER_USB)
@@ -538,7 +649,8 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 			driver->apps_rsp_buf[0] = 0x73;
 			*(int *)(driver->apps_rsp_buf + 4) = 0x3; /* op. ID */
 			*(int *)(driver->apps_rsp_buf + 8) = 0x0; /* success */
-			payload_length = 8 + ((*(int *)(buf + 4)) + 7)/8;
+			payload_length = 8 +
+					LOG_ITEMS_TO_SIZE(*(int *)(buf + 4));
 			if (payload_length > APPS_BUF_SIZE - 12) {
 				pr_err("diag: log masks: buffer overflow\n");
 				return -EIO;
@@ -562,20 +674,16 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 		if (!(driver->smd_data[MODEM_DATA].ch) &&
 						chk_apps_only()) {
 			equip_id = *(int *)(buf + 8);
-			num_items = *(int *)(buf + 12);
 			driver->apps_rsp_buf[0] = 0x73;
 			driver->apps_rsp_buf[1] = 0x0;
 			driver->apps_rsp_buf[2] = 0x0;
 			driver->apps_rsp_buf[3] = 0x0;
 			*(int *)(driver->apps_rsp_buf + 4) = 0x4;
-			if (!chk_equip_id_and_mask(equip_id,
-				driver->apps_rsp_buf+20))
-				*(int *)(driver->apps_rsp_buf + 8) = 0x0;
-			else
-				*(int *)(driver->apps_rsp_buf + 8) = 0x1;
-			*(int *)(driver->apps_rsp_buf + 12) = equip_id;
-			*(int *)(driver->apps_rsp_buf + 16) = num_items;
-			encode_rsp_and_send(20+(num_items+7)/8-1);
+			copy_len = copy_log_mask_equip(equip_id,
+						driver->apps_rsp_buf + 12);
+			*(int *)(driver->apps_rsp_buf + 8) =
+						(copy_len == 0) ? 1 : 0;
+			encode_rsp_and_send(12 + copy_len);
 			return 0;
 		}
 #endif
@@ -706,8 +814,8 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 #endif
 	} else if (*buf == 0x82) {	/* event mask change */
 		buf += 4;
-		diag_event_num_bytes =  (*(uint16_t *)buf)/8+1;
-		diag_update_event_mask(buf, 1, (*(uint16_t *)buf)/8+1);
+		diag_event_num_bytes = (*(uint16_t *)buf)/8+1;
+		diag_update_event_mask(buf, diag_event_num_bytes);
 		diag_update_userspace_clients(EVENT_MASKS_TYPE);
 #if defined(CONFIG_DIAG_OVER_USB)
 		if (chk_apps_only()) {
@@ -729,7 +837,6 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 		}
 #endif
 	} else if (*buf == 0x60) {
-		diag_event_config = *(buf+1);
 		diag_toggle_event_mask(*(buf+1));
 		diag_update_userspace_clients(EVENT_MASKS_TYPE);
 #if defined(CONFIG_DIAG_OVER_USB)
@@ -762,8 +869,25 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 	return  packet_type;
 }
 
+static void diag_log_mask_init(void)
+{
+	struct diag_log_mask_t *log_item = NULL;
+	uint8_t i;
+
+	mutex_init(&driver->log_mask_mutex);
+	log_item = (struct diag_log_mask_t *)driver->log_masks;
+	for (i = 0; i < MAX_EQUIP_ID; i++, log_item++) {
+		log_item->equip_id = i;
+		log_item->num_items = LOG_GET_ITEM_NUM(log_code_last_tbl[i]);
+	}
+}
+
 void diag_masks_init(void)
 {
+	driver->event_status = DIAG_CTRL_MASK_INVALID;
+	driver->msg_status = DIAG_CTRL_MASK_INVALID;
+	driver->log_status = DIAG_CTRL_MASK_INVALID;
+
 	if (driver->event_mask == NULL) {
 		driver->event_mask = kzalloc(sizeof(
 			struct diag_ctrl_event_mask), GFP_KERNEL);
@@ -836,7 +960,7 @@ void diag_masks_init(void)
 			goto err;
 		kmemleak_not_leak(driver->log_masks);
 	}
-	driver->log_masks_length = (sizeof(struct mask_info))*MAX_EQUIP_ID;
+	diag_log_mask_init();
 	if (driver->event_masks == NULL) {
 		driver->event_masks = kzalloc(EVENT_MASK_SIZE, GFP_KERNEL);
 		if (driver->event_masks == NULL)

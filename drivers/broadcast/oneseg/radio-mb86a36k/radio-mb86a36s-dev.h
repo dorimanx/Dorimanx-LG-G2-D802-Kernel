@@ -1452,7 +1452,7 @@ struct mb86a35_cmdcontrol {
 	ioctl_stream_read_t STREAM_READ;
 	ioctl_stream_read_ctrl_t STREAM_READ_CTRL;
 	ioctl_ts_setup_t TS_SETUP;
-	ioctl_select_antenna_t SELECT_ANTENNA;	//                              
+	ioctl_select_antenna_t SELECT_ANTENNA;	// eric0.kim@lge.com[2012.07.29]
 };
 typedef struct mb86a35_cmdcontrol mb86a35_cmdcontrol_t;
 

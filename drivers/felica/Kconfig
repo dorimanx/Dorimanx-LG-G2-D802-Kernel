@@ -31,3 +31,8 @@ config LGE_FELICA_NFC_DCM
 	default n
 	---help---
 	LGE Felica related change
+config LGE_FELICA_KDDI_Z
+	bool "Felica Z KDDI driver"
+	default n
+	---help---
+	LGE Felica related change

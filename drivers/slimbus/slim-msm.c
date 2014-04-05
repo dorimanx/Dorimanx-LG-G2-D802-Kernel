@@ -73,6 +73,52 @@ void msm_slim_put_ctrl(struct msm_slim_ctrl *dev)
 #endif
 }
 
+irqreturn_t msm_slim_port_irq_handler(struct msm_slim_ctrl *dev, u32 pstat)
+{
+	int i;
+	u32 int_en = readl_relaxed(PGD_THIS_EE(PGD_PORT_INT_EN_EEn,
+							dev->ver));
+	/*
+	 * different port-interrupt than what we enabled, ignore.
+	 * This may happen if overflow/underflow is reported, but
+	 * was disabled due to unavailability of buffers provided by
+	 * client.
+	 */
+	if ((pstat & int_en) == 0)
+		return IRQ_HANDLED;
+	for (i = dev->port_b; i < MSM_SLIM_NPORTS; i++) {
+		if (pstat & (1 << i)) {
+			u32 val = readl_relaxed(PGD_PORT(PGD_PORT_STATn,
+						i, dev->ver));
+			if (val & MSM_PORT_OVERFLOW) {
+				dev->ctrl.ports[i-dev->port_b].err =
+						SLIM_P_OVERFLOW;
+			} else if (val & MSM_PORT_UNDERFLOW) {
+				dev->ctrl.ports[i-dev->port_b].err =
+					SLIM_P_UNDERFLOW;
+			}
+		}
+	}
+	/*
+	 * Disable port interrupt here. Re-enable when more
+	 * buffers are provided for this port.
+	 */
+	writel_relaxed((int_en & (~pstat)),
+			PGD_THIS_EE(PGD_PORT_INT_EN_EEn,
+					dev->ver));
+	/* clear port interrupts */
+	writel_relaxed(pstat, PGD_THIS_EE(PGD_PORT_INT_CL_EEn,
+							dev->ver));
+	pr_info("disabled overflow/underflow for port 0x%x", pstat);
+
+	/*
+	 * Guarantee that port interrupt bit(s) clearing writes go
+	 * through before exiting ISR
+	 */
+	mb();
+	return IRQ_HANDLED;
+}
+
 int msm_slim_init_endpoint(struct msm_slim_ctrl *dev, struct msm_slim_endp *ep)
 {
 	int ret;
@@ -138,15 +184,25 @@ msm_slim_sps_mem_free(struct msm_slim_ctrl *dev, struct sps_mem_buffer *mem)
 void msm_hw_set_port(struct msm_slim_ctrl *dev, u8 pn)
 {
 	u32 set_cfg = DEF_WATERMARK | DEF_ALIGN | DEF_PACK | ENABLE_PORT;
-	u32 int_port = readl_relaxed(PGD_THIS_EE(PGD_PORT_INT_EN_EEn,
-					dev->ver));
 	writel_relaxed(set_cfg, PGD_PORT(PGD_PORT_CFGn, pn, dev->ver));
 	writel_relaxed(DEF_BLKSZ, PGD_PORT(PGD_PORT_BLKn, pn, dev->ver));
 	writel_relaxed(DEF_TRANSZ, PGD_PORT(PGD_PORT_TRANn, pn, dev->ver));
-	writel_relaxed((int_port | 1 << pn) , PGD_THIS_EE(PGD_PORT_INT_EN_EEn,
-								dev->ver));
 	/* Make sure that port registers are updated before returning */
 	mb();
+}
+
+static void msm_slim_disconn_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
+{
+	struct msm_slim_endp *endpoint = &dev->pipes[pn];
+	struct sps_register_event sps_event;
+	writel_relaxed(0, PGD_PORT(PGD_PORT_CFGn, (pn + dev->port_b),
+					dev->ver));
+	/* Make sure port register is updated */
+	mb();
+	memset(&sps_event, 0, sizeof(sps_event));
+	sps_register_event(endpoint->sps, &sps_event);
+	sps_disconnect(endpoint->sps);
+	dev->pipes[pn].connected = false;
 }
 
 int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
@@ -162,16 +218,26 @@ int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
 	cfg->options = SPS_O_DESC_DONE | SPS_O_ERROR |
 				SPS_O_ACK_TRANSFERS | SPS_O_AUTO_ENABLE;
 
-	if (dev->pipes[pn].connected) {
-		ret = sps_set_config(dev->pipes[pn].sps, cfg);
-		if (ret) {
-			dev_err(dev->dev, "sps pipe-port set config erro:%x\n",
-						ret);
-			return ret;
+	if (dev->pipes[pn].connected &&
+			dev->ctrl.ports[pn].state == SLIM_P_CFG) {
+		return -EISCONN;
+	} else if (dev->pipes[pn].connected) {
+		writel_relaxed(0, PGD_PORT(PGD_PORT_CFGn, (pn + dev->port_b),
+						dev->ver));
+		/* Make sure port disabling goes through */
+		mb();
+		/* Is pipe already connected in desired direction */
+		if ((dev->ctrl.ports[pn].flow == SLIM_SRC &&
+			cfg->mode == SPS_MODE_DEST) ||
+			(dev->ctrl.ports[pn].flow == SLIM_SINK &&
+			 cfg->mode == SPS_MODE_SRC)) {
+			msm_hw_set_port(dev, pn + dev->port_b);
+			return 0;
 		}
+		msm_slim_disconn_pipe_port(dev, pn);
 	}
 
-	stat = readl_relaxed(PGD_PORT(PGD_PORT_STATn, (pn + dev->pipe_b),
+	stat = readl_relaxed(PGD_PORT(PGD_PORT_STATn, (pn + dev->port_b),
 					dev->ver));
 	if (dev->ctrl.ports[pn].flow == SLIM_SRC) {
 		cfg->destination = dev->bam.hdl;
@@ -191,17 +257,21 @@ int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
 		cfg->mode = SPS_MODE_SRC;
 	}
 	/* Space for desciptor FIFOs */
-	cfg->desc.size = MSM_SLIM_DESC_NUM * sizeof(struct sps_iovec);
-	cfg->config = SPS_CONFIG_DEFAULT;
-	ret = sps_connect(dev->pipes[pn].sps, cfg);
+	ret = msm_slim_sps_mem_alloc(dev, &cfg->desc,
+				MSM_SLIM_DESC_NUM * sizeof(struct sps_iovec));
+	if (ret)
+		pr_err("mem alloc for descr failed:%d", ret);
+	else
+		ret = sps_connect(dev->pipes[pn].sps, cfg);
+
 	if (!ret) {
 		dev->pipes[pn].connected = true;
-		msm_hw_set_port(dev, pn + dev->pipe_b);
+		msm_hw_set_port(dev, pn + dev->port_b);
 	}
 	return ret;
 }
 
-int msm_config_port(struct slim_controller *ctrl, u8 pn)
+int msm_alloc_port(struct slim_controller *ctrl, u8 pn)
 {
 	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
 	struct msm_slim_endp *endpoint;
@@ -209,13 +279,29 @@ int msm_config_port(struct slim_controller *ctrl, u8 pn)
 	if (ctrl->ports[pn].req == SLIM_REQ_HALF_DUP ||
 		ctrl->ports[pn].req == SLIM_REQ_MULTI_CH)
 		return -EPROTONOSUPPORT;
-	if (pn >= (MSM_SLIM_NPORTS - dev->pipe_b))
+	if (pn >= (MSM_SLIM_NPORTS - dev->port_b))
 		return -ENODEV;
 
 	endpoint = &dev->pipes[pn];
 	ret = msm_slim_init_endpoint(dev, endpoint);
 	dev_dbg(dev->dev, "sps register bam error code:%x\n", ret);
 	return ret;
+}
+
+void msm_dealloc_port(struct slim_controller *ctrl, u8 pn)
+{
+	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
+	struct msm_slim_endp *endpoint;
+	if (pn >= (MSM_SLIM_NPORTS - dev->port_b))
+		return;
+	endpoint = &dev->pipes[pn];
+	if (dev->pipes[pn].connected)
+		msm_slim_disconn_pipe_port(dev, pn);
+	if (endpoint->sps) {
+		struct sps_connect *config = &endpoint->config;
+		msm_slim_free_endpoint(endpoint);
+		msm_slim_sps_mem_free(dev, &config->desc);
+	}
 }
 
 enum slim_port_err msm_slim_port_xfer_status(struct slim_controller *ctr,
@@ -241,6 +327,25 @@ enum slim_port_err msm_slim_port_xfer_status(struct slim_controller *ctr,
 	return SLIM_P_INPROGRESS;
 }
 
+static void msm_slim_port_cb(struct sps_event_notify *ev)
+{
+
+	struct completion *comp = ev->data.transfer.user;
+	struct sps_iovec *iovec = &ev->data.transfer.iovec;
+
+	if (ev->event_id == SPS_EVENT_DESC_DONE) {
+
+		pr_debug("desc done iovec = (0x%x 0x%x 0x%x)\n",
+			iovec->addr, iovec->size, iovec->flags);
+
+	} else {
+		pr_err("%s: ERR event %d\n",
+					__func__, ev->event_id);
+	}
+	if (comp)
+		complete(comp);
+}
+
 int msm_slim_port_xfer(struct slim_controller *ctrl, u8 pn, u8 *iobuf,
 			u32 len, struct completion *comp)
 {
@@ -251,34 +356,93 @@ int msm_slim_port_xfer(struct slim_controller *ctrl, u8 pn, u8 *iobuf,
 		return -ENODEV;
 
 
-	ctrl->ports[pn].xcomp = comp;
 	sreg.options = (SPS_EVENT_DESC_DONE|SPS_EVENT_ERROR);
 	sreg.mode = SPS_TRIGGER_WAIT;
-	sreg.xfer_done = comp;
-	sreg.callback = NULL;
-	sreg.user = &ctrl->ports[pn];
+	sreg.xfer_done = NULL;
+	sreg.callback = msm_slim_port_cb;
+	sreg.user = NULL;
 	ret = sps_register_event(dev->pipes[pn].sps, &sreg);
 	if (ret) {
 		dev_dbg(dev->dev, "sps register event error:%x\n", ret);
 		return ret;
 	}
-	ret = sps_transfer_one(dev->pipes[pn].sps, (u32)iobuf, len, NULL,
+	ret = sps_transfer_one(dev->pipes[pn].sps, (u32)iobuf, len, comp,
 				SPS_IOVEC_FLAG_INT);
 	dev_dbg(dev->dev, "sps submit xfer error code:%x\n", ret);
+	if (!ret) {
+		/* Enable port interrupts */
+		u32 int_port = readl_relaxed(PGD_THIS_EE(PGD_PORT_INT_EN_EEn,
+						dev->ver));
+		if (!(int_port & (1 << (dev->port_b + pn))))
+			writel_relaxed((int_port | (1 << (dev->port_b + pn))),
+				PGD_THIS_EE(PGD_PORT_INT_EN_EEn, dev->ver));
+		/* Make sure that port registers are updated before returning */
+		mb();
+	}
 
 	return ret;
 }
 
+/* Queue up Tx message buffer */
+static int msm_slim_post_tx_msgq(struct msm_slim_ctrl *dev, u8 *buf, int len)
+{
+	int ret;
+	struct msm_slim_endp *endpoint = &dev->tx_msgq;
+	struct sps_mem_buffer *mem = &endpoint->buf;
+	struct sps_pipe *pipe = endpoint->sps;
+	int ix = (buf - (u8 *)mem->base) / SLIM_MSGQ_BUF_LEN;
+
+	u32 phys_addr = mem->phys_base + (SLIM_MSGQ_BUF_LEN * ix);
+
+	for (ret = 0; ret < ((len + 3) >> 2); ret++)
+		pr_debug("BAM TX buf[%d]:0x%x", ret, ((u32 *)buf)[ret]);
+
+	ret = sps_transfer_one(pipe, phys_addr, ((len + 3) & 0xFC), NULL,
+				SPS_IOVEC_FLAG_EOT);
+	if (ret)
+		dev_err(dev->dev, "transfer_one() failed 0x%x, %d\n", ret, ix);
+
+	return ret;
+}
+
+static u32 *msm_slim_tx_msgq_return(struct msm_slim_ctrl *dev)
+{
+	struct msm_slim_endp *endpoint = &dev->tx_msgq;
+	struct sps_mem_buffer *mem = &endpoint->buf;
+	struct sps_pipe *pipe = endpoint->sps;
+	struct sps_iovec iovec;
+	int ret;
+
+	/* first transaction after establishing connection */
+	if (dev->tx_idx == -1) {
+		dev->tx_idx = 0;
+		return mem->base;
+	}
+	ret = sps_get_iovec(pipe, &iovec);
+	if (ret || iovec.addr == 0) {
+		dev_err(dev->dev, "sps_get_iovec() failed 0x%x\n", ret);
+		return NULL;
+	}
+
+	/* Calculate buffer index */
+	dev->tx_idx = (iovec.addr - mem->phys_base) / SLIM_MSGQ_BUF_LEN;
+
+	return (u32 *)((u8 *)mem->base + (dev->tx_idx * SLIM_MSGQ_BUF_LEN));
+}
+
 int msm_send_msg_buf(struct msm_slim_ctrl *dev, u32 *buf, u8 len, u32 tx_reg)
 {
-	int i;
-	for (i = 0; i < (len + 3) >> 2; i++) {
-		dev_dbg(dev->dev, "TX data:0x%x\n", buf[i]);
-		writel_relaxed(buf[i], dev->base + tx_reg + (i * 4));
+	if (dev->use_tx_msgqs != MSM_MSGQ_ENABLED) {
+		int i;
+		for (i = 0; i < (len + 3) >> 2; i++) {
+			dev_dbg(dev->dev, "AHB TX data:0x%x\n", buf[i]);
+			writel_relaxed(buf[i], dev->base + tx_reg + (i * 4));
+		}
+		/* Guarantee that message is sent before returning */
+		mb();
+		return 0;
 	}
-	/* Guarantee that message is sent before returning */
-	mb();
-	return 0;
+	return msm_slim_post_tx_msgq(dev, (u8 *)buf, len);
 }
 
 u32 *msm_get_msg_buf(struct msm_slim_ctrl *dev, int len)
@@ -287,7 +451,10 @@ u32 *msm_get_msg_buf(struct msm_slim_ctrl *dev, int len)
 	 * Currently we block a transaction until the current one completes.
 	 * In case we need multiple transactions, use message Q
 	 */
-	return dev->tx_buf;
+	if (dev->use_tx_msgqs != MSM_MSGQ_ENABLED)
+		return dev->tx_buf;
+
+	return msm_slim_tx_msgq_return(dev);
 }
 
 static void
@@ -394,15 +561,17 @@ int msm_slim_connect_endp(struct msm_slim_ctrl *dev,
 
 	memset(&sps_descr_event, 0x00, sizeof(sps_descr_event));
 
-	sps_descr_event.mode = SPS_TRIGGER_CALLBACK;
-	sps_descr_event.options = SPS_O_DESC_DONE;
-	sps_descr_event.user = (void *)dev;
-	sps_descr_event.xfer_done = notify;
+	if (notify) {
+		sps_descr_event.mode = SPS_TRIGGER_CALLBACK;
+		sps_descr_event.options = SPS_O_DESC_DONE;
+		sps_descr_event.user = (void *)dev;
+		sps_descr_event.xfer_done = notify;
 
-	ret = sps_register_event(endpoint->sps, &sps_descr_event);
-	if (ret) {
-		dev_err(dev->dev, "sps_connect() failed 0x%x\n", ret);
-		goto sps_reg_event_failed;
+		ret = sps_register_event(endpoint->sps, &sps_descr_event);
+		if (ret) {
+			dev_err(dev->dev, "sps_connect() failed 0x%x\n", ret);
+			goto sps_reg_event_failed;
+		}
 	}
 
 	/* Register callback for errors */
@@ -423,13 +592,20 @@ int msm_slim_connect_endp(struct msm_slim_ctrl *dev,
 	 * Use (buf->size/4) - 1 for the number of buffer to post
 	 */
 
-	/* Setup the transfer */
-	for (i = 0; i < (MSM_SLIM_DESC_NUM - 1); i++) {
-		ret = msm_slim_post_rx_msgq(dev, i);
-		if (ret) {
-			dev_err(dev->dev, "post_rx_msgq() failed 0x%x\n", ret);
-			goto sps_transfer_failed;
+	if (endpoint == &dev->rx_msgq) {
+		/* Setup the transfer */
+		for (i = 0; i < (MSM_SLIM_DESC_NUM - 1); i++) {
+			ret = msm_slim_post_rx_msgq(dev, i);
+			if (ret) {
+				dev_err(dev->dev,
+					"post_rx_msgq() failed 0x%x\n", ret);
+				goto sps_transfer_failed;
+			}
 		}
+		dev->use_rx_msgqs = MSM_MSGQ_ENABLED;
+	} else {
+		dev->tx_idx = -1;
+		dev->use_tx_msgqs = MSM_MSGQ_ENABLED;
 	}
 
 	return 0;
@@ -440,6 +616,7 @@ sps_reg_event_failed:
 	sps_disconnect(endpoint->sps);
 	return ret;
 }
+
 static int msm_slim_init_rx_msgq(struct msm_slim_ctrl *dev, u32 pipe_reg)
 {
 	int ret;
@@ -489,10 +666,8 @@ static int msm_slim_init_rx_msgq(struct msm_slim_ctrl *dev, u32 pipe_reg)
 
 	ret = msm_slim_connect_endp(dev, endpoint, notify);
 
-	if (!ret) {
-		dev->use_rx_msgqs = MSM_MSGQ_ENABLED;
+	if (!ret)
 		return 0;
-	}
 
 	msm_slim_sps_mem_free(dev, mem);
 alloc_buffer_failed:
@@ -501,6 +676,67 @@ alloc_descr_failed:
 	msm_slim_free_endpoint(endpoint);
 sps_init_endpoint_failed:
 	dev->use_rx_msgqs = MSM_MSGQ_DISABLED;
+	return ret;
+}
+
+static int msm_slim_init_tx_msgq(struct msm_slim_ctrl *dev, u32 pipe_reg)
+{
+	int ret;
+	u32 pipe_offset;
+	struct msm_slim_endp *endpoint = &dev->tx_msgq;
+	struct sps_connect *config = &endpoint->config;
+	struct sps_mem_buffer *descr = &config->desc;
+	struct sps_mem_buffer *mem = &endpoint->buf;
+
+	if (dev->use_tx_msgqs == MSM_MSGQ_DISABLED)
+		return 0;
+
+	/* Allocate the endpoint */
+	ret = msm_slim_init_endpoint(dev, endpoint);
+	if (ret) {
+		dev_err(dev->dev, "init_endpoint failed 0x%x\n", ret);
+		goto sps_init_endpoint_failed;
+	}
+
+	/* Get the pipe indices for the message queues */
+	pipe_offset = (readl_relaxed(dev->base + pipe_reg) & 0xfc) >> 2;
+	pipe_offset += 1;
+	dev_dbg(dev->dev, "TX Message queue pipe offset %d\n", pipe_offset);
+
+	config->mode = SPS_MODE_DEST;
+	config->source = SPS_DEV_HANDLE_MEM;
+	config->destination = dev->bam.hdl;
+	config->dest_pipe_index = pipe_offset;
+	config->src_pipe_index = 0;
+	config->options = SPS_O_ERROR | SPS_O_NO_Q |
+				SPS_O_ACK_TRANSFERS | SPS_O_AUTO_ENABLE;
+
+	/* Allocate memory for the FIFO descriptors */
+	ret = msm_slim_sps_mem_alloc(dev, descr,
+				MSM_TX_BUFS * sizeof(struct sps_iovec));
+	if (ret) {
+		dev_err(dev->dev, "unable to allocate SPS descriptors\n");
+		goto alloc_descr_failed;
+	}
+
+	/* Allocate memory for the message buffer(s), N descrs, 40-byte mesg */
+	ret = msm_slim_sps_mem_alloc(dev, mem, MSM_TX_BUFS * SLIM_MSGQ_BUF_LEN);
+	if (ret) {
+		dev_err(dev->dev, "dma_alloc_coherent failed\n");
+		goto alloc_buffer_failed;
+	}
+	ret = msm_slim_connect_endp(dev, endpoint, NULL);
+
+	if (!ret)
+		return 0;
+
+	msm_slim_sps_mem_free(dev, mem);
+alloc_buffer_failed:
+	msm_slim_sps_mem_free(dev, descr);
+alloc_descr_failed:
+	msm_slim_free_endpoint(endpoint);
+sps_init_endpoint_failed:
+	dev->use_tx_msgqs = MSM_MSGQ_DISABLED;
 	return ret;
 }
 
@@ -529,8 +765,10 @@ int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
 		},
 	};
 
-	if (dev->bam.hdl)
-		goto init_rx_msgq;
+	if (dev->bam.hdl) {
+		bam_handle = dev->bam.hdl;
+		goto init_msgq;
+	}
 	bam_props.ee = dev->ee;
 	bam_props.virt_addr = dev->bam.base;
 	bam_props.phys_addr = bam_mem->start;
@@ -550,54 +788,92 @@ int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
 	bam_props.options = SPS_O_DESC_DONE | SPS_O_ERROR |
 				SPS_O_ACK_TRANSFERS | SPS_O_AUTO_ENABLE;
 
+	/* override apps channel pipes if specified in platform-data or DT */
+	if (dev->pdata.apps_pipes)
+		sec_props.ees[dev->ee].pipe_mask = dev->pdata.apps_pipes;
+
 	/* First 7 bits are for message Qs */
 	for (i = 7; i < 32; i++) {
 		/* Check what pipes are owned by Apps. */
 		if ((sec_props.ees[dev->ee].pipe_mask >> i) & 0x1)
 			break;
 	}
-	dev->pipe_b = i - 7;
+	dev->port_b = i - 7;
 
 	/* Register the BAM device with the SPS driver */
 	ret = sps_register_bam_device(&bam_props, &bam_handle);
 	if (ret) {
 		dev_err(dev->dev, "disabling BAM: reg-bam failed 0x%x\n", ret);
 		dev->use_rx_msgqs = MSM_MSGQ_DISABLED;
-		goto init_rx_msgq;
+		dev->use_tx_msgqs = MSM_MSGQ_DISABLED;
+		return ret;
 	}
 	dev->bam.hdl = bam_handle;
 	dev_dbg(dev->dev, "SLIM BAM registered, handle = 0x%x\n", bam_handle);
 
-init_rx_msgq:
+init_msgq:
 	ret = msm_slim_init_rx_msgq(dev, pipe_reg);
 	if (ret)
 		dev_err(dev->dev, "msm_slim_init_rx_msgq failed 0x%x\n", ret);
-	if (ret && bam_handle) {
+	if (ret && bam_handle)
+		dev->use_rx_msgqs = MSM_MSGQ_DISABLED;
+
+	ret = msm_slim_init_tx_msgq(dev, pipe_reg);
+	if (ret)
+		dev_err(dev->dev, "msm_slim_init_tx_msgq failed 0x%x\n", ret);
+	if (ret && bam_handle)
+		dev->use_tx_msgqs = MSM_MSGQ_DISABLED;
+
+	if (dev->use_tx_msgqs == MSM_MSGQ_DISABLED &&
+		dev->use_rx_msgqs == MSM_MSGQ_DISABLED && bam_handle) {
 		sps_deregister_bam_device(bam_handle);
 		dev->bam.hdl = 0L;
 	}
+
 	return ret;
+}
+
+void msm_slim_disconnect_endp(struct msm_slim_ctrl *dev,
+					struct msm_slim_endp *endpoint,
+					enum msm_slim_msgq *msgq_flag)
+{
+	if (*msgq_flag == MSM_MSGQ_ENABLED) {
+		sps_disconnect(endpoint->sps);
+		*msgq_flag = MSM_MSGQ_RESET;
+	}
+}
+
+static void msm_slim_remove_ep(struct msm_slim_ctrl *dev,
+					struct msm_slim_endp *endpoint,
+					enum msm_slim_msgq *msgq_flag)
+{
+	struct sps_connect *config = &endpoint->config;
+	struct sps_mem_buffer *descr = &config->desc;
+	struct sps_mem_buffer *mem = &endpoint->buf;
+	struct sps_register_event sps_event;
+	memset(&sps_event, 0x00, sizeof(sps_event));
+	msm_slim_sps_mem_free(dev, mem);
+	sps_register_event(endpoint->sps, &sps_event);
+	if (*msgq_flag == MSM_MSGQ_ENABLED) {
+		msm_slim_disconnect_endp(dev, endpoint, msgq_flag);
+		msm_slim_free_endpoint(endpoint);
+	}
+	msm_slim_sps_mem_free(dev, descr);
 }
 
 void msm_slim_sps_exit(struct msm_slim_ctrl *dev, bool dereg)
 {
-	if (dev->use_rx_msgqs >= MSM_MSGQ_ENABLED) {
-		struct msm_slim_endp *endpoint = &dev->rx_msgq;
-		struct sps_connect *config = &endpoint->config;
-		struct sps_mem_buffer *descr = &config->desc;
-		struct sps_mem_buffer *mem = &endpoint->buf;
-		struct sps_register_event sps_event;
-		memset(&sps_event, 0x00, sizeof(sps_event));
-		msm_slim_sps_mem_free(dev, mem);
-		sps_register_event(endpoint->sps, &sps_event);
-		if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED) {
-			sps_disconnect(endpoint->sps);
-			msm_slim_free_endpoint(endpoint);
-			dev->use_rx_msgqs = MSM_MSGQ_RESET;
-		}
-		msm_slim_sps_mem_free(dev, descr);
-	}
+	if (dev->use_rx_msgqs >= MSM_MSGQ_ENABLED)
+		msm_slim_remove_ep(dev, &dev->rx_msgq, &dev->use_rx_msgqs);
+	if (dev->use_tx_msgqs >= MSM_MSGQ_ENABLED)
+		msm_slim_remove_ep(dev, &dev->tx_msgq, &dev->use_tx_msgqs);
 	if (dereg) {
+		int i;
+		for (i = dev->port_b; i < MSM_SLIM_NPORTS; i++) {
+			if (dev->pipes[i - dev->port_b].connected)
+				msm_dealloc_port(&dev->ctrl,
+						i - dev->port_b);
+		}
 		sps_deregister_bam_device(dev->bam.hdl);
 		dev->bam.hdl = 0L;
 	}

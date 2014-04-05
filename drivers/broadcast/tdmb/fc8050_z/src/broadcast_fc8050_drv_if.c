@@ -37,7 +37,7 @@ int broadcast_drv_if_power_on_fci(void)
 		gpMPI_Buffer = (uint8*)&gpMPI_Array[0];
 #endif // FC8050_USES_STATIC_BUFFER
 	}
-//                    
+//LGE_BROADCAST_I_0907
 	if(tunerbb_drv_fc8050_is_on() == TRUE)
 	{
 		printk("tdmb_fc8050_power_on state true\n");

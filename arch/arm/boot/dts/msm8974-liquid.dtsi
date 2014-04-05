@@ -13,13 +13,26 @@
 /include/ "msm8974-leds.dtsi"
 /include/ "msm8974-camera-sensor-liquid.dtsi"
 
+/ {
+	aliases {
+		serial0 = &blsp1_uart1;
+	};
+};
+
 &soc {
 	serial@f991e000 {
 		status = "ok";
 	};
 
+        qcom,mdss_mdp@fd900000 {
+                qcom,mdss-pref-prim-intf = "edp";
+		qcom,panel-lpg-channel = <7>; /* LPG Channel 8 */
+		qcom,panel-pwm-period = <53>;
+        };
+
 	qcom,mdss_edp@fd923400 {
 		status = "ok";
+		qcom,cont-splash-enabled;
 	};
 
 	i2c@f9967000 {
@@ -208,7 +221,7 @@
 					/* Object 6, Instance = 0 */
 					00 00 00 00 00 00
 					/* Object 38, Instance = 0 */
-					19 01 00 0D 02 0D 00 00 00 00
+					19 04 00 07 08 0D 00 00 00 00
 					00 00 00 00 00 00 00 00 00 00
 					00 00 00 00 00 00 00 00 00 00
 					00 00 00 00 00 00 00 00 00 00
@@ -221,8 +234,8 @@
 					41 00 14 14 00 00 00 01 00 00
 					/* Object 9, Instance = 0 */
 					8F 00 00 20 34 00 87 4B 02 03
-					00 05 03 40 0A 14 14 0A 80 07
-					38 04 03 03 03 03 08 28 02 3C
+					00 05 03 41 0A 14 14 0A 80 07
+					38 04 00 00 03 03 08 28 02 3C
 					0F 0F 2E 33 01 00
 					/* Object 15, Instance = 0 */
 					00 00 00 00 00 00 00 00 00 00
@@ -234,7 +247,7 @@
 					00 00 00 00 00 00 00 00 00
 					/* Object 25, Instance = 0 */
 					00 00 54 6F F0 55 00 00 00 00
-					00 00 00 00 00
+					00 00 00 00 0C
 					/* Object 27, Instance = 0 */
 					00 00 00 00 00 00 00
 					/* Object 40, Instance = 0 */
@@ -369,6 +382,7 @@
 
 	hsic_hub {
 		compatible = "qcom,hsic-smsc-hub";
+		smsc,model-id = <3503>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -390,13 +404,15 @@
 		                1 &intc 0 148 0
 		                2 &msmgpio 144 0x8>;
 			interrupt-names = "core_irq", "async_irq", "wakeup";
-			HSIC_VDDCX-supply = <&pm8841_s2>;
+			hsic_vdd_dig-supply = <&pm8841_s2_corner>;
 			HSIC_GDSC-supply = <&gdsc_usb_hsic>;
 			hsic,strobe-gpio = <&msmgpio 144 0x00>;
 			hsic,data-gpio = <&msmgpio 145 0x00>;
 			hsic,ignore-cal-pad-config;
 			hsic,strobe-pad-offset = <0x2050>;
 			hsic,data-pad-offset = <0x2054>;
+			qcom,phy-susp-sof-workaround;
+			hsic,vdd-voltage-level = <1 5 7>;
 
 			qcom,msm-bus,name = "hsic";
 			qcom,msm-bus,num-cases = <2>;
@@ -774,26 +790,24 @@
 		interrupt-parent = <&msmgpio>;
 		spi-max-frequency = <960000>;
 		qcom,channels = <31>;
-		qcom,gain = <50 50 50 50 50 100 50 50 50 50
-				50 50 50 50 100 50 50 50 50 100
+		qcom,gain = <50 50 50 50 50 100 50 100 50 50
+				100 50 50 50 50 50 50 50 50 50
 				50 50 50 100 50 50 50 1 1 1
 				1>;
-		qcom,rsense = <40 10 10 25 10 1000 75 25 10 25
-				33 500 200 10 500 100 33 200 25 100
-				75 500 50 200 5 5 3 1 1 1
-				1>;
+		qcom,rsense = <50 100 500 10 25 1000 40 200 200 5
+				500 500 75 10 5 25 33 75 25 200
+				10 25 33 100 10 10 3 1000 1000 1000
+				1000>;
 		qcom,channel-type = <0xf0000000>;
 	};
 };
 
-&spmi_bus {
-	qcom,pm8941@1 {
-		qcom,leds@d000 {
-			qcom,rgb_2 {
-				status = "ok";
-				qcom,default-state = "on";
-				qcom,turn-off-delay-ms = <1000>;
-			};
+&pm8941_lsid1 {
+	qcom,leds@d000 {
+		qcom,rgb_2 {
+			status = "ok";
+			qcom,default-state = "on";
+			qcom,turn-off-delay-ms = <1000>;
 		};
 	};
 };
@@ -816,7 +830,7 @@
 	};
 
 	qcom,dc-chgpth@1400 {
-		status = "ok";
+		status = "disabled";
 	};
 
 	qcom,boost@1500 {

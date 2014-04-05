@@ -21,6 +21,7 @@
 };
 
 /include/ "mpq8092-iommu.dtsi"
+/include/ "mpq8092-iommu-domains.dtsi"
 /include/ "msm-gdsc.dtsi"
 /include/ "mpq8092-ion.dtsi"
 
@@ -55,10 +56,76 @@
 		clock-frequency = <19200000>;
 	};
 
+	timer@f9020000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		compatible = "arm,armv7-timer-mem";
+		reg = <0xf9020000 0x1000>;
+		clock-frequency = <19200000>;
+
+		frame@f9021000 {
+			frame-number = <0>;
+			interrupts = <0 8 0x4>,
+				     <0 7 0x4>;
+			reg = <0xf9021000 0x1000>,
+			      <0xf9022000 0x1000>;
+		};
+
+		frame@f9023000 {
+			frame-number = <1>;
+			interrupts = <0 9 0x4>;
+			reg = <0xf9023000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@f9024000 {
+			frame-number = <2>;
+			interrupts = <0 10 0x4>;
+			reg = <0xf9024000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@f9025000 {
+			frame-number = <3>;
+			interrupts = <0 11 0x4>;
+			reg = <0xf9025000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@f9026000 {
+			frame-number = <4>;
+			interrupts = <0 12 0x4>;
+			reg = <0xf9026000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@f9027000 {
+			frame-number = <5>;
+			interrupts = <0 13 0x4>;
+			reg = <0xf9027000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@f9028000 {
+			frame-number = <6>;
+			interrupts = <0 14 0x4>;
+			reg = <0xf9028000 0x1000>;
+			status = "disabled";
+		};
+	};
+
 	serial@f991f000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xf991f000 0x1000>;
 		interrupts = <0 109 0>;
+		status = "disabled";
+	};
+
+	serial@f9922000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf9922000 0x1000>;
+		interrupts = <0 112 0>;
 		status = "disabled";
 	};
 
@@ -67,6 +134,43 @@
 		reg = <0xf995e000 0x1000>;
 		interrupts = <0 114 0>;
 		status = "disabled";
+	};
+
+	qcom,msm-imem@fe805000 {
+                compatible = "qcom,msm-imem";
+                reg = <0xfe805000 0x1000>; /* Address and size of IMEM */
+	};
+
+	usb@f9a55000 {
+		compatible = "qcom,hsusb-otg";
+		reg = <0xf9a55000 0x400>;
+		interrupts = <0 134 0>, <0 140 0>;
+		interrupt-names = "core_irq", "async_irq";
+
+		HSUSB_VDDCX-supply = <&pma8084_s8>;
+		HSUSB_1p8-supply = <&pma8084_l22>;
+		HSUSB_3p3-supply = <&pma8084_l24>;
+		qcom,vdd-voltage-level = <1050000 1050000>;
+
+		qcom,hsusb-otg-phy-type = <2>;
+		qcom,hsusb-otg-mode = <1>;
+		qcom,hsusb-otg-otg-control = <1>;
+		qcom,hsusb-otg-disable-reset;
+
+		qcom,msm_bus,name = "usb_otg";
+		qcom,msm_bus,num_cases = <3>;
+		qcom,msm_bus,active_only = <0>;
+		qcom,msm_bus,num_paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<87 512 0 0>,
+				<87 512 60000 960000>,
+				<87 512 6000  6000>;
+	};
+
+	android_usb@fe8050c8 {
+		compatible = "qcom,android-usb";
+		reg = <0xfe8050c8 0xc8>;
+		qcom,android-usb-swfi-latency = <1>;
 	};
 
 	spmi_bus: qcom,spmi@fc4c0000 {
@@ -125,6 +229,15 @@
 		qcom,current-limit = <800>;
 	};
 
+	qcom,sps@f9980000 {
+		compatible = "qcom,msm_sps";
+		reg = <0xf9984000 0x15000>,
+		      <0xf9999000 0xb000>;
+		reg-names = "bam_mem", "core_mem";
+		interrupts = <0 94 0>;
+		qcom,pipe-attr-ee;
+	};
+
 	sata: sata@fc580000 {
 		compatible = "qcom,msm-ahci";
 		reg = <0xfc580000 0x17c>;
@@ -138,6 +251,41 @@
 		qcom,bark-time = <11000>;
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
+	};
+
+	qcom,ocmem@fdd00000 {
+		compatible = "qcom,msm-ocmem";
+		reg = <0xfdd00000 0x2000>,
+		      <0xfdd02000 0x2000>,
+		      <0xfe070000 0x400>,
+		      <0xfec00000 0x180000>;
+		reg-names = "ocmem_ctrl_physical", "dm_ctrl_physical", "br_ctrl_physical", "ocmem_physical";
+		interrupts = <0 76 0>, <0 77 0>;
+		interrupt-names = "ocmem_irq", "dm_irq";
+		qcom,ocmem-num-regions = <0x3>;
+		qcom,ocmem-num-macros = <0x18>;
+		qcom,resource-type = <0x706d636f>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0xfec00000 0x180000>;
+
+		partition@0 {
+			reg = <0x0 0x100000>;
+			qcom,ocmem-part-name = "graphics";
+			qcom,ocmem-part-min = <0x80000>;
+		};
+
+		partition@80000 {
+			reg = <0x100000 0x80000>;
+			qcom,ocmem-part-name = "lp_audio";
+			qcom,ocmem-part-min = <0x80000>;
+		};
+
+		partition@100000 {
+			reg = <0x100000 0x80000>;
+			qcom,ocmem-part-name = "video";
+			qcom,ocmem-part-min = <0x55000>;
+		};
 	};
 };
 
@@ -153,6 +301,10 @@
 	status = "ok";
 };
 
+&gdsc_vpu {
+	status = "ok";
+};
+
 &gdsc_oxili_gx {
 	status = "ok";
 };
@@ -162,6 +314,10 @@
 };
 
 &gdsc_usb_hsic {
+	status = "ok";
+};
+
+&gdsc_vcap {
 	status = "ok";
 };
 

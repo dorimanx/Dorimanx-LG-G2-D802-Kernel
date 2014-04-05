@@ -84,3 +84,9 @@ config LGE_DM_DEV
      LGE DM DEV Support
 endmenu
 
+config LGE_TESTMODE_CRC_SKIP
+    bool "LGE factory testmode Support"
+    default y
+    depends on MACH_LGE
+    help
+     LGE Factory crc check skip during MITS

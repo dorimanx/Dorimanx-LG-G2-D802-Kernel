@@ -1,11 +1,11 @@
 /*****************************************************************************
  Copyright(c) 2012 FCI Inc. All Rights Reserved
- 
+
  File name : fc8150_tun.c (BGA & QFN)
- 
+
  Description : fc8150 tuner driver
- 
- History : 
+
+ History :
  ----------------------------------------------------------------------
  2012/01/20 	initial 0.1 version
  2012/01/25 	initial 0.3 version
@@ -13,14 +13,14 @@
  2012/01/31 	initial 1.0 version
  2012/01/31 	initial 1.1 version
  2012/02/06		initial 1.2 version
- 2012/02/09		initial 1.3 Version		
+ 2012/02/09		initial 1.3 Version
  2012/02/15		initial 1.4 Version
  2012/02/15		initial 2.0 Version
  2012/02/24		initial 2.01 Version
  2012/03/30		initial 3.0 Version
  2012/06/07	pre SLR Version
  2012/06/11     pre SLR Version
- 2012/06/15	
+ 2012/06/15
  2012/06/17	SLR 0.3 version
  2012/06/19	SLR 0.4 version
  2012/06/20
@@ -167,7 +167,7 @@ static int fc8150_set_filter(HANDLE hDevice)
 	for(i=0; i<10; i++) {
 		msWait(5);
 		fc8150_read(hDevice, 0x33, &cal_mon);
-		if( (cal_mon & 0xC0) == 0xC0) 
+		if( (cal_mon & 0xC0) == 0xC0)
 			break;
 		fc8150_write(hDevice, 0x32, 0x01);
 		fc8150_write(hDevice, 0x32, 0x09);
@@ -185,20 +185,20 @@ int fc8150_tuner_init(HANDLE hDevice, u32 band)
 	u8  RFPD_REF;
 	u8  RFAGC_PD2[6],RFAGC_PD2_AVG,RFAGC_PD2_MAX,RFAGC_PD2_MIN;
 	u8  RFAGC_PD1[6],RFAGC_PD1_AVG,RFAGC_PD1_MAX,RFAGC_PD1_MIN;
-	
+
 	fc8150_write(hDevice, 0x00, 0x00);
 	fc8150_write(hDevice, 0x02, 0x81);
 
-	fc8150_write(hDevice, 0x15, 0x02);  
+	fc8150_write(hDevice, 0x15, 0x02);
 	fc8150_write(hDevice, 0x20, 0x33);
-	fc8150_write(hDevice, 0x28, 0x62);  
-	fc8150_write(hDevice, 0x35, 0xAA);  
-	fc8150_write(hDevice, 0x38, 0x28);  
+	fc8150_write(hDevice, 0x28, 0x62);
+	fc8150_write(hDevice, 0x35, 0xAA);
+	fc8150_write(hDevice, 0x38, 0x28);
 
 	fc8150_write(hDevice, 0x3B, 0x01);
-	
+
 	fc8150_set_filter(hDevice);
-	
+
 	fc8150_write(hDevice, 0x3B, 0x00);
 
 	fc8150_write(hDevice, 0x56, 0x01);
@@ -220,17 +220,17 @@ int fc8150_tuner_init(HANDLE hDevice, u32 band)
 	RFAGC_PD1[5]	=	0;
 	RFAGC_PD1_MAX	=	0;
 	RFAGC_PD1_MIN	=	255;
-	
+
 	for (i = 0 ; i<6 ; i++){
 		fc8150_read(hDevice, 0xD8 , &RFAGC_PD1[i] );
-		
+
 		if( RFAGC_PD1[i] >= RFAGC_PD1_MAX)	RFAGC_PD1_MAX = RFAGC_PD1[i];
 		if( RFAGC_PD1[i] <= RFAGC_PD1_MIN)	RFAGC_PD1_MIN = RFAGC_PD1[i];
 	}
 	n_RFAGC_PD1_AVG	= (RFAGC_PD1[0] + RFAGC_PD1[1] + RFAGC_PD1[2] + RFAGC_PD1[3] + RFAGC_PD1[4] + RFAGC_PD1[5] - RFAGC_PD1_MAX - RFAGC_PD1_MIN) /4;
 	RFAGC_PD1_AVG =	(unsigned char) n_RFAGC_PD1_AVG;
-	
-	fc8150_write(hDevice, 0x7F , RFAGC_PD1_AVG);	
+
+	fc8150_write(hDevice, 0x7F , RFAGC_PD1_AVG);
 
 	RFAGC_PD2[0]	=	0;
 	RFAGC_PD2[1]	=	0;
@@ -238,26 +238,26 @@ int fc8150_tuner_init(HANDLE hDevice, u32 band)
 	RFAGC_PD2[3]	=	0;
 	RFAGC_PD2[4]	=	0;
 	RFAGC_PD2[5]	=	0;
-	
+
 	RFAGC_PD2_MAX	=	0;
 	RFAGC_PD2_MIN	=	255;
-	
+
 	for (i = 0 ; i<6 ; i++){
 		fc8150_read(hDevice, 0xD6 , &RFAGC_PD2[i] );
-		
+
 		if( RFAGC_PD2[i] >= RFAGC_PD2_MAX)	RFAGC_PD2_MAX = RFAGC_PD2[i];
 		if( RFAGC_PD2[i] <= RFAGC_PD2_MIN)	RFAGC_PD2_MIN = RFAGC_PD2[i];
 	}
 	n_RFAGC_PD2_AVG	= (RFAGC_PD2[0] + RFAGC_PD2[1] + RFAGC_PD2[2] + RFAGC_PD2[3] + RFAGC_PD2[4] + RFAGC_PD2[5] - RFAGC_PD2_MAX - RFAGC_PD2_MIN) /4;
 	RFAGC_PD2_AVG =	(unsigned char) n_RFAGC_PD2_AVG;
-	
-	fc8150_write(hDevice, 0x7E , RFAGC_PD2_AVG);	
+
+	fc8150_write(hDevice, 0x7E , RFAGC_PD2_AVG);
 
 	fc8150_read(hDevice, 0xD6, &RFPD_REF);
-	
+
 	if(0x80<=RFPD_REF)		fc8150_write(hDevice, 0x7B, 0x8F);
 	else if (RFPD_REF<0x80)		fc8150_write(hDevice, 0x7B, 0x88);
-	
+
 	fc8150_write(hDevice, 0x79, 0x32);
 	fc8150_write(hDevice, 0x7A, 0x2C);
 	fc8150_write(hDevice, 0x7C, 0x12);
@@ -266,12 +266,12 @@ int fc8150_tuner_init(HANDLE hDevice, u32 band)
 	fc8150_write(hDevice, 0x84, 0x00);
 	fc8150_write(hDevice, 0x92, 0x00);
 	fc8150_write(hDevice, 0x93, 0x0C);
-	
-	fc8150_write(hDevice, 0xA5, 0x69);	
-	fc8150_write(hDevice, 0xA6, 0x25);	
+
+	fc8150_write(hDevice, 0xA5, 0x69);
+	fc8150_write(hDevice, 0xA6, 0x25);
 
 	fc8150_write(hDevice, 0x02, 0x81);
-    
+
 	return BBM_OK;
 }
 
@@ -321,11 +321,11 @@ int fc8150_set_freq(HANDLE hDevice, band_type band, u32 rf_kHz)
 		fc8150_write(hDevice, 0x1E, 0x04);
 		fc8150_write(hDevice, 0x1F, 0x3E);
 		fc8150_write(hDevice, 0x14, 0x84);
-	} else if(593143<rf_kHz && rf_kHz<=659143){  
+	} else if(593143<rf_kHz && rf_kHz<=659143){
 		fc8150_write(hDevice, 0x1E, 0x02);
 		fc8150_write(hDevice, 0x1F, 0x36);
 		fc8150_write(hDevice, 0x14, 0x84);
-	} else if(659143<rf_kHz && rf_kHz<=767143){  
+	} else if(659143<rf_kHz && rf_kHz<=767143){
 		fc8150_write(hDevice, 0x1E, 0x01);
 		fc8150_write(hDevice, 0x1F, 0x36);
 		fc8150_write(hDevice, 0x14, 0x84);
@@ -344,7 +344,7 @@ int fc8150_set_freq(HANDLE hDevice, band_type band, u32 rf_kHz)
 	fc8150_write(hDevice, 0x57, (unsigned char)((k_val>>8)&0xFF));
 	fc8150_write(hDevice, 0x58, (unsigned char)(((k_val)&0xFF)));
 	fc8150_write(hDevice, 0x59, (unsigned char) n_val);
-	
+
 	if(rf_kHz<525000){
 		fc8150_write(hDevice, 0x55, 0x0E);
 	} else if (525000<=rf_kHz && rf_kHz<600000){
@@ -354,7 +354,7 @@ int fc8150_set_freq(HANDLE hDevice, band_type band, u32 rf_kHz)
 	} else if (700000<rf_kHz){
 		fc8150_write(hDevice, 0x55, 0x06);
 	}
-	
+
 	if(rf_kHz<=491143){
 		fc8150_write(hDevice, 0x79, 0x2A);
 		fc8150_write(hDevice, 0x7A, 0x26);
@@ -368,7 +368,7 @@ int fc8150_set_freq(HANDLE hDevice, band_type band, u32 rf_kHz)
 		fc8150_write(hDevice, 0x79, 0x2F);
 		fc8150_write(hDevice, 0x7A, 0x2B);
 	}
-	
+
 	if(rf_kHz<=707143){
 		fc8150_write(hDevice, 0x54, 0x01);
 		fc8150_write(hDevice, 0x53, 0x9F);
@@ -376,7 +376,7 @@ int fc8150_set_freq(HANDLE hDevice, band_type band, u32 rf_kHz)
 		fc8150_write(hDevice, 0x54, 0x04);
 		fc8150_write(hDevice, 0x53, 0x9F);
 	}
-    
+
 	return BBM_OK;
 }
 

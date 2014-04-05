@@ -1,0 +1,256 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
+ * As a general rule, only version-specific property overrides should be placed
+ * inside this file. However, device definitions should be placed inside the
+ * msm8974.dtsi file.
+ */
+
+/include/ "msm8974.dtsi"
+/include/ "msm8974-v2-iommu.dtsi"
+/include/ "msm8974-v2-iommu-domains.dtsi"
+/include/ "msm8974pro-pm.dtsi"
+/include/ "msm8974pro-ion.dtsi"
+
+&soc {
+	android_usb@fe8050c8 {
+		compatible = "qcom,android-usb";
+		reg = <0xfe8050c8 0xc8>;
+		qcom,android-usb-swfi-latency = <1>;
+	};
+
+	qcom,msm-imem@fe805000 {
+		compatible = "qcom,msm-imem";
+		reg = <0xfe805000 0x1000>; /* Address and size of IMEM */
+	};
+
+	qcom,msm-thermal {
+		/delete-property/ qcom,pmic-sw-mode-temp;
+		/delete-property/ qcom,pmic-sw-mode-temp-hysteresis;
+		/delete-property/ qcom,pmic-sw-mode-regs;
+	};
+
+	sound {
+		reg = <0xfe02c000 0x4>,
+		      <0xfe02d000 0x4>,
+		      <0xfe02e000 0x4>,
+		      <0xfe02f000 0x4>;
+		reg-names = "lpaif_pri_mode_muxsel",
+			    "lpaif_sec_mode_muxsel",
+			    "lpaif_tert_mode_muxsel",
+			    "lpaif_quat_mode_muxsel";
+	};
+
+	i2c@f9928000 { /* BLSP-1 QUP-6 */
+		cell-index = <3>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9928000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 100 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <400000>;
+		qcom,i2c-src-freq = <19200000>;
+		qcom,sda-gpio = <&msmgpio 29 0>;
+		qcom,scl-gpio = <&msmgpio 30 0>;
+		qcom,master-id = <86>;
+	};
+};
+
+/* GPU overrides */
+&msm_gpu {
+	/* Updated chip ID */
+	qcom,chipid = <0x03030002>;
+	qcom,msm-bus,num-cases = <15>;
+	qcom,bus-control;
+	qcom,initial-pwrlevel = <3>;
+
+	/* Updated bus bandwidth requirements */
+	qcom,msm-bus,vectors-KBps =
+		/* Off */
+		<26 512 0 0>, <89 604 0 0>,
+		/* Sub-SVS / SVS */
+		<26 512 0 1600000>, <89 604 0 3200000>,
+		/* SVS */
+		<26 512 0 2456000>, <89 604 0 3200000>,
+		/* low Nominal / SVS */
+		<26 512 0 3680000>, <89 604 0 3200000>,
+		/* SVS / low Nominal */
+		<26 512 0 2456000>, <89 604 0 5280000>,
+		/* low Nominal / low Nominal */
+		<26 512 0 3680000>, <89 604 0 5280000>,
+		/* Nominal / low Nominal */
+		<26 512 0 4912000>, <89 604 0 5280000>,
+		/* low Nominal / Nominal */
+		<26 512 0 3680000>, <89 604 0 6224000>,
+		/* Nominal / Nominal */
+		<26 512 0 4912000>, <89 604 0 6224000>,
+		/* low Turbo / Nominal */
+		<26 512 0 6400000>, <89 604 0 6224000>,
+		/* Nominal / low Turbo */
+		<26 512 0 4912000>, <89 604 0 7398000>,
+		/* low Turbo / low Turbo */
+		<26 512 0 6400000>, <89 604 0 7398000>,
+		/* Turbo / low Turbo */
+		<26 512 0 7464000>, <89 604 0 7398000>,
+		/* Nominal / Turbo */
+		<26 512 0 4912000>, <89 604 0 9248000>,
+		/* Turbo / Turbo */
+		<26 512 0 7464000>, <89 604 0 9248000>;
+
+       qcom,gpu-pwrlevels {
+               #address-cells = <1>;
+               #size-cells = <0>;
+
+               compatible = "qcom,gpu-pwrlevels";
+
+               qcom,gpu-pwrlevel@0 {
+                       reg = <0>;
+                       qcom,gpu-freq = <578000000>;
+                       qcom,bus-freq = <14>;
+                       qcom,io-fraction = <33>;
+               };
+
+               qcom,gpu-pwrlevel@1 {
+                       reg = <1>;
+                       qcom,gpu-freq = <462400000>;
+                       qcom,bus-freq = <11>;
+                       qcom,io-fraction = <66>;
+               };
+
+               qcom,gpu-pwrlevel@2 {
+                       reg = <2>;
+                       qcom,gpu-freq = <389000000>;
+                       qcom,bus-freq = <8>;
+                       qcom,io-fraction = <66>;
+               };
+
+               qcom,gpu-pwrlevel@3 {
+                       reg = <3>;
+                       qcom,gpu-freq = <320000000>;
+                       qcom,bus-freq = <5>;
+                       qcom,io-fraction = <100>;
+               };
+
+               qcom,gpu-pwrlevel@4 {
+                       reg = <4>;
+                       qcom,gpu-freq = <200000000>;
+                       qcom,bus-freq = <2>;
+                       qcom,io-fraction = <100>;
+               };
+
+               qcom,gpu-pwrlevel@5 {
+                       reg = <5>;
+                       qcom,gpu-freq = <27000000>;
+                       qcom,bus-freq = <0>;
+                       qcom,io-fraction = <0>;
+               };
+       };
+};
+
+&mdss_mdp {
+	qcom,vbif-settings = <0x0004 0x00000001>;
+
+	qcom,mdss-wb-off = <0x00011100 0x00011500
+			    0x00011900 0x00011D00 0x00012100>;
+	qcom,mdss-intf-off = <0x00012500 0x00012700
+			      0x00012900 0x00012b00>;
+	qcom,mdss-pingpong-off = <0x00012D00 0x00012E00 0x00012F00>;
+	qcom,mdss-has-bwc;
+	qcom,mdss-has-decimation;
+	qcom,mdss-ad-off = <0x0013100 0x00013300>;
+};
+
+&mdss_hdmi_tx {
+	reg =	<0xfd922100 0x370>,
+		<0xfd922500 0x7C>,
+		<0xfc4b8000 0x60F0>;
+	reg-names = "core_physical", "phy_physical", "qfprom_physical";
+};
+
+&msm_vidc {
+	qcom,vidc-ns-map = <0x40000000 0x40000000>;
+	qcom,load-freq-tbl = <1036800 465000000>,
+		<783360 465000000>,
+		<489600 266670000>,
+		<244800 133330000>;
+	qcom,reg-presets = <0x80004 0x1>,
+		<0x80070 0x11FFF>,
+		<0x80074 0xA4>,
+		<0x800A8 0x1FFF>,
+		<0x80124 0x3>,
+		<0xE0020 0x5555556>,
+		<0xE0024 0x0>;
+	qcom,bus-ports = <1>;
+	qcom,enc-ocmem-ab-ib = <0 0>,
+		<138000 1034000>,
+		<414000 1034000>,
+		<940000 1034000>,
+		<1880000 2068000>,
+		<3008000 3309000>,
+		<3760000 4136000>,
+		<4468000 2457000>;
+	qcom,dec-ocmem-ab-ib = <0 0>,
+		<176000 519000>,
+		<456000 519000>,
+		<864000 519000>,
+		<1728000 1038000>,
+		<2766000 1661000>,
+		<3456000 2076000>,
+		<3662000 2198000>;
+	qcom,enc-ddr-ab-ib = <0 0>,
+		<120000 302000>,
+		<364000 302000>,
+		<804000 302000>,
+		<1608000 604000>,
+		<2576000 967000>,
+		<4680000 1404000>,
+		<4988000 1496000>;
+	qcom,dec-ddr-ab-ib = <0 0>,
+		<208000 303000>,
+		<536000 1600000>,
+		<1012000 1600000>,
+		<2024000 1600000>,
+		<3240000 1600000>,
+		<4048000 1600000>,
+		<4264000 1600000>;
+	qcom,max-hw-load = <1281600>; /* max(4k X 2304 @ 24, 4k X 2160 @ 30) + 1080p @ 30 */
+	qcom,buffer-type-tz-usage-table = <0x241 0x1>,
+					<0x106 0x2>,
+					<0x480 0x3>;
+	qcom,vidc-iommu-domains {
+		qcom,domain-ns {
+			qcom,vidc-domain-phandle = <&venus_domain_ns>;
+			qcom,vidc-partition-buffer-types = <0x7ff>,
+							<0x800>;
+		};
+		qcom,domain-sec-bs {
+			qcom,vidc-domain-phandle = <&venus_domain_sec_bitstream>;
+			qcom,vidc-partition-buffer-types = <0x241>;
+		};
+		qcom,domain-sec-px {
+			qcom,vidc-domain-phandle = <&venus_domain_sec_pixel>;
+			qcom,vidc-partition-buffer-types = <0x106>;
+		};
+		qcom,domain-sec-np {
+			qcom,vidc-domain-phandle = <&venus_domain_sec_non_pixel>;
+			qcom,vidc-partition-buffer-types = <0x480>;
+		};
+	};
+};
+
+&memory_hole {
+	qcom,memblock-remove = <0x05a00000 0x7800000
+				0x0fa00000 0x500000>; /* Address and size of the hole */
+};

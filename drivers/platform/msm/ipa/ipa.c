@@ -50,7 +50,6 @@
 #define IPA_AGGR_STR_IN_BYTES(str) \
 	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
 
-
 static struct ipa_plat_drv_res ipa_res = {0, };
 static struct of_device_id ipa_plat_drv_match[] = {
 	{
@@ -141,7 +140,7 @@ MODULE_PARM_DESC(polling_delay_ms, "set to desired delay between polls");
 static bool hdr_tbl_lcl = 1;
 module_param(hdr_tbl_lcl, bool, 0644);
 MODULE_PARM_DESC(hdr_tbl_lcl, "where hdr tbl resides 1-local; 0-system");
-static bool ip4_rt_tbl_lcl = 1;
+static bool ip4_rt_tbl_lcl;
 module_param(ip4_rt_tbl_lcl, bool, 0644);
 MODULE_PARM_DESC(ip4_rt_tbl_lcl,
 		"where ip4 rt tables reside 1-local; 0-system");
@@ -196,6 +195,8 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return -ENOTTY;
 	if (_IOC_NR(cmd) >= IPA_IOCTL_MAX)
 		return -ENOTTY;
+
+	ipa_inc_client_enable_clks();
 
 	switch (cmd) {
 	case IPA_IOC_ALLOC_NAT_MEM:
@@ -639,9 +640,12 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 						rm_depend.depends_on_name);
 		break;
 	default:        /* redundant, as cmd was checked against MAXNR */
+		ipa_dec_client_disable_clks();
 		return -ENOTTY;
 	}
 	kfree(param);
+
+	ipa_dec_client_disable_clks();
 
 	return retval;
 }
@@ -959,7 +963,7 @@ static int ipa_update_connections_info(struct device_node *node,
 	enum ipa_pipe_mem_type mem_type;
 
 	if (!pipe_connection || !node)
-		goto err;
+		return -EINVAL;
 
 	key = "qcom,src-bam-physical-address";
 	rc = of_property_read_u32(node, key, &val);
@@ -1663,13 +1667,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	}
 	/* register IPA with SPS driver */
 	bam_props.phys_addr = resource_p->bam_mem_base;
-	bam_props.virt_addr = ioremap(resource_p->bam_mem_base,
-			resource_p->bam_mem_size);
-	if (!bam_props.virt_addr) {
-		IPAERR(":bam-base ioremap err.\n");
-		result = -EFAULT;
-		goto fail_bam_remap;
-	}
 	bam_props.virt_size = resource_p->bam_mem_size;
 	bam_props.irq = resource_p->bam_irq;
 	bam_props.num_pipes = IPA_NUM_PIPES;
@@ -1681,7 +1678,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	if (result) {
 		IPAERR(":bam register err.\n");
 		result = -ENODEV;
-		goto fail_bam_register;
+		goto fail_init_hw;
 	}
 
 	if (ipa_setup_bam_cfg(resource_p)) {
@@ -1729,6 +1726,22 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 		IPAERR(":ipa rt tbl cache create failed\n");
 		result = -ENOMEM;
 		goto fail_rt_tbl_cache;
+	}
+	ipa_ctx->tx_pkt_wrapper_cache =
+	   kmem_cache_create("IPA TX PKT WRAPPER",
+			   sizeof(struct ipa_tx_pkt_wrapper), 0, 0, NULL);
+	if (!ipa_ctx->tx_pkt_wrapper_cache) {
+		IPAERR(":ipa tx pkt wrapper cache create failed\n");
+		result = -ENOMEM;
+		goto fail_tx_pkt_wrapper_cache;
+	}
+	ipa_ctx->rx_pkt_wrapper_cache =
+	   kmem_cache_create("IPA RX PKT WRAPPER",
+			   sizeof(struct ipa_rx_pkt_wrapper), 0, 0, NULL);
+	if (!ipa_ctx->rx_pkt_wrapper_cache) {
+		IPAERR(":ipa rx pkt wrapper cache create failed\n");
+		result = -ENOMEM;
+		goto fail_rx_pkt_wrapper_cache;
 	}
 	ipa_ctx->tree_node_cache =
 	   kmem_cache_create("IPA TREE", sizeof(struct ipa_tree_node), 0, 0,
@@ -1798,8 +1811,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	mutex_init(&ipa_ctx->lock);
 	mutex_init(&ipa_ctx->nat_mem.lock);
 
-	skb_queue_head_init(&ipa_ctx->rx_list);
-
 	for (i = 0; i < IPA_A5_SYS_MAX; i++) {
 		INIT_LIST_HEAD(&ipa_ctx->sys[i].head_desc_list);
 		spin_lock_init(&ipa_ctx->sys[i].spinlock);
@@ -1813,15 +1824,15 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 			atomic_set(&ipa_ctx->sys[i].curr_polling_state, 0);
 	}
 
-	ipa_ctx->rx_wq = alloc_workqueue("ipa rx wq", WQ_MEM_RECLAIM |
-			WQ_CPU_INTENSIVE, 1);
+	ipa_ctx->rx_wq = create_singlethread_workqueue("ipa rx wq");
 	if (!ipa_ctx->rx_wq) {
 		IPAERR(":fail to create rx wq\n");
 		result = -ENOMEM;
 		goto fail_rx_wq;
 	}
 
-	ipa_ctx->tx_wq = create_singlethread_workqueue("ipa tx wq");
+	ipa_ctx->tx_wq = alloc_workqueue("ipa tx wq", WQ_MEM_RECLAIM |
+			WQ_CPU_INTENSIVE, 1);
 	if (!ipa_ctx->tx_wq) {
 		IPAERR(":fail to create tx wq\n");
 		result = -ENOMEM;
@@ -1832,7 +1843,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	ipa_ctx->rt_rule_hdl_tree = RB_ROOT;
 	ipa_ctx->rt_tbl_hdl_tree = RB_ROOT;
 	ipa_ctx->flt_rule_hdl_tree = RB_ROOT;
-	ipa_ctx->tag_tree = RB_ROOT;
 
 	mutex_init(&ipa_ctx->ipa_active_clients_lock);
 	ipa_ctx->ipa_active_clients = 0;
@@ -1974,6 +1984,10 @@ fail_rx_wq:
 fail_dma_pool:
 	kmem_cache_destroy(ipa_ctx->tree_node_cache);
 fail_tree_node_cache:
+	kmem_cache_destroy(ipa_ctx->rx_pkt_wrapper_cache);
+fail_rx_pkt_wrapper_cache:
+	kmem_cache_destroy(ipa_ctx->tx_pkt_wrapper_cache);
+fail_tx_pkt_wrapper_cache:
 	kmem_cache_destroy(ipa_ctx->rt_tbl_cache);
 fail_rt_tbl_cache:
 	kmem_cache_destroy(ipa_ctx->hdr_offset_cache);
@@ -1985,18 +1999,12 @@ fail_rt_rule_cache:
 	kmem_cache_destroy(ipa_ctx->flt_rule_cache);
 fail_flt_rule_cache:
 	sps_deregister_bam_device(ipa_ctx->bam_handle);
-fail_bam_register:
-	iounmap(bam_props.virt_addr);
-fail_bam_remap:
 fail_init_hw:
 	iounmap(ipa_ctx->mmio);
 fail_remap:
 	kfree(ipa_ctx);
 	ipa_ctx = NULL;
 fail_mem:
-	/* gate IPA clocks */
-	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
-		ipa_disable_clks();
 	return result;
 }
 
@@ -2157,8 +2165,12 @@ static int ipa_plat_drv_probe(struct platform_device *pdev_p)
 
 	/* Proceed to real initialization */
 	result = ipa_init(&ipa_res);
-	if (result)
+	if (result) {
 		IPAERR("ipa_init failed\n");
+		/* gate IPA clocks */
+		if (ipa_res.ipa_hw_mode == IPA_HW_MODE_NORMAL)
+			ipa_disable_clks();
+	}
 
 	result = device_create_file(&pdev_p->dev,
 			&dev_attr_aggregation_type);

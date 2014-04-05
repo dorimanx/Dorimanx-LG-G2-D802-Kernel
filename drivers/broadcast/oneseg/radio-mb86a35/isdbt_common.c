@@ -22,7 +22,7 @@
 #include "../../../../arch/arm/mach-msm/lge/j1/board-j1.h"
 
 #define DMB_ANT_SEL_P_EAR       	    PM8921_GPIO_PM_TO_SYS(11)
-//                                                         
+// eric0.kim@lge.com [2012.07.26] - FOR_ACTIVATE_SLEEP_MODE
 #define GPIO_ONESEG_INT		       	    PM8921_GPIO_PM_TO_SYS(16)
 #endif
 
@@ -137,7 +137,7 @@ static int isdbt_thread(void *hDeviceInfo)
 }
 
 #endif
-#if 1 //                                                         
+#if 1 // eric0.kim@lge.com [2012.07.26] - FOR_ACTIVATE_SLEEP_MODE
 static unsigned oneseg_config_isr[] = {
 	GPIO_CFG(GPIO_MB86A35S_SPIS_XIRQ, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA),
 	GPIO_CFG(GPIO_MB86A35S_SPIS_XIRQ, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
@@ -178,7 +178,7 @@ void isdbt_hw_setting(void)
 	printk("isdbt_hw_init \n");
 	//gpio_direction_input(GPIO_MB86A35S_SPIS_XIRQ);
 	//udelay(50);
-#if 1 //                                                        
+#if 1 //eric0.kim@lge.com [2012.07.26] - FOR_ACTIVATE_SLEEP_MODE
 	gpio_direction_output(GPIO_ONESEG_INT, false);
 	gpio_set_value(GPIO_ONESEG_INT, 0);
 #else
@@ -193,7 +193,7 @@ EXPORT_SYMBOL(isdbt_hw_setting);
 void isdbt_hw_init(void)
 {
 	printk("isdbt_hw_init \n");
-#if 1 //                                                         
+#if 1 // eric0.kim@lge.com [2012.07.26] - FOR_ACTIVATE_SLEEP_MODE
       gpio_tlmm_config(oneseg_config_isr[0],GPIO_CFG_ENABLE);
 	gpio_direction_input(GPIO_MB86A35S_SPIS_XIRQ);
 #else
@@ -231,7 +231,7 @@ void isdbt_hw_deinit(void)
 	//power_set_for_pm8058_l17(0);
        //gpio_tlmm_config(dmb_config_isr[1],GPIO_CFG_ENABLE);
 	udelay(10);
-#if 1 //                                                         
+#if 1 // eric0.kim@lge.com [2012.07.26] - FOR_ACTIVATE_SLEEP_MODE
 	gpio_tlmm_config(oneseg_config_isr[1],GPIO_CFG_ENABLE);
 	gpio_direction_output(GPIO_MB86A35S_SPIS_XIRQ, false);
 	gpio_set_value(GPIO_MB86A35S_SPIS_XIRQ, 0);

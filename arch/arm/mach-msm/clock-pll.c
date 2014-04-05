@@ -57,6 +57,18 @@ static DEFINE_SPINLOCK(pll_reg_lock);
 #define ENABLE_WAIT_MAX_LOOPS 200
 #define PLL_LOCKED_BIT BIT(16)
 
+static int fixed_pll_clk_set_rate(struct clk *c, unsigned long rate)
+{
+	if (rate != c->rate)
+		return -EINVAL;
+	return 0;
+}
+
+static long fixed_pll_clk_round_rate(struct clk *c, unsigned long rate)
+{
+	return c->rate;
+}
+
 static int pll_vote_clk_enable(struct clk *c)
 {
 	u32 ena, count;
@@ -119,6 +131,8 @@ struct clk_ops clk_ops_pll_vote = {
 	.enable = pll_vote_clk_enable,
 	.disable = pll_vote_clk_disable,
 	.is_enabled = pll_vote_clk_is_enabled,
+	.round_rate = fixed_pll_clk_round_rate,
+	.set_rate = fixed_pll_clk_set_rate,
 	.handoff = pll_vote_clk_handoff,
 };
 
@@ -290,17 +304,27 @@ static enum handoff local_pll_clk_handoff(struct clk *c)
 	return HANDOFF_ENABLED_CLK;
 }
 
+static long local_pll_clk_round_rate(struct clk *c, unsigned long rate)
+{
+	struct pll_freq_tbl *nf;
+	struct pll_clk *pll = to_pll_clk(c);
+
+	if (!pll->freq_tbl)
+		return -EINVAL;
+
+	for (nf = pll->freq_tbl; nf->freq_hz != PLL_FREQ_END; nf++)
+		if (nf->freq_hz >= rate)
+			return nf->freq_hz;
+
+	nf--;
+	return nf->freq_hz;
+}
+
 static int local_pll_clk_set_rate(struct clk *c, unsigned long rate)
 {
 	struct pll_freq_tbl *nf;
 	struct pll_clk *pll = to_pll_clk(c);
-	u32 mode;
-
-	mode = readl_relaxed(PLL_MODE_REG(pll));
-
-	/* Don't change PLL's rate if it is enabled */
-	if ((mode & PLL_MODE_MASK) == PLL_MODE_MASK)
-		return -EBUSY;
+	unsigned long flags;
 
 	for (nf = pll->freq_tbl; nf->freq_hz != PLL_FREQ_END
 			&& nf->freq_hz != rate; nf++)
@@ -309,12 +333,24 @@ static int local_pll_clk_set_rate(struct clk *c, unsigned long rate)
 	if (nf->freq_hz == PLL_FREQ_END)
 		return -EINVAL;
 
+	/*
+	 * Ensure PLL is off before changing rate. For optimization reasons,
+	 * assume no downstream clock is using actively using it.
+	 */
+	spin_lock_irqsave(&c->lock, flags);
+	if (c->count)
+		c->ops->disable(c);
+
 	writel_relaxed(nf->l_val, PLL_L_REG(pll));
 	writel_relaxed(nf->m_val, PLL_M_REG(pll));
 	writel_relaxed(nf->n_val, PLL_N_REG(pll));
 
 	__pll_config_reg(PLL_CONFIG_REG(pll), nf, &pll->masks);
 
+	if (c->count)
+		c->ops->enable(c);
+
+	spin_unlock_irqrestore(&c->lock, flags);
 	return 0;
 }
 
@@ -406,6 +442,7 @@ struct clk_ops clk_ops_sr2_pll = {
 	.enable = sr2_pll_clk_enable,
 	.disable = local_pll_clk_disable,
 	.set_rate = local_pll_clk_set_rate,
+	.round_rate = local_pll_clk_round_rate,
 	.handoff = local_pll_clk_handoff,
 };
 
@@ -568,6 +605,8 @@ static enum handoff pll_clk_handoff(struct clk *c)
 struct clk_ops clk_ops_pll = {
 	.enable = pll_clk_enable,
 	.disable = pll_clk_disable,
+	.round_rate = fixed_pll_clk_round_rate,
+	.set_rate = fixed_pll_clk_set_rate,
 	.handoff = pll_clk_handoff,
 	.is_enabled = pll_clk_is_enabled,
 };
@@ -619,6 +658,8 @@ static enum handoff pll_acpu_vote_clk_handoff(struct clk *c)
 struct clk_ops clk_ops_pll_acpu_vote = {
 	.enable = pll_acpu_vote_clk_enable,
 	.disable = pll_acpu_vote_clk_disable,
+	.round_rate = fixed_pll_clk_round_rate,
+	.set_rate = fixed_pll_clk_set_rate,
 	.is_enabled = pll_vote_clk_is_enabled,
 	.handoff = pll_acpu_vote_clk_handoff,
 };
@@ -668,6 +709,12 @@ void __init __configure_pll(struct pll_config *config,
 	if (config->main_output_mask) {
 		regval &= ~config->main_output_mask;
 		regval |= config->main_output_val;
+	}
+
+	/* Enable the aux output */
+	if (config->aux_output_mask) {
+		regval &= ~config->aux_output_mask;
+		regval |= config->aux_output_val;
 	}
 
 	/* Set pre-divider and post-divider values */

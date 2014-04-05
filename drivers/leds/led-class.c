@@ -18,6 +18,7 @@
 #include <linux/timer.h>
 #include <linux/err.h>
 #include <linux/ctype.h>
+#include <linux/zwait.h>
 #include <linux/leds.h>
 #include "leds.h"
 #if defined(CONFIG_MACH_LGE)
@@ -280,10 +281,15 @@ static ssize_t set_pattern(struct device *dev, struct device_attribute *attr, co
 	}
 	ret = size;
 
+	if (zw_no_charger_in_zwait())
+		return ret;
+
 	if(lge_get_boot_mode() <= LGE_BOOT_MODE_CHARGERLOGO) {
 		printk("[RGB LED] pattern_num=%d\n", pattern_num);
+#if !defined(CONFIG_MACH_MSM8974_B1_KR)
 		if (!pattern_num || pattern_num == 35 || pattern_num == 36 || pattern_num == 1035)
 			set_kpdbl_pattern(pattern_num);
+#endif
 		if ((pattern_num != 35)&&(pattern_num != 36))
 			change_led_pattern(pattern_num);
 	}
@@ -443,13 +449,13 @@ static DEVICE_ATTR(onoff_patterns, 0644, confirm_onoff_pattern, make_onoff_patte
 
 int led_pattern_sysfs_register(void)
 {
-	struct class *g2_rgb;
+	struct class *lg_rgb;
 	struct device *pattern_sysfs_dev;
-	g2_rgb = class_create(THIS_MODULE, "g2_rgb_led");
-	if (IS_ERR(g2_rgb)) {
-		printk("Failed to create class(g2_rgb_led)!\n");
+	lg_rgb = class_create(THIS_MODULE, "lg_rgb_led");
+	if (IS_ERR(lg_rgb)) {
+		printk("Failed to create class(lg_rgb_led)!\n");
 	}
-	pattern_sysfs_dev = device_create(g2_rgb, NULL, 0, NULL, "use_patterns");
+	pattern_sysfs_dev = device_create(lg_rgb, NULL, 0, NULL, "use_patterns");
 	if (IS_ERR(pattern_sysfs_dev))
 		return PTR_ERR(pattern_sysfs_dev);
 

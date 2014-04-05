@@ -23,7 +23,7 @@ static int run_cpu_show(struct device *dev, struct device_attribute *attr, char 
 	return sprintf(buf, "%d\n", num_online_cpus());
 }
 
-static int run_cpu_store(struct device *dev, struct device_attribute *attr, const char * buf, size_t count)
+static int run_cpu_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	return count;
 }
@@ -34,7 +34,7 @@ static int eco_cpu_show(struct device *dev, struct device_attribute *attr, char 
 	return sprintf(buf, "%d\n", eco_cpu_num);
 }
 
-static int eco_cpu_store(struct device *dev, struct device_attribute *attr, const char * buf, size_t count)
+static int eco_cpu_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	if (buf[0] > 0x34 || buf[0] < 0x30) {
 		printk("%s : cpus_nums should be between 1~4.\n", __func__);

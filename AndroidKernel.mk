@@ -5,7 +5,11 @@ ifeq ($(TARGET_PREBUILT_KERNEL),)
 
 KERNEL_OUT := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ
 KERNEL_CONFIG := $(KERNEL_OUT)/.config
+ifeq ($(TARGET_KERNEL_APPEND_DTB), true)
+TARGET_PREBUILT_INT_KERNEL := $(KERNEL_OUT)/arch/arm/boot/zImage-dtb
+else
 TARGET_PREBUILT_INT_KERNEL := $(KERNEL_OUT)/arch/arm/boot/zImage
+endif
 KERNEL_HEADERS_INSTALL := $(KERNEL_OUT)/usr
 KERNEL_MODULES_INSTALL := system
 KERNEL_MODULES_OUT := $(TARGET_OUT)/lib/modules
@@ -58,6 +62,15 @@ mpath=`dirname $$mdpath`; rm -rf $$mpath;\
 fi
 endef
 
+# LGE_CHANGE_S, vmware, donghoon.nam, 2013-12-03
+MVPD_MODULES := mvpkm.ko commkm.ko pvtcpkm.ko
+define rm-mvp-modules
+if [ "$(strip $(USES_VMWARE_VIRTUALIZATION))" = "true" ];then\
+rm -f $(addprefix $(KERNEL_MODULES_OUT)/,$(MVPD_MODULES));\
+fi
+endef
+# LGE_CHANGE_E, vmware, donghoon.nam, 2013-12-03
+
 $(KERNEL_OUT):
 	mkdir -p $(KERNEL_OUT)
 
@@ -87,6 +100,17 @@ $(KERNEL_CONFIG): $(KERNEL_OUT)
 	$(MAKE) -C kernel O=../$(KERNEL_OUT) ARCH=arm CROSS_COMPILE=arm-eabi- $(KERNEL_DEFCONFIG)
 ifneq ($(TARGET_BUILD_VARIANT), user)
 	echo "CONFIG_MMC_MSM_DEBUGFS=y" >> $(KERNEL_CONFIG)
+# LGE_CHANGE_S, vmware, donghoon.nam, 2013-12-03
+ifeq ($(strip $(USES_VMWARE_VIRTUALIZATION)), true)
+	echo "CONFIG_VMWARE_MVP_DEBUG=y" >> $(KERNEL_CONFIG)
+	echo "CONFIG_VMWARE_PVTCP_DEBUG=y" >> $(KERNEL_CONFIG)
+endif
+# LGE_CHANGE_E, vmware, donghoon.nam, 2013-12-03
+endif
+
+#[B1][WIFI][CMCC_CN]yongcan.guo for CHINA WAPI  CONFIG_BRCM_WAPI=y
+ifeq ($(TARGET_PRODUCT),b1_cmcc_cn)
+	echo "CONFIG_BRCM_WAPI=y" >> $(KERNEL_CONFIG)
 endif
 
 # LGE_CHANGE_S
@@ -118,6 +142,9 @@ ifeq ($(PRODUCT_SUPPORT_EXFAT), y)
 endif
 	$(mv-modules)
 	$(clean-module-folder)
+# LGE_CHANGE_S, vmware, donghoon.nam, 2013-12-03
+	$(rm-mvp-modules)
+# LGE_CHANGE_E, vmware, donghoon.nam, 2013-12-03
 	$(append-dtb)
 
 $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT) $(KERNEL_CONFIG)

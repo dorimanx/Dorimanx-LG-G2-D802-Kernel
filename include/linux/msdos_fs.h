@@ -164,7 +164,7 @@ struct msdos_dir_entry {
 	__le16	cdate;		/* Creation date */
 	__le16	adate;		/* Last access date */
 	__le16	starthi;	/* High 16 bits of cluster in FAT32 */
-	__le16	time,date,start;/* time, date and first cluster */
+	__le16	time, date, start;/* time, date and first cluster */
 	__le32	size;		/* file size (in bytes) */
 };
 

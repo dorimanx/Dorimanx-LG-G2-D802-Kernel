@@ -28,8 +28,10 @@
 #include "mdss_mdp.h"
 #include "mdss_mdp_formats.h"
 #include "mdss_debug.h"
-#define DEFAULT_FRAME_RATE	60
 
+#ifdef CONFIG_MACH_LGE
+#define QMC_PATCH
+#endif
 enum {
 	MDP_INTR_VSYNC_INTF_0,
 	MDP_INTR_VSYNC_INTF_1,
@@ -42,9 +44,11 @@ enum {
 	MDP_INTR_PING_PONG_0,
 	MDP_INTR_PING_PONG_1,
 	MDP_INTR_PING_PONG_2,
+	MDP_INTR_PING_PONG_3,
 	MDP_INTR_PING_PONG_0_RD_PTR,
 	MDP_INTR_PING_PONG_1_RD_PTR,
 	MDP_INTR_PING_PONG_2_RD_PTR,
+	MDP_INTR_PING_PONG_3_RD_PTR,
 	MDP_INTR_WB_0,
 	MDP_INTR_WB_1,
 	MDP_INTR_WB_2,
@@ -164,6 +168,9 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 	if (isr & MDSS_MDP_INTR_PING_PONG_2_DONE)
 		mdss_mdp_intr_done(MDP_INTR_PING_PONG_2);
 
+	if (isr & MDSS_MDP_INTR_PING_PONG_3_DONE)
+		mdss_mdp_intr_done(MDP_INTR_PING_PONG_3);
+
 	if (isr & MDSS_MDP_INTR_PING_PONG_0_RD_PTR)
 		mdss_mdp_intr_done(MDP_INTR_PING_PONG_0_RD_PTR);
 
@@ -172,6 +179,9 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 
 	if (isr & MDSS_MDP_INTR_PING_PONG_2_RD_PTR)
 		mdss_mdp_intr_done(MDP_INTR_PING_PONG_2_RD_PTR);
+
+	if (isr & MDSS_MDP_INTR_PING_PONG_3_RD_PTR)
+		mdss_mdp_intr_done(MDP_INTR_PING_PONG_3_RD_PTR);
 
 	if (isr & MDSS_MDP_INTR_INTF_0_VSYNC) {
 		mdss_mdp_intr_done(MDP_INTR_VSYNC_INTF_0);
@@ -193,14 +203,20 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 		mdss_misr_crc_collect(mdata, DISPLAY_MISR_HDMI);
 	}
 
-	if (isr & MDSS_MDP_INTR_WB_0_DONE)
+	if (isr & MDSS_MDP_INTR_WB_0_DONE) {
 		mdss_mdp_intr_done(MDP_INTR_WB_0);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP);
+	}
 
-	if (isr & MDSS_MDP_INTR_WB_1_DONE)
+	if (isr & MDSS_MDP_INTR_WB_1_DONE) {
 		mdss_mdp_intr_done(MDP_INTR_WB_1);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP);
+	}
 
-	if (isr & MDSS_MDP_INTR_WB_2_DONE)
+	if (isr & MDSS_MDP_INTR_WB_2_DONE) {
 		mdss_mdp_intr_done(MDP_INTR_WB_2);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP);
+	}
 
 mdp_isr_done:
 	hist_isr = MDSS_MDP_REG_READ(MDSS_MDP_REG_HIST_INTR_STATUS);
@@ -230,6 +246,20 @@ struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format)
 	return NULL;
 }
 
+void mdss_mdp_intersect_rect(struct mdss_mdp_img_rect *res_rect,
+	const struct mdss_mdp_img_rect *dst_rect,
+	const struct mdss_mdp_img_rect *sci_rect)
+{
+	int l = max(dst_rect->x, sci_rect->x);
+	int t = max(dst_rect->y, sci_rect->y);
+	int r = min((dst_rect->x + dst_rect->w), (sci_rect->x + sci_rect->w));
+	int b = min((dst_rect->y + dst_rect->h), (sci_rect->y + sci_rect->h));
+
+	if (r < l || b < t)
+		*res_rect = (struct mdss_mdp_img_rect){0, 0, 0, 0};
+	else
+		*res_rect = (struct mdss_mdp_img_rect){l, t, (r-l), (b-t)};
+}
 int mdss_mdp_get_rau_strides(u32 w, u32 h,
 			       struct mdss_mdp_format_params *fmt,
 			       struct mdss_mdp_plane_sizes *ps)
@@ -246,6 +276,9 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h,
 			ps->rau_h[1] = 4;
 		} else
 			ps->ystride[1] = 32 * 2;
+
+		/* account for both chroma components */
+		ps->ystride[1] <<= 1;
 	} else if (fmt->fetch_planes == MDSS_MDP_PLANE_INTERLEAVED) {
 		ps->rau_cnt = DIV_ROUND_UP(w, 32);
 		ps->ystride[0] = 32 * 4 * fmt->bpp;
@@ -261,6 +294,10 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h,
 	ps->ystride[1] *= ps->rau_cnt;
 	ps->num_planes = 2;
 
+	pr_debug("BWC rau_cnt=%d strides={%d,%d} heights={%d,%d}\n",
+		ps->rau_cnt, ps->ystride[0], ps->ystride[1],
+		ps->rau_h[0], ps->rau_h[1]);
+
 	return 0;
 }
 
@@ -269,7 +306,7 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 {
 	struct mdss_mdp_format_params *fmt;
 	int i, rc;
-	u32 bpp, ystride0_off, ystride1_off;
+	u32 bpp;
 	if (ps == NULL)
 		return -EINVAL;
 
@@ -284,24 +321,23 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 	memset(ps, 0, sizeof(struct mdss_mdp_plane_sizes));
 
 	if (bwc_mode) {
-		u32 meta_size;
+		u32 height, meta_size;
 
 		rc = mdss_mdp_get_rau_strides(w, h, fmt, ps);
 		if (rc)
 			return rc;
 
+		height = DIV_ROUND_UP(h, ps->rau_h[0]);
 		meta_size = DIV_ROUND_UP(ps->rau_cnt, 8);
-		ps->ystride[0] += meta_size;
 		ps->ystride[1] += meta_size;
+		ps->ystride[0] += ps->ystride[1] + meta_size;
+		ps->plane_size[0] = ps->ystride[0] * height;
 
-		ystride0_off = DIV_ROUND_UP(h, ps->rau_h[0]);
-		ystride1_off = DIV_ROUND_UP(h, ps->rau_h[1]);
-		ps->plane_size[0] = (ps->ystride[0] * ystride0_off) +
-				    (ps->ystride[1] * ystride1_off);
-		ps->ystride[0] += ps->ystride[1];
 		ps->ystride[1] = 2;
-		ps->plane_size[1] = ps->rau_cnt * ps->ystride[1] *
-				   (ystride0_off + ystride1_off);
+		ps->plane_size[1] = 2 * ps->rau_cnt * height;
+
+		pr_debug("BWC data stride=%d size=%d meta size=%d\n",
+			ps->ystride[0], ps->plane_size[0], ps->plane_size[1]);
 	} else {
 		if (fmt->fetch_planes == MDSS_MDP_PLANE_INTERLEAVED) {
 			ps->num_planes = 1;
@@ -427,9 +463,14 @@ int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 	struct ion_client *iclient = mdss_get_ionclient();
 	if (data->flags & MDP_MEMORY_ID_TYPE_FB) {
 		pr_debug("fb mem buf=0x%x\n", data->addr);
-		if(data->srcp_file!=NULL) {
+#ifdef QMC_PATCH
+		/* LGE_CHANGE
+		 * QMC patch to prevent null point crash
+		 * 2013-09-03, baryun.hwang@lge.com
+		 */
+		if (data->srcp_file != NULL)
+#endif
 			fput_light(data->srcp_file, data->p_need);
-		}
 		data->srcp_file = NULL;
 	} else if (data->srcp_file) {
 		pr_debug("pmem buf=0x%x\n", data->addr);
@@ -524,6 +565,9 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 			ret = ion_map_iommu(iclient, data->srcp_ihdl,
 					    mdss_get_iommu_domain(domain),
 					    0, SZ_4K, 0, start, len, 0, 0);
+			if (ret && (domain == MDSS_IOMMU_DOMAIN_SECURE))
+				msm_ion_unsecure_buffer(iclient,
+						data->srcp_ihdl);
 		} else {
 			ret = ion_phys(iclient, data->srcp_ihdl, start,
 				       (size_t *) len);
@@ -538,6 +582,7 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 
 	if (!*start) {
 		pr_err("start address is zero!\n");
+		mdss_mdp_put_img(data);
 		return -ENOMEM;
 	}
 
@@ -548,34 +593,11 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 		pr_debug("mem=%d ihdl=%p buf=0x%x len=0x%x\n", img->memory_id,
 			 data->srcp_ihdl, data->addr, data->len);
 	} else {
-		return -EINVAL;
+		mdss_mdp_put_img(data);
+		return ret ? : -EOVERFLOW;
 	}
 
 	return ret;
-}
-
-u32 mdss_get_panel_framerate(struct msm_fb_data_type *mfd)
-{
-	u32 frame_rate = DEFAULT_FRAME_RATE;
-	u32 pixel_total;
-	struct mdss_panel_info *panel_info = mfd->panel_info;
-
-	if ((panel_info->type == MIPI_VIDEO_PANEL) ||
-			(panel_info->type == MIPI_CMD_PANEL)) {
-		frame_rate = panel_info->mipi.frame_rate;
-	} else {
-		pixel_total = (panel_info->lcdc.h_back_porch +
-			  panel_info->lcdc.h_front_porch +
-			  panel_info->lcdc.h_pulse_width +
-			  panel_info->xres) *
-			 (panel_info->lcdc.v_back_porch +
-			  panel_info->lcdc.v_front_porch +
-			  panel_info->lcdc.v_pulse_width +
-			  panel_info->yres);
-		if (pixel_total)
-			frame_rate = panel_info->clk_rate / pixel_total;
-	}
-	return frame_rate;
 }
 
 int mdss_mdp_calc_phase_step(u32 src, u32 dst, u32 *out_phase)

@@ -257,10 +257,12 @@ int8 tunerbb_drv_t3a00_get_ber(struct broadcast_tdmb_sig_info *dmb_bb_info)
 	if((svc_type == 2) && (unRefAntLevel == 0) && (pInfo->uiCER < 1300) && (pInfo->ucVber >= 50))
 	 unRefAntLevel+=1;
 
-	if((svc_type == 2) && (unRefAntLevel == 1) && (pInfo->ucVber < 50))
+	//if((svc_type == 2) && (unRefAntLevel == 1) && (pInfo->ucVber < 50)) //장비, 유선 기준
+	if((svc_type == 2) && (unRefAntLevel == 1) && (pInfo->ucVber < 35))//무선, 상용채널 기준
 		unRefAntLevel-=1;
 
-	if((svc_type == 2) &&(unRefAntLevel == 2) && (pInfo->ucVber <= 50))
+	//if((svc_type == 2) &&(unRefAntLevel == 2) && (pInfo->ucVber <= 50)) //장비, 유선 기준
+	if((svc_type == 2) &&(unRefAntLevel == 2) && (pInfo->ucVber < 50))//무선, 상용채널 기준
 	  unRefAntLevel -=1;
 
 

@@ -46,6 +46,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/string.h>
+#include <mach/msm_bus.h>
 
 /*
  * General defines
@@ -437,6 +438,7 @@ struct tspp_device {
 	struct list_head devlist; /* list of all devices */
 	struct platform_device *pdev;
 	void __iomem *base;
+	uint32_t tsif_bus_client;
 	unsigned int tspp_irq;
 	unsigned int bam_irq;
 	u32 bam_handle;
@@ -615,8 +617,8 @@ static void tspp_sps_complete_tlet(unsigned long data)
 				break;
 
 			if (iovec.addr != channel->waiting->sps.phys_base)
-				pr_err("tspp: buffer mismatch 0x%08x",
-					channel->waiting->sps.phys_base);
+				pr_err("tspp: buffer mismatch %pa",
+					&channel->waiting->sps.phys_base);
 
 			complete = 1;
 			channel->waiting->state = TSPP_BUF_STATE_DATA;
@@ -773,12 +775,24 @@ static int tspp_clock_start(struct tspp_device *device)
 		return -EINVAL;
 	}
 
+	if (device->tsif_bus_client) {
+		rc = msm_bus_scale_client_update_request(
+					device->tsif_bus_client, 1);
+		if (rc) {
+			pr_err("tspp: Can't enable bus\n");
+			return -EBUSY;
+		}
+	}
+
 	if (device->tsif_vreg) {
 		rc = regulator_set_voltage(device->tsif_vreg,
 					RPM_REGULATOR_CORNER_SUPER_TURBO,
 					RPM_REGULATOR_CORNER_SUPER_TURBO);
 		if (rc) {
 			pr_err("Unable to set CX voltage.\n");
+			if (device->tsif_bus_client)
+				msm_bus_scale_client_update_request(
+					device->tsif_bus_client, 0);
 			return rc;
 		}
 	}
@@ -788,9 +802,13 @@ static int tspp_clock_start(struct tspp_device *device)
 
 		if (device->tsif_vreg) {
 			regulator_set_voltage(device->tsif_vreg,
-					RPM_REGULATOR_CORNER_SVS_SOC,
+					RPM_REGULATOR_CORNER_NONE,
 					RPM_REGULATOR_CORNER_SUPER_TURBO);
 		}
+
+		if (device->tsif_bus_client)
+			msm_bus_scale_client_update_request(
+				device->tsif_bus_client, 0);
 		return -EBUSY;
 	}
 
@@ -800,9 +818,13 @@ static int tspp_clock_start(struct tspp_device *device)
 		clk_disable_unprepare(device->tsif_pclk);
 		if (device->tsif_vreg) {
 			regulator_set_voltage(device->tsif_vreg,
-					RPM_REGULATOR_CORNER_SVS_SOC,
+					RPM_REGULATOR_CORNER_NONE,
 					RPM_REGULATOR_CORNER_SUPER_TURBO);
 		}
+
+		if (device->tsif_bus_client)
+			msm_bus_scale_client_update_request(
+				device->tsif_bus_client, 0);
 		return -EBUSY;
 	}
 
@@ -826,10 +848,17 @@ static void tspp_clock_stop(struct tspp_device *device)
 
 	if (device->tsif_vreg) {
 		rc = regulator_set_voltage(device->tsif_vreg,
-					RPM_REGULATOR_CORNER_SVS_SOC,
+					RPM_REGULATOR_CORNER_NONE,
 					RPM_REGULATOR_CORNER_SUPER_TURBO);
 		if (rc)
 			pr_err("Unable to set CX voltage.\n");
+	}
+
+	if (device->tsif_bus_client) {
+		rc = msm_bus_scale_client_update_request(
+					device->tsif_bus_client, 0);
+		if (rc)
+			pr_err("tspp: Can't disable bus\n");
 	}
 }
 
@@ -1677,6 +1706,8 @@ int tspp_close_channel(u32 dev, u32 channel_id)
 	dma_free_coherent(NULL, config->desc.size, config->desc.base,
 		config->desc.phys_base);
 
+	sps_free_endpoint(channel->pipe);
+
 	tspp_destroy_buffers(channel_id, channel);
 	if (channel->dma_pool) {
 		dma_pool_destroy(channel->dma_pool);
@@ -1792,7 +1823,7 @@ int tspp_add_filter(u32 dev, u32 channel_id,
 	}
 
 	if (filter->priority >= TSPP_NUM_PRIORITIES) {
-		pr_err("tspp invalid source");
+		pr_err("tspp invalid filter priority");
 		return -ENOSR;
 	}
 
@@ -1920,6 +1951,10 @@ int tspp_remove_filter(u32 dev, u32 channel_id,
 	if (!pdev) {
 		pr_err("tspp_remove: can't find device %i", dev);
 		return -ENODEV;
+	}
+	if (filter->priority >= TSPP_NUM_PRIORITIES) {
+		pr_err("tspp invalid filter priority");
+		return -ENOSR;
 	}
 	channel = &pdev->channels[channel_id];
 
@@ -2851,6 +2886,7 @@ static int __devinit msm_tspp_probe(struct platform_device *pdev)
 	struct resource *mem_tspp;
 	struct resource *mem_bam;
 	struct tspp_channel *channel;
+	struct msm_bus_scale_pdata *tspp_bus_pdata = NULL;
 
 	if (pdev->dev.of_node) {
 		/* get information from device tree */
@@ -2862,9 +2898,12 @@ static int __devinit msm_tspp_probe(struct platform_device *pdev)
 			pdev->id = -1;
 
 		pdev->dev.platform_data = data;
+
+		tspp_bus_pdata = msm_bus_cl_get_pdata(pdev);
 	} else {
 		/* must have platform data */
 		data = pdev->dev.platform_data;
+		tspp_bus_pdata = NULL;
 	}
 	if (!data) {
 		pr_err("tspp: Platform data not available");
@@ -2891,6 +2930,16 @@ static int __devinit msm_tspp_probe(struct platform_device *pdev)
 	device->pdev = pdev;
 	platform_set_drvdata(pdev, device);
 
+	/* register bus client */
+	if (tspp_bus_pdata) {
+		device->tsif_bus_client =
+			msm_bus_scale_register_client(tspp_bus_pdata);
+		if (!device->tsif_bus_client)
+			pr_err("tspp: Unable to register bus client\n");
+	} else {
+		device->tsif_bus_client = 0;
+	}
+
 	/* map regulators */
 	if (data->tsif_vreg_present) {
 		device->tsif_vreg = devm_regulator_get(&pdev->dev, "vdd_cx");
@@ -2902,7 +2951,7 @@ static int __devinit msm_tspp_probe(struct platform_device *pdev)
 
 		/* Set an initial voltage and enable the regulator */
 		rc = regulator_set_voltage(device->tsif_vreg,
-					RPM_REGULATOR_CORNER_SVS_SOC,
+					RPM_REGULATOR_CORNER_NONE,
 					RPM_REGULATOR_CORNER_SUPER_TURBO);
 		if (rc) {
 			dev_err(&pdev->dev, "Unable to set CX voltage.\n");
@@ -3108,6 +3157,8 @@ err_pclock:
 	if (device->tsif_vreg)
 		regulator_disable(device->tsif_vreg);
 err_regultaor:
+	if (device->tsif_bus_client)
+		msm_bus_scale_unregister_client(device->tsif_bus_client);
 	kfree(device);
 
 out:
@@ -3142,6 +3193,9 @@ static int __devexit msm_tspp_remove(struct platform_device *pdev)
 		if (device->tsif[i].tsif_irq)
 			free_irq(device->tsif[i].tsif_irq,  &device->tsif[i]);
 	}
+
+	if (device->tsif_bus_client)
+		msm_bus_scale_unregister_client(device->tsif_bus_client);
 
 	wake_lock_destroy(&device->wake_lock);
 	free_irq(device->tspp_irq, device);

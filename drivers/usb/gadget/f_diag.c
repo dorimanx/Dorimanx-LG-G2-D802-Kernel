@@ -258,12 +258,10 @@ static void diag_read_complete(struct usb_ep *ep,
 #ifdef CONFIG_USB_G_LGE_ANDROID_DIAG_OSP_SUPPORT
 	struct diagchar_dev *driver = ctxt->ch->priv;
 
-	if (((unsigned char *)(d_req->buf))[0] == DIAG_OSP_TYPE) {
+	if (((unsigned char *)(d_req->buf))[0] == DIAG_OSP_TYPE)
 		driver->diag_read_status = 0;
-	}
-	else {
+	else
 		driver->diag_read_status = 1;
-	}
 #endif
 	d_req->actual = req->actual;
 	d_req->status = req->status;
@@ -461,7 +459,7 @@ int usb_diag_read(struct usb_diag_ch *ch, struct diag_request *d_req)
 #ifdef CONFIG_USB_G_LGE_ANDROID_DIAG_OSP_SUPPORT
 	struct diagchar_dev *driver = ch->priv;
 
-	if(!driver)
+	if (!driver)
 		return -ENODEV;
 
 	wait_event_interruptible_timeout(driver->diag_read_wait_q,
@@ -651,6 +649,7 @@ static void diag_function_unbind(struct usb_configuration *c,
 		struct usb_function *f)
 {
 	struct diag_context *ctxt = func_to_diag(f);
+	unsigned long flags;
 
 	if (gadget_is_superspeed(c->cdev->gadget))
 		usb_free_descriptors(f->ss_descriptors);
@@ -667,6 +666,10 @@ static void diag_function_unbind(struct usb_configuration *c,
 	if (ctxt->ch && ctxt->ch->priv_usb == ctxt)
 		ctxt->ch->priv_usb = NULL;
 	list_del(&ctxt->list_item);
+	/* Free any pending USB requests from last session */
+	spin_lock_irqsave(&ctxt->lock, flags);
+	free_reqs(ctxt);
+	spin_unlock_irqrestore(&ctxt->lock, flags);
 	kfree(ctxt);
 }
 
@@ -784,7 +787,6 @@ int diag_function_add(struct usb_configuration *c, const char *name,
 	spin_lock_init(&dev->lock);
 	INIT_LIST_HEAD(&dev->read_pool);
 	INIT_LIST_HEAD(&dev->write_pool);
-//	INIT_WORK(&dev->config_work, usb_config_work_func);
 
 	ret = usb_add_function(c, &dev->function);
 	if (ret) {
@@ -858,17 +860,28 @@ static const struct file_operations debug_fdiag_ops = {
 struct dentry *dent_diag;
 static void fdiag_debugfs_init(void)
 {
+	struct dentry *dent_diag_status;
 	dent_diag = debugfs_create_dir("usb_diag", 0);
-	if (IS_ERR(dent_diag))
+	if (!dent_diag || IS_ERR(dent_diag))
 		return;
 
-	debugfs_create_file("status", 0444, dent_diag, 0, &debug_fdiag_ops);
+	dent_diag_status = debugfs_create_file("status", 0444, dent_diag, 0,
+			&debug_fdiag_ops);
+
+	if (!dent_diag_status || IS_ERR(dent_diag_status)) {
+		debugfs_remove(dent_diag);
+		dent_diag = NULL;
+		return;
+	}
+}
+
+static void fdiag_debugfs_remove(void)
+{
+	debugfs_remove_recursive(dent_diag);
 }
 #else
-static void fdiag_debugfs_init(void)
-{
-	return;
-}
+static inline void fdiag_debugfs_init(void) {}
+static inline void fdiag_debugfs_remove(void) {}
 #endif
 
 static void diag_cleanup(void)
@@ -877,7 +890,7 @@ static void diag_cleanup(void)
 	struct usb_diag_ch *_ch;
 	unsigned long flags;
 
-	debugfs_remove_recursive(dent_diag);
+	fdiag_debugfs_remove();
 
 	list_for_each_safe(act, tmp, &usb_diag_ch_list) {
 		_ch = list_entry(act, struct usb_diag_ch, list);

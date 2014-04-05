@@ -129,12 +129,25 @@ static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_substream *substream,
 		break;
 	}
 
+	/*refer to HDMI spec CEA-861-E: Table 28 Audio InfoFrame Data Byte 4*/
 	switch (dai_data->channels) {
 	case 2:
 		dai_data->port_config.hdmi_multi_ch.channel_allocation = 0;
 		break;
+	case 3:
+		dai_data->port_config.hdmi_multi_ch.channel_allocation = 0x02;
+		break;
+	case 4:
+		dai_data->port_config.hdmi_multi_ch.channel_allocation = 0x06;
+		break;
+	case 5:
+		dai_data->port_config.hdmi_multi_ch.channel_allocation = 0x0A;
+		break;
 	case 6:
 		dai_data->port_config.hdmi_multi_ch.channel_allocation = 0x0B;
+		break;
+	case 7:
+		dai_data->port_config.hdmi_multi_ch.channel_allocation = 0x12;
 		break;
 	case 8:
 		dai_data->port_config.hdmi_multi_ch.channel_allocation = 0x13;
@@ -264,11 +277,12 @@ static struct snd_soc_dai_ops msm_dai_q6_hdmi_ops = {
 
 static struct snd_soc_dai_driver msm_dai_q6_hdmi_hdmi_rx_dai = {
 	.playback = {
-		.rates = SNDRV_PCM_RATE_48000,
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+		 SNDRV_PCM_RATE_192000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
 		.channels_min = 2,
 		.channels_max = 8,
-		.rate_max =     48000,
+		.rate_max =     192000,
 		.rate_min =	48000,
 	},
 	.ops = &msm_dai_q6_hdmi_ops,

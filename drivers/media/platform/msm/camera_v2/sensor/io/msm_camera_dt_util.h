@@ -18,9 +18,16 @@
 #include <linux/of.h>
 #include "msm_camera_i2c.h"
 
+#ifdef QULCOMM_ORIGINAL // original (do not use it in LGE)
+int32_t msm_camera_get_dt_power_setting_data(struct device_node *of_node,
+	struct camera_vreg_t *cam_vreg, int num_vreg,
+	struct msm_sensor_power_setting **power_setting,
+	uint16_t *power_setting_size);
+#else
 int32_t msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 	struct msm_sensor_power_setting **power_setting,
 	uint16_t *power_setting_size);
+#endif
 
 int32_t msm_camera_get_dt_gpio_req_tbl(struct device_node *of_node,
 	struct msm_camera_gpio_conf *gconf, uint16_t *gpio_array,

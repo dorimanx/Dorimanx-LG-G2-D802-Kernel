@@ -1,10 +1,10 @@
 
-/*             
-  
-                                        
-                                             
-  
-                             
+/* LGE_CHANGE_S
+ *
+ * do read/mmap profiling during booting
+ * in order to use the data as readahead args
+ *
+ * matia.kim@lge.com 20130403
  */
 #include "mount.h"
 #include "ext4/ext4.h"
@@ -12,31 +12,36 @@
 
 static struct sreadahead_prof prof_buf;
 
-//--------------------------------------------------------------
-// functions - work queue
-//--------------------------------------------------------------
+/*--------------------------------------------------------------
+ * functions - work queue
+ *--------------------------------------------------------------*/
 static void prof_buf_free_work(struct work_struct *data)
 {
-	_DBG("mem of prof_buf is freed by vfree()");
 	mutex_lock(&prof_buf.ulock);
+	if (prof_buf.state == PROF_DONE) {
+		mutex_unlock(&prof_buf.ulock);
+		return;
+	}
+
 	prof_buf.state = PROF_NOT;
 	vfree(prof_buf.data);
 	prof_buf.data = NULL;
+	_DBG("mem of prof_buf is freed by vfree()");
 	mutex_unlock(&prof_buf.ulock);
 }
 
-//--------------------------------------------------------------
-// functions - timer
-//--------------------------------------------------------------
+/*--------------------------------------------------------------
+ * functions - timer
+ *--------------------------------------------------------------*/
 static void prof_timer_handler(unsigned long arg)
 {
 	_DBG("profiling state - %d\n", prof_buf.state);
 	schedule_work(&prof_buf.free_work);
 }
 
-//--------------------------------------------------------------
-// functions - initialization of debugfs
-//--------------------------------------------------------------
+/*--------------------------------------------------------------
+ * functions - initialization of debugfs
+ *--------------------------------------------------------------*/
 
 static ssize_t sreadahead_dbgfs_read(
 		struct file *file,
@@ -47,6 +52,11 @@ static ssize_t sreadahead_dbgfs_read(
 	struct sreadahead_profdata data;
 
 	mutex_lock(&prof_buf.ulock);
+	if (prof_buf.data == NULL) {
+		mutex_unlock(&prof_buf.ulock);
+		return 0;
+	}
+
 	if (prof_buf.read_cnt >= prof_buf.file_cnt) {
 		vfree(prof_buf.data);
 		prof_buf.data = NULL;
@@ -85,15 +95,31 @@ static ssize_t sreadaheadflag_dbgfs_write(
 		size_t count,
 		loff_t *ppos)
 {
-	if (copy_from_user(&prof_buf.state, buff, sizeof(int)))
+	int state;
+
+	if (copy_from_user(&state, buff, sizeof(int)))
 		return 0;
 
-	if (prof_buf.state == PROF_INIT) {
-		_DBG("PROF_INT & add timer");
+	if (state == PROF_INIT) {
+		mutex_lock(&prof_buf.ulock);
+		_DBG("PROF_INT");
+		prof_buf.state = state;
+		mutex_unlock(&prof_buf.ulock);
+
+		_DBG("add timer");
 		prof_buf.timer.expires = get_jiffies_64() + (PROF_TIMEOUT * HZ);
 		add_timer(&prof_buf.timer);
-	} else if (prof_buf.state == PROF_DONE) {
-		_DBG("PROF_DONE by user daemon(boot_completed) & del timer");
+	} else if (state == PROF_DONE) {
+		mutex_lock(&prof_buf.ulock);
+		if (prof_buf.state != PROF_RUN) {
+			mutex_unlock(&prof_buf.ulock);
+			return 0;
+		}
+		_DBG("PROF_DONE by user daemon(boot_completed)");
+		prof_buf.state = state;
+		mutex_unlock(&prof_buf.ulock);
+
+		_DBG("del timer");
 		del_timer(&prof_buf.timer);
 	}
 
@@ -142,16 +168,16 @@ static int __init sreadahead_init(void)
 
 __initcall(sreadahead_init);
 
-//--------------------------------------------------------------
-// functions - sreadahead profiling
-//--------------------------------------------------------------
+/*--------------------------------------------------------------
+ * functions - sreadahead profiling
+ *--------------------------------------------------------------*/
 
-static int get_absolute_path(unsigned char* buf, int buflen, struct file *filp)
+static int get_absolute_path(unsigned char *buf, int buflen, struct file *filp)
 {
 	unsigned char tmpstr[FILE_PATHLEN+FILE_NAMELEN];
-	struct dentry* tmpdentry = 0;
-	struct mount* tmpmnt;
-	struct mount* tmpoldmnt;
+	struct dentry *tmpdentry = 0;
+	struct mount *tmpmnt;
+	struct mount *tmpoldmnt;
 	tmpmnt = real_mount(filp->f_vfsmnt);
 
 	tmpdentry = filp->f_path.dentry->d_parent;
@@ -159,16 +185,16 @@ static int get_absolute_path(unsigned char* buf, int buflen, struct file *filp)
 		tmpoldmnt = tmpmnt;
 		while (!IS_ROOT(tmpdentry)) {
 			strcpy(tmpstr, buf);
-			// byungchul.park@lge.com
-			// make codes robust
+			/* byungchul.park@lge.com */
+			/* make codes robust */
 			strncpy(buf, tmpdentry->d_name.name, buflen - 1);
 			buf[buflen - 1] = '\0';
-			if (strlen(buf) + strlen("/") > buflen -1)
+			if (strlen(buf) + strlen("/") > buflen - 1)
 				return -1;
 			else
 				strcat(buf, "/");
 
-			if (strlen(buf) + strlen(tmpstr) > buflen -1)
+			if (strlen(buf) + strlen(tmpstr) > buflen - 1)
 				return -1;
 			else
 				strcat(buf, tmpstr);
@@ -180,9 +206,9 @@ static int get_absolute_path(unsigned char* buf, int buflen, struct file *filp)
 	} while (tmpmnt != tmpoldmnt);
 	strcpy(tmpstr, buf);
 	strcpy(buf, "/");
-	// byungchul.park@lge.com
-	// make codes robust
-	if (strlen(buf) + strlen(tmpstr) > buflen -1)
+	/* byungchul.park@lge.com */
+	/* make codes robust */
+	if (strlen(buf) + strlen(tmpstr) > buflen - 1)
 		return -1;
 	strcat(buf, tmpstr);
 
@@ -200,21 +226,25 @@ static int sreadahead_prof_RUN(struct file *filp, size_t len, loff_t pos)
 	data.procname[0] = '\0';
 	get_task_comm(data.procname, current);
 
-	if (get_absolute_path(data.name, FILE_PATHLEN + FILE_NAMELEN, filp) < 0) return -1;
+	if (get_absolute_path(data.name, FILE_PATHLEN + FILE_NAMELEN, filp) < 0)
+		return -1;
 	strcat(data.name, filp->f_path.dentry->d_name.name);
 
 	mutex_lock(&prof_buf.ulock);
 
-	if (prof_buf.data == NULL) /* vfree called */
+	/* vfree called or profiling is already done */
+	if (prof_buf.data == NULL || prof_buf.state != PROF_RUN) {
+		mutex_unlock(&prof_buf.ulock);
 		return -1;
+	}
 
-	for(i = 0; i < prof_buf.file_cnt; ++i){
-		if (strncmp(prof_buf.data[i].name, data.name, FILE_PATHLEN + FILE_NAMELEN) == 0){
+	for (i = 0; i < prof_buf.file_cnt; ++i) {
+		if (strncmp(prof_buf.data[i].name, data.name, FILE_PATHLEN + FILE_NAMELEN) == 0) {
 			break;
 		}
 	}
-	// add a new entry
-	if (i == prof_buf.file_cnt){
+	/* add a new entry */
+	if (i == prof_buf.file_cnt && i < PROF_BUF_SIZE) {
 		strncpy(prof_buf.data[i].procname, data.procname, PROC_NAMELEN);
 		prof_buf.data[i].procname[PROC_NAMELEN - 1] = '\0';
 		strncpy(prof_buf.data[i].name, data.name, FILE_PATHLEN + FILE_NAMELEN);
@@ -246,13 +276,12 @@ static int sreadahead_prof_RUN(struct file *filp, size_t len, loff_t pos)
 static int sreadahead_profdata_init(void)
 {
 	mutex_lock(&prof_buf.ulock);
-	if(prof_buf.state != PROF_INIT) {
+	if (prof_buf.state != PROF_INIT) {
 		mutex_unlock(&prof_buf.ulock);
 		return 0;
-
 	}
 
-	prof_buf.data = (struct sreadahead_profdata*)vmalloc(sizeof(struct sreadahead_profdata) * PROF_BUF_SIZE);
+	prof_buf.data = (struct sreadahead_profdata *)vmalloc(sizeof(struct sreadahead_profdata) * PROF_BUF_SIZE);
 
 	if (prof_buf.data == NULL)
 		return -1;
@@ -276,4 +305,4 @@ int sreadahead_prof(struct file *filp, size_t len, loff_t pos)
 	}
 	return 0;
 }
-/*              */
+/* LGE_CHANGE_E */

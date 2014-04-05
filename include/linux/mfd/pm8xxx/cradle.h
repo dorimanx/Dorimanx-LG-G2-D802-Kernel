@@ -21,24 +21,29 @@
 
 /* SMART COVER Support */
 #define SMARTCOVER_NO_DEV			0
+#define SMARTCOVER_POUCH_CLOSED		1
+#define SMARTCOVER_POUCH_OPENED		0
 #define SMARTCOVER_CAMERA_CLOSED	1
 #define SMARTCOVER_CAMERA_OPENED	2
+#define SMARTCOVER_CAMERA_VIEW		256
+
 #if defined CONFIG_MACH_MSM8974_VU3_KR
-#define SMARTCOVER_PEN_IN			3
-#define SMARTCOVER_PEN_OUT			4
+#define SMARTCOVER_PEN_IN			1
+#define SMARTCOVER_PEN_OUT			0
 #else
 #define SMARTCOVER_VIEW_CLOSED		3	// G2 doesn't support
 #define SMARTCOVER_VIEW_OPENED		4	// G2 doesn't support
 #endif
-#define SMARTCOVER_POUCH_CLOSED		5
-#define SMARTCOVER_POUCH_OPENED		6
-#define SMARTCOVER_CAMERA_VIEW		256
 
 /* Carkit support */
 #ifdef CONFIG_BU52031NVX_CARKIT
 #define	CARKIT_NO_DEV				0	// only VZW
 #define	CARKIT_DESKDOCK				1	// only VZW
 #define CARKIT_DOCKED				2	// only VZW
+#endif
+
+#if !defined(CONFIG_MACH_MSM8974_B1_KR) && !defined(CONFIG_LGE_Z_TOUCHSCREEN) && !defined(CONFIG_MACH_MSM8974_VU3_KR)
+#define A1_only
 #endif
 
 struct pm8xxx_cradle_platform_data {
@@ -66,6 +71,10 @@ int cradle_get_deskdock(void);
 #ifdef CONFIG_BU52031NVX_CARKIT
 void carkit_set_deskdock(int state);
 int carkit_get_deskdock(void);
+#endif
+
+#if defined(A1_only)
+int get_smartcover_status(void);
 #endif
 
 #endif /* __PM8XXX_CRADLE_H__ */

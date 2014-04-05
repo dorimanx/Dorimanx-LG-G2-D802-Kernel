@@ -21,10 +21,25 @@ Required properties:
 	"qcom,coresight-csr" for coresight csr device,
 	"arm,coresight-cti" for coresight cti devices,
 	"qcom,coresight-hwevent" for coresight hardware event devices
-- reg : physical base address and length of the register set(s) of the component
-- reg-names : names corresponding to each reg property value. The reg-names that
-	need to be used with corresponding compatible string for a coresight device
-	are:
+	"arm,coresight-fuse" for coresight fuse device,
+	"qcom,coresight-audio-etm" for coresight audio etm trace device,
+	"qcom,coresight-modem-etm" for coresight modem etm trace device,
+	"qcom,coresight-wcn-etm" for coresight wireless etm trace device,
+	"qcom,coresight-rpm-etm" for coresight rpm etm trace device
+- reg : physical base address and length of the register set(s) of the component.
+	Not required for the following compatible strings:
+	- "qcom,coresight-audio-etm",
+	- "qcom,coresight-modem-etm",
+	- "qcom,coresight-wcn-etm",
+	- "qcom,coresight-rpm-etm"
+- reg-names : names corresponding to each reg property value.
+	Not required for the following compatible strings:
+	- "qcom,coresight-audio-etm",
+	- "qcom,coresight-modem-etm",
+	- "qcom,coresight-wcn-etm",
+	- "qcom,coresight-rpm-etm"
+	The reg-names that need to be used with corresponding compatible string
+	for a coresight device are:
 	- for coresight tmc-etr or tmc-etf device:
 		compatible : should be "arm,coresight-tmc"
 		reg-names  : should be:
@@ -68,6 +83,10 @@ Required properties:
 			"<ss-mux>" - physical base address of hardware event mux
 				control registers where <ss-mux> is subsystem mux it
 				represents
+	- for coresight fuse device:
+		compatible : should be "arm,coresight-fuse"
+		reg-names  : should be:
+			"fuse-base" - physical base address of fuse registers
 - coresight-id : unique integer identifier for the component
 - coresight-name : unique descriptive name of the component
 - coresight-nr-inports : number of input ports on the component
@@ -90,16 +109,24 @@ Optional properties:
 - coresight-ctis : list of ctis that this component interacts with
 - qcom,pc-save : program counter save implemented
 - qcom,blk-size : block size for tmc-etr to usb transfers
+- qcom,memory-size : size of coherent memory to be allocated for tmc-etr buffer
 - qcom,round-robin : indicates if per core etms are allowed round-robin access
 		     by the funnel
 - qcom,reset-flush-race : indicates if a race exists between flushing and ddr
 			  being put into self-refresh during watchdog reset
 - qcom,write-64bit : only 64bit data writes supported by stm
-- vdd-supply: phandle to the regulator device tree node. Used for tpiu component
-- qcom,vdd-voltage-level : specifies voltage level for vdd supply. Should be
-			   specified in pairs (min, max) with units being uV
-- qcom,vdd-current-level : specifies current load levels for vdd supply. Should
-			   be specified in paris (lpm, hpm) with units being uA
+- <supply-name>-supply: phandle to the regulator device tree node. The required
+			<supply-name> is "vdd" for SD card and "vdd-io" for SD
+			I/O supply. Used for tpiu component
+- qcom,<supply>-voltage-level : specifies voltage level for vdd supply. Should
+				be specified in pairs (min, max) with units
+				being uV. Here <supply> can be "vdd" for SD card
+				vdd supply or "vdd-io" for SD I/O vdd supply.
+- qcom,<supply>-current-level : specifies current load levels for vdd supply.
+				Should be specified in pairs (lpm, hpm) with
+				units being uA. Here <supply> can be "vdd" for
+				SD card vdd supply or "vdd-io" for SD I/O vdd
+				supply.
 - qcom,seta-gpios : specifies gpios included in set A that are routed to the
 		    mictor connector. Used for tpiu component
 - qcom,seta-gpios-func : active function select for set A gpios
@@ -113,6 +140,12 @@ Optional properties:
 - qcom,setb-gpios-pull : active pull configuration for set B gpios
 - qcom,setb-gpios-dir : active direction for set B gpios
 - qcom,hwevent-clks : list of clocks required by hardware event driver
+- qcom,byte-cntr-absent : specifies if the byte counter feature is absent on
+			  the device. Only relevant in case of tmc-etr device.
+- interrupts : <a b c> where a is 0 or 1 depending on if the interrupt is
+		spi/ppi, b is the interrupt number and c is the mask,
+- interrupt-names : a list of strings that map in order to the list of
+		    interrupts specified in the 'interrupts' property.
 
 Examples:
 
@@ -122,6 +155,12 @@ Examples:
 		reg = <0xfc322000 0x1000>,
 		      <0xfc37c000 0x3000>;
 		reg-names = "tmc-base", "bam-base";
+
+		interrupts = <0 166 0>;
+		interrupt-names = "byte-cntr-irq";
+
+		qcom,byte-cntr-absent;
+		qcom,memory-size = <0x100000>;
 
 		coresight-id = <0>;
 		coresight-name = "coresight-tmc-etr";
@@ -226,12 +265,23 @@ Examples:
 		compatible = "qcom,coresight-hwevent";
 		reg = <0xfdf30018 0x80>,
 		      <0xf9011080 0x80>,
-		      <0xfd4ab160 0x80>;
-		reg-names = "mmss-mux", "apcs-mux", "ppss-mux";
+		      <0xfd4ab160 0x80>,
+		      <0xfc401600 0x80>;
+		reg-names = "mmss-mux", "apcs-mux", "ppss-mux", "gcc-mux";
 
 		coresight-id = <29>;
 		coresight-name = "coresight-hwevent";
 		coresight-nr-inports = <0>;
 
 		qcom,hwevent-clks = "core_mmss_clk";
+	};
+
+	fuse: fuse@fc4be024 {
+		compatible = "arm,coresight-fuse";
+		reg = <0xfc4be024 0x8>;
+		reg-names = "fuse-base";
+
+		coresight-id = <30>;
+		coresight-name = "coresight-fuse";
+		coresight-nr-inports = <0>;
 	};

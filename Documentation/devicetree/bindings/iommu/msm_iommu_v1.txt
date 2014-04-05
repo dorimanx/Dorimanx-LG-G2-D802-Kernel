@@ -13,6 +13,7 @@ Optional properties:
 - qcom,iommu-secure-id : Secure identifier for the IOMMU block
 - qcom,secure-context : boolean indicating that a context is secure and
   programmed by the secure environment.
+- qcom,vdd-supply: Regulator needed to access IOMMU
 - qcom,alt-vdd-supply : Alternative regulator needed to access IOMMU
   configuration registers.
 - interrupts : should contain the performance monitor overflow interrupt number.
@@ -53,6 +54,10 @@ Optional properties:
   qcom,iommu-bfb-regs property. If this property is present, the
   qcom,iommu-bfb-regs property shall also be present, and the lengths of both
   properties shall be the same.
+- qcom,iommu-lpae-bfb-regs : See description for qcom,iommu-bfb-regs. This is
+  the same property except this is for IOMMU with LPAE support.
+- qcom,iommu-lpae-bfb-data : See description for qcom,iommu-bfb-data. This is
+  the same property except this is for IOMMU with LPAE support.
 
 Example:
 

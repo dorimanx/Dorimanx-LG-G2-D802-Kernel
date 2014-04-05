@@ -171,8 +171,10 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 	mem->smem_priv = hndl;
 	mem->device_addr = iova;
 	mem->size = buffer_size;
-	dprintk(VIDC_DBG, "NOTE: Buffer device address: 0x%lx, size: %d\n",
-		mem->device_addr, mem->size);
+	dprintk(VIDC_DBG,
+		"%s: ion_handle = 0x%p, fd = %d, device_addr = 0x%x, size = %d, kvaddr = 0x%p, buffer_type = %d\n",
+		__func__, mem->smem_priv, fd, (u32)mem->device_addr,
+		mem->size, mem->kvaddr, mem->buffer_type);
 	return rc;
 fail_device_address:
 	ion_free(client->clnt, hndl);
@@ -241,10 +243,11 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 		goto fail_device_address;
 	}
 	mem->device_addr = iova;
-	dprintk(VIDC_DBG,
-		"device_address = 0x%lx, kvaddr = 0x%p, size = %d\n",
-		mem->device_addr, mem->kvaddr, size);
 	mem->size = size;
+	dprintk(VIDC_DBG,
+		"%s: ion_handle = 0x%p, device_addr = 0x%x, size = %d, kvaddr = 0x%p, buffer_type = %d\n",
+		__func__, mem->smem_priv, (u32)mem->device_addr,
+		mem->size, mem->kvaddr, mem->buffer_type);
 	return rc;
 fail_device_address:
 	ion_unmap_kernel(client->clnt, hndl);
@@ -258,6 +261,10 @@ static void free_ion_mem(struct smem_client *client, struct msm_smem *mem)
 {
 	int domain, partition, rc;
 
+	dprintk(VIDC_DBG,
+		"%s: ion_handle = 0x%p, device_addr = 0x%x, size = %d, kvaddr = 0x%p, buffer_type = %d\n",
+		__func__, mem->smem_priv, (u32)mem->device_addr,
+		mem->size, mem->kvaddr, mem->buffer_type);
 	rc = msm_smem_get_domain_partition((void *)client, mem->flags,
 			mem->buffer_type, &domain, &partition);
 	if (rc) {
@@ -500,8 +507,13 @@ int msm_smem_get_domain_partition(void *clt, u32 flags, enum hal_buffer
 	struct smem_client *client = clt;
 	struct iommu_set *iommu_group_set = &client->res->iommu_group_set;
 	int i;
+	int j;
 	bool is_secure = (flags & SMEM_SECURE);
 	struct iommu_info *iommu_map;
+	if (!domain_num || !partition_num) {
+		dprintk(VIDC_DBG, "passed null to get domain partition!");
+		return -EINVAL;
+	}
 
 	*domain_num = -1;
 	*partition_num = -1;
@@ -512,14 +524,14 @@ int msm_smem_get_domain_partition(void *clt, u32 flags, enum hal_buffer
 
 	for (i = 0; i < iommu_group_set->count; i++) {
 		iommu_map = &iommu_group_set->iommu_maps[i];
-		if ((iommu_map->is_secure == is_secure) &&
-			(iommu_map->buffer_type & buffer_type)) {
-			*domain_num = iommu_map->domain;
-			*partition_num = 0;
-			if ((buffer_type & HAL_BUFFER_INTERNAL_CMD_QUEUE) &&
-				(iommu_map->npartitions == 2))
-				*partition_num = 1;
-			break;
+		if (iommu_map->is_secure == is_secure) {
+			for (j = 0; j < iommu_map->npartitions; j++) {
+				if (iommu_map->buffer_type[j] & buffer_type) {
+					*domain_num = iommu_map->domain;
+					*partition_num = j;
+					break;
+				}
+			}
 		}
 	}
 	dprintk(VIDC_DBG, "domain: %d, partition: %d found!\n",

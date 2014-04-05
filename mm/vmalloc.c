@@ -184,6 +184,36 @@ static int vmap_page_range(unsigned long start, unsigned long end,
 	return ret;
 }
 
+#ifdef ENABLE_VMALLOC_SAVING
+int is_vmalloc_addr(const void *x)
+{
+	struct rb_node *n;
+	struct vmap_area *va;
+	int ret = 0;
+
+	spin_lock(&vmap_area_lock);
+
+	for (n = rb_first(vmap_area_root); n; rb_next(n)) {
+		va = rb_entry(n, struct vmap_area, rb_node);
+		if (x >= va->va_start && x < va->va_end) {
+			ret = 1;
+			break;
+		}
+	}
+
+	spin_unlock(&vmap_area_lock);
+	return ret;
+}
+#else
+int is_vmalloc_addr(const void *x)
+{
+	unsigned long addr = (unsigned long)x;
+
+	return addr >= VMALLOC_START && addr < VMALLOC_END;
+}
+#endif
+EXPORT_SYMBOL(is_vmalloc_addr);
+
 int is_vmalloc_or_module_addr(const void *x)
 {
 	/*
@@ -1116,7 +1146,31 @@ void *vm_map_ram(struct page **pages, unsigned int count, int node, pgprot_t pro
 	return mem;
 }
 EXPORT_SYMBOL(vm_map_ram);
+/**
+ * vm_area_check_early - check if vmap area is already mapped
+ * @vm: vm_struct to be checked
+ *
+ * This function is used to check if the vmap area has been
+ * mapped already. @vm->addr, @vm->size and @vm->flags should
+ * contain proper values.
+ *
+ */
+int __init vm_area_check_early(struct vm_struct *vm)
+{
+	struct vm_struct *tmp, **p;
 
+	BUG_ON(vmap_initialized);
+	for (p = &vmlist; (tmp = *p) != NULL; p = &tmp->next) {
+		if (tmp->addr >= vm->addr) {
+			if (tmp->addr < vm->addr + vm->size)
+				return 1;
+		} else {
+			if (tmp->addr + tmp->size > vm->addr)
+				return 1;
+		}
+	}
+	return 0;
+}
 /**
  * vm_area_add_early - add vmap area early during boot
  * @vm: vm_struct to add
@@ -1392,15 +1446,26 @@ struct vm_struct *__get_vm_area_caller(unsigned long size, unsigned long flags,
  */
 struct vm_struct *get_vm_area(unsigned long size, unsigned long flags)
 {
+#ifdef CONFIG_ENABLE_VMALLOC_SAVING
+	return __get_vm_area_node(size, 1, flags, PAGE_OFFSET, VMALLOC_END,
+				-1, GFP_KERNEL, __builtin_return_address(0));
+#else
 	return __get_vm_area_node(size, 1, flags, VMALLOC_START, VMALLOC_END,
 				-1, GFP_KERNEL, __builtin_return_address(0));
+#endif
+
 }
 
 struct vm_struct *get_vm_area_caller(unsigned long size, unsigned long flags,
 				const void *caller)
 {
-	return __get_vm_area_node(size, 1, flags, VMALLOC_START, VMALLOC_END,
+#ifdef CONFIG_ENABLE_VMALLOC_SAVING
+	return __get_vm_area_node(size, 1, flags, PAGE_OFFSET, VMALLOC_END,
 						-1, GFP_KERNEL, caller);
+#else
+	return __get_vm_area_node(size, 1, flags, VMALLOC_START, VMALLOC_END,
+				-1, GFP_KERNEL, __builtin_return_address(0));
+#endif
 }
 
 /**
@@ -2613,6 +2678,9 @@ static int s_show(struct seq_file *m, void *p)
 
 	if (v->flags & VM_VPAGES)
 		seq_printf(m, " vpages");
+
+	if (v->flags & VM_LOWMEM)
+		seq_printf(m, " lowmem");
 
 	show_numa_info(m, v);
 	seq_putc(m, '\n');

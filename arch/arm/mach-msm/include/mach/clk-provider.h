@@ -17,11 +17,13 @@
 #define __MACH_CLK_PROVIDER_H
 
 #include <linux/types.h>
+#include <linux/err.h>
 #include <linux/list.h>
 #include <linux/clkdev.h>
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
 #include <linux/regulator/consumer.h>
+#include <linux/seq_file.h>
 #include <mach/clk.h>
 
 /*
@@ -39,6 +41,21 @@
 #define ENABLE		3	/* Bit pol: 1 = running */
 #define ENABLE_VOTED	4	/* Bit pol: 1 = running; delay on disable */
 #define DELAY		5	/* No bit to check, just delay */
+
+struct clk_register_data {
+	char *name;
+	u32 offset;
+};
+#ifdef CONFIG_DEBUG_FS
+void clk_debug_print_hw(struct clk *clk, struct seq_file *f);
+#else
+static inline void clk_debug_print_hw(struct clk *clk, struct seq_file *f) {}
+#endif
+
+#define CLK_WARN(clk, cond, fmt, ...) do {				\
+	clk_debug_print_hw(clk, NULL);					\
+	WARN(cond, "%s: " fmt, (clk)->dbg_name, ##__VA_ARGS__);		\
+} while (0)
 
 /**
  * struct clk_vdd_class - Voltage scaling class
@@ -93,6 +110,14 @@ struct clk_vdd_class {
 		.lock = __MUTEX_INITIALIZER(_name.lock) \
 	}
 
+#define DEFINE_VDD_REGS_INIT(_name, _num_regulators) \
+	struct clk_vdd_class _name = { \
+		.class_name = #_name, \
+		.regulator = (struct regulator * [_num_regulators]) {}, \
+		.num_regulators = _num_regulators, \
+		.lock = __MUTEX_INITIALIZER(_name.lock) \
+	}
+
 enum handoff {
 	HANDOFF_ENABLED_CLK,
 	HANDOFF_DISABLED_CLK,
@@ -108,16 +133,20 @@ struct clk_ops {
 	int (*in_hwcg_mode)(struct clk *clk);
 	enum handoff (*handoff)(struct clk *clk);
 	int (*reset)(struct clk *clk, enum clk_reset_action action);
+	int (*pre_set_rate)(struct clk *clk, unsigned long new_rate);
 	int (*set_rate)(struct clk *clk, unsigned long rate);
+	void (*post_set_rate)(struct clk *clk, unsigned long old_rate);
 	int (*set_max_rate)(struct clk *clk, unsigned long rate);
 	int (*set_flags)(struct clk *clk, unsigned flags);
 	unsigned long (*get_rate)(struct clk *clk);
-	int (*list_rate)(struct clk *clk, unsigned n);
+	long (*list_rate)(struct clk *clk, unsigned n);
 	int (*is_enabled)(struct clk *clk);
 	long (*round_rate)(struct clk *clk, unsigned long rate);
 	int (*set_parent)(struct clk *clk, struct clk *parent);
 	struct clk *(*get_parent)(struct clk *clk);
 	bool (*is_local)(struct clk *clk);
+	void __iomem *(*list_registers)(struct clk *clk, int n,
+				struct clk_register_data **regs, u32 *size);
 };
 
 /**
@@ -166,6 +195,7 @@ void __clk_post_reparent(struct clk *c, struct clk *old, unsigned long *flags);
 int msm_clock_register(struct clk_lookup *table, size_t size);
 
 extern struct clk dummy_clk;
+extern struct clk_ops clk_ops_dummy;
 
 #define CLK_DUMMY(clk_name, clk_id, clk_dev, flags) { \
 	.con_id = clk_name, \
@@ -173,6 +203,25 @@ extern struct clk dummy_clk;
 	.clk = &dummy_clk, \
 	}
 
+#define DEFINE_CLK_DUMMY(name, _rate) \
+	static struct fixed_clk name = { \
+		.c = { \
+			.dbg_name = #name, \
+			.rate = _rate, \
+			.ops = &clk_ops_dummy, \
+			CLK_INIT(name.c), \
+		}, \
+	};
+
 #define CLK_LOOKUP(con, c, dev) { .con_id = con, .clk = &c, .dev_id = dev }
+
+static inline bool is_better_rate(unsigned long req, unsigned long best,
+				  unsigned long new)
+{
+	if (IS_ERR_VALUE(new))
+		return false;
+
+	return (req <= new && new < best) || (best < req && best < new);
+}
 
 #endif

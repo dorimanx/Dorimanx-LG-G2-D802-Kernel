@@ -44,12 +44,13 @@
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>
 #include <mach/rpm-regulator-smd.h>
+#include <mach/msm_smem.h>
 #include <linux/msm_thermal.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"
 #include "spm.h"
-#include "lpm_resources.h"
+#include "pm.h"
 #include "modem_notifier.h"
 
 static struct memtype_reserve msm8226_reserve_table[] __initdata = {
@@ -73,10 +74,16 @@ static struct of_dev_auxdata msm8226_auxdata_lookup[] __initdata = {
 			"msm_sdcc.1", NULL),
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF98A4000, \
 			"msm_sdcc.2", NULL),
+	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9864000, \
+			"msm_sdcc.3", NULL),
 	OF_DEV_AUXDATA("qcom,sdhci-msm", 0xF9824900, \
 			"msm_sdcc.1", NULL),
 	OF_DEV_AUXDATA("qcom,sdhci-msm", 0xF98A4900, \
 			"msm_sdcc.2", NULL),
+	OF_DEV_AUXDATA("qcom,sdhci-msm", 0xF9864900, \
+			"msm_sdcc.3", NULL),
+	OF_DEV_AUXDATA("qcom,hsic-host", 0xF9A00000, "msm_hsic_host", NULL),
+
 	{}
 };
 
@@ -106,11 +113,12 @@ static void __init msm8226_reserve(void)
  */
 void __init msm8226_add_drivers(void)
 {
+	msm_smem_init();
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();
-	msm_lpmrs_module_init();
 	msm_spm_device_init();
+	msm_pm_sleep_status_init();
 	rpm_regulator_smd_driver_init();
 	qpnp_regulator_init();
 	if (of_board_is_rumi())
@@ -136,6 +144,7 @@ void __init msm8226_init(void)
 static const char *msm8226_dt_match[] __initconst = {
 	"qcom,msm8226",
 	"qcom,msm8926",
+	"qcom,apq8026",
 	NULL
 };
 

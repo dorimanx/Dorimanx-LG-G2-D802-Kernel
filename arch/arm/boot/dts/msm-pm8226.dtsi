@@ -22,15 +22,23 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		pm8226_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
 		qcom,power-on@800 {
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
 			interrupts = <0x0 0x8 0x0>,
 				     <0x0 0x8 0x1>,
-				     <0x0 0x8 0x4>;
-			interrupt-names = "kpdpwr", "resin", "resin-bark";
+				     <0x0 0x8 0x4>,
+				     <0x0 0x8 0x5>;
+			interrupt-names = "kpdpwr", "resin",
+					"resin-bark", "kpdpwr-resin-bark";
 			qcom,pon-dbc-delay = <15625>;
 			qcom,system-reset;
+			qcom,s3-debounce = <32>;
 
 			qcom,pon_1 {
 				qcom,pon-type = <0>;
@@ -40,12 +48,22 @@
 
 			qcom,pon_2 {
 				qcom,pon-type = <1>;
+				qcom,pull-up = <1>;
+				linux,code = <114>;
+				qcom,s1-timer = <6720>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <7>;
+				qcom,support-reset = <1>;
+			};
+
+			qcom,pon_3 {
+				qcom,pon-type = <3>;
 				qcom,support-reset = <1>;
 				qcom,pull-up = <1>;
-				qcom,s1-timer = <0>;
+				qcom,s1-timer = <6720>;
 				qcom,s2-timer = <2000>;
-				qcom,s2-type = <1>;
-				linux,code = <114>;
+				qcom,s2-type = <7>;
+				qcom,use-bark;
 			};
 		};
 
@@ -57,14 +75,24 @@
 			status = "disabled";
 
 			qcom,vddmax-mv = <4200>;
-			qcom,vddsafe-mv = <4200>;
-			qcom,vinmin-mv = <4200>;
-			qcom,vbatdet-delta-mv = <150>;
+			qcom,vddsafe-mv = <4230>;
+			qcom,vinmin-mv = <4300>;
+			qcom,vbatdet-delta-mv = <100>;
 			qcom,ibatmax-ma = <1500>;
 			qcom,ibatterm-ma = <100>;
 			qcom,ibatsafe-ma = <1500>;
 			qcom,thermal-mitigation = <1500 700 600 325>;
+			qcom,resume-soc = <99>;
 			qcom,tchg-mins = <150>;
+			qcom,chg-vadc = <&pm8226_vadc>;
+			qcom,chg-adc_tm = <&pm8226_adc_tm>;
+			qcom,pmic-revid = <&pm8226_revid>;
+			qcom,ibatmax-warm-ma = <350>;
+			qcom,warm-bat-decidegc = <450>;
+			qcom,warm-bat-mv = <4100>;
+			qcom,cool-bat-decidegc = <100>;
+			qcom,cool-bat-mv = <4100>;
+			qcom,ibatmax-cool-ma = <350>;
 
 			qcom,chgr@1000 {
 				status = "disabled";
@@ -108,7 +136,7 @@
 							"vdd-loop";
 			};
 
-			qcom,bat-if@1200 {
+			pm8226_chg_batif: qcom,bat-if@1200 {
 				status = "disabled";
 				reg = <0x1200 0x100>;
 				interrupts =	<0x0 0x12 0x0>,
@@ -122,19 +150,6 @@
 							"bat-fet-on",
 							"vcp-on",
 							"psi";
-
-			};
-
-			pm8226_chg_otg: qcom,usb-chgpth@1300 {
-				status = "disabled";
-				reg = <0x1300 0x100>;
-				interrupts =	<0 0x13 0x0>,
-						<0 0x13 0x1>,
-						<0x0 0x13 0x2>;
-
-				interrupt-names =	"coarse-det-usb",
-							"usbin-valid",
-							"chg-gone";
 			};
 
 			pm8226_chg_boost: qcom,boost@1500 {
@@ -145,6 +160,21 @@
 
 				interrupt-names =	"boost-pwr-ok",
 							"limit-error";
+			};
+
+
+			pm8226_chg_otg: qcom,usb-chgpth@1300 {
+				status = "disabled";
+				reg = <0x1300 0x100>;
+				interrupts =	<0 0x13 0x0>,
+						<0 0x13 0x1>,
+						<0x0 0x13 0x2>,
+						<0x0 0x13 0x3>;
+
+				interrupt-names =	"coarse-det-usb",
+							"usbin-valid",
+							"chg-gone",
+							"usb-ocp";
 			};
 
 			qcom,chg-misc@1600 {
@@ -164,20 +194,24 @@
 			qcom,v-cutoff-uv = <3400000>;
 			qcom,max-voltage-uv = <4200000>;
 			qcom,r-conn-mohm = <0>;
-			qcom,shutdown-soc-valid-limit = <20>;
+			qcom,shutdown-soc-valid-limit = <100>;
 			qcom,adjust-soc-low-threshold = <15>;
 			qcom,ocv-voltage-high-threshold-uv = <3750000>;
 			qcom,ocv-voltage-low-threshold-uv = <3650000>;
 			qcom,low-soc-calculate-soc-threshold = <15>;
+			qcom,low-voltage-calculate-soc-ms = <1000>;
 			qcom,low-soc-calculate-soc-ms = <5000>;
 			qcom,calculate-soc-ms = <20000>;
 			qcom,chg-term-ua = <100000>;
 			qcom,batt-type = <0>;
 			qcom,tm-temp-margin = <5000>;
 			qcom,low-ocv-correction-limit-uv = <100>;
-			qcom,high-ocv-correction-limit-uv = <50>;
+			qcom,high-ocv-correction-limit-uv = <250>;
 			qcom,hold-soc-est = <3>;
 			qcom,low-voltage-threshold = <3420000>;
+			qcom,bms-vadc = <&pm8226_vadc>;
+			qcom,bms-iadc = <&pm8226_iadc>;
+			qcom,bms-adc_tm = <&pm8226_adc_tm>;
 
 			qcom,bms-iadc@3800 {
 				reg = <0x3800 0x100>;
@@ -194,14 +228,14 @@
 						<0x0 0x40 0x6>,
 						<0x0 0x40 0x7>;
 
-				interrupt-names = "vsense_for_r",
-						  "vsense_avg",
-						  "sw_cc_thr",
-						  "ocv_thr",
-						  "charge_begin",
-						  "good_ocv",
+				interrupt-names = "cc_thr",
 						  "ocv_for_r",
-						  "cc_thr";
+						  "good_ocv",
+						  "charge_begin",
+						  "ocv_thr",
+						  "sw_cc_thr",
+						  "vsense_avg",
+						  "vsense_for_r";
 			};
 		};
 
@@ -378,7 +412,7 @@
 			};
 		};
 
-		iadc@3600 {
+		pm8226_iadc: iadc@3600 {
 			compatible = "qcom,qpnp-iadc";
 			reg = <0x3600 0x100>;
 			#address-cells = <1>;
@@ -387,10 +421,21 @@
 			interrupt-names = "eoc-int-en-set";
 			qcom,adc-bit-resolution = <16>;
 			qcom,adc-vdd-reference = <1800>;
+			qcom,iadc-vadc = <&pm8226_vadc>;
 
 			chan@0 {
 				label = "internal_rsense";
 				reg = <0>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <1>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+			chan@1 {
+				label = "external_rsense";
+				reg = <1>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <1>;
 				qcom,calibration-type = "absolute";
@@ -413,6 +458,7 @@
 						"low-thr-en-set";
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
+			qcom,adc_tm-vadc = <&pm8226_vadc>;
 		};
 
 		qcom,temp-alarm@2400 {
@@ -422,6 +468,7 @@
 			label = "pm8226_tz";
 			qcom,channel-num = <8>;
 			qcom,threshold-set = <0>;
+			qcom,temp_alarm-vadc = <&pm8226_vadc>;
 		};
 
 		qcom,pm8226_rtc {
@@ -791,42 +838,55 @@
 			status = "disabled";
 		};
 
-                qcom,leds@d300 {
-                        compatible = "qcom,leds-qpnp";
-                        status = "disable";
-                        reg = <0xd300 0x100>;
-                        label = "flash";
-                        pm8226_flash0: qcom,flash_0 {
-                                qcom,max-current = <1000>;
-                                qcom,default-state = "off";
-                                qcom,headroom = <0>;
-                                qcom,duration = <1280>;
-                                qcom,clamp-curr = <200>;
-                                qcom,startup-dly = <1>;
-                                qcom,safety-timer;
-                                label = "flash";
-                                linux,default-trigger =
-                                        "flash0_trigger";
-                                qcom,id = <1>;
-                                linux,name = "led:flash_0";
-                                qcom,current = <625>;
-                        };
+		qcom,leds@d300 {
+			compatible = "qcom,leds-qpnp";
+			status = "okay";
+			reg = <0xd300 0x100>;
+			label = "flash";
+			flash-boost-supply = <&pm8226_chg_boost>;
+			pm8226_flash0: qcom,flash_0 {
+				qcom,max-current = <1000>;
+				qcom,default-state = "off";
+				qcom,headroom = <3>;
+				qcom,duration = <1280>;
+				qcom,clamp-curr = <200>;
+				qcom,startup-dly = <3>;
+				qcom,safety-timer;
+				label = "flash";
+				linux,default-trigger =
+						"flash0_trigger";
+				qcom,id = <1>;
+				linux,name = "led:flash_0";
+				qcom,current = <625>;
+			};
 
-                        pm8226_flash1: qcom,flash_1 {
-                                qcom,max-current = <1000>;
-                                qcom,default-state = "off";
-                                qcom,headroom = <0>;
-                                qcom,duration = <1280>;
-                                qcom,clamp-curr = <200>;
-                                qcom,startup-dly = <1>;
-                                qcom,safety-timer;
-                                linux,default-trigger =
-                                        "flash1_trigger";
-                                label = "flash";
-                                qcom,id = <2>;
-                                linux,name = "led:flash_1";
-                                qcom,current = <625>;
-                        };
+			pm8226_flash1: qcom,flash_1 {
+				qcom,max-current = <1000>;
+				qcom,default-state = "off";
+				qcom,headroom = <3>;
+				qcom,duration = <1280>;
+				qcom,clamp-curr = <200>;
+				qcom,startup-dly = <3>;
+				qcom,safety-timer;
+				linux,default-trigger =
+						"flash1_trigger";
+				label = "flash";
+				qcom,id = <2>;
+				linux,name = "led:flash_1";
+				qcom,current = <625>;
+			};
+
+			pm8226_torch: qcom,flash_torch {
+				qcom,max-current = <200>;
+				qcom,default-state = "off";
+				linux,default-trigger =
+						"torch_trigger";
+				label = "flash";
+				qcom,id = <1>;
+				linux,name = "led:flash_torch";
+				qcom,current = <120>;
+				qcom,torch-enable;
+			};
                 };
 	};
 };

@@ -42,7 +42,7 @@
 #define REG_WRITEL(value, reg)		writel(value, reg)
 #define REG_READL(reg)			readl(reg)
 
-static void __iomem *virt_bases_v = NULL;
+static void __iomem *virt_bases_v;
 
 #define MMSS_CC_GP1_CMD_RCGR(x) (void __iomem *)(virt_bases_v + (x))
 

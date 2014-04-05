@@ -1,0 +1,13 @@
+config ZERO_WAIT
+	bool "LG Zero-Wait driver"
+	depends on SYSFS && PM_SLEEP
+	default n
+	help
+	  Say Y to enable LG Zero-Wait driver.
+
+config ZERO_WAIT_DEBUGFS
+	bool "LG Zero-Wait debugfs"
+	depends on ZERO_WAIT
+	default n
+	help
+	  Say Y to support debugfs for LG Zero-Wait.

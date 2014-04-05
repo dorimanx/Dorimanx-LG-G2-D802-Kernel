@@ -1151,7 +1151,7 @@
 		qcom,fabclk-dual = "mem_clk";
 		qcom,fabclk-active = "mem_a_clk";
 		qcom,ntieredslaves = <0>;
-		qcom,qos-freq = <4800>;
+		qcom,qos-freq = <19200>;
 		qcom,hw-sel = "BIMC";
 		qcom,rpm-en;
 

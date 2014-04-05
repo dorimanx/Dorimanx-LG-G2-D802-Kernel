@@ -4,3 +4,6 @@ endif
 if ARCH_MSM
 source "drivers/platform/msm/Kconfig"
 endif
+if MACH_LGE
+source "drivers/platform/lge/Kconfig"
+endif

@@ -22,7 +22,6 @@
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
-#include <linux/memory_alloc.h>
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/clk.h>
@@ -30,8 +29,12 @@
 #include <linux/of_coresight.h>
 #include <linux/coresight.h>
 #include <linux/coresight-cti.h>
+#include <linux/wait.h>
+#include <linux/sched.h>
+#include <linux/interrupt.h>
+#include <linux/cdev.h>
 #include <linux/usb/usb_qdss.h>
-#include <mach/memory.h>
+#include <linux/dma-mapping.h>
 #include <mach/sps.h>
 #include <mach/usb_bam.h>
 #include <mach/msm_memory_dump.h>
@@ -40,6 +43,8 @@
 
 #define tmc_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define tmc_readl(drvdata, off)		__raw_readl(drvdata->base + off)
+
+#define tmc_readl_no_log(drvdata, off)	__raw_readl_no_log(drvdata->base + off)
 
 #define TMC_LOCK(drvdata)						\
 do {									\
@@ -135,6 +140,8 @@ struct tmc_drvdata {
 	struct device		*dev;
 	struct coresight_device	*csdev;
 	struct miscdevice	miscdev;
+	struct cdev		byte_cntr_dev;
+	struct class		*byte_cntr_class;
 	struct clk		*clk;
 	spinlock_t		spinlock;
 	bool			reset_flush_race;
@@ -146,7 +153,7 @@ struct tmc_drvdata {
 	bool			aborting;
 	char			*reg_buf;
 	char			*buf;
-	unsigned long		paddr;
+	dma_addr_t		paddr;
 	void __iomem		*vaddr;
 	uint32_t		size;
 	struct mutex		usb_lock;
@@ -157,6 +164,19 @@ struct tmc_drvdata {
 	bool			enable;
 	enum tmc_config_type	config_type;
 	uint32_t		trigger_cntr;
+	int			byte_cntr_irq;
+	atomic_t		byte_cntr_irq_cnt;
+	uint32_t		byte_cntr_value;
+	struct mutex		byte_cntr_read_lock;
+	struct mutex		byte_cntr_lock;
+	uint32_t		byte_cntr_block_size;
+	bool			byte_cntr_overflow;
+	bool			byte_cntr_present;
+	bool			byte_cntr_enable;
+	uint32_t		byte_cntr_overflow_cnt;
+	bool			byte_cntr_read_active;
+	wait_queue_head_t	wq;
+	char			*byte_cntr_node;
 };
 
 static void tmc_wait_for_flush(struct tmc_drvdata *drvdata)
@@ -252,9 +272,11 @@ static void __tmc_etr_enable_to_bam(struct tmc_drvdata *drvdata)
 	axictl = (axictl & ~0x3) | 0x2;
 	tmc_writel(drvdata, axictl, TMC_AXICTL);
 
-	tmc_writel(drvdata, bamdata->data_fifo.phys_base, TMC_DBALO);
-	tmc_writel(drvdata, 0x0, TMC_DBAHI);
-	tmc_writel(drvdata, 0x103, TMC_FFCR);
+	tmc_writel(drvdata, (uint32_t)bamdata->data_fifo.phys_base, TMC_DBALO);
+	tmc_writel(drvdata, (((uint64_t)bamdata->data_fifo.phys_base) >> 32)
+		   & 0xFF, TMC_DBAHI);
+	/* Set FOnFlIn for periodic flush */
+	tmc_writel(drvdata, 0x133, TMC_FFCR);
 	tmc_writel(drvdata, drvdata->trigger_cntr, TMC_TRG);
 	__tmc_enable(drvdata);
 
@@ -320,7 +342,6 @@ static void __tmc_etr_disable_to_bam(struct tmc_drvdata *drvdata)
 	TMC_UNLOCK(drvdata);
 
 	tmc_wait_for_flush(drvdata);
-	tmc_flush_and_stop(drvdata);
 	__tmc_disable(drvdata);
 
 	TMC_LOCK(drvdata);
@@ -368,6 +389,52 @@ static void usb_notifier(void *priv, unsigned int event,
 	mutex_unlock(&drvdata->usb_lock);
 }
 
+static uint32_t tmc_etr_get_write_ptr(struct tmc_drvdata *drvdata)
+{
+	uint32_t rwp = 0;
+
+	TMC_UNLOCK(drvdata);
+
+	rwp = tmc_readl(drvdata, TMC_RWP);
+
+	TMC_LOCK(drvdata);
+
+	return rwp;
+}
+
+static void tmc_etr_byte_cntr_start(struct tmc_drvdata *drvdata)
+{
+	if (!drvdata->byte_cntr_present)
+		return;
+
+	mutex_lock(&drvdata->byte_cntr_lock);
+	atomic_set(&drvdata->byte_cntr_irq_cnt, 0);
+	drvdata->byte_cntr_overflow = false;
+	drvdata->byte_cntr_read_active = false;
+	drvdata->byte_cntr_enable = true;
+	if (drvdata->byte_cntr_value != 0)
+		drvdata->byte_cntr_overflow_cnt = drvdata->size /
+						 (drvdata->byte_cntr_value * 8);
+	else
+		drvdata->byte_cntr_overflow_cnt = 0;
+	coresight_csr_set_byte_cntr(drvdata->byte_cntr_value);
+	mutex_unlock(&drvdata->byte_cntr_lock);
+}
+
+static void tmc_etr_byte_cntr_stop(struct tmc_drvdata *drvdata)
+{
+	if (!drvdata->byte_cntr_present)
+		return;
+
+	mutex_lock(&drvdata->byte_cntr_lock);
+	coresight_csr_set_byte_cntr(0);
+	drvdata->byte_cntr_value = 0;
+	drvdata->byte_cntr_enable = false;
+	mutex_unlock(&drvdata->byte_cntr_lock);
+
+	wake_up(&drvdata->wq);
+}
+
 static void __tmc_etb_enable(struct tmc_drvdata *drvdata)
 {
 	/* Zero out the memory to help with debug */
@@ -403,8 +470,9 @@ static void __tmc_etr_enable_to_mem(struct tmc_drvdata *drvdata)
 	axictl = (axictl & ~0x3) | 0x2;
 	tmc_writel(drvdata, axictl, TMC_AXICTL);
 
-	tmc_writel(drvdata, drvdata->paddr, TMC_DBALO);
-	tmc_writel(drvdata, 0x0, TMC_DBAHI);
+	tmc_writel(drvdata, (uint32_t)drvdata->paddr, TMC_DBALO);
+	tmc_writel(drvdata, (((uint64_t)drvdata->paddr) >> 32) & 0xFF,
+		   TMC_DBAHI);
 	tmc_writel(drvdata, 0x1133, TMC_FFCR);
 	tmc_writel(drvdata, drvdata->trigger_cntr, TMC_TRG);
 	__tmc_enable(drvdata);
@@ -438,10 +506,14 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 		coresight_cti_map_trigout(drvdata->cti_flush, 1, 0);
 		coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
 	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
-		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM &&
-		    !drvdata->reset_flush_race) {
-			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
-			coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+			tmc_etr_byte_cntr_start(drvdata);
+			if (!drvdata->reset_flush_race) {
+				coresight_cti_map_trigout(drvdata->cti_flush,
+							  3, 0);
+				coresight_cti_map_trigin(drvdata->cti_reset,
+							 2, 0);
+			}
 		} else if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
 			drvdata->usbch = usb_qdss_open("qdss", drvdata,
 						       usb_notifier);
@@ -582,7 +654,7 @@ static void __tmc_etb_dump(struct tmc_drvdata *drvdata)
 	bufp = drvdata->buf;
 	while (1) {
 		for (i = 0; i < memwords; i++) {
-			read_data = tmc_readl(drvdata, TMC_RRD);
+			read_data = tmc_readl_no_log(drvdata, TMC_RRD);
 			if (read_data == 0xFFFFFFFF)
 				goto out;
 			memcpy(bufp, &read_data, BYTES_PER_WORD);
@@ -674,10 +746,14 @@ static void tmc_disable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 		coresight_cti_unmap_trigin(drvdata->cti_reset, 0, 0);
 		coresight_cti_unmap_trigout(drvdata->cti_flush, 1, 0);
 	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
-		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM &&
-		    !drvdata->reset_flush_race) {
-			coresight_cti_unmap_trigin(drvdata->cti_reset, 0, 0);
-			coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+			tmc_etr_byte_cntr_stop(drvdata);
+			if (!drvdata->reset_flush_race) {
+				coresight_cti_unmap_trigin(drvdata->cti_reset,
+							   2, 0);
+				coresight_cti_unmap_trigout(drvdata->cti_flush,
+							    3, 0);
+			}
 		} else if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
 			tmc_etr_bam_disable(drvdata);
 			usb_qdss_close(drvdata->usbch);
@@ -929,6 +1005,161 @@ static const struct file_operations tmc_fops = {
 	.llseek		= no_llseek,
 };
 
+static int tmc_etr_byte_cntr_open(struct inode *inode, struct file *file)
+{
+	struct tmc_drvdata *drvdata = container_of(inode->i_cdev,
+						   struct tmc_drvdata,
+						   byte_cntr_dev);
+
+	if (drvdata->out_mode != TMC_ETR_OUT_MODE_MEM ||
+	    !drvdata->byte_cntr_enable)
+		return -EPERM;
+
+	if (!mutex_trylock(&drvdata->byte_cntr_read_lock))
+		return -EPERM;
+
+	file->private_data = drvdata;
+	nonseekable_open(inode, file);
+	drvdata->byte_cntr_block_size = drvdata->byte_cntr_value * 8;
+	drvdata->byte_cntr_read_active = true;
+	dev_dbg(drvdata->dev, "%s: successfully opened\n", __func__);
+	return 0;
+}
+
+static void tmc_etr_read_bytes(struct tmc_drvdata *drvdata, loff_t *ppos,
+			       size_t bytes, size_t *len)
+{
+	if (*len >= bytes) {
+		atomic_dec(&drvdata->byte_cntr_irq_cnt);
+		*len = bytes;
+	} else {
+		if (((uint32_t)*ppos % bytes) + *len > bytes)
+				*len = bytes - ((uint32_t)*ppos % bytes);
+		if ((*len + (uint32_t)*ppos) % bytes == 0)
+			atomic_dec(&drvdata->byte_cntr_irq_cnt);
+	}
+}
+
+static size_t tmc_etr_flush_bytes(struct tmc_drvdata *drvdata, loff_t *ppos,
+				  size_t bytes)
+{
+	uint32_t rwp = 0;
+	size_t len = bytes;
+
+	rwp = tmc_etr_get_write_ptr(drvdata);
+	if (rwp >= (drvdata->paddr + *ppos)) {
+		if (len > (rwp - drvdata->paddr - *ppos))
+			len = rwp - drvdata->paddr - *ppos;
+	}
+	return len;
+}
+
+static ssize_t tmc_etr_byte_cntr_read(struct file *file, char __user *data,
+				  size_t len, loff_t *ppos)
+{
+	struct tmc_drvdata *drvdata = file->private_data;
+	char *bufp = drvdata->vaddr + *ppos;
+	size_t bytes = drvdata->byte_cntr_block_size;
+	int ret = 0;
+
+	if (!data)
+		return -EINVAL;
+	if (drvdata->byte_cntr_overflow)
+		return -EIO;
+
+	mutex_lock(&drvdata->byte_cntr_lock);
+	/* In case the byte counter is enabled and disabled multiple times
+	 * prevent unexpected data from being given to the user
+	 */
+	if (!drvdata->byte_cntr_read_active)
+		goto read_err0;
+
+	if (!drvdata->byte_cntr_enable) {
+		if (!atomic_read(&drvdata->byte_cntr_irq_cnt)) {
+			/* Read the last 'block' of data which might be needed
+			 * to be read partially. If already read, return 0
+			 */
+			len = tmc_etr_flush_bytes(drvdata, ppos, bytes);
+			if (!len)
+				goto read_err0;
+		} else {
+			/* Keep reading until you reach the last block of data
+			 */
+			tmc_etr_read_bytes(drvdata, ppos, bytes, &len);
+		}
+	} else {
+		if (!atomic_read(&drvdata->byte_cntr_irq_cnt)) {
+			mutex_unlock(&drvdata->byte_cntr_lock);
+			if (wait_event_interruptible(drvdata->wq,
+			    (atomic_read(&drvdata->byte_cntr_irq_cnt) > 0) ||
+			    !drvdata->byte_cntr_enable)) {
+				ret = -ERESTARTSYS;
+				goto read_err1;
+			}
+			mutex_lock(&drvdata->byte_cntr_lock);
+			if (!drvdata->byte_cntr_read_active) {
+				ret = 0;
+				goto read_err0;
+			}
+		}
+		if (drvdata->byte_cntr_overflow) {
+			ret = -EIO;
+			goto read_err0;
+		}
+		if (!drvdata->byte_cntr_enable &&
+		    !atomic_read(&drvdata->byte_cntr_irq_cnt)) {
+			len = tmc_etr_flush_bytes(drvdata, ppos, bytes);
+			if (!len) {
+				ret = 0;
+				goto read_err0;
+			}
+		} else {
+			tmc_etr_read_bytes(drvdata, ppos, bytes, &len);
+		}
+	}
+	if (copy_to_user(data, bufp, len)) {
+		mutex_unlock(&drvdata->byte_cntr_lock);
+		dev_dbg(drvdata->dev, "%s: copy_to_user failed\n", __func__);
+		ret = -EFAULT;
+		goto read_err1;
+	}
+	mutex_unlock(&drvdata->byte_cntr_lock);
+
+	if (*ppos + len >= drvdata->size)
+		*ppos = 0;
+	else
+		*ppos += len;
+
+	dev_dbg(drvdata->dev, "%s: %d bytes copied, %d bytes left\n",
+		__func__, len, (int) (drvdata->size - *ppos));
+	return len;
+
+read_err0:
+	mutex_unlock(&drvdata->byte_cntr_lock);
+read_err1:
+	return ret;
+}
+
+static int tmc_etr_byte_cntr_release(struct inode *inode, struct file *file)
+{
+	struct tmc_drvdata *drvdata = file->private_data;
+
+	mutex_lock(&drvdata->byte_cntr_lock);
+	drvdata->byte_cntr_read_active = false;
+	mutex_unlock(&drvdata->byte_cntr_lock);
+	mutex_unlock(&drvdata->byte_cntr_read_lock);
+	dev_dbg(drvdata->dev, "%s: released\n", __func__);
+	return 0;
+}
+
+static const struct file_operations byte_cntr_fops = {
+	.owner		= THIS_MODULE,
+	.open		= tmc_etr_byte_cntr_open,
+	.read		= tmc_etr_byte_cntr_read,
+	.release	= tmc_etr_byte_cntr_release,
+	.llseek		= no_llseek,
+};
+
 static ssize_t tmc_show_trigger_cntr(struct device *dev,
 				     struct device_attribute *attr, char *buf)
 {
@@ -996,7 +1227,7 @@ static ssize_t tmc_etr_store_out_mode(struct device *dev,
 
 		if (!drvdata->reset_flush_race) {
 			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
-			coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
+			coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
 		}
 
 		tmc_etr_bam_disable(drvdata);
@@ -1020,7 +1251,7 @@ static ssize_t tmc_etr_store_out_mode(struct device *dev,
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 		if (!drvdata->reset_flush_race) {
-			coresight_cti_unmap_trigin(drvdata->cti_reset, 0, 0);
+			coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
 			coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
 		}
 
@@ -1044,6 +1275,41 @@ err0:
 static DEVICE_ATTR(out_mode, S_IRUGO | S_IWUSR, tmc_etr_show_out_mode,
 		   tmc_etr_store_out_mode);
 
+static ssize_t tmc_etr_show_byte_cntr_value(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val = drvdata->byte_cntr_value;
+
+	if (!drvdata->byte_cntr_present)
+		return -EPERM;
+
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t tmc_etr_store_byte_cntr_value(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t size)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (!drvdata->byte_cntr_present || drvdata->byte_cntr_enable)
+		return -EPERM;
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+	if ((drvdata->size / 8) < val)
+		return -EINVAL;
+	if (val && drvdata->size % (val * 8) != 0)
+		return -EINVAL;
+
+	drvdata->byte_cntr_value = val;
+	return size;
+}
+static DEVICE_ATTR(byte_cntr_value, S_IRUGO | S_IWUSR,
+		   tmc_etr_show_byte_cntr_value, tmc_etr_store_byte_cntr_value);
+
 static struct attribute *tmc_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	NULL,
@@ -1055,6 +1321,7 @@ static struct attribute_group tmc_attr_grp = {
 
 static struct attribute *tmc_etr_attrs[] = {
 	&dev_attr_out_mode.attr,
+	&dev_attr_byte_cntr_value.attr,
 	NULL,
 };
 
@@ -1118,6 +1385,138 @@ static void tmc_etr_bam_exit(struct tmc_drvdata *drvdata)
 	sps_deregister_bam_device(bamdata->handle);
 }
 
+static irqreturn_t tmc_etr_byte_cntr_irq(int irq, void *data)
+{
+	struct tmc_drvdata *drvdata = data;
+
+	atomic_inc(&drvdata->byte_cntr_irq_cnt);
+	if (atomic_read(&drvdata->byte_cntr_irq_cnt) >
+			drvdata->byte_cntr_overflow_cnt) {
+		dev_err(drvdata->dev, "Byte counter overflow\n");
+		drvdata->byte_cntr_overflow = true;
+	}
+	wake_up(&drvdata->wq);
+	return IRQ_HANDLED;
+}
+
+static int tmc_etr_byte_cntr_dev_register(struct tmc_drvdata *drvdata)
+{
+	int ret;
+	struct device *device;
+	dev_t dev;
+
+	ret = alloc_chrdev_region(&dev, 0, 1, drvdata->byte_cntr_node);
+	if (ret)
+		goto err0;
+
+	cdev_init(&drvdata->byte_cntr_dev, &byte_cntr_fops);
+
+	drvdata->byte_cntr_dev.owner = THIS_MODULE;
+	drvdata->byte_cntr_dev.ops = &byte_cntr_fops;
+	ret = cdev_add(&drvdata->byte_cntr_dev, dev, 1);
+	if (ret)
+		goto err1;
+
+	drvdata->byte_cntr_class = class_create(THIS_MODULE,
+						drvdata->byte_cntr_node);
+	if (IS_ERR(drvdata->byte_cntr_class)) {
+		ret = PTR_ERR(drvdata->byte_cntr_class);
+		goto err2;
+	}
+
+	device = device_create(drvdata->byte_cntr_class, NULL,
+			       drvdata->byte_cntr_dev.dev, drvdata,
+			       drvdata->byte_cntr_node);
+	if (IS_ERR(device)) {
+		ret = PTR_ERR(device);
+		goto err3;
+	}
+
+	return 0;
+err3:
+	class_destroy(drvdata->byte_cntr_class);
+err2:
+	cdev_del(&drvdata->byte_cntr_dev);
+err1:
+	unregister_chrdev_region(drvdata->byte_cntr_dev.dev, 1);
+err0:
+	return ret;
+}
+
+static void tmc_etr_byte_cntr_dev_deregister(struct tmc_drvdata *drvdata)
+{
+	device_destroy(drvdata->byte_cntr_class, drvdata->byte_cntr_dev.dev);
+	class_destroy(drvdata->byte_cntr_class);
+	cdev_del(&drvdata->byte_cntr_dev);
+	unregister_chrdev_region(drvdata->byte_cntr_dev.dev, 1);
+}
+
+static int tmc_etr_byte_cntr_init(struct platform_device *pdev,
+				  struct tmc_drvdata *drvdata)
+{
+	int ret = 0;
+	size_t node_size = strlen("-stream") + 1;
+	char *node_name = (char *)((struct coresight_platform_data *)
+			(pdev->dev.platform_data))->name;
+
+	if (!drvdata->byte_cntr_present) {
+		dev_info(&pdev->dev, "Byte Counter feature absent\n");
+		goto out;
+	}
+
+	drvdata->byte_cntr_irq = platform_get_irq_byname(pdev,
+							"byte-cntr-irq");
+	if (drvdata->byte_cntr_irq < 0) {
+		/* Even though this is an error condition, we do not fail
+		 * the probe as the byte counter feature is optional
+		 */
+		dev_err(&pdev->dev, "Byte-cntr-irq not specified\n");
+		goto err;
+	}
+
+	ret = devm_request_irq(&pdev->dev, drvdata->byte_cntr_irq,
+			tmc_etr_byte_cntr_irq,
+			IRQF_TRIGGER_RISING | IRQF_SHARED,
+			node_name, drvdata);
+	if (ret) {
+		dev_err(&pdev->dev, "Request irq failed\n");
+		goto err;
+	}
+
+	init_waitqueue_head(&drvdata->wq);
+	node_size += strlen(node_name);
+
+	drvdata->byte_cntr_node = devm_kzalloc(&pdev->dev,
+					       node_size, GFP_KERNEL);
+	if (!drvdata->byte_cntr_node) {
+		dev_err(&pdev->dev, "Byte cntr node name allocation failed\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	strlcpy(drvdata->byte_cntr_node, node_name, node_size);
+	strlcat(drvdata->byte_cntr_node, "-stream", node_size);
+
+	ret = tmc_etr_byte_cntr_dev_register(drvdata);
+	if (ret) {
+		dev_err(&pdev->dev, "Byte cntr node not registered\n");
+		goto err;
+	}
+
+	dev_info(&pdev->dev, "Byte Counter feature enabled\n");
+	return 0;
+err:
+	drvdata->byte_cntr_present = false;
+out:
+	return ret;
+}
+
+static void tmc_etr_byte_cntr_exit(struct tmc_drvdata *drvdata)
+{
+	if (drvdata->byte_cntr_present)
+		tmc_etr_byte_cntr_dev_deregister(drvdata);
+}
+
 static int __devinit tmc_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -1133,6 +1532,9 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	struct msm_client_dump dump;
 	struct coresight_cti_data *ctidata;
 	struct coresight_desc *desc;
+
+	if (coresight_fuse_access_disabled())
+		return -EPERM;
 
 	if (pdev->dev.of_node) {
 		pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
@@ -1159,6 +1561,9 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	spin_lock_init(&drvdata->spinlock);
 	mutex_init(&drvdata->read_lock);
 	mutex_init(&drvdata->usb_lock);
+	mutex_init(&drvdata->byte_cntr_lock);
+	mutex_init(&drvdata->byte_cntr_read_lock);
+	atomic_set(&drvdata->byte_cntr_irq_cnt, 0);
 
 	drvdata->clk = devm_clk_get(dev, "core_clk");
 	if (IS_ERR(drvdata->clk))
@@ -1178,7 +1583,8 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		if (pdev->dev.of_node) {
 			ret = of_property_read_u32(pdev->dev.of_node,
-				"qcom,memory-reservation-size", &drvdata->size);
+						   "qcom,memory-size",
+						   &drvdata->size);
 			if (ret) {
 				clk_disable_unprepare(drvdata->clk);
 				return ret;
@@ -1191,23 +1597,23 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	clk_disable_unprepare(drvdata->clk);
 
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
-		drvdata->paddr = allocate_contiguous_ebi_nomap(drvdata->size,
-							       SZ_4K);
-		if (!drvdata->paddr)
+		drvdata->vaddr = dma_zalloc_coherent(&pdev->dev, drvdata->size,
+						     &drvdata->paddr,
+						     GFP_KERNEL);
+		if (!drvdata->vaddr)
 			return -ENOMEM;
-		drvdata->vaddr = devm_ioremap(dev, drvdata->paddr,
-					      drvdata->size);
-		if (!drvdata->vaddr) {
-			ret = -ENOMEM;
-			goto err0;
-		}
-		memset(drvdata->vaddr, 0, drvdata->size);
 		drvdata->buf = drvdata->vaddr;
 		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
-
-		ret = tmc_etr_bam_init(pdev, drvdata);
+		if (pdev->dev.of_node)
+			drvdata->byte_cntr_present = !of_property_read_bool
+						     (pdev->dev.of_node,
+						     "qcom,byte-cntr-absent");
+		ret = tmc_etr_byte_cntr_init(pdev, drvdata);
 		if (ret)
 			goto err0;
+		ret = tmc_etr_bam_init(pdev, drvdata);
+		if (ret)
+			goto err1;
 	} else {
 		baddr = devm_kzalloc(dev, PAGE_SIZE + drvdata->size,
 				     GFP_KERNEL);
@@ -1274,7 +1680,7 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc) {
 		ret = -ENOMEM;
-		goto err1;
+		goto err2;
 	}
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETB) {
 		desc->type = CORESIGHT_DEV_TYPE_SINK;
@@ -1287,7 +1693,7 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 		drvdata->csdev = coresight_register(desc);
 		if (IS_ERR(drvdata->csdev)) {
 			ret = PTR_ERR(drvdata->csdev);
-			goto err1;
+			goto err2;
 		}
 	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		desc->type = CORESIGHT_DEV_TYPE_SINK;
@@ -1300,7 +1706,7 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 		drvdata->csdev = coresight_register(desc);
 		if (IS_ERR(drvdata->csdev)) {
 			ret = PTR_ERR(drvdata->csdev);
-			goto err1;
+			goto err2;
 		}
 	} else {
 		desc->type = CORESIGHT_DEV_TYPE_LINKSINK;
@@ -1314,7 +1720,7 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 		drvdata->csdev = coresight_register(desc);
 		if (IS_ERR(drvdata->csdev)) {
 			ret = PTR_ERR(drvdata->csdev);
-			goto err1;
+			goto err2;
 		}
 	}
 
@@ -1324,16 +1730,21 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	drvdata->miscdev.fops = &tmc_fops;
 	ret = misc_register(&drvdata->miscdev);
 	if (ret)
-		goto err2;
+		goto err3;
 
 	dev_info(dev, "TMC initialized\n");
 	return 0;
-err2:
+err3:
 	coresight_unregister(drvdata->csdev);
-err1:
+err2:
 	tmc_etr_bam_exit(drvdata);
+err1:
+	tmc_etr_byte_cntr_exit(drvdata);
 err0:
-	free_contiguous_memory_by_paddr(drvdata->paddr);
+	if (drvdata->vaddr)
+		dma_free_coherent(&pdev->dev, drvdata->size,
+				  drvdata->vaddr,
+				  drvdata->paddr);
 	return ret;
 }
 
@@ -1341,10 +1752,13 @@ static int __devexit tmc_remove(struct platform_device *pdev)
 {
 	struct tmc_drvdata *drvdata = platform_get_drvdata(pdev);
 
+	tmc_etr_byte_cntr_exit(drvdata);
 	misc_deregister(&drvdata->miscdev);
 	coresight_unregister(drvdata->csdev);
 	tmc_etr_bam_exit(drvdata);
-	free_contiguous_memory_by_paddr(drvdata->paddr);
+	if (drvdata->vaddr)
+		dma_free_coherent(&pdev->dev, drvdata->size, drvdata->vaddr,
+				  drvdata->paddr);
 	return 0;
 }
 

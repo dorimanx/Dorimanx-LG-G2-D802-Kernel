@@ -41,7 +41,7 @@ enum lge_battemp_states {
 
 };
 
-/*                     */
+/* LGE charging states */
 enum lge_charging_states {
 	CHG_BATT_NORMAL_STATE,
 	CHG_BATT_DECCUR_STATE,
@@ -49,7 +49,7 @@ enum lge_charging_states {
 	CHG_BATT_STPCHG_STATE,
 };
 
-/*                            */
+/* LGE charging states change */
 enum lge_states_changes {
 	STS_CHE_NONE,
 	STS_CHE_NORMAL_TO_DECCUR,
@@ -57,6 +57,9 @@ enum lge_states_changes {
 	STS_CHE_DECCUR_TO_NORAML,
 	STS_CHE_DECCUR_TO_STPCHG,
 	STS_CHE_STPCHG_TO_NORMAL,
+#if defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_KDDI) || defined(CONFIG_MACH_MSM8974_B1_KR)
+	STS_CHE_STPCHG_TO_DECCUR,
+#endif
 };
 
 /* BTM status */
@@ -74,6 +77,9 @@ struct charging_info {
 #ifdef CONFIG_LGE_THERMALE_CHG_CONTROL
 	int     chg_current_ma;
 	int     chg_current_te;
+#ifdef CONFIG_MACH_MSM8974_B1_KR
+	int     input_current_ma;
+#endif
 #endif
 };
 
@@ -96,5 +102,5 @@ struct batt_temp_table {
 extern void
 lge_monitor_batt_temp(struct charging_info req, struct charging_rsp *res);
 #endif
-/*                            */
+/* __LGE_CHARGING_SCENARIO_H_ */
 

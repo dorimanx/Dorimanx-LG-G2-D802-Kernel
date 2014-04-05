@@ -58,7 +58,8 @@
 
 #define MAX_BAM_DESCRIPTOR_COUNT	(8 * 1024 - 2)
 
-#define TSPP_BUFFER_SIZE		(500 * 1024) /* 500KB */
+//#define TSPP_BUFFER_SIZE		(500 * 1024) /* 500KB */
+#define TSPP_BUFFER_SIZE		(2 * 1024 * 1024) /* 2MB */
 
 #define TSPP_DESCRIPTOR_SIZE	(TSPP_RAW_TTS_SIZE)
 
@@ -200,7 +201,7 @@ static struct
 } mpq_dmx_tspp_info;
 
 static void *tspp_mem_allocator(int channel_id, u32 size,
-				u32 *phys_base, void *user)
+				phys_addr_t *phys_base, void *user)
 {
 	void *virt_addr = NULL;
 	int i = TSPP_GET_TSIF_NUM(channel_id);
@@ -223,7 +224,7 @@ static void *tspp_mem_allocator(int channel_id, u32 size,
 }
 
 static void tspp_mem_free(int channel_id, u32 size,
-			void *virt_base, u32 phys_base, void *user)
+			void *virt_base, phys_addr_t phys_base, void *user)
 {
 	int i = TSPP_GET_TSIF_NUM(channel_id);
 
@@ -377,7 +378,18 @@ static void mpq_dmx_tspp_aggregated_process(int tsif, int channel_id)
 
 	buff_start_addr_phys =
 		mpq_dmx_tspp_info.tsif[tsif].ch_mem_heap_phys_base;
-	input.base_addr = (void *)buff_start_addr_phys;
+
+	/*
+	 * NOTE: the following casting to u32 must be done
+	 * as long as TZ does not support LPAE. Once TZ supports
+	 * LPAE SDMX interface needs to be updated accordingly.
+	 */
+	if (buff_start_addr_phys > 0xFFFFFFFF)
+		MPQ_DVB_ERR_PRINT(
+			"%s: WARNNING - physical address %pa is larger than 32bits!\n",
+			__func__, &buff_start_addr_phys);
+
+	input.base_addr = (void *)(u32)buff_start_addr_phys;
 	input.size = mpq_dmx_tspp_info.tsif[tsif].buffer_count *
 		TSPP_DESCRIPTOR_SIZE;
 
@@ -386,7 +398,7 @@ static void mpq_dmx_tspp_aggregated_process(int tsif, int channel_id)
 			"%s: SDMX Processing %d descriptors: %d bytes at start address 0x%x, read offset %d\n",
 			__func__, aggregate_count, aggregate_len,
 			(unsigned int)input.base_addr,
-			buff_current_addr_phys - buff_start_addr_phys);
+			(int)(buff_current_addr_phys - buff_start_addr_phys));
 
 		mpq_sdmx_process(mpq_demux, &input, aggregate_len,
 			buff_current_addr_phys - buff_start_addr_phys,
@@ -1621,7 +1633,8 @@ static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 		return -EINVAL;
 	}
 
-	caps->caps = DMX_CAP_PULL_MODE | DMX_CAP_VIDEO_DECODER_DATA;
+	caps->caps = DMX_CAP_PULL_MODE | DMX_CAP_VIDEO_DECODER_DATA |
+		DMX_CAP_TS_INSERTION | DMX_CAP_VIDEO_INDEXING;
 	caps->num_decoders = MPQ_ADAPTER_MAX_NUM_OF_INTERFACES;
 	caps->num_demux_devices = CONFIG_DVB_MPQ_NUM_DMX_DEVICES;
 	caps->num_pid_filters = TSPP_MAX_PID_FILTER_NUM;
@@ -1630,9 +1643,13 @@ static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 	caps->section_filter_length = DMX_FILTER_SIZE;
 	caps->num_demod_inputs = TSIF_COUNT;
 	caps->num_memory_inputs = CONFIG_DVB_MPQ_NUM_DMX_DEVICES;
-	caps->max_bitrate = 144;
-	caps->demod_input_max_bitrate = 72;
-	caps->memory_input_max_bitrate = 72;
+	caps->max_bitrate = 192;
+	caps->demod_input_max_bitrate = 96;
+	caps->memory_input_max_bitrate = 96;
+	caps->num_cipher_ops = 1;
+
+	/* TSIF reports 3 bytes STC at unit of 27MHz/256 */
+	caps->max_stc = (u64)0xFFFFFF * 256;
 
 	/* Buffer requirements */
 	caps->section.flags =
@@ -1672,7 +1689,6 @@ static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 	caps->playback_192_tsp.max_size = 0xFFFFFFFF;
 	caps->playback_192_tsp.size_alignment = 0;
 	caps->decoder.flags =
-		DMX_BUFFER_CONTIGUOUS_MEM	|
 		DMX_BUFFER_SECURED_IF_DECRYPTED	|
 		DMX_BUFFER_EXTERNAL_SUPPORT	|
 		DMX_BUFFER_INTERNAL_SUPPORT	|
@@ -1751,7 +1767,7 @@ static int mpq_tspp_dmx_init(
 		mpq_dmx_decoder_fullness_abort;
 	mpq_demux->demux.decoder_buffer_status = mpq_dmx_decoder_buffer_status;
 	mpq_demux->demux.reuse_decoder_buffer = mpq_dmx_reuse_decoder_buffer;
-	mpq_demux->demux.set_secure_mode = mpq_dmx_set_secure_mode;
+	mpq_demux->demux.set_cipher_op = mpq_dmx_set_cipher_ops;
 	mpq_demux->demux.oob_command = mpq_dmx_oob_command;
 	mpq_demux->demux.convert_ts = mpq_dmx_convert_tts;
 
@@ -1765,11 +1781,7 @@ static int mpq_tspp_dmx_init(
 	/* Now initailize the dmx-dev object */
 	mpq_demux->dmxdev.filternum = MPQ_MAX_DMX_FILES;
 	mpq_demux->dmxdev.demux = &mpq_demux->demux.dmx;
-	mpq_demux->dmxdev.capabilities =
-		DMXDEV_CAP_DUPLEX |
-		DMXDEV_CAP_PULL_MODE |
-		DMXDEV_CAP_INDEXING |
-		DMXDEV_CAP_TS_INSERTION;
+	mpq_demux->dmxdev.capabilities = DMXDEV_CAP_DUPLEX;
 
 	mpq_demux->dmxdev.demux->set_source = mpq_dmx_set_source;
 	mpq_demux->dmxdev.demux->get_stc = mpq_tspp_dmx_get_stc;

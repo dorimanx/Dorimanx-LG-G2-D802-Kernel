@@ -35,7 +35,13 @@ again:
 		struct iphdr _iph;
 ip:
 		iph = skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
+/* 2014-01-21 heeyeon.nah@lge.com, LGE_DATA_google_security_patch [START] */
+// refer to 'https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=6f092343855a71e03b8d209815d8c45bf3a27fcd'
+/* previous code
 		if (!iph)
+*/
+        if (!iph || iph->ihl < 5)
+/* 2014-01-21 heeyeon.nah@lge.com, LGE_DATA_google_security_patch [END] */
 			return false;
 
 		if (ip_is_fragment(iph))

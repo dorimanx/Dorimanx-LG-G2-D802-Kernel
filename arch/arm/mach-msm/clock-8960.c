@@ -1547,7 +1547,7 @@ static struct clk_freq_tbl clk_tbl_sdc[] = {
 	F_END
 };
 
-static CLK_SDC(sdc1_clk, 1, 6,  52000000, 104000000);
+static CLK_SDC(sdc1_clk, 1, 6,  52000000, 208000000);
 static CLK_SDC(sdc2_clk, 2, 5,  52000000, 104000000);
 static CLK_SDC(sdc3_clk, 3, 4, 104000000, 208000000);
 static CLK_SDC(sdc4_clk, 4, 3,  33000000,  67000000);
@@ -3047,7 +3047,7 @@ static int pix_rdi_clk_reset(struct clk *c, enum clk_reset_action action)
 	return branch_reset(&to_pix_rdi_clk(c)->b, action);
 }
 
-static int pix_rdi_clk_list_rate(struct clk *c, unsigned n)
+static long pix_rdi_clk_list_rate(struct clk *c, unsigned n)
 {
 	if (pix_rdi_mux_map[n])
 		return n;
@@ -5437,9 +5437,9 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("npl_clk",		npl_tv_clk.c,		""),
 
 	CLK_LOOKUP("core_clk",		gfx3d_clk.c,	"kgsl-3d0.0"),
-	CLK_LOOKUP("core_clk",		gfx3d_clk.c,	"footswitch-8x60.2"),
+	CLK_LOOKUP("core_clk",		gfx3d_clk.c,	"footswitch-8x60.11"),
 	CLK_LOOKUP("bus_clk",
-			    gfx3d_axi_clk.c, "footswitch-8x60.2"),
+			    gfx3d_axi_clk.c, "footswitch-8x60.11"),
 	CLK_LOOKUP("iface_clk",         vcap_p_clk.c,           ""),
 	CLK_LOOKUP("iface_clk",         vcap_p_clk.c,           "msm_vcap.0"),
 	CLK_LOOKUP("iface_clk",         vcap_p_clk.c,	"footswitch-8x60.10"),
@@ -5493,7 +5493,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("master_iface_clk",	dsi2_m_p_clk.c,		"mipi_dsi.2"),
 	CLK_LOOKUP("slave_iface_clk",	dsi2_s_p_clk.c,		"mipi_dsi.2"),
 	CLK_LOOKUP("iface_clk",		gfx3d_p_clk.c,	"kgsl-3d0.0"),
-	CLK_LOOKUP("iface_clk",		gfx3d_p_clk.c,	"footswitch-8x60.2"),
+	CLK_LOOKUP("iface_clk",		gfx3d_p_clk.c,	"footswitch-8x60.11"),
 	CLK_LOOKUP("master_iface_clk",	hdmi_m_p_clk.c,		"hdmi_msm.1"),
 	CLK_LOOKUP("slave_iface_clk",	hdmi_s_p_clk.c,		"hdmi_msm.1"),
 	CLK_LOOKUP("iface_clk",		ijpeg_p_clk.c,		"msm_gemini.0"),

@@ -1,0 +1,22 @@
+BCM43XX DHD 1.88.60.1 for Kitkat.
+2013.12.17
+DHD 1.88.60.1
+  - Sync up IOCTL between firmware and DHD for 4334/43341
+
+2013.12.13
+DHD 1.88.60
+  - Integrate 4334/43341/4335/4339 in one DHD
+  - Cleaned up hidden AP IE of beacon manipulate code for roaming issue
+  - Removed Temporal code with DEBUG_BCN_LOSS definition
+  - Fixed missing code on P2P scan logic
+  - Block Ethertype of 0x886 packet to upper layer
+  - Fixed DHD sleep state mismatch issue
+  - Fixed Miracast current issue
+  - Fixed TDLS dongle trap issue
+
+2013.10.14
+DHD 1.88.48
+  - Initial version release for Kitkat.
+  - set TDLS auto enable.
+  - adding PNO.
+  - adding scheduled SCAN.

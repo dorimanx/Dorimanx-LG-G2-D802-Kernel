@@ -19,7 +19,6 @@
 #include "kgsl_sharedmem.h"
 
 /*default log levels is error for everything*/
-#define KGSL_LOG_LEVEL_DEFAULT 3
 #define KGSL_LOG_LEVEL_MAX     7
 
 struct dentry *kgsl_debugfs_dir;
@@ -123,7 +122,6 @@ KGSL_DEBUGFS_LOG(cmd_log);
 KGSL_DEBUGFS_LOG(ctxt_log);
 KGSL_DEBUGFS_LOG(mem_log);
 KGSL_DEBUGFS_LOG(pwr_log);
-KGSL_DEBUGFS_LOG(ft_log);
 
 static int memfree_hist_print(struct seq_file *s, void *unused)
 {
@@ -180,13 +178,6 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 	if (!device->d_debugfs || IS_ERR(device->d_debugfs))
 		return;
 
-	device->cmd_log = KGSL_LOG_LEVEL_DEFAULT;
-	device->ctxt_log = KGSL_LOG_LEVEL_DEFAULT;
-	device->drv_log = KGSL_LOG_LEVEL_DEFAULT;
-	device->mem_log = KGSL_LOG_LEVEL_DEFAULT;
-	device->pwr_log = KGSL_LOG_LEVEL_DEFAULT;
-	device->ft_log = KGSL_LOG_LEVEL_DEFAULT;
-
 	debugfs_create_file("log_level_cmd", 0644, device->d_debugfs, device,
 			    &cmd_log_fops);
 	debugfs_create_file("log_level_ctxt", 0644, device->d_debugfs, device,
@@ -199,8 +190,6 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 				&pwr_log_fops);
 	debugfs_create_file("memfree_history", 0444, device->d_debugfs, device,
 				&memfree_hist_fops);
-	debugfs_create_file("log_level_ft", 0644, device->d_debugfs, device,
-				&ft_log_fops);
 
 	/* Create postmortem dump control files */
 
@@ -215,7 +204,6 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 			    &pm_regs_enabled_fops);
 	debugfs_create_file("ib_enabled", 0644, pm_d_debugfs, device,
 				    &pm_ib_enabled_fops);
-	device->pm_dump_enable = 0;
 	debugfs_create_file("enable", 0644, pm_d_debugfs, device,
 				    &pm_enabled_fops);
 
@@ -296,20 +284,17 @@ static int process_mem_print(struct seq_file *s, void *unused)
 		print_mem_entry(s, entry);
 	}
 
-	spin_unlock(&private->mem_lock);
 
 	/* now print all the unbound entries */
 	while (1) {
-		rcu_read_lock();
 		entry = idr_get_next(&private->mem_idr, &next);
-		rcu_read_unlock();
-
 		if (entry == NULL)
 			break;
 		if (entry->memdesc.gpuaddr == 0)
 			print_mem_entry(s, entry);
 		next++;
 	}
+	spin_unlock(&private->mem_lock);
 
 	return 0;
 }

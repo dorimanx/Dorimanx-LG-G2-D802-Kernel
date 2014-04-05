@@ -45,12 +45,13 @@
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>
 #include <mach/rpm-regulator-smd.h>
+#include <mach/msm_smem.h>
 #include <linux/msm_thermal.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"
 #include "spm.h"
-#include "lpm_resources.h"
+#include "pm.h"
 #include "modem_notifier.h"
 
 static struct memtype_reserve msm8610_reserve_table[] __initdata = {
@@ -101,11 +102,12 @@ static void __init msm8610_reserve(void)
 
 void __init msm8610_add_drivers(void)
 {
+	msm_smem_init();
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();
-	msm_lpmrs_module_init();
 	msm_spm_device_init();
+	msm_pm_sleep_status_init();
 	rpm_regulator_smd_driver_init();
 	qpnp_regulator_init();
 	tsens_tm_init_driver();

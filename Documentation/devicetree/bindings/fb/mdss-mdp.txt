@@ -94,9 +94,20 @@ Required properties
 				The offsets are calculated from "mdp_phys"
 				defined in reg property. The number of offsets
 				defiend should reflect the number of progammable
-				interface blocks avaialble in hardware.
+				interface blocks available in hardware.
+- qcom,mdss-pref-prim-intf:	A string which indicates the configured hardware
+				interface between MDP and the primary panel.
+				Individual panel controller drivers initialize
+				hardware based on this property.
+				Based on the interfaces supported at present,
+				possible values are:
+				- "dsi"
+				- "edp"
+				- "hdmi"
 
 Optional properties:
+- vdd-cx-supply :	Phandle for vdd CX regulator device node.
+- batfet-supply :	Phandle for battery FET regulator device node.
 - qcom,vbif-settings :	Array with key-value pairs of constant VBIF register
 			settings used to setup MDSS QoS for optimum performance.
 			The key used should be offset from "vbif_phys" register
@@ -123,7 +134,30 @@ Optional properties:
 				offsets as well (i.e. the first mixer offset
 				corresponds to the same pathway as the first
 				AD offset).
-
+- qcom,mdss-has-wfd-blk: Boolean property to indicate the presence of dedicated
+			writeback wfd block in MDSS as opposed to writeback
+			block that is shared between rotator and wfd.
+- qcom,mdss-smp-mb-per-pipe:	Maximum number of shared memory pool blocks
+				restricted for a source surface pipe. If this
+				property is not specified, no such restriction
+				would be applied.
+- qcom,mdss-pipe-rgb-fixed-mmb: Array of indexes describing fixed Memory Macro
+				Blocks (MMBs) for rgb pipes. First value denotes
+				total numbers of MMBs per pipe while values, if
+				any, following first one denotes indexes of MMBs
+				to that RGB pipe.
+- qcom,max-bandwidth-low-kbps:	This value indicates the max bandwidth in KB
+				that can be supported without underflow.
+				This is a low bandwidth threshold which should
+				be applied in most scenarios to be safe from
+				underflows when unable to satisfy bandwith
+				requirements.
+- qcom,max-bandwidth-high-kbps:	This value indicates the max bandwidth in KB
+				that can be supported without underflow.
+				This is a high bandwidth threshold which can be
+				applied in scenarios where panel interface can
+				be more tolerant to memory latency such as
+				command mode panels.
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
 
@@ -133,17 +167,40 @@ Subnode properties:
 - qcom,mdss-mixer-swap: A boolean property that indicates if the mixer muxes
 			 need to be swapped based on the target panel.
 			 By default the property is not defined.
+- qcom,mdss-fb-split:	 Array of splitted framebuffer size. There should
+			 be only two values in this property. The values
+			 correspond to the left and right size respectively.
+			 MDP muxes two mixer output together before sending to
+			 the panel interface and these values are used to set
+			 each mixer width, so the sum of these two values
+			 should be equal to the panel x-resolution.
 
-
+			 Note that if the sum of two values is not equal to
+			 x-resolution or this subnode itself is not defined
+			 in device tree there are two cases: 1)split is not
+			 enabled if framebuffer size is less than max mixer
+			 width; 2) the defaut even split is enabled if frambuffer
+			 size is greater than max mixer width.
+- qcom,memblock-reserve: Specifies the memory location and the size reserved
+			 for the framebuffer used to display the splash screen.
+			 This property is required whenever the continuous splash
+			 screen feature is enabled for the corresponding
+			 framebuffer device.
 
 Example:
-	qcom,mdss_mdp@fd900000 {
+	mdss_mdp: qcom,mdss_mdp@fd900000 {
 		compatible = "qcom,mdss_mdp";
 		reg = <0xfd900000 0x22100>,
 			<0xfd924000 0x1000>;
 		reg-names = "mdp_phys", "vbif_phys";
 		interrupts = <0 72 0>;
 		vdd-supply = <&gdsc_mdss>;
+		vdd-cx-supply = <&pm8841_s2_corner>;
+		batfet-supply = <&pm8941_chg_batif>;
+
+		qcom,max-bandwidth-low-kbps = <2300000>;
+		qcom,max-bandwidth-high-kbps = <3000000>;
+
 		qcom,max-clk-rate = <320000000>;
 		qcom,vbif-settings = <0x0004 0x00000001>,
 				     <0x00D8 0x00000707>;
@@ -157,10 +214,17 @@ Example:
 		qcom,mdss-pipe-vig-fetch-id = <1 4 7>;
 		qcom,mdss-pipe-rgb-fetch-id = <16 17 18>;
 		qcom,mdss-pipe-dma-fetch-id = <10 13>;
+		qcom,mdss-pipe-rgb-fixed-mmb =	<2 0 1>,
+						<2 2 3>,
+						<2 4 5>,
+						<2 6 7>;
 		qcom,mdss-smp-data = <22 4096>;
 		qcom,mdss-rot-block-size = <64>;
+		qcom,mdss-smp-mb-per-pipe = <2>;
+		qcom,mdss-pref-prim-intf = "dsi";
 		qcom,mdss-has-bwc;
 		qcom,mdss-has-decimation;
+		qcom,mdss-has-wfd-blk;
 
 		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800
 				     0x00000900 0x0000A00>;
@@ -178,6 +242,7 @@ Example:
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
 			qcom,mdss-mixer-swap;
+			qcom,mdss-fb-split = <480 240>
 		};
 	};
 

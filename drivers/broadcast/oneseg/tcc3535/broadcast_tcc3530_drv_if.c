@@ -15,7 +15,7 @@
 #include "broadcast_dmb_typedef.h"
 #include "broadcast_dmb_drv_ifdef.h"
 
-#define _DISPLAY_MONITOR_DBG_LOG_
+/*#define _DISPLAY_MONITOR_DBG_LOG_*/
 /*#define _USE_ONSEG_SIGINFO_MODIFIED_MODE_*/
 #define _USE_MONITORING_TIME_GAP_
 

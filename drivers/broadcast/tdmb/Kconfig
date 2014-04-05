@@ -20,6 +20,13 @@ config LGE_BROADCAST_TDMB_FC8050
 	help
 	  Select this if you want to use broadcast service
 
+config LGE_BROADCAST_TDMB_FC8080
+	bool "LGE broacast TDMB FC8080 device"
+	depends on (LGE_BROADCAST_TDMB && MACH_MSM8974_B1_KR)
+	default y
+	help
+	  Select this if you want to use broadcast service
+
 config LGE_BROADCAST_TDMB_FC8050_Z
 	bool "LGE broacast TDMB FC8050 device"
 	depends on LGE_BROADCAST_TDMB && MACH_MSM8974_Z_KR

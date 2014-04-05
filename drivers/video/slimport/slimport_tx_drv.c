@@ -28,7 +28,7 @@ static unchar bedid_checksum;
 unchar bedid_extblock[128] = {0};
 unchar bedid_firstblock[128] = {0};
 
-
+static void hdmi_rx_set_sys_state(enum HDMI_RX_System_State);
 static ulong pclk;
 static ulong m_val, n_val;
 enum SP_LINK_BW sp_tx_bw;
@@ -165,36 +165,36 @@ static void sp_tx_link_phy_initialization(void)
 	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG16, 0x1F);
 	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG3, 0x3F);
 #else
-	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG0, val_SP_TX_LT_CTRL_REG0);  //before 0x19
+	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG0, val_SP_TX_LT_CTRL_REG0);  /* before 0x19 */
 	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG10, val_SP_TX_LT_CTRL_REG10);
-	printk ("%s : set register : val_SP_TX_LT_CTRL_REG0 = 0x%x\n",__func__, val_SP_TX_LT_CTRL_REG0);
-	printk ("%s : set register : val_SP_TX_LT_CTRL_REG10 = 0x%x\n",__func__, val_SP_TX_LT_CTRL_REG10);
+	printk("%s : set register : val_SP_TX_LT_CTRL_REG0 = 0x%x\n", __func__, val_SP_TX_LT_CTRL_REG0);
+	printk("%s : set register : val_SP_TX_LT_CTRL_REG10 = 0x%x\n", __func__, val_SP_TX_LT_CTRL_REG10);
 	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG4, 0x1b);
 	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG7, 0x22);
 	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG9, 0x23);
 	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG14, 0x09);
 	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG17, 0x16);
 	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG19, 0x1F);
-	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG1, val_SP_TX_LT_CTRL_REG1);  //before 0x26
+	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG1, val_SP_TX_LT_CTRL_REG1);  /* before 0x26 */
 	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG11, val_SP_TX_LT_CTRL_REG11);
-	printk ("%s : set register : val_SP_TX_LT_CTRL_REG1 = 0x%x\n",__func__, val_SP_TX_LT_CTRL_REG1);
-	printk ("%s : set register : val_SP_TX_LT_CTRL_REG11 = 0x%x\n",__func__, val_SP_TX_LT_CTRL_REG11);
-	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG5, val_SP_TX_LT_CTRL_REG5);//0x28);
-	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG8, val_SP_TX_LT_CTRL_REG8);//0x2F);
-	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG15, val_SP_TX_LT_CTRL_REG15);//0x10);
-	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG18, val_SP_TX_LT_CTRL_REG18);//0x1F);
-	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG2, val_SP_TX_LT_CTRL_REG2);  //before 0x36
+	printk("%s : set register : val_SP_TX_LT_CTRL_REG1 = 0x%x\n", __func__, val_SP_TX_LT_CTRL_REG1);
+	printk("%s : set register : val_SP_TX_LT_CTRL_REG11 = 0x%x\n", __func__, val_SP_TX_LT_CTRL_REG11);
+	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG5, val_SP_TX_LT_CTRL_REG5);/* 0x28); */
+	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG8, val_SP_TX_LT_CTRL_REG8);/* 0x2F); */
+	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG15, val_SP_TX_LT_CTRL_REG15);/* 0x10); */
+	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG18, val_SP_TX_LT_CTRL_REG18);/* 0x1F); */
+	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG2, val_SP_TX_LT_CTRL_REG2);  /* before 0x36 */
 	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG12, val_SP_TX_LT_CTRL_REG12);
-	printk ("%s : set register : val_SP_TX_LT_CTRL_REG5 = 0x%x\n",__func__, val_SP_TX_LT_CTRL_REG5);
-	printk ("%s : set register : val_SP_TX_LT_CTRL_REG8= 0x%x\n",__func__, val_SP_TX_LT_CTRL_REG8);
-	printk ("%s : set register : val_SP_TX_LT_CTRL_REG15 = 0x%x\n",__func__, val_SP_TX_LT_CTRL_REG15);
-	printk ("%s : set register : val_SP_TX_LT_CTRL_REG18 = 0x%x\n",__func__, val_SP_TX_LT_CTRL_REG18);
-	printk ("%s : set register : val_SP_TX_LT_CTRL_REG2 = 0x%x\n",__func__, val_SP_TX_LT_CTRL_REG2);
-	printk ("%s : set register : val_SP_TX_LT_CTRL_REG12 = 0x%x\n",__func__, val_SP_TX_LT_CTRL_REG12);
-	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG6, val_SP_TX_LT_CTRL_REG6);//0x3c);
-	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG16, val_SP_TX_LT_CTRL_REG16);//0x18);
-	printk ("%s : set register : val_SP_TX_LT_CTRL_REG6 = 0x%x\n",__func__, val_SP_TX_LT_CTRL_REG6);
-	printk ("%s : set register : val_SP_TX_LT_CTRL_REG16 = 0x%x\n",__func__, val_SP_TX_LT_CTRL_REG16);
+	printk("%s : set register : val_SP_TX_LT_CTRL_REG5 = 0x%x\n", __func__, val_SP_TX_LT_CTRL_REG5);
+	printk("%s : set register : val_SP_TX_LT_CTRL_REG8= 0x%x\n", __func__, val_SP_TX_LT_CTRL_REG8);
+	printk("%s : set register : val_SP_TX_LT_CTRL_REG15 = 0x%x\n", __func__, val_SP_TX_LT_CTRL_REG15);
+	printk("%s : set register : val_SP_TX_LT_CTRL_REG18 = 0x%x\n", __func__, val_SP_TX_LT_CTRL_REG18);
+	printk("%s : set register : val_SP_TX_LT_CTRL_REG2 = 0x%x\n", __func__, val_SP_TX_LT_CTRL_REG2);
+	printk("%s : set register : val_SP_TX_LT_CTRL_REG12 = 0x%x\n", __func__, val_SP_TX_LT_CTRL_REG12);
+	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG6, val_SP_TX_LT_CTRL_REG6);/* 0x3c); */
+	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG16, val_SP_TX_LT_CTRL_REG16);/* 0x18); */
+	printk("%s : set register : val_SP_TX_LT_CTRL_REG6 = 0x%x\n", __func__, val_SP_TX_LT_CTRL_REG6);
+	printk("%s : set register : val_SP_TX_LT_CTRL_REG16 = 0x%x\n", __func__, val_SP_TX_LT_CTRL_REG16);
 	sp_write_reg(TX_P1, SP_TX_LT_CTRL_REG3, 0x3F);
 #endif
 }
@@ -1082,7 +1082,26 @@ unchar sp_tx_chip_located(void)
 {
 	unchar c1, c2;
 
+#ifdef CONFIG_MACH_LGE
+	int i = 0;
+#endif
 	sp_tx_hardware_poweron();
+#ifdef CONFIG_MACH_LGE
+	do {
+		sp_read_reg(TX_P2, SP_TX_DEV_IDL_REG, &c1);
+		sp_read_reg(TX_P2, SP_TX_DEV_IDH_REG, &c2);
+		if ((c1 == 0x08) && (c2 == 0x78)) {
+			pr_info("ANX7808 BA is found.\n");
+			return 1;
+		} else {
+			pr_info("Failed ANX7808 initialize : Retry(%d)\n", i+1);
+		}
+		i++;
+	} while (i < 4);
+	sp_tx_hardware_powerdown();
+	pr_info("ANX7808 is not found.\n");
+	return 0;
+#else
 	sp_read_reg(TX_P2, SP_TX_DEV_IDL_REG, &c1);
 	sp_read_reg(TX_P2, SP_TX_DEV_IDH_REG, &c2);
 	if ((c1 == 0x08) && (c2 == 0x78)) {
@@ -1093,6 +1112,7 @@ unchar sp_tx_chip_located(void)
 		pr_info("ANX7808 is not found.\n");
 		return 0;
 	}
+#endif
 
 }
 
@@ -1259,13 +1279,13 @@ static void sp_tx_enable_audio_output(unchar benable)
 		sp_tx_audioinfoframe_setup();
 		sp_tx_config_packets(AUDIF_PACKETS);
 		msleep(20);
-		if(sp_tx_rx_type == RX_HDMI) {//assuming it is anx7730
+		if (sp_tx_rx_type == RX_HDMI) {/* assuming it is anx7730 */
 			sp_tx_aux_dpcdread_bytes(0x00, 0x05, 0x23, 1, &c1);
-			if(c1 < 0x94){
-				unchar pBuf[3] = {0x01,0xd1,0x02};
+			if (c1 < 0x94) {
+				unchar pBuf[3] = {0x01, 0xd1, 0x02};
 				count = 0;
 				while (1) {
-					if (sp_tx_aux_dpcdwrite_bytes(0x00, 0x05,0xf0,3,pBuf) == AUX_OK)
+					if (sp_tx_aux_dpcdwrite_bytes(0x00, 0x05, 0xf0, 3, pBuf) == AUX_OK)
 						break;
 					count++;
 					if (count > 3) {
@@ -2684,7 +2704,7 @@ static void sp_tx_polling_err_int_handler(void)
 	for (i = 0; i < 5; i++) {
 		aux_stauts = sp_tx_aux_dpcdread_bytes(0x00, 0x00, 0x00, 1, &c);
 		if (aux_stauts == AUX_OK)
-		return;
+			return;
 
 		msleep(2);
 	}
@@ -3373,14 +3393,15 @@ void hdmi_rx_set_termination(unchar enable)
 
 static void hdmi_rx_restart_audio_chk(void)
 {
-	if (hdmi_system_state == HDMI_AUDIO_CONFIG) {
-		pr_info("%s %s : WAIT_AUDIO: hdmi_rx_restart_audio_chk.",
-				LOG_TAG, __func__);
-		g_cts_got = 0;
-		g_audio_got = 0;
-	}
-}
+	pr_info("%s %s : WAIT_AUDIO: hdmi_rx_restart_audio_chk.",
+			LOG_TAG, __func__);
+	g_cts_got = 0;
+	g_audio_got = 0;
 
+	/* when audio infofram change, reconfig the audio */
+	if (hdmi_system_state > HDMI_AUDIO_CONFIG)
+		hdmi_rx_set_sys_state(HDMI_AUDIO_CONFIG);
+}
 
 static void hdmi_rx_set_sys_state(enum HDMI_RX_System_State ss)
 {
@@ -4406,7 +4427,7 @@ void sp_tx_phy_auto_test(void)
 #define SINK_ACC_OFS  0x005f1
 #define SINK_ACC_REG  0x005f2
 
-bool source_aux_read_7730dpcd(long addr,unchar cCount,unchar * pBuf)
+bool source_aux_read_7730dpcd(long addr, unchar cCount, unchar *pBuf)
 {
 	unchar c;
 	unchar addr_l;
@@ -4417,16 +4438,15 @@ bool source_aux_read_7730dpcd(long addr,unchar cCount,unchar * pBuf)
 	addr_h = (unchar)(addr>>16);
 	c = 0;
 	while (1) {
-		if (sp_tx_aux_dpcdread_bytes(addr_h,addr_m,addr_l,cCount,pBuf) == AUX_OK)
+		if (sp_tx_aux_dpcdread_bytes(addr_h, addr_m, addr_l, cCount, pBuf) == AUX_OK)
 			return SOURCE_AUX_OK;
 		c++;
-		if (c > 3) {
+		if (c > 3)
 			return SOURCE_AUX_ERR;
-		}
 	}
 }
 
-bool source_aux_write_7730dpcd(long addr,unchar cCount,unchar * pBuf)
+bool source_aux_write_7730dpcd(long addr, unchar cCount, unchar *pBuf)
 {
 	unchar c;
 	unchar addr_l;
@@ -4437,41 +4457,40 @@ bool source_aux_write_7730dpcd(long addr,unchar cCount,unchar * pBuf)
 	addr_h = (unchar)(addr>>16);
 	c = 0;
 	while (1) {
-		if (sp_tx_aux_dpcdwrite_bytes(addr_h,addr_m,addr_l,cCount,pBuf) == AUX_OK)
+		if (sp_tx_aux_dpcdwrite_bytes(addr_h, addr_m, addr_l, cCount, pBuf) == AUX_OK)
 			return SOURCE_AUX_OK;
 		c++;
-		if (c > 3) {
+		if (c > 3)
 			return SOURCE_AUX_ERR;
-		}
 	}
 }
 
-bool i2c_master_read_reg(unchar Sink_device_sel, unchar offset, unchar * Buf)
+bool i2c_master_read_reg(unchar Sink_device_sel, unchar offset, unchar *Buf)
 {
-	unchar sbytebuf[2]= {0};
+	unchar sbytebuf[2] = {0};
 	long a0, a1;
 	a0 = SINK_DEV_SEL;
 	a1 = SINK_ACC_REG;
 	sbytebuf[0] = Sink_device_sel;
 	sbytebuf[1] = offset;
 
-	if(source_aux_write_7730dpcd(a0,2,sbytebuf) == SOURCE_AUX_OK) {
-		if(source_aux_read_7730dpcd(a1,1,Buf) == SOURCE_AUX_OK)
+	if (source_aux_write_7730dpcd(a0, 2, sbytebuf) == SOURCE_AUX_OK) {
+		if (source_aux_read_7730dpcd(a1, 1, Buf) == SOURCE_AUX_OK)
 			return SOURCE_REG_OK;
 	}
 	return SOURCE_REG_ERR;
 }
 
-bool i2c_master_write_reg(unchar Sink_device_sel,unchar offset, unchar value)
+bool i2c_master_write_reg(unchar Sink_device_sel, unchar offset, unchar value)
 {
-	unchar sbytebuf[3]= {0};
+	unchar sbytebuf[3] = {0};
 	long a0;
 	a0 = SINK_DEV_SEL;
 	sbytebuf[0] = Sink_device_sel;
 	sbytebuf[1] = offset;
 	sbytebuf[2] = value;
 
-	if(source_aux_write_7730dpcd(a0,3,sbytebuf) == SOURCE_AUX_OK)
+	if (source_aux_write_7730dpcd(a0, 3, sbytebuf) == SOURCE_AUX_OK)
 		return SOURCE_REG_OK;
 	else
 		return SOURCE_REG_ERR;

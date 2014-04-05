@@ -499,7 +499,7 @@ LGD_DOUBLE32 INTERFACE_GET_POSTBER(LGD_UINT8 ucI2CID)
 	return LGD_GET_POSTBER(ucI2CID);
 }
 
-/*                              */
+/* LGE MC Add for TP Error count*/
 LGD_UINT16 INTERFACE_GET_TPERRCNT(LGD_UINT8 ucI2CID)
 {
 	return LGD_GET_TPERRCNT(ucI2CID);

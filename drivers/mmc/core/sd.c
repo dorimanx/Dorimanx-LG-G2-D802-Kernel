@@ -19,12 +19,22 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
 #include <linux/pm_runtime.h>
+#ifdef CONFIG_MACH_MSM8974_B1_KR
+#include <mach/board_lge.h>
+#endif
+
 
 #include "core.h"
 #include "bus.h"
 #include "mmc_ops.h"
 #include "sd.h"
 #include "sd_ops.h"
+
+#define UHS_SDR104_MIN_DTR	(100 * 1000 * 1000)
+#define UHS_DDR50_MIN_DTR	(50 * 1000 * 1000)
+#define UHS_SDR50_MIN_DTR	(50 * 1000 * 1000)
+#define UHS_SDR25_MIN_DTR	(25 * 1000 * 1000)
+#define UHS_SDR12_MIN_DTR	(12.5 * 1000 * 1000)
 
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
@@ -486,18 +496,22 @@ static void sd_update_bus_speed_mode(struct mmc_card *card)
 	}
 
 	if ((card->host->caps & MMC_CAP_UHS_SDR104) &&
-	    (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_SDR104)) {
+	    (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_SDR104) &&
+	    (card->host->f_max > UHS_SDR104_MIN_DTR)) {
 			card->sd_bus_speed = UHS_SDR104_BUS_SPEED;
 	} else if ((card->host->caps & MMC_CAP_UHS_DDR50) &&
-		   (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_DDR50)) {
+		   (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_DDR50) &&
+		    (card->host->f_max > UHS_DDR50_MIN_DTR)) {
 			card->sd_bus_speed = UHS_DDR50_BUS_SPEED;
 	} else if ((card->host->caps & (MMC_CAP_UHS_SDR104 |
 		    MMC_CAP_UHS_SDR50)) && (card->sw_caps.sd3_bus_mode &
-		    SD_MODE_UHS_SDR50)) {
+		    SD_MODE_UHS_SDR50) &&
+		    (card->host->f_max > UHS_SDR50_MIN_DTR)) {
 			card->sd_bus_speed = UHS_SDR50_BUS_SPEED;
 	} else if ((card->host->caps & (MMC_CAP_UHS_SDR104 |
 		    MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR25)) &&
-		   (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_SDR25)) {
+		   (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_SDR25) &&
+		 (card->host->f_max > UHS_SDR25_MIN_DTR)) {
 			card->sd_bus_speed = UHS_SDR25_BUS_SPEED;
 	} else if ((card->host->caps & (MMC_CAP_UHS_SDR104 |
 		    MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR25 |
@@ -666,9 +680,12 @@ static int mmc_sd_change_bus_speed(struct mmc_host *host, unsigned long *freq)
 				MMC_SEND_TUNING_BLOCK);
 		mmc_host_clk_release(card->host);
 
-		if (err)
-			pr_warn("%s: %s: tuning execution failed %d\n",
-				   mmc_hostname(card->host), __func__, err);
+		if (err) {
+			pr_warn("%s: %s: tuning execution failed %d. Restoring to previous clock %lu\n",
+				   mmc_hostname(card->host), __func__, err,
+				   host->clk_scaling.curr_freq);
+			mmc_set_clock(host, host->clk_scaling.curr_freq);
+		}
 	}
 
 out:
@@ -1001,12 +1018,19 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	WARN_ON(!host->claimed);
 
 	#ifdef CONFIG_MACH_LGE
-	if(host->index == 2 && !mmc_cd_get_status(host))
-	{
+	#ifndef CONFIG_MACH_MSM8974_B1_KR
+	if (host->index == 2 && !mmc_cd_get_status(host)) {
 		printk(KERN_INFO "[LGE][MMC][%-18s( )] sd-no-exist. skip next\n", __func__);
 		err = -ENOMEDIUM;
 		return err;
 	}
+	#else
+	if (host->index == 1 && !mmc_cd_get_status(host)) {
+			printk(KERN_INFO "[LGE][MMC][%-18s( )] sd-no-exist. skip next\n", __func__);
+			err = -ENOMEDIUM;
+			return err;
+	}
+	#endif
 	#endif
 
 	/* The initialization should be done at 3.3 V I/O voltage. */
@@ -1158,11 +1182,11 @@ static void mmc_sd_detect(struct mmc_host *host)
 {
 	int err = 0;
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
-#ifndef CONFIG_MACH_LGE
+#if !defined (CONFIG_MACH_LGE) || defined(CONFIG_MACH_MSM8974_B1_KR)
 	/* LGE_UPDATE, 2013/07/19, G2-FS@lge.com
 	 * for fixing compile-warning
 	 */
-        int retries = 5;
+	int retries = 5;
 #endif
 #endif
 
@@ -1176,19 +1200,19 @@ static void mmc_sd_detect(struct mmc_host *host)
 	 * Just check if our card has been removed.
 	 */
 
-#ifdef CONFIG_MACH_LGE
+#if defined (CONFIG_MACH_LGE) && !defined(CONFIG_MACH_MSM8974_B1_KR)
 	/* LGE_UPDATE, 2013/07/19, G2-FS@lge.com
 	 * When checking whether sd exists or not, using CMD13 is not good.
 	 * It can be async-status between cd-gpio and result of CMD13 according to sd-slot-structure.
 	 */
-	if(!mmc_cd_get_status(host))
-	{
+	if (!mmc_cd_get_status(host)) {
 		err = _mmc_detect_card_removed(host);
 		printk(KERN_ERR "%s(%s): Unable to re-detect card (%d)\n",
 		       __func__, mmc_hostname(host), err);
 	}
-
 #else
+	if ((HW_REV_B <= lge_get_board_revno())&&(HW_REV_1_0 > lge_get_board_revno()))
+	{
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
 	while(retries) {
 		err = mmc_send_status(host->card, NULL);
@@ -1202,11 +1226,22 @@ static void mmc_sd_detect(struct mmc_host *host)
 	if (!retries) {
 		printk(KERN_ERR "%s(%s): Unable to re-detect card (%d)\n",
 		       __func__, mmc_hostname(host), err);
+#if !defined (CONFIG_MACH_MSM8974_B1_KR)
 		err = _mmc_detect_card_removed(host);
+#endif
 	}
 #else
 	err = _mmc_detect_card_removed(host);
 #endif
+	}
+	else
+	{
+		if (!mmc_cd_get_status(host))
+		{
+			err = _mmc_detect_card_removed(host);
+			printk(KERN_ERR "%s(%s): Unable to re-detect card (%d)\n",__func__, mmc_hostname(host), err);
+		}
+	}
 #endif
 
 	mmc_release_host(host);
@@ -1444,7 +1479,7 @@ int mmc_attach_sd(struct mmc_host *host)
 		*/
 		if (err == -ENOMEDIUM) {
 			printk(KERN_INFO "[LGE][MMC][%-18s( )] error:ENOMEDIUM\n", __func__);
-			retries=0;
+			retries = 0;
 			break;
 		}
 		#endif

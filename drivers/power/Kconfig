@@ -505,9 +505,20 @@ config LGE_PM
 	  Power Management, Battery charging, Battery Monitoring System
 	  with battery FET and fuel gauge.
 
+config ADC_READY_CHECK_JB
+	tristate "PM8941 and PM8841 combibation JB ADC ready check feature"
+	depends on LGE_PM
+	help
+	  Say Y here to enable support for JB adc ready check feature
+	  QCT changed ADC read way in KK for next MSM8974 AC and later version
+	  thease platform have two channel ADC in each PMICs
+	  This Feature MUST used in MSM8974 AA/AB only
+
+
 config LGE_CHARGER_TEMP_SCENARIO
 	depends on LGE_PM
 	default n
+
 	bool "LGE CHARGING TEMP SCENARIO Configuration"
 	help
 	  LGE CHARGER TEMP SCENARIO Configuration
@@ -567,7 +578,7 @@ config FTT_CHARGER_V3
 	  FTT Demo app : 120326-1
 
 config FTT_SYSFS
-	bool " Wireless charging support FTT v3 sysfs"
+	bool "Wireless charging support FTT v3 sysfs"
 	depends on FTT_CHARGER_V3
 	default n
 	help
@@ -629,5 +640,11 @@ config VZW_LLK
 	bool "SMB349 Verizon LLK"
 	help
 	  Say Y to Support Verizon LLK
+
+config LGE_PM_BATTERY_ID_CHECKER
+	tristate "Virtual Device for LGE Battery ID Checker"
+	default n
+	help
+	  Say Y here to enable LGE Battery ID Checker
 
 endif # POWER_SUPPLY

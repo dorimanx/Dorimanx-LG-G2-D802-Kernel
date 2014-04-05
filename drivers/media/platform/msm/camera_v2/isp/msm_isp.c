@@ -38,6 +38,10 @@ static const struct of_device_id msm_vfe_dt_match[] = {
 		.compatible = "qcom,vfe40",
 		.data = &vfe40_hw_info,
 	},
+	{
+		.compatible = "qcom,vfe32",
+		.data = &vfe32_hw_info,
+	},
 	{}
 };
 
@@ -136,6 +140,7 @@ static int __devinit vfe_probe(struct platform_device *pdev)
 		&vfe_vb2_ops, &vfe_layout);
 	if (rc < 0) {
 		pr_err("%s: Unable to create buffer manager\n", __func__);
+		msm_sd_unregister(&vfe_dev->subdev);
 		kfree(vfe_dev);
 		return -EINVAL;
 	}

@@ -357,7 +357,19 @@ static int ashmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	if (!sc->nr_to_scan)
 		return lru_count;
 
+/* LGE_CHANGE_S : [QCT_Patch] avoid recursing into this code from within ashmem itself
+                  This lockup is known as a deadlock problem. (recursive mutext lock in ashmem_shrink())
+                  To fix it, we don't wait to acquire lock anymore.
+                  Instead, just we try on locking. */
+#if 0
 	mutex_lock(&ashmem_mutex);
+#else
+	if (!mutex_trylock(&ashmem_mutex)) {
+		return -1; 
+	}
+#endif
+/* LGE_CHANGE_E : [QCT_Patch] avoid recursing into this code from within ashmem itself */
+
 	list_for_each_entry_safe(range, next, &ashmem_lru_list, lru) {
 		struct inode *inode = range->asma->file->f_dentry->d_inode;
 		loff_t start = range->pgstart * PAGE_SIZE;

@@ -23,7 +23,7 @@ extern void fuji_ois_init(struct msm_ois_ctrl_t *msm_ois_t);
 extern void lgit_ois_init(struct msm_ois_ctrl_t *msm_ois_t);
 extern void lgit2_ois_init(struct msm_ois_ctrl_t *msm_ois_t);
 
-static int ois_lock = 0;
+static int ois_lock = 1;
 
 DEFINE_MSM_MUTEX(msm_ois_mutex);
 

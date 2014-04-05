@@ -60,12 +60,13 @@ struct msm_rpm_driver_data {
 	spinlock_t smd_lock_write;
 	spinlock_t smd_lock_read;
 	struct completion smd_open;
+	struct completion remote_open;
 };
 
 #define DEFAULT_BUFFER_SIZE 256
 #define DEBUG_PRINT_BUFFER_SIZE 512
 #define MAX_SLEEP_BUFFER 128
-
+#define SMD_CHANNEL_NOTIF_TIMEOUT 5000
 #define GFP_FLAG(noirq) (noirq ? GFP_ATOMIC : GFP_KERNEL)
 #define INV_RSC "resource does not exist"
 #define ERR "err\0"
@@ -283,8 +284,10 @@ static void tr_update(struct slp_buf *s, char *buf)
 	struct kvp *e, *n;
 
 	for_each_kvp(buf, n) {
+		bool found = false;
 		for_each_kvp(s->buf, e) {
 			if (n->k == e->k) {
+				found = true;
 				if (n->s == e->s) {
 					void *e_data = get_data(e);
 					void *n_data = get_data(n);
@@ -299,6 +302,11 @@ static void tr_update(struct slp_buf *s, char *buf)
 				}
 				break;
 			}
+
+		}
+		if (!found) {
+			add_kvp(s->buf, n);
+			s->valid = true;
 		}
 	}
 }
@@ -1144,6 +1152,9 @@ int msm_rpm_wait_for_ack(uint32_t msg_id)
 {
 	struct msm_rpm_wait_data *elem;
 	int rc = 0;
+#ifdef CONFIG_MACH_LGE
+	static int rpm_noack_timeout_count;
+#endif
 
 	if (!msg_id) {
 		pr_err("%s(): Invalid msg id\n", __func__);
@@ -1159,12 +1170,12 @@ int msm_rpm_wait_for_ack(uint32_t msg_id)
 	elem = msm_rpm_get_entry_from_msg_id(msg_id);
 	if (!elem)
 		return rc;
-#if 0 /*                */
+#ifndef CONFIG_MACH_LGE /* LGE Workaround */
 	wait_for_completion(&elem->ack);
 #else
+	rpm_noack_timeout_count = 0;
 	while(!wait_for_completion_timeout(&elem->ack, HZ/20)) {
 		/* variable for debugging */
-		static int rpm_noack_timeout_count ;
 		rpm_noack_timeout_count++ ;
 
 		if (smd_is_pkt_avail(msm_rpm_data.ch_info))
@@ -1289,14 +1300,14 @@ EXPORT_SYMBOL(msm_rpm_send_message_noirq);
  * During power collapse, the rpm driver disables the SMD interrupts to make
  * sure that the interrupt doesn't wakes us from sleep.
  */
-int msm_rpm_enter_sleep(bool print)
+int msm_rpm_enter_sleep(bool print, const struct cpumask *cpumask)
 {
 	if (standalone)
 		return 0;
 
 	msm_rpm_flush_requests(print);
 
-	return smd_mask_receive_interrupt(msm_rpm_data.ch_info, true);
+	return smd_mask_receive_interrupt(msm_rpm_data.ch_info, true, cpumask);
 }
 EXPORT_SYMBOL(msm_rpm_enter_sleep);
 
@@ -1309,9 +1320,23 @@ void msm_rpm_exit_sleep(void)
 	if (standalone)
 		return;
 
-	smd_mask_receive_interrupt(msm_rpm_data.ch_info, false);
+	smd_mask_receive_interrupt(msm_rpm_data.ch_info, false, NULL);
 }
 EXPORT_SYMBOL(msm_rpm_exit_sleep);
+
+static int __devinit msm_rpm_smd_remote_probe(struct platform_device *pdev)
+{
+	if (pdev && pdev->id == msm_rpm_data.ch_type)
+		complete(&msm_rpm_data.remote_open);
+	return 0;
+}
+
+static struct platform_driver msm_rpm_smd_remote_driver = {
+	.probe = msm_rpm_smd_remote_probe,
+	.driver = {
+		.owner = THIS_MODULE,
+	},
+};
 
 static int __devinit msm_rpm_dev_probe(struct platform_device *pdev)
 {
@@ -1333,13 +1358,21 @@ static int __devinit msm_rpm_dev_probe(struct platform_device *pdev)
 	key = "rpm-standalone";
 	standalone = of_property_read_bool(pdev->dev.of_node, key);
 
+	msm_rpm_smd_remote_driver.driver.name = msm_rpm_data.ch_name;
+	init_completion(&msm_rpm_data.remote_open);
 	init_completion(&msm_rpm_data.smd_open);
 	spin_lock_init(&msm_rpm_data.smd_lock_write);
 	spin_lock_init(&msm_rpm_data.smd_lock_read);
 	INIT_WORK(&msm_rpm_data.work, msm_rpm_smd_work);
 
-	if (smd_named_open_on_edge(msm_rpm_data.ch_name, msm_rpm_data.ch_type,
-				&msm_rpm_data.ch_info, &msm_rpm_data,
+	platform_driver_register(&msm_rpm_smd_remote_driver);
+	ret = wait_for_completion_timeout(&msm_rpm_data.remote_open,
+			msecs_to_jiffies(SMD_CHANNEL_NOTIF_TIMEOUT));
+
+	if (!ret || smd_named_open_on_edge(msm_rpm_data.ch_name,
+				msm_rpm_data.ch_type,
+				&msm_rpm_data.ch_info,
+				&msm_rpm_data,
 				msm_rpm_notify)) {
 		pr_info("Cannot open RPM channel %s %d\n", msm_rpm_data.ch_name,
 				msm_rpm_data.ch_type);

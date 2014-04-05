@@ -135,7 +135,6 @@ static bool flush_request_locked(struct ablkcipher_request *req)
 			  msg->buf, req->nbytes);
 	msg->len = req->nbytes;
 	kfips_queue_insreq_end(g_queue, msg);
-	wake_up_interruptible(&g_file_wq);
 	return true;
 }
 
@@ -267,16 +266,30 @@ static long file_ioctl(struct file *filp, unsigned int cmd,
 static ssize_t file_read(struct file *filp, char *buf, size_t count,
 			 loff_t * pos)
 {
-	bool want_sleep;
-	/* We produce an artificial EOF at ~second interval, even if
-	 * nothing received in the g_file_wq, and faster, if we do
-	 * have something. */
+	int ret = 0;
+
+	/* Wait until there is work received via g_file_wq. */
 	spin_lock_bh(&g_lock);
-	want_sleep = list_empty(&g_sent);
+	while (ret == 0 && list_empty(&g_sent))
+	{
+		/* Processing for non-blocking request. */
+		if (filp->f_flags & O_NONBLOCK)
+		{
+			ret = -EAGAIN;
+			continue;
+		}
+
+		spin_unlock_bh(&g_lock);
+
+		/* Sleep until work or interrupted. */
+		ret = wait_event_interruptible(g_file_wq,
+						!list_empty(&g_sent));
+
+		spin_lock_bh(&g_lock);
+	}
 	spin_unlock_bh(&g_lock);
-	if (want_sleep)
-		interruptible_sleep_on_timeout(&g_file_wq, HZ);
-	return 0;
+
+	return ret;
 }
 
 static ssize_t file_write(struct file *filp, const char *buf, size_t count,
@@ -433,7 +446,11 @@ static int kfips_aes_qcrypt(struct ablkcipher_request *req, uint8_t flags)
 	}
 
 	spin_unlock_bh(&g_lock);
-
+	if (rc == -EINPROGRESS)
+	{
+		/* Wake up processing thread, if added to sent queue. */
+		wake_up_interruptible(&g_file_wq);
+	}
 	assert(rc == -EINPROGRESS || rc == -EBUSY);
 
 	return rc;
@@ -664,7 +681,7 @@ module_exit(kfips_aes_mod_exit);
 
 MODULE_DESCRIPTION("AuthenTec FIPS AES-XTS/AES-CBC Driver.");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION("1.0");
+MODULE_VERSION("1.0.1.1");
 MODULE_AUTHOR("AuthenTec, Inc.");
 
 module_param(uid, int, 0);

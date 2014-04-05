@@ -23,11 +23,11 @@ config FB_MSM_BACKLIGHT
 	---help---
 	  Say Y here if you want to control the backlight of your display.
 
-config FB_MSM_LOGO
-	bool "MSM Frame Buffer Logo"
-	default y
-	---help---
-	  Show /initlogo.rle during boot.
+#config FB_MSM_LOGO
+#	bool "MSM Frame Buffer Logo"
+#	default y
+#	---help---
+#	  Show /initlogo.rle during boot.
 
 config FB_MSM_LCDC_HW
 	bool
@@ -983,4 +983,19 @@ config OLED_SUPPORT
 	default y
        ---help---
          Support for LG Display POLED panel 
+
+config G2_LGD_PANEL
+	bool "G2 FHD LGD panel"
+	---help---
+	  Support for LGD panel (1080x1920)
+
+config B1_LGD_PANEL
+        bool "B1 FHD LGD panel"
+        ---help---
+          Support for LGD panel (1080x1920)
+
+config VU3_LGD_PANEL
+        bool "VU3 UVGA LGD panel"
+        ---help---
+          Support for LGD panel (1280x960)
 endif

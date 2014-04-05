@@ -2437,4 +2437,6 @@ config FB_SH_MOBILE_MERAM
 
 source "drivers/video/slimport/Kconfig"
 
+source "drivers/video/slimport/Kconfig"
+
 endmenu

@@ -116,7 +116,12 @@ armpmu_map_cache_event(unsigned (*cache_map)
 static int
 armpmu_map_event(const unsigned (*event_map)[PERF_COUNT_HW_MAX], u64 config)
 {
-	int mapping = (*event_map)[config];
+	int mapping;
+
+	if (config >= PERF_COUNT_HW_MAX)
+		return -ENOENT;
+
+	mapping = (*event_map)[config];
 	return mapping == HW_OP_UNSUPPORTED ? -ENOENT : mapping;
 }
 
@@ -340,6 +345,9 @@ validate_event(struct pmu_hw_events *hw_events,
 	struct arm_pmu *armpmu = to_arm_pmu(event->pmu);
 	struct hw_perf_event fake_event = event->hw;
 	struct pmu *leader_pmu = event->group_leader->pmu;
+
+	if (is_software_event(event))
+		return 1;
 
 	if (event->pmu != leader_pmu || event->state <= PERF_EVENT_STATE_OFF)
 		return 1;
@@ -742,6 +750,7 @@ arch_initcall(cpu_pmu_reset);
 static struct of_device_id armpmu_of_device_ids[] = {
 	{.compatible = "arm,cortex-a9-pmu"},
 	{.compatible = "arm,cortex-a8-pmu"},
+	{.compatible = "arm,cortex-a7-pmu"},
 	{.compatible = "arm,cortex-a5-pmu"},
 	{.compatible = "arm,arm1136-pmu"},
 	{.compatible = "arm,arm1176-pmu"},
@@ -901,11 +910,13 @@ static struct notifier_block __cpuinitdata pmu_cpu_notifier = {
 static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
 		void *v)
 {
+	struct pmu *pmu;
 	switch (cmd) {
 	case CPU_PM_ENTER:
 		if (cpu_has_active_perf((int)v)) {
 			armpmu_update_counters();
-			perf_pmu_disable(&cpu_pmu->pmu);
+			pmu = &cpu_pmu->pmu;
+			pmu->pmu_disable(pmu);
 		}
 		break;
 
@@ -918,7 +929,8 @@ static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
 			 */
 			__get_cpu_var(from_idle) = 1;
 			cpu_pmu->reset(NULL);
-			perf_pmu_enable(&cpu_pmu->pmu);
+			pmu = &cpu_pmu->pmu;
+			pmu->pmu_enable(pmu);
 		}
 		break;
 	}

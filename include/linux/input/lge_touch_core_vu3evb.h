@@ -18,8 +18,8 @@
 #ifndef LGE_TOUCH_CORE_H
 #define LGE_TOUCH_CORE_H
 
-//#define MT_PROTOCOL_A
-//#define LGE_TOUCH_TIME_DEBUG
+/* #define MT_PROTOCOL_A */
+/* #define LGE_TOUCH_TIME_DEBUG */
 
 #define MAX_FINGER	10
 #define MAX_BUTTON	4
@@ -28,15 +28,14 @@
 #define CUST_G_TOUCH
 #endif
 
-struct touch_device_caps
-{
+struct touch_device_caps {
 	u8		button_support;
 	u16		y_button_boundary;
-	u32		button_margin;		// percentage %
+	u32		button_margin;		/* percentage % */
 	u8		number_of_button;
 	u32		button_name[MAX_BUTTON];
 	u8		is_width_supported;
-	u8	 	is_pressure_supported;
+	u8		is_pressure_supported;
 	u8		is_id_supported;
 	u32		max_width;
 	u32		max_pressure;
@@ -47,21 +46,20 @@ struct touch_device_caps
 	u32		lcd_y;
 };
 
-struct touch_operation_role
-{
-	u8		operation_mode;	// interrupt = 1 , polling = 0;
-	u8		key_type;		// none = 0, hard_touch_key = 1, virtual_key = 2
+struct touch_operation_role {
+	u8		operation_mode;	/* interrupt = 1 , polling = 0; */
+	u8		key_type;		/* none = 0, hard_touch_key = 1, virtual_key = 2 */
 	u8		report_mode;
 	u8		delta_pos_threshold;
-	u8		orientation;	// 0' = 0, 90' = 1, 180' = 2, 270' = 3
-	u32		report_period;	// ns
-	u32		booting_delay;	// ms
-	u32		reset_delay;	// ms
+	u8		orientation;	/* 0' = 0, 90' = 1, 180' = 2, 270' = 3 */
+	u32		report_period;	/* ns */
+	u32		booting_delay;	/* ms */
+	u32		reset_delay;	/* ms */
 	u8		suspend_pwr;
 	u8		resume_pwr;
-	int		jitter_filter_enable;	// enable = 1, disable = 0
+	int		jitter_filter_enable;	/* enable = 1, disable = 0 */
 	int		jitter_curr_ratio;
-	int		accuracy_filter_enable;	// enable = 1, disable = 0
+	int		accuracy_filter_enable;	/* enable = 1, disable = 0 */
 	int		ghost_finger_solution_enable;
 	unsigned long	irqflags;
 #ifdef CUST_G_TOUCH
@@ -74,8 +72,7 @@ struct touch_operation_role
 #endif
 };
 
-struct touch_power_module
-{
+struct touch_power_module {
 	u8		use_regulator;
 	char	vdd[30];
 	int		vdd_voltage;
@@ -84,19 +81,17 @@ struct touch_power_module
 	int		(*power)	(int on);
 };
 
-struct touch_platform_data
-{
+struct touch_platform_data {
 	u32	int_pin;
 	u32	reset_pin;
 	char	maker[30];
 	char	fw_version[11];
-	struct touch_device_caps*		caps;
-	struct touch_operation_role*	role;
-	struct touch_power_module*		pwr;
+	struct touch_device_caps *caps;
+	struct touch_operation_role *role;
+	struct touch_power_module *pwr;
 };
 
-struct t_data
-{
+struct t_data {
 	u16	id;
 	u16	x_position;
 	u16	y_position;
@@ -107,14 +102,12 @@ struct t_data
 	u8	status;
 };
 
-struct b_data
-{
+struct b_data {
 	u16	key_code;
 	u16	state;
 };
 
-struct touch_data
-{
+struct touch_data {
 	u8		total_num;
 	u8		prev_total_num;
 	u8		state;
@@ -125,15 +118,13 @@ struct touch_data
 	struct b_data	prev_button;
 };
 
-struct fw_upgrade_info
-{
+struct fw_upgrade_info {
 	char		fw_path[256];
 	u8			fw_force_upgrade;
 	volatile u8	is_downloading;
 };
 
-struct touch_fw_info
-{
+struct touch_fw_info {
 	struct fw_upgrade_info	fw_upgrade;
 	u8		ic_fw_identifier[31];	/* String */
 	u8		ic_fw_version[11];		/* String */
@@ -144,16 +135,14 @@ struct touch_fw_info
 #endif
 };
 
-struct rect
-{
+struct rect {
 	u16	left;
 	u16	right;
 	u16	top;
 	u16	bottom;
 };
 
-struct section_info
-{
+struct section_info {
 	struct rect	panel;
 	struct rect button[MAX_BUTTON];
 	struct rect button_cancel[MAX_BUTTON];
@@ -183,7 +172,7 @@ struct ghost_finger_ctrl {
 	int max_pressure;
 };
 
-struct jitter_history_data{
+struct jitter_history_data {
 	u16	x;
 	u16	y;
 	u16	pressure;
@@ -226,15 +215,15 @@ struct touch_device_driver {
 	int		(*resolution)	(struct i2c_client *client);
 #endif
 	void	(*remove)		(struct i2c_client *client);
-	int		(*init)			(struct i2c_client *client, struct touch_fw_info* info);
-	int		(*data)			(struct i2c_client *client, struct touch_data* data);
+	int		(*init)			(struct i2c_client *client, struct touch_fw_info *info);
+	int		(*data)			(struct i2c_client *client, struct touch_data *data);
 	int		(*power)		(struct i2c_client *client, int power_ctrl);
 #ifdef CUST_G_TOUCH
 	int		(*ic_ctrl)		(struct i2c_client *client, u8 code, u32 value);
 #else
 	int		(*ic_ctrl)		(struct i2c_client *client, u8 code, u16 value);
 #endif
-	int 	(*fw_upgrade)	(struct i2c_client *client, struct touch_fw_info* info);
+	int	(*fw_upgrade)	(struct i2c_client *client, struct touch_fw_info *info);
 };
 
 enum{
@@ -283,7 +272,7 @@ enum{
 };
 
 enum{
-	KEY_NULL=0,
+	KEY_NULL = 0,
 	KEY_PANEL,
 	KEY_BOUNDARY
 };
@@ -323,11 +312,11 @@ enum{
 #endif
 
 enum{
-	GHOST_STAGE_CLEAR=0,
-	GHOST_STAGE_1=1,
-	GHOST_STAGE_2=2,
-	GHOST_STAGE_3=4,
-	GHOST_STAGE_4=8,
+	GHOST_STAGE_CLEAR = 0,
+	GHOST_STAGE_1 = 1,
+	GHOST_STAGE_2 = 2,
+	GHOST_STAGE_3 = 4,
+	GHOST_STAGE_4 = 8,
 };
 
 enum{
@@ -347,18 +336,18 @@ enum{
 
 enum{
 	DEBUG_NONE				= 0,
-	DEBUG_BASE_INFO			= (1U << 0),	// 1
-	DEBUG_TRACE				= (1U << 1),	// 2
-	DEBUG_GET_DATA			= (1U << 2),	// 4
-	DEBUG_ABS				= (1U << 3),	// 8
-	DEBUG_BUTTON			= (1U << 4),	// 16
-	DEBUG_FW_UPGRADE		= (1U << 5), 	// 32
-	DEBUG_GHOST				= (1U << 6),	// 64
-	DEBUG_IRQ_HANDLE		= (1U << 7),	// 128
-	DEBUG_POWER				= (1U << 8),	// 256
-	DEBUG_JITTER			= (1U << 9),	// 512
-	DEBUG_ACCURACY			= (1U << 10),	// 1024
-	DEBUG_NOISE				= (1U << 11),	// 2048
+	DEBUG_BASE_INFO			= (1U << 0),	/* 1 */
+	DEBUG_TRACE				= (1U << 1),	/* 2 */
+	DEBUG_GET_DATA			= (1U << 2),	/* 4 */
+	DEBUG_ABS				= (1U << 3),	/* 8 */
+	DEBUG_BUTTON			= (1U << 4),	/* 16 */
+	DEBUG_FW_UPGRADE		= (1U << 5),	/* 32 */
+	DEBUG_GHOST				= (1U << 6),	/* 64 */
+	DEBUG_IRQ_HANDLE		= (1U << 7),	/* 128 */
+	DEBUG_POWER				= (1U << 8),	/* 256 */
+	DEBUG_JITTER			= (1U << 9),	/* 512 */
+	DEBUG_ACCURACY			= (1U << 10),	/* 1024 */
+	DEBUG_NOISE				= (1U << 11),	/* 2048 */
 };
 
 #ifdef LGE_TOUCH_TIME_DEBUG
@@ -375,12 +364,12 @@ enum{
 
 enum{
 	DEBUG_TIME_PROFILE_NONE			= 0,
-	DEBUG_TIME_INT_INTERVAL			= (1U << 0),	// 1
-	DEBUG_TIME_INT_IRQ_DELAY		= (1U << 1),	// 2
-	DEBUG_TIME_INT_THREAD_IRQ_DELAY	= (1U << 2),	// 4
-	DEBUG_TIME_DATA_HANDLE			= (1U << 3),	// 8
-	DEBUG_TIME_FW_UPGRADE			= (1U << 4),	// 16
-	DEBUG_TIME_PROFILE_ALL			= (1U << 5),	// 32
+	DEBUG_TIME_INT_INTERVAL			= (1U << 0),	/* 1 */
+	DEBUG_TIME_INT_IRQ_DELAY		= (1U << 1),	/* 2 */
+	DEBUG_TIME_INT_THREAD_IRQ_DELAY	= (1U << 2),	/* 4 */
+	DEBUG_TIME_DATA_HANDLE			= (1U << 3),	/* 8 */
+	DEBUG_TIME_FW_UPGRADE			= (1U << 4),	/* 16 */
+	DEBUG_TIME_PROFILE_ALL			= (1U << 5),	/* 32 */
 };
 #endif
 
@@ -418,36 +407,45 @@ enum{
 /* Debug Mask setting */
 #define TOUCH_DEBUG_PRINT   (1)
 #define TOUCH_ERROR_PRINT   (1)
-#define TOUCH_INFO_PRINT   	(1)
+#define TOUCH_INFO_PRINT	(1)
 
 #if defined(TOUCH_INFO_PRINT)
 #define TOUCH_INFO_MSG(fmt, args...) \
-		printk(KERN_INFO "[Touch] " fmt, ##args);
+		do { \
+			printk(KERN_INFO "[Touch] " fmt, ##args); \
+		} while (0)
 #else
-#define TOUCH_INFO_MSG(fmt, args...)     {};
+#define TOUCH_INFO_MSG(fmt, args...) \
+		do {} while (0)
 #endif
 
 #if defined(TOUCH_ERROR_PRINT)
 #define TOUCH_ERR_MSG(fmt, args...) \
-		printk(KERN_ERR "[Touch E] [%s %d] " \
-				fmt, __FUNCTION__, __LINE__, ##args);
+		do { \
+			printk(KERN_ERR "[Touch E] [%s %d] " \
+				fmt, __func__, __LINE__, ##args); \
+		} while (0)
 #else
-#define TOUCH_ERR_MSG(fmt, args...)     {};
+#define TOUCH_ERR_MSG(fmt, args...) \
+		do {} while (0)
 #endif
 
 #if defined(TOUCH_DEBUG_PRINT)
 #define TOUCH_DEBUG_MSG(fmt, args...) \
-		printk(KERN_INFO "[Touch D] [%s %d] " \
-				fmt, __FUNCTION__, __LINE__, ##args);
+		do { \
+			printk(KERN_INFO "[Touch D] [%s %d] " \
+					fmt, __func__, __LINE__, ##args); \
+		} while (0)
 #else
-#define TOUCH_DEBUG_MSG(fmt, args...)     {};
+#define TOUCH_DEBUG_MSG(fmt, args...) \
+		do {} while(0)
 #endif
 
-int  touch_driver_register(struct touch_device_driver* driver);
+int  touch_driver_register(struct touch_device_driver *driver);
 void touch_driver_unregister(void);
 
-void set_touch_handle(struct i2c_client *client, void* h_touch);
-void* get_touch_handle(struct i2c_client *client);
+void set_touch_handle(struct i2c_client *client, void *h_touch);
+void *get_touch_handle(struct i2c_client *client);
 int touch_i2c_read(struct i2c_client *client, u8 reg, int len, u8 *buf);
 int touch_i2c_write(struct i2c_client *client, u8 reg, int len, u8 *buf);
 int touch_i2c_write_byte(struct i2c_client *client, u8 reg, u8 data);

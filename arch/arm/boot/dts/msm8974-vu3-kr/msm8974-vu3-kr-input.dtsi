@@ -30,7 +30,7 @@
 				jitter_filter_enable = <0>;
 				accuracy_filter_enable = <0>;
 				/*role*/
-				ghost_detection_enable = <0>;
+				ghost_detection_enable = <1>;
 			};
 		};
 		synaptics_s7020@20 {

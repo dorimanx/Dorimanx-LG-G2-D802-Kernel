@@ -45,7 +45,7 @@ static char *pull[] = {"NO_PULL", "PULL_DOWN", "KEEPER", "PULL_UP"};
 static int n_pmic_gpio = 0x24;
 static char *gpio_mode[] = {"IN", "OUT", "IN/OUT", "Reserved"};
 static char *gpio_pull[] = {"PULL_UP_30uA", "PULL_UP_1.5uA", "PULL_UP_31.5uA",
-	"PULL_UP_1.5uA+30uA","PULL_DOWN_10uA", "NO_PULL", "Reserved", "Reserved"};
+	"PULL_UP_1.5uA+30uA", "PULL_DOWN_10uA", "NO_PULL", "Reserved", "Reserved"};
 static char *gpio_out[] = {"CMOS", "NMOS", "PMOS", "N/A"};
 static char *gpio_drv[] = {"Reserved", "Low", "Medium", "High"};
 
@@ -102,7 +102,7 @@ void gpio_debug_print(void)
 	/* PMIC GPIOs */
 	pr_cont("PMIC GPIOs:\n");
 
-	for(i = 1; i < n_pmic_gpio+1; i++) {
+	for (i = 1; i < n_pmic_gpio+1; i++) {
 		spmi_ext_register_readl(ctrl, 0, PMIC_GPIO_MODE(i), d, 6);
 
 		pr_cont("GPIO[%d]: [DIR]%s, [PULL]%s, [OUT]%s, [DRV]%s",
@@ -120,7 +120,7 @@ void gpio_debug_print(void)
 	/* PMIC MPPs */
 	pr_cont("PMIC MPPs:\n");
 
-	for(i = 1; i < n_pmic_mpp+1; i++) {
+	for (i = 1; i < n_pmic_mpp+1; i++) {
 		spmi_ext_register_readl(ctrl, 0, PMIC_MPP_MODE(i), d, 3);
 
 		pr_cont("MPP[%d]: [DIR]%s, [PULL]%s",

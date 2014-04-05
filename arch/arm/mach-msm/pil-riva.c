@@ -25,6 +25,7 @@
 #include <mach/subsystem_restart.h>
 #include <mach/ramdump.h>
 #include <mach/msm_smem.h>
+#include <mach/msm_bus_board.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -362,7 +363,7 @@ static void riva_post_bootup(struct work_struct *work)
 	struct platform_device *pdev = wcnss_get_platform_device();
 	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
 
-	wcnss_wlan_power(&pdev->dev, pwlanconfig, WCNSS_WLAN_SWITCH_OFF);
+	wcnss_wlan_power(&pdev->dev, pwlanconfig, WCNSS_WLAN_SWITCH_OFF, NULL);
 }
 
 static int riva_start(const struct subsys_desc *desc)
@@ -404,7 +405,7 @@ static int riva_powerup(const struct subsys_desc *desc)
 	drv = container_of(desc, struct riva_data, subsys_desc);
 	if (pdev && pwlanconfig) {
 		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
-					WCNSS_WLAN_SWITCH_ON);
+					WCNSS_WLAN_SWITCH_ON, NULL);
 		if (!ret)
 			pil_boot(&drv->pil_desc);
 	}
@@ -533,6 +534,8 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 		ret = PTR_ERR(drv->subsys);
 		goto err_subsys;
 	}
+
+	scm_pas_init(MSM_BUS_MASTER_SPS);
 
 	ret = devm_request_irq(&pdev->dev, drv->irq, riva_wdog_bite_irq_hdlr,
 			IRQF_TRIGGER_RISING, "riva_wdog", drv);

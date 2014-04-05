@@ -25,6 +25,7 @@
 #include <linux/msm_tsens.h>
 #include <linux/err.h>
 #include <linux/of.h>
+#include <linux/wakelock.h>
 
 #include <mach/msm_iomap.h>
 
@@ -77,6 +78,9 @@
 
 #define TSENS_EEPROM_8X10_1(n)		((n) + 0x1a4)
 #define TSENS_EEPROM_8X10_1_OFFSET	8
+#define TSENS_EEPROM_8X10_2(n)		((n) + 0x1a8)
+#define TSENS_EEPROM_8X10_SPARE_1(n)	((n) + 0xd8)
+#define TSENS_EEPROM_8X10_SPARE_2(n)	((n) + 0xdc)
 
 /* TSENS calibration Mask data */
 #define TSENS_BASE1_MASK		0xff
@@ -161,7 +165,7 @@
 #define TSENS10_POINT2_BACKUP_MASK	0x3f000000
 
 #define TSENS_8X26_BASE0_MASK		0x1fe000
-#define TSENS0_8X26_POINT1_MASK		0x7f00000
+#define TSENS0_8X26_POINT1_MASK		0x7e00000
 #define TSENS1_8X26_POINT1_MASK		0x3f
 #define TSENS2_8X26_POINT1_MASK		0xfc0
 #define TSENS3_8X26_POINT1_MASK		0x3f000
@@ -171,11 +175,11 @@
 #define TSENS_8X26_TSENS_CAL_SEL	0xe0000000
 #define TSENS_8X26_BASE1_MASK		0xff
 #define TSENS0_8X26_POINT2_MASK		0x3f00
-#define TSENS1_8X26_POINT2_MASK		0xfc00
+#define TSENS1_8X26_POINT2_MASK		0xfc000
 #define TSENS2_8X26_POINT2_MASK		0x3f00000
 #define TSENS3_8X26_POINT2_MASK		0xfc000000
-#define TSENS4_8X26_POINT2_MASK		0xfc000000
-#define TSENS5_8X26_POINT2_MASK		0x3f00000
+#define TSENS4_8X26_POINT2_MASK		0x3f00000
+#define TSENS5_8X26_POINT2_MASK		0xfc000000
 #define TSENS6_8X26_POINT2_MASK		0x7e0000
 
 #define TSENS_8X26_CAL_SEL_SHIFT	29
@@ -207,6 +211,8 @@
 #define TSENS_8X10_TSENS_CAL_SEL	0x70000000
 #define TSENS1_8X10_POINT1_MASK		0x3f
 #define TSENS1_8X10_POINT2_MASK		0xfc0
+#define TSENS_8X10_REDUN_SEL_MASK	0x6000000
+#define TSENS_8X10_REDUN_SEL_SHIFT	25
 
 #define TSENS_BIT_APPEND		0x3
 #define TSENS_CAL_DEGC_POINT1		30
@@ -227,6 +233,9 @@
 #define TSENS_QFPROM_BACKUP_SEL		0x3
 #define TSENS_QFPROM_BACKUP_REDUN_SEL	0xe0000000
 #define TSENS_QFPROM_BACKUP_REDUN_SHIFT	29
+
+#define TSENS_WAKE_LOCK_NAME		"msm_tsens_lock"
+#define TSENS_OPERATION_HOLD_TIME	2000
 
 enum tsens_calib_fuse_map_type {
 	TSENS_CALIB_FUSE_MAP_8974 = 0,
@@ -260,6 +269,7 @@ struct tsens_tm_device_sensor {
 struct tsens_tm_device {
 	struct platform_device		*pdev;
 	struct workqueue_struct		*tsens_wq;
+	struct wake_lock		wakelock;
 	bool				prev_reading_avail;
 	bool				calibration_less_mode;
 	bool				tsens_local_init;
@@ -559,6 +569,9 @@ static int tsens_tz_set_trip_temp(struct thermal_zone_device *thermal,
 	unsigned int reg_cntl;
 	int code, hi_code, lo_code, code_err_chk, sensor_sw_id = 0, rc = 0;
 
+	if (!tm_sensor || trip < 0)
+		return -EINVAL;
+
 	rc = tsens_get_sw_id_mapping(tm_sensor->sensor_hw_num, &sensor_sw_id);
 	if (rc < 0) {
 		pr_err("tsens mapping index not found\n");
@@ -656,6 +669,15 @@ static void tsens_scheduler_fn(struct work_struct *work)
 			lower_thr = true;
 		}
 		if (upper_thr || lower_thr) {
+			unsigned long temp;
+			enum thermal_trip_type trip =
+					THERMAL_TRIP_CONFIGURABLE_LOW;
+
+			if (upper_thr)
+				trip = THERMAL_TRIP_CONFIGURABLE_HI;
+			tsens_tz_get_temp(tm->sensor[i].tz_dev, &temp);
+			thermal_sensor_trip(tm->sensor[i].tz_dev, trip, temp);
+
 			/* Notify user space */
 			queue_work(tm->tsens_wq, &tm->sensor[i].work);
 			rc = tsens_get_sw_id_mapping(
@@ -670,6 +692,8 @@ static void tsens_scheduler_fn(struct work_struct *work)
 				sensor_sw_id));
 		}
 	}
+	wake_lock_timeout(&tmdev->wakelock,
+			msecs_to_jiffies(TSENS_OPERATION_HOLD_TIME));
 	mb();
 }
 
@@ -721,17 +745,30 @@ static int tsens_calib_8x10_sensors(void)
 	int i, tsens_base0_data = 0, tsens0_point1 = 0, tsens1_point1 = 0;
 	int tsens0_point2 = 0, tsens1_point2 = 0;
 	int tsens_base1_data = 0, tsens_calibration_mode = 0;
-	uint32_t calib_data[2];
+	uint32_t calib_data[2], calib_redun_sel;
 	uint32_t calib_tsens_point1_data[2], calib_tsens_point2_data[2];
 
 	if (tmdev->calibration_less_mode)
 		goto calibration_less_mode;
 
-	calib_data[0] = readl_relaxed(
+	calib_redun_sel = readl_relaxed(
+			TSENS_EEPROM_8X10_2(tmdev->tsens_calib_addr));
+	calib_redun_sel = calib_redun_sel & TSENS_8X10_REDUN_SEL_MASK;
+	calib_redun_sel >>= TSENS_8X10_REDUN_SEL_SHIFT;
+	pr_debug("calib_redun_sel:%x\n", calib_redun_sel);
+
+	if (calib_redun_sel == TSENS_QFPROM_BACKUP_SEL) {
+		calib_data[0] = readl_relaxed(
+			TSENS_EEPROM_8X10_SPARE_1(tmdev->tsens_calib_addr));
+		calib_data[1] = readl_relaxed(
+			TSENS_EEPROM_8X10_SPARE_2(tmdev->tsens_calib_addr));
+	} else {
+		calib_data[0] = readl_relaxed(
 			TSENS_EEPROM_8X10_1(tmdev->tsens_calib_addr));
-	calib_data[1] = readl_relaxed(
-		(TSENS_EEPROM_8X10_1(tmdev->tsens_calib_addr) +
+		calib_data[1] = readl_relaxed(
+			(TSENS_EEPROM_8X10_1(tmdev->tsens_calib_addr) +
 					TSENS_EEPROM_8X10_1_OFFSET));
+	}
 
 	tsens_calibration_mode = (calib_data[0] & TSENS_8X10_TSENS_CAL_SEL)
 			>> TSENS_8X10_CAL_SEL_SHIFT;
@@ -1325,7 +1362,7 @@ static int tsens_calib_sensors(void)
 
 static int get_device_tree_data(struct platform_device *pdev)
 {
-	const struct device_node *of_node = pdev->dev.of_node;
+	struct device_node *of_node = pdev->dev.of_node;
 	struct resource *res_mem = NULL;
 	u32 *tsens_slope_data;
 	u32 *sensor_id;
@@ -1353,8 +1390,13 @@ static int get_device_tree_data(struct platform_device *pdev)
 		return rc;
 	};
 
-	tsens_calib_mode = of_get_property(of_node,
-			"qcom,calib-mode", NULL);
+	rc = of_property_read_string(of_node,
+				"qcom,calib-mode", &tsens_calib_mode);
+	if (rc) {
+		dev_err(&pdev->dev, "missing calib-mode\n");
+		return -ENODEV;
+	}
+
 	if (!strncmp(tsens_calib_mode, "fuse_map1", 9))
 		calib_type = TSENS_CALIB_FUSE_MAP_8974;
 	else if (!strncmp(tsens_calib_mode, "fuse_map2", 9))
@@ -1507,6 +1549,9 @@ static int __devinit tsens_tm_probe(struct platform_device *pdev)
 	} else
 		return -ENODEV;
 
+	wake_lock_init(&tmdev->wakelock, WAKE_LOCK_SUSPEND,
+			TSENS_WAKE_LOCK_NAME);
+
 	tmdev->pdev = pdev;
 	tmdev->tsens_wq = alloc_workqueue("tsens_wq", WQ_HIGHPRI, 0);
 	if (!tmdev->tsens_wq) {
@@ -1528,6 +1573,8 @@ static int __devinit tsens_tm_probe(struct platform_device *pdev)
 
 	return 0;
 fail:
+	wake_lock_destroy(&tmdev->wakelock);
+
 	if (tmdev->tsens_wq)
 		destroy_workqueue(tmdev->tsens_wq);
 	if (tmdev->tsens_calib_addr)
@@ -1621,6 +1668,7 @@ static int __devexit tsens_tm_remove(struct platform_device *pdev)
 			tmdev->tsens_len);
 	free_irq(tmdev->tsens_irq, tmdev);
 	destroy_workqueue(tmdev->tsens_wq);
+	wake_lock_destroy(&tmdev->wakelock);
 	platform_set_drvdata(pdev, NULL);
 
 	return 0;

@@ -1,8 +1,10 @@
 #ifndef MSM_CAM_ISPIF_H
 #define MSM_CAM_ISPIF_H
 
-#define CSID_VERSION_V2                       0x02000011
-#define CSID_VERSION_V3                       0x30000000
+#define CSID_VERSION_V20                      0x02000011
+#define CSID_VERSION_V22                      0x02001000
+#define CSID_VERSION_V30                      0x30000000
+#define CSID_VERSION_V3                      0x30000000
 
 enum msm_ispif_vfe_intf {
 	VFE0,
@@ -21,6 +23,7 @@ enum msm_ispif_intftype {
 	INTF_MAX
 };
 #define MAX_PARAM_ENTRIES (INTF_MAX * 2)
+#define MAX_CID_CH	8
 
 #define PIX0_MASK (1 << PIX0)
 #define PIX1_MASK (1 << PIX1)

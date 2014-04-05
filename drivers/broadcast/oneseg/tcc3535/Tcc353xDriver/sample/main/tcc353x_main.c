@@ -115,7 +115,8 @@ Tcc353xRegisterConfig_t Tcc353xSingle[3] = {
 	 /* streamDataConfig_0x1D,  streamDataConfig_0x1E */
 	 TCC353X_STREAM_THRESHOLD_WL, 0x90,
 	 /* periConfig_0x30, periConfig_0x31 */
-	 0x21, 0x10 | TCC353X_DLR,
+	 // 0x21, 0x10 | TCC353X_DLR,  // sometimes clock disable
+	 0x21, 0x00 | TCC353X_DLR,  // always clock on
 	 /* periConfig_0x32, periConfig_0x33 */
 	 STS_POLARITY | 0x12, 0x40,
 	 /* bufferConfig_0x4E,bufferConfig_0x4F */

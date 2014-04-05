@@ -73,7 +73,6 @@ enum qce_hash_alg_enum {
 	QCE_HASH_SHA1_HMAC   = 2,
 	QCE_HASH_SHA256_HMAC = 3,
 	QCE_HASH_AES_CMAC = 4,
-	QCE_AEAD_SHA1_HMAC = 5,
 	QCE_HASH_LAST
 };
 
@@ -132,6 +131,7 @@ struct qce_sha_req {
 	bool last_blk;			/* last block indicator */
 	unsigned int size;		/* data length in bytes */
 	void *areq;
+	unsigned int  flags;
 };
 
 struct qce_req {
@@ -155,6 +155,7 @@ struct qce_req {
 	unsigned int cryptlen;		/* data length */
 	unsigned int use_pmem;		/* is source of data PMEM allocated? */
 	struct qcedev_pmem_info *pmem;	/* pointer to pmem_info structure*/
+	unsigned int  flags;
 };
 
 void *qce_open(struct platform_device *pdev, int *rc);

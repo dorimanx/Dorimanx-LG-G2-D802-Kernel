@@ -20,6 +20,7 @@
 			reg = <0x1700 0x100>;
 			regulator-min-microvolt = <900000>;
 			regulator-max-microvolt = <1275000>;
+			qcom,mode = "auto";
 		};
 	};
 };
@@ -29,39 +30,74 @@
 &soc {
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";
-		compatible = "qcom,cpr-regulator";
-		reg = <0xf9018000 0x1000>, <0xf9011064 4>, <0xfc4b80b0 8>,
-			<0xfc4bc450 16>;
-		reg-names = "rbcpr", "rbcpr_clk", "pvs_efuse", "cpr_efuse";
+		compatible = "qti,cpr-regulator";
+		reg = <0xf9018000 0x1000>, <0xf9011064 4>, <0xfc4b8000 0x1000>;
+		reg-names = "rbcpr", "rbcpr_clk", "efuse_addr";
 		interrupts = <0 15 0>;
 		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
-		qcom,num-efuse-bits = <5>;
-		qcom,pvs-bin-process = <0 0 0 0 0 1 1 1 1 1 2 2 2 2 2 2
-					2 2 2 2 3 3 3 3 3 3 3 3 0 0 0 0>;
-		qcom,pvs-corner-ceiling-slow = <1155000 1160000 1275000>;
-		qcom,pvs-corner-ceiling-nom  =  <975000 1075000 1200000>;
-		qcom,pvs-corner-ceiling-fast =  <900000 1000000 1140000>;
+
+		qti,pvs-fuse-redun-sel = <22 24 3 2 0>;
+		qti,pvs-fuse = <22 6 5 0>;
+		qti,pvs-fuse-redun = <22 27 5 0>;
+
+		qti,pvs-init-voltage = <1275000 1275000 1275000 1275000 1275000
+					1275000 1260000 1245000 1230000 1215000
+					1200000 1185000 1170000 1155000 1140000
+					1140000 1140000 1140000 1140000 1140000
+					1150000 1140000 1140000 1140000 1140000
+					1140000 1140000 1140000 1275000 1275000
+					1275000 1275000>;
+		qti,pvs-corner-ceiling-slow = <1050000 1150000 1275000>;
+		qti,pvs-corner-ceiling-nom  = <1050000 1075000 1200000>;
+		qti,pvs-corner-ceiling-fast = <1050000 1050000 1100000>;
 		vdd-apc-supply = <&pm8226_s2>;
 
 		vdd-mx-supply = <&pm8226_l3_ao>;
-		qcom,vdd-mx-vmax = <1350000>;
-		qcom,vdd-mx-vmin-method = <1>;
+		qti,vdd-mx-vmax = <1350000>;
+		qti,vdd-mx-vmin-method = <1>;
 
-		qcom,cpr-ref-clk = <19200>;
-		qcom,cpr-timer-delay = <5000>;
-		qcom,cpr-timer-cons-up = <1>;
-		qcom,cpr-timer-cons-down = <2>;
-		qcom,cpr-irq-line = <0>;
-		qcom,cpr-step-quotient = <15>;
-		qcom,cpr-up-threshold = <1>;
-		qcom,cpr-down-threshold = <2>;
-		qcom,cpr-idle-clocks = <5>;
-		qcom,cpr-gcnt-time = <1>;
-		qcom,vdd-apc-step-up-limit = <1>;
-		qcom,vdd-apc-step-down-limit = <1>;
-		qcom,cpr-apc-volt-step = <5000>;
+		qti,cpr-ref-clk = <19200>;
+		qti,cpr-timer-delay = <5000>;
+		qti,cpr-timer-cons-up = <0>;
+		qti,cpr-timer-cons-down = <2>;
+		qti,cpr-irq-line = <0>;
+		qti,cpr-step-quotient = <15>;
+		qti,cpr-up-threshold = <0>;
+		qti,cpr-down-threshold = <10>;
+		qti,cpr-idle-clocks = <0>;
+		qti,cpr-gcnt-time = <1>;
+		qti,vdd-apc-step-up-limit = <1>;
+		qti,vdd-apc-step-down-limit = <1>;
+		qti,cpr-apc-volt-step = <5000>;
+
+		qti,cpr-fuse-redun-sel = <138 57 1 1 0>;
+		qti,cpr-fuse-row = <138 0>;
+		qti,cpr-fuse-bp-cpr-disable = <36>;
+		qti,cpr-fuse-bp-scheme = <37>;
+		qti,cpr-fuse-target-quot = <24 12 0>;
+		qti,cpr-fuse-ro-sel = <54 38 41>;
+		qti,cpr-fuse-redun-row = <139 0>;
+		qti,cpr-fuse-redun-target-quot = <24 12 0>;
+		qti,cpr-fuse-redun-ro-sel = <46 36 39>;
+
+		qti,cpr-enable;
+		qti,cpr-fuse-cond-min-volt-sel = <54 42 6 7 1>;
+		qti,cpr-cond-min-voltage = <1140000>;
+		qti,cpr-fuse-uplift-sel = <22 53 1 0 0>;
+		qti,cpr-uplift-voltage = <50000>;
+		qti,cpr-uplift-quotient = <0 0 120>;
+		qti,cpr-uplift-max-volt = <1350000>;
+		qti,cpr-uplift-speed-bin = <1>;
+		qti,speed-bin-fuse-sel = <22 0 3 0>;
+		qti,cpr-quot-adjust-table = <1 300000 0 1>,
+				<1 384000 0 1>, <1 600000 0 2>,
+				<1 787200 0 2>, <1 998400 450 3>,
+				<1 1094400 375 3>, <1 1190400 300 3>,
+				<1 1305600 225 3>, <1 1344000 187 3>,
+				<1 1401600 150 3>, <1 1497600 75 3>,
+				<1 1593600 0 3>;
 	};
 };
 
@@ -93,6 +129,15 @@
 			qcom,use-voltage-corner;
 			qcom,consumer-supplies = "vdd_sr2_dig", "";
 		};
+		pm8226_s1_floor_corner: regulator-s1-floor-corner {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8226_s1_floor_corner";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-floor-corner;
+			qcom,always-send-voltage;
+		};
 	};
 
 	rpm-regulator-smpa3 {
@@ -108,9 +153,9 @@
 	rpm-regulator-smpa4 {
 		status = "okay";
 		pm8226_s4: regulator-s4 {
-			regulator-min-microvolt = <2100000>;
-			regulator-max-microvolt = <2100000>;
-			qcom,init-voltage = <2100000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2200000>;
+			qcom,init-voltage = <1800000>;
 			status = "okay";
 		};
 	};
@@ -224,7 +269,26 @@
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
 			status = "okay";
+		};
+
+		pm8226_l8_ao: regulator-l8-ao {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8226_l8_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
 			qcom,consumer-supplies = "vdd_sr2_pll", "";
+		};
+
+		pm8226_l8_so: regulator-l8-so {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8226_l8_so";
+			qcom,set = <2>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			qcom,init-enable = <0>;
 		};
 	};
 
@@ -288,7 +352,7 @@
 		pm8226_l16: regulator-l16 {
 			regulator-name = "8226_l16";
 			regulator-min-microvolt = <3000000>;
-			regulator-max-microvolt = <3300000>;
+			regulator-max-microvolt = <3350000>;
 			qcom,init-voltage = <3300000>;
 			status = "okay";
 		};
@@ -375,8 +439,19 @@
 		pm8226_l24: regulator-l24 {
 			regulator-name = "8226_l24";
 			regulator-min-microvolt = <1300000>;
-			regulator-max-microvolt = <1300000>;
+			regulator-max-microvolt = <1350000>;
 			qcom,init-voltage = <1300000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa25 {
+		status = "okay";
+		pm8226_l25: regulator-l25 {
+			regulator-name = "8226_l25";
+			regulator-min-microvolt = <1775000>;
+			regulator-max-microvolt = <2125000>;
+			qcom,init-voltage = <1775000>;
 			status = "okay";
 		};
 	};
@@ -428,3 +503,14 @@
 	regulator-name = "8226_smbbp_boost";
 };
 
+&pm8226_chg {
+	otg-parent-supply = <&pm8226_chg_boost>;
+};
+
+&pm8226_chg_batif {
+	regulator-name = "batfet";
+};
+
+&pm8226_chg_otg {
+	regulator-name = "8226_smbbp_otg";
+};

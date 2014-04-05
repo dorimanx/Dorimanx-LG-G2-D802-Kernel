@@ -45,6 +45,8 @@
 #include <linux/of_gpio.h>
 #include <mach/board_lge.h>
 
+#include <linux/zwait.h>
+
 /* When use SM100 with GP_CLK
   175Hz motor : 22.4KHz - M=1, N=214 ,
   205Hz motor : 26.24Khz - M=1, N=183 ,
@@ -77,7 +79,7 @@ static void __iomem *virt_bases_v = NULL;
 #define GP_CLK_ID				0 /* gp clk 0 */
 #define GP_CLK_M_DEFAULT		1
 #if defined(CONFIG_MACH_MSM8974_VU3_KR)
-#define GP_CLK_N_DEFAULT		110
+#define GP_CLK_N_DEFAULT		82
 #else
 #define GP_CLK_N_DEFAULT		92
 #endif
@@ -87,9 +89,7 @@ static void __iomem *virt_bases_v = NULL;
 static int mmss_cc_n_default;
 static int mmss_cc_d_max;
 static int mmss_cc_d_half;
-#if defined(CONFIG_MACH_MSM8974_VU3_KR)
-VibeInt8 previous_nForce=0;
-#elif defined(CONFIG_MACH_MSM8974_Z_KR)
+#if defined(CONFIG_MACH_MSM8974_VU3_KR)||defined(CONFIG_MACH_MSM8974_Z_KR)||defined(CONFIG_MACH_MSM8974_Z_SPR)||defined(CONFIG_MACH_MSM8974_Z_TMO_US)||defined(CONFIG_MACH_MSM8974_Z_ATT_US)||defined(CONFIG_MACH_MSM8974_Z_KDDI)
 int previous_nForce=0;
 #endif
 
@@ -163,6 +163,9 @@ static int vibrator_pwm_set(int enable, int amp, int n_value)
 			(1),		/* UPDATE[0] */
 			MMSS_CC_GP1_CMD_RCGR(0));
 	} else {
+		REG_WRITEL(
+			(0 & 0xffU),	/* D[7:0] */
+			MMSS_CC_GP1_CMD_RCGR(0x10));
 		REG_WRITEL(
 			(0 << 1U) +	/* ROOT_EN[1] */
 			(0),		/* UPDATE[0] */
@@ -252,6 +255,11 @@ static int android_vibrator_probe(struct platform_device *pdev)
 		mmss_cc_d_half = (mmss_cc_n_default >> 1);
 		clk_set_rate(cam_gp1_clk, 22222);
 	}
+#elif defined(CONFIG_MACH_MSM8974_B1_KR)
+	       mmss_cc_n_default = 82;		/* for 230Hz motor */
+		mmss_cc_d_max = mmss_cc_n_default;
+		mmss_cc_d_half = (mmss_cc_n_default >> 1);
+              clk_set_rate(cam_gp1_clk, 29813);
 #elif defined(CONFIG_MACH_MSM8974_G2_VZW) || defined(CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_G2_TEL_AU)
 	if(lge_get_board_revno() >= HW_REV_D) {
 		mmss_cc_n_default = 92;		/* for 230Hz motor */
@@ -264,7 +272,7 @@ static int android_vibrator_probe(struct platform_device *pdev)
 		mmss_cc_d_half = (mmss_cc_n_default >> 1);
 		clk_set_rate(cam_gp1_clk, 22222);
 	}
-#elif defined(CONFIG_MACH_MSM8974_G2_DCM) || defined(CONFIG_MACH_MSM8974_G2_SPR) || defined(CONFIG_MACH_MSM8974_G2_TMO_US) || defined(CONFIG_MACH_MSM8974_G2_CA) || defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_VDF_COM)
+#elif defined(CONFIG_MACH_MSM8974_G2_DCM) || defined(CONFIG_MACH_MSM8974_G2_SPR) || defined(CONFIG_MACH_MSM8974_G2_TMO_US) || defined(CONFIG_MACH_MSM8974_G2_CA) || defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU) || defined(CONFIG_MACH_MSM8974_G2_VDF_COM)
 	if(lge_get_board_revno() >= HW_REV_C) {
 		mmss_cc_n_default = 92;		/* for 230Hz motor */
 		mmss_cc_d_max = mmss_cc_n_default;
@@ -277,10 +285,10 @@ static int android_vibrator_probe(struct platform_device *pdev)
 		clk_set_rate(cam_gp1_clk, 22222);
 	}
 #elif defined(CONFIG_MACH_MSM8974_VU3_KR)
-		mmss_cc_n_default = 110; 	/* for 230Hz motor */
+		mmss_cc_n_default = 82; 	/* for 230Hz motor */
 		mmss_cc_d_max = mmss_cc_n_default;
 		mmss_cc_d_half = (mmss_cc_n_default >> 1);
-		clk_set_rate(cam_gp1_clk, 29090);
+		clk_set_rate(cam_gp1_clk, 29268);
 #elif defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_US)
 	if(lge_get_board_revno() >= HW_REV_B) {
 		mmss_cc_n_default = 82; 	/* for 230Hz motor */
@@ -440,17 +448,16 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpDisable(VibeUInt8 nActuatorIndex
 
         vibrator_ic_enable_set(0, &vib);
         vibrator_pwm_set(0, 0, GP_CLK_N_DEFAULT);
-        vibrator_power_set(0, &vib);
 
 	if (atomic_read(&vib.gp1_clk_flag) == 1) {
 		clk_disable_unprepare(cam_gp1_clk);
 		atomic_set(&vib.gp1_clk_flag, 0);
 	}
 
+        vibrator_power_set(0, &vib);
+
         g_bAmpEnabled = false;
-#if defined(CONFIG_MACH_MSM8974_VU3_KR)
-		previous_nForce=0;
-#elif defined(CONFIG_MACH_MSM8974_Z_KR)
+#if defined(CONFIG_MACH_MSM8974_VU3_KR)||defined(CONFIG_MACH_MSM8974_Z_KR)||defined(CONFIG_MACH_MSM8974_Z_SPR)||defined(CONFIG_MACH_MSM8974_Z_TMO_US)||defined(CONFIG_MACH_MSM8974_Z_ATT_US)||defined(CONFIG_MACH_MSM8974_Z_KDDI)
 		previous_nForce=0xFFFF;
 #endif
 
@@ -464,23 +471,19 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpDisable(VibeUInt8 nActuatorIndex
 */
 IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpEnable(VibeUInt8 nActuatorIndex)
 {
+    if (is_zw_mode())
+	return VIBE_S_SUCCESS;
+
     if (!g_bAmpEnabled)
     {
         DbgOut((KERN_DEBUG "ImmVibeSPI_ForceOut_AmpEnable.\n"));
 
-	if (atomic_read(&vib.gp1_clk_flag) == 0) {
-		clk_prepare_enable(cam_gp1_clk);
-		atomic_set(&vib.gp1_clk_flag, 1);
-	}
-
         vibrator_power_set(1, &vib);
+	udelay(100);
         //vibrator_pwm_set(1, 0, GP_CLK_N_DEFAULT);
-        vibrator_ic_enable_set(1, &vib);
 
         g_bAmpEnabled = true;
-#if defined(CONFIG_MACH_MSM8974_VU3_KR)
-		previous_nForce=127;
-#elif defined(CONFIG_MACH_MSM8974_Z_KR)
+#if defined(CONFIG_MACH_MSM8974_VU3_KR)||defined(CONFIG_MACH_MSM8974_Z_KR)||defined(CONFIG_MACH_MSM8974_Z_SPR)||defined(CONFIG_MACH_MSM8974_Z_TMO_US)||defined(CONFIG_MACH_MSM8974_Z_ATT_US)||defined(CONFIG_MACH_MSM8974_Z_KDDI)
 		previous_nForce=0xFFFF;
 #endif
 
@@ -607,7 +610,7 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_SetSamples(VibeUInt8 nActuatorIndex
             /* Unexpected bit depth */
             return VIBE_E_FAIL;
     }
-#if defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_Z_KR)
+#if defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_Z_KR)||defined(CONFIG_MACH_MSM8974_Z_SPR)||defined(CONFIG_MACH_MSM8974_Z_TMO_US)||defined(CONFIG_MACH_MSM8974_Z_ATT_US)||defined(CONFIG_MACH_MSM8974_Z_KDDI)
 	if(nForce==previous_nForce)
 		return VIBE_S_SUCCESS;
 	previous_nForce=nForce;
@@ -622,6 +625,11 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_SetSamples(VibeUInt8 nActuatorIndex
     {
         ImmVibeSPI_ForceOut_AmpEnable(nActuatorIndex);
         vibrator_pwm_set(1, nForce, GP_CLK_N_DEFAULT);
+	if (atomic_read(&vib.gp1_clk_flag) == 0) {
+		clk_prepare_enable(cam_gp1_clk);
+		atomic_set(&vib.gp1_clk_flag, 1);
+	}
+	vibrator_ic_enable_set(1, &vib);
     }
 
     return VIBE_S_SUCCESS;

@@ -229,9 +229,8 @@ fail:
 		usb_free_descriptors(f->hs_descriptors);
 	if (f->descriptors)
 		usb_free_descriptors(f->descriptors);
-	if (dev->req != NULL) {
+	if (dev->req != NULL)
 		kfree(dev->req->buf);
-	}
 
 	return status;
 

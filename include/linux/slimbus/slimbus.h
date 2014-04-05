@@ -511,8 +511,11 @@ enum slim_clk_state {
  * @wakeup: This function pointer implements controller-specific procedure
  *	to wake it up from clock-pause. Framework will call this to bring
  *	the controller out of clock pause.
- * @config_port: Configure a port and make it ready for data transfer. This is
- *	called by framework after connect_port message is sent successfully.
+ * @alloc_port: Allocate a port and make it ready for data transfer. This is
+ *	called by framework to make sure controller can take necessary steps
+ *	to initialize its port
+ * @dealloc_port: Counter-part of alloc_port. This is called by framework so
+ *	that controller can free resources associated with this port
  * @framer_handover: If this controller has multiple framers, this API will
  *	be called to switch between framers if controller desires to change
  *	the active framer.
@@ -557,7 +560,9 @@ struct slim_controller {
 	int			(*get_laddr)(struct slim_controller *ctrl,
 				const u8 *ea, u8 elen, u8 *laddr);
 	int			(*wakeup)(struct slim_controller *ctrl);
-	int			(*config_port)(struct slim_controller *ctrl,
+	int			(*alloc_port)(struct slim_controller *ctrl,
+				u8 port);
+	void			(*dealloc_port)(struct slim_controller *ctrl,
 				u8 port);
 	int			(*framer_handover)(struct slim_controller *ctrl,
 				struct slim_framer *new_framer);
@@ -576,6 +581,11 @@ struct slim_controller {
  * @shutdown: Standard shutdown callback used during powerdown/halt.
  * @suspend: Standard suspend callback used during system suspend
  * @resume: Standard resume callback used during system resume
+ * @device_up: This callback is called when the device reports present and
+ *		gets a logical address assigned to it
+ * @device_down: This callback is called when device reports absent, or the
+ *		bus goes down. Device will report present when bus is up and
+ *		device_up callback will be called again when that happens
  * @driver: Slimbus device drivers should initialize name and owner field of
  *	this structure
  * @id_table: List of slimbus devices supported by this driver
@@ -588,6 +598,8 @@ struct slim_driver {
 					pm_message_t pmesg);
 	int				(*resume)(struct slim_device *sldev);
 	int				(*device_up)(struct slim_device *sldev);
+	int				(*device_down)
+						(struct slim_device *sldev);
 
 	struct device_driver		driver;
 	const struct slim_device_id	*id_table;
@@ -795,6 +807,8 @@ extern enum slim_port_err slim_port_get_xfer_status(struct slim_device *sb,
  * Channel specified in chanh needs to be allocated first.
  * Returns -EALREADY if source is already configured for this channel.
  * Returns -ENOTCONN if channel is not allocated
+ * Returns -EINVAL if invalid direction is specified for non-manager port,
+ * or if the manager side port number is out of bounds, or in incorrect state
  */
 extern int slim_connect_src(struct slim_device *sb, u32 srch, u16 chanh);
 
@@ -808,6 +822,9 @@ extern int slim_connect_src(struct slim_device *sb, u32 srch, u16 chanh);
  * Channel specified in chanh needs to be allocated first.
  * Returns -EALREADY if sink is already configured for this channel.
  * Returns -ENOTCONN if channel is not allocated
+ * Returns -EINVAL if invalid parameters are passed, or invalid direction is
+ * specified for non-manager port, or if the manager side port number is out of
+ * bounds, or in incorrect state
  */
 extern int slim_connect_sink(struct slim_device *sb, u32 *sinkh, int nsink,
 				u16 chanh);
@@ -1012,6 +1029,13 @@ extern int slim_assign_laddr(struct slim_controller *ctrl, const u8 *e_addr,
 				u8 e_len, u8 *laddr, bool valid);
 
 /*
+ * slim_report_absent: Controller calls this function when a device
+ *	reports absent, OR when the device cannot be communicated with
+ * @sbdev: Device that cannot be reached, or that sent report absent
+ */
+void slim_report_absent(struct slim_device *sbdev);
+
+/*
  * slim_msg_response: Deliver Message response received from a device to the
  *	framework.
  * @ctrl: Controller handle
@@ -1053,7 +1077,7 @@ extern void slim_ctrl_add_boarddevs(struct slim_controller *ctrl);
 extern int slim_register_board_info(struct slim_boardinfo const *info,
 					unsigned n);
 #else
-int slim_register_board_info(struct slim_boardinfo const *info,
+static inline int slim_register_board_info(struct slim_boardinfo const *info,
 					unsigned n)
 {
 	return 0;

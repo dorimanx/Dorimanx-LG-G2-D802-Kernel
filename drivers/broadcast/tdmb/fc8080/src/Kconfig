@@ -1,0 +1,14 @@
+#
+# LG2102_DEVICE subsystem configuration
+#
+
+#menu "FC8080 support"
+
+config FC8080_TDMB
+	default n
+	---help---
+	  This driver implements the front-end of the Xen virtual
+	  keyboard and mouse device driver.  It communicates with a back-end
+	  in another domain.
+
+#endmenu

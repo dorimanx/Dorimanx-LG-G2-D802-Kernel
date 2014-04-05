@@ -27,10 +27,10 @@
 
 #include <mach/ramdump.h>
 
-//                                      
+/* [START] jin.park@lge.com, SSR FEATURE */
 #include <mach/msm_smsm.h>
 #include <linux/delay.h>
-//                                    
+/* [END] jin.park@lge.com, SSR FEATURE */
 
 #define RAMDUMP_WAIT_MSECS	120000
 
@@ -195,7 +195,7 @@ static unsigned int ramdump_poll(struct file *filep,
 	return mask;
 }
 
-//                                      
+/* [START] jin.park@lge.com, SSR FEATURE */
 #define MAX_SSR_REASON_LEN	81U
 #define SSR_IOCTL_MAGIC		'S'
 #define SSR_NOTI_REASON		_IOR(SSR_IOCTL_MAGIC, 0x01, char[MAX_SSR_REASON_LEN])
@@ -215,23 +215,23 @@ long ramdump_ioctl(struct file *filp, unsigned int cmd,
 			sizeof(ssr_noti)) == 0)
 			pr_err("ramdump_ioctl reason = %s\n", ssr_noti);
 		break;
-	
+
 	default:
 		pr_err("ramdump_ioctl error\n");
 		break;
-	
+
 	}
 
 	return 0;
 
 }
-//                                    
+/* [END] jin.park@lge.com, SSR FEATURE */
 
 static const struct file_operations ramdump_file_ops = {
 	.open = ramdump_open,
 	.release = ramdump_release,
 	.read = ramdump_read,
-	.unlocked_ioctl = ramdump_ioctl,//                                    
+	.unlocked_ioctl = ramdump_ioctl, /* [ADD] jin.park@lge.com, SSR FEATURE */
 	.poll = ramdump_poll
 };
 

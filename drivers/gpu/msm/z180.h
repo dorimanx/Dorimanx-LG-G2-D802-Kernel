@@ -26,8 +26,6 @@
 #define Z180_DEVICE(device) \
 		KGSL_CONTAINER_OF(device, struct z180_device, dev)
 
-#define Z180_DEFAULT_PWRSCALE_POLICY  NULL
-
 /* Wait a maximum of 10 seconds when trying to idle the core */
 #define Z180_IDLE_TIMEOUT (20 * 1000)
 
@@ -45,5 +43,6 @@ struct z180_device {
 };
 
 int z180_dump(struct kgsl_device *, int);
+int z180_idle(struct kgsl_device *);
 
 #endif /* __Z180_H */

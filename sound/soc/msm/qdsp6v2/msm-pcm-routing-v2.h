@@ -29,6 +29,7 @@
 #define LPASS_BE_SEC_AUXPCM_RX "SEC_AUX_PCM_RX"
 #define LPASS_BE_SEC_AUXPCM_TX "SEC_AUX_PCM_TX"
 #define LPASS_BE_VOICE_PLAYBACK_TX "VOICE_PLAYBACK_TX"
+#define LPASS_BE_VOICE2_PLAYBACK_TX "VOICE2_PLAYBACK_TX"
 #define LPASS_BE_INCALL_RECORD_RX "INCALL_RECORD_TX"
 #define LPASS_BE_INCALL_RECORD_TX "INCALL_RECORD_RX"
 #define LPASS_BE_SEC_I2S_RX "SECONDARY_I2S_RX"
@@ -75,6 +76,7 @@ enum {
 	MSM_FRONTEND_DAI_MULTIMEDIA6,
 	MSM_FRONTEND_DAI_MULTIMEDIA7,
 	MSM_FRONTEND_DAI_MULTIMEDIA8,
+	MSM_FRONTEND_DAI_MULTIMEDIA9,
 	MSM_FRONTEND_DAI_CS_VOICE,
 	MSM_FRONTEND_DAI_VOIP,
 	MSM_FRONTEND_DAI_AFE_RX,
@@ -84,11 +86,12 @@ enum {
 	MSM_FRONTEND_DAI_DTMF_RX,
 	MSM_FRONTEND_DAI_LSM1,
 	MSM_FRONTEND_DAI_VOICE2,
+	MSM_FRONTEND_DAI_QCHAT,
 	MSM_FRONTEND_DAI_MAX,
 };
 
-#define MSM_FRONTEND_DAI_MM_SIZE (MSM_FRONTEND_DAI_MULTIMEDIA8 + 1)
-#define MSM_FRONTEND_DAI_MM_MAX_ID MSM_FRONTEND_DAI_MULTIMEDIA8
+#define MSM_FRONTEND_DAI_MM_SIZE (MSM_FRONTEND_DAI_MULTIMEDIA9 + 1)
+#define MSM_FRONTEND_DAI_MM_MAX_ID MSM_FRONTEND_DAI_MULTIMEDIA9
 
 enum {
 	MSM_BACKEND_DAI_PRI_I2S_RX = 0,
@@ -105,6 +108,7 @@ enum {
 	MSM_BACKEND_DAI_AUXPCM_RX,
 	MSM_BACKEND_DAI_AUXPCM_TX,
 	MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
+	MSM_BACKEND_DAI_VOICE2_PLAYBACK_TX,
 	MSM_BACKEND_DAI_INCALL_RECORD_RX,
 	MSM_BACKEND_DAI_INCALL_RECORD_TX,
 	MSM_BACKEND_DAI_MI2S_RX,
@@ -134,24 +138,35 @@ enum {
 	MSM_BACKEND_DAI_MAX,
 };
 
+enum msm_pcm_routing_event {
+	MSM_PCM_RT_EVT_BUF_RECFG,
+	MSM_PCM_RT_EVT_DEVSWITCH,
+	MSM_PCM_RT_EVT_MAX,
+};
+
 /* dai_id: front-end ID,
  * dspst_id:  DSP audio stream ID
  * stream_type: playback or capture
  */
-void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode, int dspst_id,
+void msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode, int dspst_id,
 	int stream_type);
 void msm_pcm_routing_reg_psthr_stream(int fedai_id, int dspst_id,
 		int stream_type);
 
-void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type);
+struct msm_pcm_routing_evt {
+	void (*event_func)(enum msm_pcm_routing_event, void *);
+	void *priv_data;
+};
 
-int lpa_set_volume(unsigned volume);
+void msm_pcm_routing_reg_phy_stream_v2(int fedai_id, bool perf_mode,
+				       int dspst_id, int stream_type,
+				       struct msm_pcm_routing_evt event_info);
+
+void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type);
 
 int msm_routing_check_backend_enabled(int fedai_id);
 
 int multi_ch_pcm_set_volume(unsigned volume);
-
-int compressed_set_volume(unsigned volume);
 
 uint32_t get_adm_rx_topology(void);
 

@@ -79,7 +79,7 @@
 #include <asm/smp.h>
 #endif
 
-#include <mach/board_lge.h>	/*                          */
+#include <mach/board_lge.h>	/* LGE_UPDATE for MINIOS2.0 */
 
 static int kernel_init(void *);
 
@@ -114,11 +114,13 @@ EXPORT_SYMBOL(system_state);
  */
 #define MAX_INIT_ARGS CONFIG_INIT_ENV_ARG_LIMIT
 #define MAX_INIT_ENVS CONFIG_INIT_ENV_ARG_LIMIT
-/*                                                                         */
+
 #ifndef CONFIG_MACH_MSM8974_G2_KDDI
+/*LGE_CHANGE_S, hyeongjin.kim@lge.com, 2012-03-29, HiddenMenu SMPL Counter */
+/*LGE_UPDATE_S,jongbum.kim, 20111024 -->[*/
 static void smpl_count(void);
-/*                             */
-/*                                                                         */
+/*LGE_UPDATE_E,jongbum.kim <--]*/
+/*LGE_CHANGE_E, hyeongjin.kim@lge.com, 2012-03-29, HiddenMenu SMPL Counter */
 #endif
 extern void time_init(void);
 /* Default late time init is NULL. archs can override this later. */
@@ -134,7 +136,7 @@ static char *static_command_line;
 
 static char *execute_command;
 static char *ramdisk_execute_command;
-static char miniOS_command[] = "miniOS";	/*                          */
+static char miniOS_command[] = "miniOS";	/* LGE_UPDATE for MINIOS2.0 */
 /*
  * If set, this is an indication to the drivers that reset the underlying
  * device before going ahead with the initialization otherwise driver might
@@ -392,9 +394,11 @@ static noinline void __init_refok rest_init(void)
 	/* Call into cpu_idle with preempt disabled */
 	cpu_idle();
 }
-/*                                                                         */
+
 #ifndef CONFIG_MACH_MSM8974_G2_KDDI
-//                    
+/*LGE_CHANGE_S, hyeongjin.kim@lge.com, 2013-03-29, HiddenMenu SMPL Counter */
+/*LGE_UPDATE_S, jongbum.kim, 20111024 -->[*/
+//#ifdef CONFIG_LGE_PM
 #define PWR_ON_EVENT_KEYPAD			0x80
 #define PWR_ON_EVENT_CABLE			0x40
 #define PWR_ON_EVENT_PON1			0x20
@@ -456,10 +460,11 @@ static void smpl_count(void)
         printk("[SMPL_CNT] ===> not smpl boot!!!!!\n");
 	}
 }
-/*                             */
-/*                                                                          */
+/*LGE_UPDATE_E,jongbum.kim <--]*/
+/* LGE_CHANGE_E, hyeongjin.kim@lge.com, 2013-03-29, HiddenMenu SMPL Counter */
 /* Check for early params. */
 #endif
+
 static int __init do_early_param(char *param, char *val)
 {
 	const struct obs_kernel_param *p;
@@ -550,11 +555,6 @@ asmlinkage void __init start_kernel(void)
 	smp_setup_processor_id();
 	debug_objects_early_init();
 
-	/*
-	 * Set up the the initial canary ASAP:
-	 */
-	boot_init_stack_canary();
-
 	cgroup_init_early();
 
 	local_irq_disable();
@@ -569,6 +569,10 @@ asmlinkage void __init start_kernel(void)
 	page_address_init();
 	printk(KERN_NOTICE "%s", linux_banner);
 	setup_arch(&command_line);
+	/*
+	 * Set up the the initial canary ASAP:
+	 */
+	boot_init_stack_canary();
 	mm_init_owner(&init_mm, &init_task);
 	mm_init_cpumask(&init_mm);
 	setup_command_line(command_line);
@@ -868,13 +872,13 @@ static void run_init_process(const char *init_filename)
 {
 	argv_init[0] = init_filename;
 
-	/*                            */
+	/* LGE_UPDATE_S for MINIOS2.0 */
 	if(lge_get_boot_mode() == LGE_BOOT_MODE_MINIOS)
 	{
 		printk(KERN_WARNING "BOOT MODE %s\n", miniOS_command);
 		argv_init[1] = miniOS_command;
 	}
-	/*                            */
+	/* LGE_UPDATE_E for MINIOS2.0 */
 
 	kernel_execve(init_filename, argv_init, envp_init);
 }
@@ -971,11 +975,13 @@ static int __init kernel_init(void * unused)
 	 * we're essentially up and running. Get rid of the
 	 * initmem segments and start the user-mode stuff..
 	 */
-/*                                                                         */
+
 #ifndef CONFIG_MACH_MSM8974_G2_KDDI
+/*LGE_CHANGE_S, hyeongjin.kim@lge.com, 2012-03-29, HiddenMenu SMPL Counter */
+/*LGE_UPDATE_S, jongbum.kim, 20111024 -->[*/
 	smpl_count();
-/*                              */
-/*                                                                         */
+/*LGE_UPDATE_E, jongbum.kim <--]*/
+/*LGE_CHANGE_E, hyeongjin.kim@lge.com, 2012-03-29, HiddenMenu SMPL Counter */
 #endif
 
 	init_post();

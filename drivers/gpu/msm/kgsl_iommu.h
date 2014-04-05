@@ -61,8 +61,12 @@
 #define KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT BIT(2)
 #define KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE BIT(3)
 
+/* SCTLR fields */
+#define KGSL_IOMMU_SCTLR_HUPCF_SHIFT		8
+
 enum kgsl_iommu_reg_map {
 	KGSL_IOMMU_GLOBAL_BASE = 0,
+	KGSL_IOMMU_CTX_SCTLR,
 	KGSL_IOMMU_CTX_TTBR0,
 	KGSL_IOMMU_CTX_TTBR1,
 	KGSL_IOMMU_CTX_FSR,
@@ -82,20 +86,6 @@ struct kgsl_iommu_register_list {
 	unsigned int reg_offset;
 	int ctx_reg;
 };
-
-#ifdef CONFIG_MSM_IOMMU
-extern struct iommu_access_ops iommu_access_ops_v0;
-
-static inline struct iommu_access_ops *get_iommu_access_ops_v0(void)
-{
-	return &iommu_access_ops_v0;
-}
-#else
-static inline struct iommu_access_ops *get_iommu_access_ops_v0(void)
-{
-	return NULL;
-}
-#endif
 
 /*
  * Max number of iommu units that the gpu core can have

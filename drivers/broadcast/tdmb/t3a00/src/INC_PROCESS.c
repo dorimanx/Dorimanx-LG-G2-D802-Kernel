@@ -248,7 +248,6 @@ INC_UINT8 INC_CHIP_STATUS(INC_UINT8 ucI2CID)
 	INC_UINT16	uiChipID;
 	uiChipID = INC_CMD_READ(ucI2CID, APB_PHY_BASE+ 0x10) & 0xF00;
 
-	//printk("[INC]CHIP ID = (0x%04x)\n", uiChipID);
 	if(uiChipID != INC_T3A00_CHIP_ID){
 		printk("[INC] CHIP ID Read Error : (0x%04x)\n", uiChipID);
 		return INC_ERROR;
@@ -293,6 +292,8 @@ INC_UINT8 INC_PLL_SET(INC_UINT8 ucI2CID)
 	if(uiDpll != 0x0001){
 		printk("[INC] PLL Set Error : 0x%04x\n",uiDpll);
 		pInfo->nBbpStatus = ERROR_PLL;
+
+		INC_CHIP_STATUS(ucI2CID);
 		return INC_ERROR;
 	}
 
@@ -306,7 +307,7 @@ INC_UINT8 INC_PLL_SET(INC_UINT8 ucI2CID)
 		pInfo->nBbpStatus = ERROR_PLL;
 		return INC_ERROR;
 	}
-	
+
 	return INC_SUCCESS;
 }
 
@@ -831,6 +832,10 @@ void INC_SCAN_SETTING(INC_UINT8 ucI2CID)
 {
 	INC_CMD_WRITE(ucI2CID, APB_RF_BASE+ 0x22, T3A00_SCAN_IF_PWR);
 	INC_CMD_WRITE(ucI2CID, APB_RF_BASE+ 0x23, T3A00_SCAN_IF_PWR - T3A00_IF_PWR_GAP);
+	// Ensure Lack of RF POR Timing margin 20130812
+	INC_CMD_WRITE(ucI2CID, APB_RF_BASE+ 0xCA, 0x00);
+	INC_DELAY(ucI2CID,1);
+	INC_CMD_WRITE(ucI2CID, APB_RF_BASE+ 0xCA, 0x01);
 }
 
 void INC_AIRPLAY_SETTING(INC_UINT8 ucI2CID)
@@ -851,7 +856,7 @@ void INC_AIRPLAY_SETTING(INC_UINT8 ucI2CID)
 
 	INC_CMD_WRITE(ucI2CID, APB_RF_BASE+ 0x22, T3A00_PLAY_IF_PWR);
 	INC_CMD_WRITE(ucI2CID, APB_RF_BASE+ 0x23, T3A00_PLAY_IF_PWR - T3A00_IF_PWR_GAP);
-
+	
 #ifdef IF_LEVEL_TEST	
 	INC_CMD_WRITE(ucI2CID, APB_RF_BASE+ 0x8E, 0xB0);
 	INC_CMD_WRITE(ucI2CID, APB_RF_BASE+ 0xA1, 0x1B);
@@ -860,7 +865,7 @@ void INC_AIRPLAY_SETTING(INC_UINT8 ucI2CID)
 }
 
 
-#if 1 /* */
+#if 1 /* LGE Mod. Error Log Add. */
 INC_UINT8 INC_CHANNEL_START(INC_UINT8 ucI2CID, ST_SUBCH_INFO* pChInfo)
 {
 	INC_UINT16 wEnsemble;
@@ -1021,7 +1026,7 @@ INC_UINT8 INC_CHANNEL_START(INC_UINT8 ucI2CID, ST_SUBCH_INFO* pChInfo)
 }
 #endif
 
-/*                  */
+/* LGE ADD for Test */
 INC_UINT8 INC_RE_SYNCDETECTOR(INC_UINT8 ucI2CID, ST_SUBCH_INFO* pChInfo)
 {
 	INC_UINT16 wEnsemble;
@@ -1220,7 +1225,7 @@ INC_UINT8 INC_GET_ANT_LEVEL(INC_UINT8 ucI2CID)
 	INC_GET_CER(ucI2CID);
 	unCER = pInfo->uiCER;
 
-	//                                                                   
+	//Delete reason : In ChannStart fail, ucTmid value may be invalid LGE
 	//if(pInfo->ucTmid == TMID_0)    //if DAB
 	//unCER = pInfo->uiCER + ((pInfo->uiCER / 10.0) * 2.5);
 
@@ -1239,7 +1244,7 @@ INC_UINT8 INC_GET_ANT_LEVEL(INC_UINT8 ucI2CID)
 	printk("\n ucVber = %d, uiCER = %d ucAntLevel = %d, unRefAntLevel = %d\n", pInfo->ucVber, pInfo->uiCER, pInfo->ucAntLevel, unRefAntLevel);
 
 	/* Srart : Correct AntLevel DMB */
-	/*                  */
+	/* ucTmid block LGE */
 	if(/*(pInfo->ucTmid == TMID_1) &&*/(unRefAntLevel == 0) && (pInfo->uiCER < 1300) && (pInfo->ucVber >= 50))
 	 unRefAntLevel+=1;
 

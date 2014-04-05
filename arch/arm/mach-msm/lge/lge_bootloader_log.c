@@ -52,7 +52,7 @@ static int __init lge_bootlog_init(void)
 	printk(KERN_INFO"%s: start %d\n", __func__, boot_logbuf_virt->start);
 	printk(KERN_INFO"%s: size %d\n", __func__, boot_logbuf_virt->size);
 	printk(KERN_INFO"--------------------------------------------------------------\n");
-	printk(KERN_INFO"below logs are got from bootloader \n");
+	printk(KERN_INFO"below logs are got from bootloader\n");
 	printk(KERN_INFO"--------------------------------------------------------------\n");
 	printk(KERN_INFO"\n");
 	buffer = (char *)boot_logbuf_virt->data;

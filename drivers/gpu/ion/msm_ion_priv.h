@@ -21,14 +21,14 @@
 #include <linux/kref.h>
 #include <linux/mm_types.h>
 #include <linux/mutex.h>
-#include <linux/rbtree.h>
+#include <linux/types.h>
 #include <linux/ion.h>
 #include <linux/iommu.h>
 #include <linux/seq_file.h>
 
 /**
  * struct mem_map_data - represents information about the memory map for a heap
- * @node:		rb node used to store in the tree of mem_map_data
+ * @node:		list node used to store in the list of mem_map_data
  * @addr:		start address of memory region.
  * @addr:		end address of memory region.
  * @size:		size of memory region
@@ -36,7 +36,7 @@
  *
  */
 struct mem_map_data {
-	struct rb_node node;
+	struct list_head node;
 	ion_phys_addr_t addr;
 	ion_phys_addr_t addr_end;
 	unsigned long size;
@@ -55,6 +55,24 @@ void ion_cma_heap_destroy(struct ion_heap *);
 
 struct ion_heap *ion_secure_cma_heap_create(struct ion_platform_heap *);
 void ion_secure_cma_heap_destroy(struct ion_heap *);
+
+int ion_secure_cma_prefetch(struct ion_heap *heap, void *data);
+
+int ion_secure_cma_drain_pool(struct ion_heap *heap, void *unused);
+
+#else
+static inline int ion_secure_cma_prefetch(struct ion_heap *heap, void *data)
+{
+	return -ENODEV;
+}
+
+static inline int ion_secure_cma_drain_pool(struct ion_heap *heap, void *unused)
+{
+	return -ENODEV;
+}
+
+
+
 #endif
 
 struct ion_heap *ion_removed_heap_create(struct ion_platform_heap *);

@@ -630,7 +630,7 @@ static int ecm_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 					gadget_is_musbhdrc(cdev->gadget)
 					|| gadget_is_ci13xxx_msm(cdev->gadget)
 					|| gadget_is_dwc3(cdev->gadget)
-                    );
+					);
 #else
 			/* Enable zlps by default for ECM conformance;
 			 * override for musb_hdrc (avoids txdma ovhead).

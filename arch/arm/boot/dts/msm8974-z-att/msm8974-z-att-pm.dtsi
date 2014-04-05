@@ -30,7 +30,7 @@
 			revision = "rev_a...";
 			interrupts = <74 0x2>;
 			ti,int-gpio = <&msmgpio 74 0x02>;
-			ti,chg-current-ma = <1600>;
+			ti,chg-current-ma = <1500>;
 			ti,term-current-ma = <128>;
 			ti,vbat-max-mv = <4352>;
 			ti,pre-chg-current-ma = <256>;
@@ -343,8 +343,16 @@
 		qcom,master-en = <1>;
 	};
 
-	mpp@a600 { /* MPP 7 */
-	};
+        mpp@a600 { /* MPP 7 */
+                status = "ok";            /* rgb_led en for lp5521 */
+                qcom,mode = <1>;         /* QPNP_PIN_MODE_DIG_OUT */
+                qcom,output-type = <0>;      /* QPNP_PIN_OUT_BUF_CMOS */
+                qcom,pull = <3>;        /* QPNP_PIN_PULL_NO */
+                qcom,vin-sel = <2>;     /* QPNP_PIN_VIN0 1.8V */
+                qcom,out-strength = <2>;  /* QPNP_PIN_OUT_STRENGTH_MED */
+                qcom,src-sel = <0>;     /* QPNP_PIN_SEL_FUNC_CONSTANT */
+                qcom,master-en = <1>;
+        };
 
 	mpp@a700 { /* MPP 8 */
 	};
@@ -373,7 +381,13 @@
 			qcom,init-voltage = <3300000>;
 		};
 	};
-
+        rpm-regulator-ldoa19 { 
+		pm8941_l19: regulator-l19 {  
+ 		regulator-min-microvolt = <3300000>;  
+		regulator-max-microvolt = <3300000>;  
+ 		qcom,init-voltage = <3300000>;  
+       };  
+  }; 
 	rpm-regulator-ldoa18 {
 		status = "okay";
 		pm8941_l18: regulator-l18 {

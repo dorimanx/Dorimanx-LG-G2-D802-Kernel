@@ -16,18 +16,18 @@
 #define PLATFORM_DRIVER_NAME "msm_camera_imx132"
 #define imx132_obj imx132_##obj
 
-/*                             
-                                 
-                              
+/* jinw.kim@lge.com, 2013-01-03
+ * G2 Sub Camera Bring up(IMX132)
+ * Define PMIC gpio for VT LDO
  */
 #if defined(CONFIG_MACH_LGE) && !defined(CONFIG_MACH_MSM8974_LGPS11)
 #define PM8941_GPIO_10	10
 #define VT_CAM_LDO_EN	481	// PM8941_GPIO_PM_TO_SYS is not defined. When parse <&pm8941_gpios 10 0> from msm_sensor_init_vreg_data(), the value 481 is returned.
 #endif
 
-/*                             
-                                 
-                                           
+/* jinw.kim@lge.com, 2013-01-03
+ * G2 Sub Camera Bring up(IMX132)
+ * Add function imx132_sensor_power_up&down
  */
 #if defined(CONFIG_MACH_LGE)
 extern int32_t msm_sensor_enable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf);
@@ -1011,9 +1011,9 @@ static struct v4l2_subdev_ops imx132_subdev_ops = {
 	.video = &imx132_subdev_video_ops,
 };
 
-/*                             
-                                 
-                                           
+/* jinw.kim@lge.com, 2013-01-03
+ * G2 Sub Camera Bring up(IMX132)
+ * Add function imx132_sensor_power_up&down
  */
 #if defined(CONFIG_MACH_LGE)
 static struct msm_cam_clk_info cam_8960_clk_info[] = {
@@ -1081,9 +1081,9 @@ int32_t imx132_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 		pr_info("%s: skip turing off VIO!!!\n", __func__);
 	}
 
-/*                             
-                                 
-                          
+/* jinw.kim@lge.com, 2013-01-03
+ * G2 Sub Camera Bring up(IMX132)
+ * Separated power control
  */
 #if defined(CONFIG_MACH_LGE) && !defined(CONFIG_MACH_MSM8974_LGPS11)
 	CDBG("%s: Turning off VDIG\n", __func__);
@@ -1163,9 +1163,9 @@ int32_t imx132_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	}
 	usleep_range(imx132_vreg_vio.delay * 1000, (imx132_vreg_vio.delay * 1000) + 1000);
 
-/*                             
-                                 
-                          
+/* jinw.kim@lge.com, 2013-01-03
+ * G2 Sub Camera Bring up(IMX132)
+ * Separated power control
  */
 #if defined(CONFIG_MACH_LGE) && !defined(CONFIG_MACH_MSM8974_LGPS11)
     CDBG("%s: Turning on VDIG\n", __func__);
@@ -1267,7 +1267,7 @@ request_gpio_failed:
 	kfree(s_ctrl->reg_ptr);
 	return rc;
 }
-#endif /*                 */
+#endif /* CONFIG_MACH_LGE */
 
 static int32_t imx132_write_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 		uint16_t gain, uint32_t line)
@@ -1317,9 +1317,9 @@ static struct msm_sensor_fn_t imx132_func_tbl = {
 	.sensor_mode_init = msm_sensor_mode_init,
 	.sensor_get_output_info = msm_sensor_get_output_info,
 	.sensor_config = msm_sensor_config,
-/*                             
-                                 
-                                           
+/* jinw.kim@lge.com, 2013-01-03
+ * G2 Sub Camera Bring up(IMX132)
+ * Add function imx132_sensor_power_up&down
  */
 #if defined(CONFIG_MACH_LGE)
 	.sensor_power_up = imx132_sensor_power_up,

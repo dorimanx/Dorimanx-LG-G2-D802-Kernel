@@ -34,7 +34,7 @@
 #include <linux/leds-lp5521.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
-#if defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_Z_KR)
+#if defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_KDDI )|| defined(CONFIG_MACH_MSM8974_Z_TMO_US)|| defined(CONFIG_MACH_MSM8974_Z_SPR)|| defined(CONFIG_MACH_MSM8974_Z_ATT_US) || defined(CONFIG_MACH_MSM8974_B1_KR)
 #include <mach/board_lge.h>
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
@@ -60,7 +60,7 @@
 #define LP5521_REG_RESET		0x0D
 #define LP5521_REG_GPO			0x0E
 #define LP5521_REG_R_PROG_MEM		0x10
-#if defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_Z_KR)
+#if defined(CONFIG_MACH_MSM8974_VU3_KR)
 #define LP5521_REG_G_PWM		0x04
 #define LP5521_REG_B_PWM		0x03
 #define LP5521_REG_G_CURRENT		0x07
@@ -192,7 +192,7 @@ static const struct lp5521_wait_param lp5521_wait_params[LP5521_CYCLE_MAX] = {
 	},
 };
 
-#if defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_Z_KR)
+#if defined(CONFIG_MACH_MSM8974_VU3_KR)
 static struct lp5521_led_config lp5521_led_config_rev_a[] = {
 	{
 		.name = "R",
@@ -344,6 +344,67 @@ static struct lp5521_led_pattern board_led_patterns_rev_a[] = {
 		.size_g = ARRAY_SIZE(mode12_green_rev_a),
 		.size_b = ARRAY_SIZE(mode12_blue_rev_a),
 	},
+	/* for dummy pattern IDs (defined LGLedRecord.java) */
+	{
+		/* ID_INCALL_PINK = 21 */
+	},
+	{
+		/* ID_INCALL_BLUE = 22 */
+	},
+	{
+		/* ID_INCALL_ORANGE = 23 */
+	},
+	{
+		/* ID_INCALL_YELLOW = 24 */
+	},
+	{
+		/* ID_INCALL_TURQUOISE = 25 */
+	},
+	{
+		/* ID_INCALL_PURPLE = 26 */
+	},
+	{
+		/* ID_INCALL_RED = 27 */
+	},
+	{
+		/* ID_INCALL_LIME = 28 */
+	},
+	{
+		/* ID_MISSED_NOTI_TURQUOISE = 29 */
+		.r = mode13_red_rev_a,
+		.g = mode13_green_rev_a,
+		.b = mode13_blue_rev_a,
+		.size_r = ARRAY_SIZE(mode13_red_rev_a),
+		.size_g = ARRAY_SIZE(mode13_green_rev_a),
+		.size_b = ARRAY_SIZE(mode13_blue_rev_a),
+	},
+	{
+		/* ID_MISSED_NOTI_PURPLE = 30 */
+		.r = mode14_red_rev_a,
+		.g = mode14_green_rev_a,
+		.b = mode14_blue_rev_a,
+		.size_r = ARRAY_SIZE(mode14_red_rev_a),
+		.size_g = ARRAY_SIZE(mode14_green_rev_a),
+		.size_b = ARRAY_SIZE(mode14_blue_rev_a),
+	},
+	{
+		/* ID_MISSED_NOTI_RED = 31 */
+		.r = mode15_red,
+		.g = mode15_green,
+		.b = mode15_blue,
+		.size_r = ARRAY_SIZE(mode15_red),
+		.size_g = ARRAY_SIZE(mode15_green),
+		.size_b = ARRAY_SIZE(mode15_blue),
+	},
+	{
+		/* ID_MISSED_NOTI_LIME = 32 */
+		.r = mode16_red_rev_a,
+		.g = mode16_green_rev_a,
+		.b = mode16_blue_rev_a,
+		.size_r = ARRAY_SIZE(mode16_red_rev_a),
+		.size_g = ARRAY_SIZE(mode16_green_rev_a),
+		.size_b = ARRAY_SIZE(mode16_blue_rev_a),
+	},
 };
 
 static struct lp5521_led_config lp5521_led_config[] = {
@@ -497,16 +558,84 @@ static struct lp5521_led_pattern board_led_patterns[] = {
 		.size_g = ARRAY_SIZE(mode12_green),
 		.size_b = ARRAY_SIZE(mode12_blue),
 	},
+	/* for dummy pattern IDs (defined LGLedRecord.java) */
+	{
+		/* ID_INCALL_PINK = 21 */
+	},
+	{
+		/* ID_INCALL_BLUE = 22 */
+	},
+	{
+		/* ID_INCALL_ORANGE = 23 */
+	},
+	{
+		/* ID_INCALL_YELLOW = 24 */
+	},
+	{
+		/* ID_INCALL_TURQUOISE = 25 */
+	},
+	{
+		/* ID_INCALL_PURPLE = 26 */
+	},
+	{
+		/* ID_INCALL_RED = 27 */
+	},
+	{
+		/* ID_INCALL_LIME = 28 */
+	},
+	{
+		/* ID_MISSED_NOTI_TURQUOISE = 29 */
+		.r = mode13_red,
+		.g = mode13_green,
+		.b = mode13_blue,
+		.size_r = ARRAY_SIZE(mode13_red),
+		.size_g = ARRAY_SIZE(mode13_green),
+		.size_b = ARRAY_SIZE(mode13_blue),
+	},
+	{
+		/* ID_MISSED_NOTI_PURPLE = 30 */
+		.r = mode14_red,
+		.g = mode14_green,
+		.b = mode14_blue,
+		.size_r = ARRAY_SIZE(mode14_red),
+		.size_g = ARRAY_SIZE(mode14_green),
+		.size_b = ARRAY_SIZE(mode14_blue),
+	},
+	{
+		/* ID_MISSED_NOTI_RED = 31 */
+		.r = mode15_red,
+		.g = mode15_green,
+		.b = mode15_blue,
+		.size_r = ARRAY_SIZE(mode15_red),
+		.size_g = ARRAY_SIZE(mode15_green),
+		.size_b = ARRAY_SIZE(mode15_blue),
+	},
+	{
+		/* ID_MISSED_NOTI_LIME = 32 */
+		.r = mode16_red,
+		.g = mode16_green,
+		.b = mode16_blue,
+		.size_r = ARRAY_SIZE(mode16_red),
+		.size_g = ARRAY_SIZE(mode16_green),
+		.size_b = ARRAY_SIZE(mode16_blue),
+	},
 };
 
 #else
 
 static struct lp5521_led_config lp5521_led_config[] = {
 	{
+#if defined(CONFIG_MACH_MSM8974_B1_KR)
+		.name = "R",
+		.chan_nr	= 0,
+		.led_current	= 37,
+		.max_current	= 180,
+#else
 		.name = "R",
 		.chan_nr	= 0,
 		.led_current	= 180,
 		.max_current	= 180,
+#endif	
 	},
 	{
 		.name = "G",
@@ -576,7 +705,7 @@ static struct lp5521_led_pattern board_led_patterns[] = {
 		.size_g = ARRAY_SIZE(mode7_green),
 		.size_b = ARRAY_SIZE(mode7_blue),
 	},
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKOPENHK)  || defined(CONFIG_MACH_APQ8064_GV_KR) || defined(CONFIG_MACH_APQ8064_GKOPENTW) || defined(CONFIG_MACH_APQ8064_GKSHBSG) || defined(CONFIG_MACH_APQ8064_GKOPENEU)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKOPENHK)  || defined(CONFIG_MACH_APQ8064_GV_KR) || defined(CONFIG_MACH_APQ8064_GKOPENTW) || defined(CONFIG_MACH_APQ8064_GKSHBSG) || defined(CONFIG_MACH_APQ8064_GKOPENEU) || defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_KDDI)|| defined(CONFIG_MACH_MSM8974_Z_TMO_US)|| defined(CONFIG_MACH_MSM8974_Z_SPR)|| defined(CONFIG_MACH_MSM8974_Z_ATT_US) || defined(CONFIG_MACH_MSM8974_B1_KR)
 	/* for dummy pattern IDs (defined LGLedRecord.java) */
 	{
 		/* ID_ALARM = 8 */
@@ -652,6 +781,82 @@ static struct lp5521_led_pattern board_led_patterns[] = {
 		.size_g = ARRAY_SIZE(mode12_green),
 		.size_b = ARRAY_SIZE(mode12_blue),
 	},
+	/* for dummy pattern IDs (defined LGLedRecord.java) */
+	{
+		/* ID_INCALL_PINK = 21 */
+	},
+	{
+		/* ID_INCALL_BLUE = 22 */
+	},
+	{
+		/* ID_INCALL_ORANGE = 23 */
+	},
+	{
+		/* ID_INCALL_YELLOW = 24 */
+	},
+	{
+		/* ID_INCALL_TURQUOISE = 25 */
+	},
+	{
+		/* ID_INCALL_PURPLE = 26 */
+	},
+	{
+		/* ID_INCALL_RED = 27 */
+	},
+	{
+		/* ID_INCALL_LIME = 28 */
+	},
+	{
+		/* ID_MISSED_NOTI_TURQUOISE = 29 */
+		.r = mode13_red,
+		.g = mode13_green,
+		.b = mode13_blue,
+		.size_r = ARRAY_SIZE(mode13_red),
+		.size_g = ARRAY_SIZE(mode13_green),
+		.size_b = ARRAY_SIZE(mode13_blue),
+	},
+	{
+		/* ID_MISSED_NOTI_PURPLE = 30 */
+		.r = mode14_red,
+		.g = mode14_green,
+		.b = mode14_blue,
+		.size_r = ARRAY_SIZE(mode14_red),
+		.size_g = ARRAY_SIZE(mode14_green),
+		.size_b = ARRAY_SIZE(mode14_blue),
+	},
+	{
+		/* ID_MISSED_NOTI_RED = 31 */
+		.r = mode15_red,
+		.g = mode15_green,
+		.b = mode15_blue,
+		.size_r = ARRAY_SIZE(mode15_red),
+		.size_g = ARRAY_SIZE(mode15_green),
+		.size_b = ARRAY_SIZE(mode15_blue),
+	},
+	{
+		/* ID_MISSED_NOTI_LIME = 32 */
+		.r = mode16_red,
+		.g = mode16_green,
+		.b = mode16_blue,
+		.size_r = ARRAY_SIZE(mode16_red),
+		.size_g = ARRAY_SIZE(mode16_green),
+		.size_b = ARRAY_SIZE(mode16_blue),
+	},	
+	{
+		/* ID_NONE = 33 */
+	},
+	{
+		/* ID_NONE = 34 */
+	},
+	{
+		/* ID_INCALL = 35 */
+		.r = mode17_red,
+		.g = mode17_green,
+		.b = mode17_blue,
+		.size_r = ARRAY_SIZE(mode17_red),
+		.size_g = ARRAY_SIZE(mode17_green),
+		.size_b = ARRAY_SIZE(mode17_blue),		
+	},	
 };
 #endif
 
@@ -1159,7 +1364,7 @@ static void _run_led_pattern(struct lp5521_chip *chip,
 
 	lp5521_write_program_memory(cl, LP5521_REG_R_PROG_MEM,
 				ptn->r, ptn->size_r);
-#if defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_Z_KR)
+#if defined(CONFIG_MACH_MSM8974_VU3_KR)
     if(lge_get_board_revno() == HW_REV_B)
     {
 	    lp5521_write_program_memory(cl, LP5521_REG_B_PROG_MEM,
@@ -1192,6 +1397,12 @@ static void lp5521_run_led_pattern(int mode, struct lp5521_chip *chip)
 	struct i2c_client *cl = chip->client;
 	int num_patterns = chip->pdata->num_patterns;
 
+#if defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_KDDI) || defined(CONFIG_MACH_MSM8974_B1_KR)
+	if (mode >= 1000) {
+		mode = mode - 1000;
+	}
+#endif
+
 	chip->id_pattern_play = mode;
 
     #ifdef CONFIG_MACH_APQ8064_GVDCM
@@ -1201,7 +1412,7 @@ static void lp5521_run_led_pattern(int mode, struct lp5521_chip *chip)
 	}
 	#endif
 
-#if defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_Z_KR)
+#if defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_KDDI)|| defined(CONFIG_MACH_MSM8974_Z_TMO_US)|| defined(CONFIG_MACH_MSM8974_Z_SPR)|| defined(CONFIG_MACH_MSM8974_Z_ATT_US) || defined(CONFIG_MACH_MSM8974_B1_KR)
 #if 0
 	/* this process is not need, because dummy pattern defined in board file */
 	if (mode == PATTERN_FAVORITE_MISSED_NOTI || mode == PATTERN_CHARGING_COMPLETE_50 || mode == PATTERN_CHARGING_50) {
@@ -1343,7 +1554,7 @@ static enum lp5521_wait_type _find_wait_cycle_type(unsigned int ms)
 }
 
 static void _set_wait_cmd(struct lp5521_pattern_cmd *cmd,
-			unsigned int ms, u8 jump)
+			unsigned int ms, u8 jump, unsigned int off)
 {
 	enum lp5521_wait_type type = _find_wait_cycle_type(ms);
 	unsigned int loop = ms / lp5521_wait_params[type].cycle;
@@ -1355,28 +1566,59 @@ static void _set_wait_cmd(struct lp5521_pattern_cmd *cmd,
 	WARN_ON(!cmd_msb);
 	WARN_ON(loop > 64);
 
-	/* wait command */
-	cmd->r[cmd->pc_r++] = cmd_msb;
-	cmd->r[cmd->pc_r++] = CMD_WAIT_LSB;
-	cmd->g[cmd->pc_g++] = cmd_msb;
-	cmd->g[cmd->pc_g++] = CMD_WAIT_LSB;
-	cmd->b[cmd->pc_b++] = cmd_msb;
-	cmd->b[cmd->pc_b++] = CMD_WAIT_LSB;
+        if(off)
+        {
+            if(loop > 1)
+            {
+                if(loop > 128)
+                    loop = 128;
 
-	/* branch command : if wait time is bigger than cycle msec,
-			branch is used for command looping */
-	if (loop > 1) {
-		branch = (5 << 13) | ((loop - 1) << 7) | jump;
-		msb = (branch >> 8) & 0xFF;
-		lsb = branch & 0xFF;
+                lsb = ((loop-1) & 0xff) | 0x80;
+                /* wait command */
+                cmd->r[cmd->pc_r++] = cmd_msb;
+                cmd->r[cmd->pc_r++] = lsb;
+                cmd->g[cmd->pc_g++] = cmd_msb;
+                cmd->g[cmd->pc_g++] = lsb;
+                cmd->b[cmd->pc_b++] = cmd_msb;
+                cmd->b[cmd->pc_b++] = lsb;
+            }
+            else
+            {
+                /* wait command */
+                cmd->r[cmd->pc_r++] = cmd_msb;
+                cmd->r[cmd->pc_r++] = CMD_WAIT_LSB;
+                cmd->g[cmd->pc_g++] = cmd_msb;
+                cmd->g[cmd->pc_g++] = CMD_WAIT_LSB;
+                cmd->b[cmd->pc_b++] = cmd_msb;
+                cmd->b[cmd->pc_b++] = CMD_WAIT_LSB;
+            }
+        }
+        else
+        {
+            /* wait command */
+            cmd->r[cmd->pc_r++] = cmd_msb;
+            cmd->r[cmd->pc_r++] = CMD_WAIT_LSB;
+            cmd->g[cmd->pc_g++] = cmd_msb;
+            cmd->g[cmd->pc_g++] = CMD_WAIT_LSB;
+            cmd->b[cmd->pc_b++] = cmd_msb;
+            cmd->b[cmd->pc_b++] = CMD_WAIT_LSB;
 
-		cmd->r[cmd->pc_r++] = msb;
-		cmd->r[cmd->pc_r++] = lsb;
-		cmd->g[cmd->pc_g++] = msb;
-		cmd->g[cmd->pc_g++] = lsb;
-		cmd->b[cmd->pc_b++] = msb;
-		cmd->b[cmd->pc_b++] = lsb;
-	}
+            /* branch command : if wait time is bigger than cycle msec,
+                       branch is used for command looping */
+            if (loop > 1) {
+                branch = (5 << 13) | ((loop - 1) << 7) | jump;
+                msb = (branch >> 8) & 0xFF;
+                lsb = branch & 0xFF;
+
+                cmd->r[cmd->pc_r++] = msb;
+                cmd->r[cmd->pc_r++] = lsb;
+                cmd->g[cmd->pc_g++] = msb;
+                cmd->g[cmd->pc_g++] = lsb;
+                cmd->b[cmd->pc_b++] = msb;
+                cmd->b[cmd->pc_b++] = lsb;
+            }
+        }
+
 }
 
 static inline bool _is_pc_overflow(struct lp5521_led_pattern *ptn)
@@ -1414,12 +1656,12 @@ static ssize_t store_led_blink(struct device *dev,
 
 	/* on */
 	_set_pwm_cmd(&cmd, rgb);
-	_set_wait_cmd(&cmd, on, jump_pc);
+	_set_wait_cmd(&cmd, on, jump_pc, 0);
 	jump_pc = cmd.pc_r / 2; /* 16bit size program counter */
 
 	/* off */
 	_set_pwm_cmd(&cmd, 0);
-	_set_wait_cmd(&cmd, off, jump_pc);
+	_set_wait_cmd(&cmd, off, jump_pc, 1);
 
 	ptn.r = cmd.r;
 	ptn.size_r = cmd.pc_r;
@@ -1606,7 +1848,7 @@ static int lp5521_probe(struct i2c_client *client,
 
 	mutex_init(&chip->lock);
 
-#if defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_Z_KR)
+#if defined(CONFIG_MACH_MSM8974_VU3_KR)
     if(lge_get_board_revno() != HW_REV_B)
     {
         lp5521_pdata.led_config = lp5521_led_config_rev_a;
@@ -1621,7 +1863,19 @@ static int lp5521_probe(struct i2c_client *client,
         gpio_set_value((chip->rgb_led_en), 0);
         usleep_range(1000, 2000); /* Keep enable down at least 1ms */
 #ifdef CONFIG_MACH_MSM8974_Z_KR		
-        if(lge_get_board_revno() > HW_REV_D)
+        if(lge_get_board_revno() >= HW_REV_E)
+        {
+            gpio_set_value((chip->rgb_led_en), 1);
+            usleep_range(1000, 2000); /* Keep enable down at least 1ms */
+        }
+#elif defined(CONFIG_MACH_MSM8974_Z_KDDI)|| defined(CONFIG_MACH_MSM8974_Z_ATT_US)
+        if(lge_get_board_revno() >= HW_REV_B)
+        {
+            gpio_set_value((chip->rgb_led_en), 1);
+            usleep_range(1000, 2000); /* Keep enable down at least 1ms */
+        }
+#elif defined(CONFIG_MACH_MSM8974_Z_TMO_US)|| defined(CONFIG_MACH_MSM8974_Z_SPR)
+        if(lge_get_board_revno() >= HW_REV_D)
         {
             gpio_set_value((chip->rgb_led_en), 1);
             usleep_range(1000, 2000); /* Keep enable down at least 1ms */
@@ -1702,9 +1956,11 @@ static int lp5521_probe(struct i2c_client *client,
 		goto fail2;
 	}
 
+#if !defined(CONFIG_MACH_MSM8974_Z_KR) && !defined(CONFIG_MACH_MSM8974_Z_KDDI)&& !defined(CONFIG_MACH_MSM8974_Z_TMO_US)&& !defined(CONFIG_MACH_MSM8974_Z_SPR)&& !defined(CONFIG_MACH_MSM8974_Z_ATT_US) && !defined(CONFIG_MACH_MSM8974_B1_KR)
 	lp5521_run_led_pattern(1, chip); //1: Power On pattern number
 	LP5521_INFO_MSG("[%s] pattern id : 1(Power on)", __func__);
 	LP5521_INFO_MSG("[%s] complete\n", __func__);
+#endif
 
 	return ret;
 fail2:

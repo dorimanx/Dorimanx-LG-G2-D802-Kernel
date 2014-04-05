@@ -1,4 +1,4 @@
-/*                                                                                      */
+/* LGE_CHANGE_S support factory process without battery for only internal charger (VU3) */
 static struct acpu_level acpu_freq_tbl_v1_pvs0_lge_factory[] __initdata = {
 	{ 1, {  300000, PLL_0, 0,   0 }, L2(0),   825000,  73 },
 	{ 0, {  345600, HFPLL, 2,  36 }, L2(3),   825000,  85 },

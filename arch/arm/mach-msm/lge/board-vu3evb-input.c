@@ -43,15 +43,15 @@
 #include <linux/rmi.h>
 #endif
 
-//#include "board-j1.h"
+/* #include "board-j1.h" */
 #define NR_MSM_IRQS 288
 #define MSM_GPIO_TO_INT(n) (NR_MSM_IRQS + (n))
 
 /* TOUCH GPIOS */
-#define SYNAPTICS_TS_I2C_SDA                 	6
-#define SYNAPTICS_TS_I2C_SCL                 	7
-#define SYNAPTICS_TS_I2C_INT_GPIO            	5
-#define SYNAPTICS_TS_I2C_INT_GPIO_GVDCM       	59
+#define SYNAPTICS_TS_I2C_SDA			6
+#define SYNAPTICS_TS_I2C_SCL			7
+#define SYNAPTICS_TS_I2C_INT_GPIO		5
+#define SYNAPTICS_TS_I2C_INT_GPIO_GVDCM	59
 #define TOUCH_RESET                             8
 #define TOUCH_POWER_EN                          62
 
@@ -64,10 +64,10 @@
 int synaptics_t1320_power_on(int on)
 {
 	int rc = -EINVAL;
-	static struct regulator *vreg_l15 = NULL;
-	static struct regulator *vreg_l22 = NULL;
+	static struct regulator *vreg_l15;
+	static struct regulator *vreg_l22;
 #if defined(CONFIG_MACH_APQ8064_GVDCM)
-	static struct regulator *vreg_l21 = NULL;
+	static struct regulator *vreg_l21;
 #endif
 	/* 3.3V_TOUCH_VDD, VREG_L15: 2.75 ~ 3.3 */
 	if (!vreg_l15) {
@@ -75,7 +75,7 @@ int synaptics_t1320_power_on(int on)
 		if (IS_ERR(vreg_l15)) {
 			pr_err("%s: regulator get of 8921_l15 failed (%ld)\n",
 					__func__,
-			       PTR_ERR(vreg_l15));
+					PTR_ERR(vreg_l15));
 			rc = PTR_ERR(vreg_l15);
 			vreg_l15 = NULL;
 			return rc;
@@ -87,7 +87,7 @@ int synaptics_t1320_power_on(int on)
 		if (IS_ERR(vreg_l22)) {
 			pr_err("%s: regulator get of 8921_l22 failed (%ld)\n",
 					__func__,
-			       PTR_ERR(vreg_l22));
+					PTR_ERR(vreg_l22));
 			rc = PTR_ERR(vreg_l22);
 			vreg_l22 = NULL;
 			return rc;
@@ -95,14 +95,14 @@ int synaptics_t1320_power_on(int on)
 	}
 
 #if defined(CONFIG_MACH_APQ8064_GVDCM)
-        if (lge_get_board_revno() == HW_REV_A) {
+	if (lge_get_board_revno() == HW_REV_A) {
 		/* 1.8V_TOUCH_IO, VREG_L22: 1.7 ~ 2.85 */
 		if (!vreg_l21) {
 			vreg_l21 = regulator_get(NULL, "touch_io_temp");
 			if (IS_ERR(vreg_l21)) {
 				pr_err("%s: regulator get of 8921_l22 failed (%ld)\n",
 						__func__,
-				       PTR_ERR(vreg_l21));
+						PTR_ERR(vreg_l21));
 				rc = PTR_ERR(vreg_l21);
 				vreg_l21 = NULL;
 				return rc;
@@ -113,30 +113,30 @@ int synaptics_t1320_power_on(int on)
 	rc = regulator_set_voltage(vreg_l15, 3300000, 3300000);
 	rc |= regulator_set_voltage(vreg_l22, 1800000, 1800000);
 #if defined(CONFIG_MACH_APQ8064_GVDCM)
-        if (lge_get_board_revno() == HW_REV_A) 
-	rc |= regulator_set_voltage(vreg_l21, 1800000, 1800000);
-#endif	
+	if (lge_get_board_revno() == HW_REV_A)
+		rc |= regulator_set_voltage(vreg_l21, 1800000, 1800000);
+#endif
 	if (rc < 0) {
 		printk(KERN_INFO "[Touch D] %s: cannot control regulator\n",
-		       __func__);
+				__func__);
 		return rc;
 	}
 
 	if (on) {
-		printk("[Touch D]touch enable\n");
+		printk(KERN_INFO "[Touch D]touch enable\n");
 		regulator_enable(vreg_l15);
 		regulator_enable(vreg_l22);
 #if defined(CONFIG_MACH_APQ8064_GVDCM)
-     	if (lge_get_board_revno() == HW_REV_A)
-		regulator_enable(vreg_l21);
+		if (lge_get_board_revno() == HW_REV_A)
+			regulator_enable(vreg_l21);
 #endif
 	} else {
-		printk("[Touch D]touch disable\n");
+		printk(KERN_INFO "[Touch D]touch disable\n");
 		regulator_disable(vreg_l15);
 		regulator_disable(vreg_l22);
 #if defined(CONFIG_MACH_APQ8064_GVDCM)
-        if (lge_get_board_revno() == HW_REV_A)
-		regulator_disable(vreg_l21);
+		if (lge_get_board_revno() == HW_REV_A)
+			regulator_disable(vreg_l21);
 #endif
 	}
 
@@ -153,21 +153,21 @@ static struct touch_power_module touch_pwr = {
 };
 
 static struct touch_device_caps touch_caps = {
-	.button_support 			= 1,
+	.button_support			= 1,
 	.y_button_boundary			= 0,
 #if defined(CUST_G_TOUCH) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GV_KR)
-	.number_of_button 			= 2,
-	.button_name 				= {KEY_BACK,KEY_MENU},
+	.number_of_button			= 2,
+	.button_name				= {KEY_BACK, KEY_MENU},
 #else
-	.number_of_button 			= 3,
-	.button_name 				= {KEY_BACK,KEY_HOMEPAGE,KEY_MENU},
+	.number_of_button			= 3,
+	.button_name				= {KEY_BACK, KEY_HOMEPAGE, KEY_MENU},
 #endif
-	.button_margin				= 0,	
-	.is_width_supported 		= 1,
-	.is_pressure_supported 		= 1,
+	.button_margin				= 0,
+	.is_width_supported		= 1,
+	.is_pressure_supported		= 1,
 	.is_id_supported			= 1,
-	.max_width 					= 15,
-	.max_pressure 				= 0xFF,
+	.max_width					= 15,
+	.max_pressure				= 0xFF,
 	.max_id						= 10,
 
 #if defined(CUST_G_TOUCH) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GV_KR)
@@ -190,20 +190,20 @@ static struct touch_device_caps touch_caps = {
 };
 
 static struct touch_operation_role touch_role = {
-	.operation_mode 		= INTERRUPT_MODE,
+	.operation_mode		= INTERRUPT_MODE,
 	.key_type				= TOUCH_HARD_KEY,
 	.report_mode			= REDUCED_REPORT_MODE,
-	.delta_pos_threshold 	= 1,
-	.orientation 			= 0,
+	.delta_pos_threshold	= 1,
+	.orientation			= 0,
 	.report_period			= 10000000,
-	.booting_delay 			= 200,
+	.booting_delay			= 200,
 	.reset_delay			= 5,
 	.suspend_pwr			= POWER_OFF,
 	.resume_pwr				= POWER_ON,
 	.jitter_filter_enable	= 0,
 	.jitter_curr_ratio		= 30,
 	.accuracy_filter_enable = 1,
-	.irqflags 				= IRQF_TRIGGER_FALLING,
+	.irqflags				= IRQF_TRIGGER_FALLING,
 #ifdef CUST_G_TOUCH
 	.show_touches			= 0,
 	.pointer_location		= 0,
@@ -241,35 +241,35 @@ static struct i2c_board_info synaptics_ts_info[] = {
 
 
 
-#if defined(CONFIG_RMI4_I2C) 
+#if defined(CONFIG_RMI4_I2C)
 struct syna_gpio_data {
 	u16 gpio_number;
-	char* gpio_name;
+	char *gpio_name;
 };
 
 static int synaptics_touchpad_gpio_setup(void *gpio_data, bool configure)
 {
 
 	int rc = -EINVAL;
-	static struct regulator *vreg_l15 = NULL;
-	static struct regulator *vreg_l22 = NULL;
+	static struct regulator *vreg_l15;
+	static struct regulator *vreg_l22;
 #if defined(CONFIG_MACH_APQ8064_GVDCM)
-	static struct regulator *vreg_l21 = NULL;
+	static struct regulator *vreg_l21;
 #endif
 
 	struct syna_gpio_data *data = gpio_data;
-	
-	pr_err("%s: [Touch D] S1 \n",__func__);
 
- #if defined(TOUCH_RESET)
-       rc = gpio_request(TOUCH_RESET, "rmi4_reset_pin");
-       if (rc) {
-       	pr_err("%s: Failed to get rmi4_reset_pin %d. Code: %d.",
-       						__func__, TOUCH_RESET, rc);
-       	return rc;
-       }            
-       rc = gpio_direction_output(TOUCH_RESET, 1);
- #endif
+	pr_err("%s: [Touch D] S1", __func__);
+
+#if defined(TOUCH_RESET)
+	rc = gpio_request(TOUCH_RESET, "rmi4_reset_pin");
+	if (rc) {
+		pr_err("%s: Failed to get rmi4_reset_pin %d. Code: %d.",
+				__func__, TOUCH_RESET, rc);
+		return rc;
+	}
+	rc = gpio_direction_output(TOUCH_RESET, 1);
+#endif
 
 
 	/* 3.3V_TOUCH_VDD, VREG_L15: 2.75 ~ 3.3 */
@@ -278,7 +278,7 @@ static int synaptics_touchpad_gpio_setup(void *gpio_data, bool configure)
 		if (IS_ERR(vreg_l15)) {
 			pr_err("%s: regulator get of 8921_l15 failed (%ld)\n",
 					__func__,
-			       PTR_ERR(vreg_l15));
+					PTR_ERR(vreg_l15));
 			rc = PTR_ERR(vreg_l15);
 			vreg_l15 = NULL;
 			return rc;
@@ -290,7 +290,7 @@ static int synaptics_touchpad_gpio_setup(void *gpio_data, bool configure)
 		if (IS_ERR(vreg_l22)) {
 			pr_err("%s: regulator get of 8921_l22 failed (%ld)\n",
 					__func__,
-			       PTR_ERR(vreg_l22));
+					PTR_ERR(vreg_l22));
 			rc = PTR_ERR(vreg_l22);
 			vreg_l22 = NULL;
 			return rc;
@@ -298,14 +298,14 @@ static int synaptics_touchpad_gpio_setup(void *gpio_data, bool configure)
 	}
 
 #if defined(CONFIG_MACH_APQ8064_GVDCM)
-        if (lge_get_board_revno() == HW_REV_A) {
+	if (lge_get_board_revno() == HW_REV_A) {
 		/* 1.8V_TOUCH_IO, VREG_L22: 1.7 ~ 2.85 */
 		if (!vreg_l21) {
 			vreg_l21 = regulator_get(NULL, "touch_io_temp");
 			if (IS_ERR(vreg_l21)) {
 				pr_err("%s: regulator get of 8921_l22 failed (%ld)\n",
 						__func__,
-				       PTR_ERR(vreg_l21));
+						PTR_ERR(vreg_l21));
 				rc = PTR_ERR(vreg_l21);
 				vreg_l21 = NULL;
 				return rc;
@@ -316,52 +316,51 @@ static int synaptics_touchpad_gpio_setup(void *gpio_data, bool configure)
 	rc = regulator_set_voltage(vreg_l15, 3300000, 3300000);
 	rc |= regulator_set_voltage(vreg_l22, 1800000, 1800000);
 #if defined(CONFIG_MACH_APQ8064_GVDCM)
-        if (lge_get_board_revno() == HW_REV_A) 
-	rc |= regulator_set_voltage(vreg_l21, 1800000, 1800000);
-#endif	
+	if (lge_get_board_revno() == HW_REV_A)
+		rc |= regulator_set_voltage(vreg_l21, 1800000, 1800000);
+#endif
 	if (rc < 0) {
 		printk(KERN_INFO "[Touch D] %s: cannot control regulator\n",
-		       __func__);
+				__func__);
 		return rc;
 	}
 
-	printk("[Touch D]touch enable\n");
-			regulator_enable(vreg_l15);
-			regulator_enable(vreg_l22);
+	printk(KERN_INFO "[Touch D]touch enable\n");
+	regulator_enable(vreg_l15);
+	regulator_enable(vreg_l22);
 #if defined(CONFIG_MACH_APQ8064_GVDCM)
-			if (lge_get_board_revno() == HW_REV_A)
-			regulator_enable(vreg_l21);
+	if (lge_get_board_revno() == HW_REV_A)
+		regulator_enable(vreg_l21);
 #endif
-
 
 	if (configure) {
 		rc = gpio_request(data->gpio_number, "rmi4_attn");
 		if (rc) {
 			pr_err("%s: Failed to get attn gpio %d. Code: %d.",
-								__func__, data->gpio_number, rc);
+					__func__, data->gpio_number, rc);
 			return rc;
 		}
 
 		gpio_tlmm_config(GPIO_CFG(data->gpio_number, 0, GPIO_CFG_INPUT,
-								GPIO_CFG_PULL_UP, GPIO_CFG_6MA),GPIO_CFG_ENABLE);
+					GPIO_CFG_PULL_UP,GPIO_CFG_6MA), GPIO_CFG_ENABLE);
 
 		rc = gpio_direction_input(data->gpio_number);
 		if (rc) {
-				pr_err("%s: Failed to setup attn gpio %d. Code: %d.",
-				__func__, data->gpio_number, rc);
-				gpio_free(data->gpio_number);
+			pr_err("%s: Failed to setup attn gpio %d. Code: %d.",
+					__func__, data->gpio_number, rc);
+			gpio_free(data->gpio_number);
 		}
 	} else {
-			pr_warn("%s: No way to deconfigure gpio %d.",
-			__func__, data->gpio_number);
+		pr_warn("%s: No way to deconfigure gpio %d.",
+				__func__, data->gpio_number);
 	}
 
-	if(rc < 0){
-			printk(KERN_INFO "[Touch D] %s: cannot request GPIO\n", __func__);
-			return rc;
+	if (rc < 0) {
+		printk(KERN_INFO "[Touch D] %s: cannot request GPIO\n", __func__);
+		return rc;
 	}
-	
-	printk("[Touch D]synaptics_touchpad_gpio_setup -- \n");
+
+	printk("[Touch D]synaptics_touchpad_gpio_setup --\n");
 
 	return rc;
 }
@@ -379,7 +378,7 @@ static int synaptics_touchpad_gpio_setup(void *gpio_data, bool configure)
 #define TM2144_ADDR 0x20
 #define TM2144_ATTN 6
 
-static unsigned char tm2144_button_codes[] = {KEY_BACK,KEY_HOMEPAGE,KEY_MENU}; 
+static unsigned char tm2144_button_codes[] = {KEY_BACK, KEY_HOMEPAGE, KEY_MENU};
 static struct rmi_f1a_button_map tm2144_button_map = {
 	.nbuttons = ARRAY_SIZE(tm2144_button_codes),
 	.map = tm2144_button_codes,
@@ -404,40 +403,39 @@ static struct rmi_device_platform_data tm2144_platformdata = {
 
 
 static struct i2c_board_info synaptics_ds4_rmi_info[] = {
-     [0] = {
-         I2C_BOARD_INFO("rmi_i2c", TM2144_ADDR),
-        .platform_data = &tm2144_platformdata,
-     },
+	[0] = {
+	 I2C_BOARD_INFO("rmi_i2c", TM2144_ADDR),
+	.platform_data = &tm2144_platformdata,
+	},
 };
 #endif
 
 
 void __init vu3ebv_init_input(void)
 {
-	printk("[Touch D] %s: NOT DCM KDDI, reg synaptics driver \n", __func__);
+	printk("[Touch D] %s: NOT DCM KDDI, reg synaptics driver\n", __func__);
 
 #if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4)
 
 #if defined(CONFIG_MACH_APQ8064_GVDCM)
-        if(lge_get_board_revno() >= HW_REV_C) {
-                synaptics_ts_info[0].irq = MSM_GPIO_TO_INT(SYNAPTICS_TS_I2C_INT_GPIO_GVDCM);
-                j1_ts_data.int_pin = SYNAPTICS_TS_I2C_INT_GPIO_GVDCM;
-        }
+	if (lge_get_board_revno() >= HW_REV_C) {
+		synaptics_ts_info[0].irq = MSM_GPIO_TO_INT(SYNAPTICS_TS_I2C_INT_GPIO_GVDCM);
+		j1_ts_data.int_pin = SYNAPTICS_TS_I2C_INT_GPIO_GVDCM;
+	}
 #elif defined(CONFIG_MACH_APQ8064_GV_KR)
-        if(lge_get_board_revno() == HW_REV_C) {
-                synaptics_ts_info[0].irq = MSM_GPIO_TO_INT(SYNAPTICS_TS_I2C_INT_GPIO_GVDCM);
-                j1_ts_data.int_pin = SYNAPTICS_TS_I2C_INT_GPIO_GVDCM;
-        }
+	if (lge_get_board_revno() == HW_REV_C) {
+		synaptics_ts_info[0].irq = MSM_GPIO_TO_INT(SYNAPTICS_TS_I2C_INT_GPIO_GVDCM);
+		j1_ts_data.int_pin = SYNAPTICS_TS_I2C_INT_GPIO_GVDCM;
+	}
 #endif
 	i2c_register_board_info(APQ8064_GSBI3_QUP_I2C_BUS_ID,
-				&synaptics_ts_info[0], 1);
+			&synaptics_ts_info[0], 1);
 
 #endif
 
-// Wireless Debugging Porting
-#if defined(CONFIG_RMI4_I2C) 
-sdfdsf
-		i2c_register_board_info(APQ8064_GSBI3_QUP_I2C_BUS_ID,
+	/* Wireless Debugging Porting */
+#if defined(CONFIG_RMI4_I2C)
+	i2c_register_board_info(APQ8064_GSBI3_QUP_I2C_BUS_ID,
 			&synaptics_ds4_rmi_info[0], 1);
 #endif
 

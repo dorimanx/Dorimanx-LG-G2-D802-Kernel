@@ -46,7 +46,7 @@
 #define MONITOR_BATTEMP_POLLING_PERIOD          (60*HZ)
 #endif
 
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 #include <linux/qpnp/qpnp-temp-alarm.h>
 #endif
 
@@ -198,7 +198,7 @@ struct smb349_struct {
 	int		en_n_gpio;
 	int		chg_susp_gpio;
 	int		stat_gpio;
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 	int		otg_en_gpio;
 	struct wake_lock	battgone_wake_lock;
 #endif
@@ -440,7 +440,7 @@ static int smb349_get_usbin_adc(void)
        int rc = 0;
 
        if (qpnp_vadc_is_ready() == 0) {
-               rc = qpnp_vadc_read(USBIN, &results);
+               rc = qpnp_vadc_read_lge(USBIN, &results);
                if (rc) {
                        pr_err("Unable to read usbin adc rc=%d\n", rc);
                        return -100;
@@ -589,7 +589,7 @@ static int get_prop_batt_voltage_now_bms(void)
 	int rc = 0;
 	struct qpnp_vadc_result results;
 
-	rc = qpnp_vadc_read(VBAT_SNS, &results);
+	rc = qpnp_vadc_read_lge(VBAT_SNS, &results);
 	if (rc) {
 		pr_err("Unable to read vbat rc=%d\n", rc);
 		return 0;
@@ -715,7 +715,7 @@ static int smb349_get_prop_batt_temp(struct smb349_struct *smb349_chg)
 		return DEFAULT_TEMP;
 	}
 
-	rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &results);
+	rc = qpnp_vadc_read_lge(LR_MUX1_BATT_THERM, &results);
 	if (rc) {
 		pr_debug("Unable to read batt temperature rc=%d\n", rc);
 		pr_debug("Report last_bat_temp %d again\n", batt_temp_old);
@@ -826,7 +826,7 @@ static int smb349_get_prop_batt_current_now(struct smb349_struct *smb349_chg)
 	 * will be report default value when vadc is not ready state.
 	 */
 	if (qpnp_vadc_is_ready() == 0) {
-		rc = qpnp_vadc_read(LR_MUX4_AMUX_THM1, &results);
+		rc = qpnp_vadc_read_lge(LR_MUX4_AMUX_THM1, &results);
 		if (rc) {
 			pr_err("Unable to read amux_thm1 rc=%d\n", rc);
 			pr_err("Report last_bat_current %d again\n",batt_current_old);
@@ -994,7 +994,7 @@ int32_t external_smb349_enable_charging(bool enable)
 	return 0;
 }
 
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 static void smb349_batt_remove_insert_cb(int batt_present)
 {
 	bool charger = false;
@@ -2369,8 +2369,8 @@ static void smb349_batt_external_power_changed(struct power_supply *psy)
 		if ((ret.intval == POWER_SUPPLY_SCOPE_SYSTEM)
 				&& !smb349_chg_is_otg_active(smb349_chg)) {
 			smb349_switch_usb_to_host_mode(smb349_chg);
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
-#if defined(CONFIG_MACH_MSM8974_G2_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 			if(lge_get_board_revno() >= HW_REV_C)
 #elif defined(CONFIG_MACH_MSM8974_VU3_KR)
 			if(lge_get_board_revno() >= HW_REV_EVB2)
@@ -2385,8 +2385,8 @@ static void smb349_batt_external_power_changed(struct power_supply *psy)
 		if ((ret.intval == POWER_SUPPLY_SCOPE_DEVICE)
 				&& smb349_chg_is_otg_active(smb349_chg)) {
 			smb349_switch_usb_to_charge_mode(smb349_chg);
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
-#if defined(CONFIG_MACH_MSM8974_G2_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 			if(lge_get_board_revno() >= HW_REV_C)
 #elif defined(CONFIG_MACH_MSM8974_VU3_KR)
 			if(lge_get_board_revno() >= HW_REV_EVB2)
@@ -2559,7 +2559,7 @@ static int smb349_batt_power_get_property(struct power_supply *psy,
 		val->intval = smb349_get_prop_batt_present(smb349_chg);
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
 #else
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LIPO;
@@ -2974,8 +2974,8 @@ static int __devinit smb349_probe(struct i2c_client *client,
 			return smb349_chg->stat_gpio;
 		}
 
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
-#if defined(CONFIG_MACH_MSM8974_G2_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 		if(lge_get_board_revno() >= HW_REV_C)
 #elif defined(CONFIG_MACH_MSM8974_VU3_KR)
 		if(lge_get_board_revno() >= HW_REV_EVB2)
@@ -3039,7 +3039,7 @@ static int __devinit smb349_probe(struct i2c_client *client,
 		}
 
 		smb349_chg->stat_gpio = pdata->stat_gpio;
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 		smb349_chg->otg_en_gpio = pdata->otg_en_gpio;
 #endif
 #ifndef CONFIG_LGE_PM
@@ -3059,8 +3059,8 @@ static int __devinit smb349_probe(struct i2c_client *client,
 	smb349_chg->irq = gpio_to_irq(smb349_chg->stat_gpio);
 	pr_debug("stat_gpio irq#=%d.\n", smb349_chg->irq);
 
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
-#if defined(CONFIG_MACH_MSM8974_G2_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 	if(lge_get_board_revno() >= HW_REV_C)
 #elif defined(CONFIG_MACH_MSM8974_VU3_KR)
 	if(lge_get_board_revno() >= HW_REV_EVB2)
@@ -3123,7 +3123,7 @@ static int __devinit smb349_probe(struct i2c_client *client,
 	wake_lock_init(&smb349_chg->lcs_wake_lock,
 				WAKE_LOCK_SUSPEND, "LGE charging scenario");
 #endif
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 	wake_lock_init(&smb349_chg->battgone_wake_lock,
 		       WAKE_LOCK_SUSPEND, "batt removed");
 #endif
@@ -3256,7 +3256,7 @@ static int __devinit smb349_probe(struct i2c_client *client,
 	schedule_delayed_work(&smb349_chg->battemp_work,
 		MONITOR_BATTEMP_POLLING_PERIOD / 3);
 #endif
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 	qpnp_batif_regist_batt_present(&smb349_batt_remove_insert_cb);
 #endif
 	pr_info("OK to probe SMB349.\n");
@@ -3274,7 +3274,7 @@ reg_batt_psy_fail:
 #ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
 	wake_lock_destroy(&smb349_chg->lcs_wake_lock);
 #endif
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 	wake_lock_destroy(&smb349_chg->battgone_wake_lock);
 #endif
 hwinit_fail:
@@ -3287,8 +3287,8 @@ chg_susp_gpio_fail:
 #endif
 	if (smb349_chg->stat_gpio)
 		gpio_free(smb349_chg->stat_gpio);
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
-#if defined(CONFIG_MACH_MSM8974_G2_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 	if(lge_get_board_revno() >= HW_REV_C)
 #elif defined(CONFIG_MACH_MSM8974_VU3_KR)
 	if(lge_get_board_revno() >= HW_REV_EVB2)
@@ -3321,8 +3321,8 @@ static int __devexit smb349_remove(struct i2c_client *client)
 	power_supply_unregister(&smb349_chg->batt_psy);
 	if (smb349_chg->stat_gpio)
 		gpio_free(smb349_chg->stat_gpio);
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
-#if defined(CONFIG_MACH_MSM8974_G2_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 	if(lge_get_board_revno() >= HW_REV_C)
 #elif defined(CONFIG_MACH_MSM8974_VU3_KR)
 	if(lge_get_board_revno() >= HW_REV_EVB2)
@@ -3345,7 +3345,7 @@ static int __devexit smb349_remove(struct i2c_client *client)
 #ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
 	wake_lock_destroy(&smb349_chg->lcs_wake_lock);
 #endif
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
 	wake_lock_destroy(&smb349_chg->battgone_wake_lock);
 	qpnp_batif_unregist_batt_present(0);
 #endif

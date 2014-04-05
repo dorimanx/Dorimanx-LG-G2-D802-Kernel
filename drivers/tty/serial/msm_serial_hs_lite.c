@@ -47,6 +47,8 @@
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
 #include <linux/wakelock.h>
+#include <linux/types.h>
+#include <asm/byteorder.h>
 #include <mach/board.h>
 #ifdef CONFIG_MACH_LGE
 #include <mach/board_lge.h>
@@ -55,6 +57,8 @@
 #include <mach/msm_bus.h>
 #include <asm/mach-types.h>
 #include "msm_serial_hs_hwreg.h"
+
+#include <linux/async.h>
 
 /*
  * There are 3 different kind of UART Core available on MSM.
@@ -169,12 +173,17 @@ static inline void wait_for_xmitr(struct uart_port *port);
 static inline void msm_hsl_write(struct uart_port *port,
 				 unsigned int val, unsigned int off)
 {
-	iowrite32(val, port->membase + off);
+	__iowmb();
+	__raw_writel_no_log((__force __u32)cpu_to_le32(val),
+		port->membase + off);
 }
 static inline unsigned int msm_hsl_read(struct uart_port *port,
 		     unsigned int off)
 {
-	return ioread32(port->membase + off);
+	unsigned int v = le32_to_cpu((__force __le32)__raw_readl_no_log(
+		port->membase + off));
+	__iormb();
+	return v;
 }
 
 static unsigned int msm_serial_hsl_has_gsbi(struct uart_port *port)
@@ -524,6 +533,10 @@ static void msm_hsl_start_tx(struct uart_port *port)
                 return;
 #endif
 
+	if (port->suspended) {
+		pr_err("%s: System is in Suspend state\n", __func__);
+		return;
+	}
 	msm_hsl_port->imr |= UARTDM_ISR_TXLEV_BMSK;
 	msm_hsl_write(port, msm_hsl_port->imr,
 		regmap[msm_hsl_port->ver_id][UARTDM_IMR]);
@@ -2064,6 +2077,15 @@ static struct platform_driver msm_hsl_platform_driver = {
 	},
 };
 
+static void __init msm_serial_init_async(void *data, async_cookie_t cookie)
+{
+	int ret;
+
+	ret = platform_driver_register(&msm_hsl_platform_driver);
+	if (unlikely(ret))
+		uart_unregister_driver(&msm_hsl_uart_driver);
+}
+
 static int __init msm_serial_hsl_init(void)
 {
 	int ret;
@@ -2075,11 +2097,13 @@ static int __init msm_serial_hsl_init(void)
 	debug_base = debugfs_create_dir("msm_serial_hsl", NULL);
 	if (IS_ERR_OR_NULL(debug_base))
 		pr_err("Cannot create debugfs dir\n");
-
+#ifndef CONFIG_MACH_LGE
 	ret = platform_driver_register(&msm_hsl_platform_driver);
 	if (unlikely(ret))
 		uart_unregister_driver(&msm_hsl_uart_driver);
-
+#else
+	async_schedule(msm_serial_init_async, NULL);
+#endif
 	pr_info("driver initialized\n");
 
 	return ret;

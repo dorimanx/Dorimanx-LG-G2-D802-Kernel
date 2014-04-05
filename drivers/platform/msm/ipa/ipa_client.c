@@ -9,7 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #include <linux/delay.h>
 #include "ipa_i.h"
 
@@ -18,9 +17,9 @@
  * directional throughputs
  */
 #define IPA_A2_HOLB_TMR_EN 0x1
-#define IPA_A2_HOLB_TMR_DEFAULT_VAL 0xff
-#define IPA_WLAN_HOLB_TMR_EN 0x1
-#define IPA_WLAN_HOLB_TMR_DEFAULT_VAL 0x7f
+#define IPA_A2_HOLB_TMR_DEFAULT_VAL 0x1ff
+
+#define IPA_PKT_FLUSH_TO_US 100
 
 static void ipa_enable_data_path(u32 clnt_hdl)
 {
@@ -36,56 +35,17 @@ static void ipa_enable_data_path(u32 clnt_hdl)
 
 static int ipa_disable_data_path(u32 clnt_hdl)
 {
-	DECLARE_COMPLETION_ONSTACK(tag_rsp);
-	struct ipa_desc desc = {0};
-	struct ipa_ip_packet_tag cmd;
 	struct ipa_ep_context *ep = &ipa_ctx->ep[clnt_hdl];
-	struct ipa_tree_node *node;
-	int result = 0;
 
 	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_VIRTUAL) {
 		/* IPA_HW_MODE_VIRTUAL lacks support for TAG IC & EP suspend */
 		return 0;
 	}
 
-	node = kmem_cache_zalloc(ipa_ctx->tree_node_cache, GFP_KERNEL);
-	if (!node) {
-		IPAERR("failed to alloc tree node object\n");
-		result = -ENOMEM;
-		goto fail_alloc;
-	}
-
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1) {
 		ipa_write_reg(ipa_ctx->mmio,
 				IPA_ENDP_INIT_CTRL_n_OFST(clnt_hdl), 1);
-
-		cmd.tag = (u32) &tag_rsp;
-
-		desc.pyld = &cmd;
-		desc.len = sizeof(struct ipa_ip_packet_tag);
-		desc.type = IPA_IMM_CMD_DESC;
-		desc.opcode = IPA_IP_PACKET_TAG;
-
-		IPADBG("Wait on TAG %p clnt=%d\n", &tag_rsp, clnt_hdl);
-
-		node->hdl = cmd.tag;
-		mutex_lock(&ipa_ctx->lock);
-		if (ipa_insert(&ipa_ctx->tag_tree, node)) {
-			IPAERR("failed to add to tree\n");
-			result = -EINVAL;
-			mutex_unlock(&ipa_ctx->lock);
-			goto fail_insert;
-		}
-		mutex_unlock(&ipa_ctx->lock);
-
-		if (ipa_send_cmd(1, &desc)) {
-			ipa_write_reg(ipa_ctx->mmio,
-				IPA_ENDP_INIT_CTRL_n_OFST(clnt_hdl), 0);
-			IPAERR("fail to send TAG command\n");
-			result = -EPERM;
-			goto fail_send;
-		}
-		wait_for_completion(&tag_rsp);
+		udelay(IPA_PKT_FLUSH_TO_US);
 		if (IPA_CLIENT_IS_CONS(ep->client) &&
 				ep->cfg.aggr.aggr_en == IPA_ENABLE_AGGR &&
 				ep->cfg.aggr.aggr_time_limit)
@@ -93,13 +53,6 @@ static int ipa_disable_data_path(u32 clnt_hdl)
 	}
 
 	return 0;
-
-fail_send:
-	rb_erase(&node->node, &ipa_ctx->tag_tree);
-fail_insert:
-	kmem_cache_free(ipa_ctx->tree_node_cache, node);
-fail_alloc:
-	return result;
 }
 
 static int ipa_connect_configure_sps(const struct ipa_connect_params *in,
@@ -250,26 +203,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	}
 
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
-
-	if (IPA_CLIENT_IS_CONS(in->client)) {
-		ep->cmd = kzalloc(sizeof(struct ipa_ip_packet_init),
-				GFP_KERNEL);
-		if (!ep->cmd) {
-			IPAERR("failed to alloc immediate command object\n");
-			result = -ENOMEM;
-			goto fail;
-		}
-		ep->cmd->destination_pipe_index = ipa_ep_idx;
-		ep->dma_addr = dma_map_single(NULL, ep->cmd,
-				sizeof(struct ipa_ip_packet_init),
-				DMA_TO_DEVICE);
-		if (ep->dma_addr == 0 || ep->dma_addr == ~0) {
-			IPAERR("failed to DMA MAP pkt_init\n");
-			result = -ENOMEM;
-			kfree(ep->cmd);
-			goto fail;
-		}
-	}
+	ipa_enable_data_path(ipa_ep_idx);
 
 	ep->valid = 1;
 	ep->client = in->client;
@@ -447,14 +381,6 @@ int ipa_disconnect(u32 clnt_hdl)
 		return -EPERM;
 	}
 
-	if (IPA_CLIENT_IS_CONS(ep->client)) {
-		dma_unmap_single(NULL, ep->dma_addr,
-				sizeof(struct ipa_ip_packet_init),
-				DMA_TO_DEVICE);
-		kfree(ep->cmd);
-	}
-
-	ipa_enable_data_path(clnt_hdl);
 	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
 
 	ipa_dec_client_disable_clks();

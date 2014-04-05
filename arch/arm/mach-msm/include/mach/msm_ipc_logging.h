@@ -115,6 +115,20 @@ void ipc_log_write(void *ctxt, struct encode_context *ectxt);
  */
 int ipc_log_string(void *ilctxt, const char *fmt, ...) __printf(2, 3);
 
+/**
+ * ipc_log_extract - Reads and deserializes log
+ *
+ * @ilctxt:  logging context
+ * @buff:    buffer to receive the data
+ * @size:    size of the buffer
+ * @returns: 0 if no data read; >0 number of bytes read; < 0 error
+ *
+ * If no data is available to be read, then the ilctxt::read_avail
+ * completion is reinitialized.  This allows clients to block
+ * until new log data is save.
+ */
+int ipc_log_extract(void *ilctxt, char *buff, int size);
+
 /*
  * Print a string to decode context.
  * @dctxt   Decode context
@@ -183,6 +197,14 @@ void tsv_byte_array_read(struct encode_context *ectxt,
 int add_deserialization_func(void *ctxt, int type,
 			void (*dfunc)(struct encode_context *,
 				      struct decode_context *));
+
+/*
+ * ipc_log_context_destroy: Destroy debug log context
+ *
+ * @ctxt: debug log context created by calling ipc_log_context_create API.
+ */
+int ipc_log_context_destroy(void *ctxt);
+
 #else
 
 static inline void *ipc_log_context_create(int max_num_pages,
@@ -212,6 +234,9 @@ static inline void ipc_log_write(void *ctxt, struct encode_context *ectxt) { }
 static inline int ipc_log_string(void *ilctxt, const char *fmt, ...)
 { return -EINVAL; }
 
+static inline int ipc_log_extract(void *ilctxt, char *buff, int size)
+{ return -EINVAL; }
+
 #define IPC_SPRINTF_DECODE(dctxt, args...) do { } while (0)
 
 static inline void tsv_timestamp_read(struct encode_context *ectxt,
@@ -230,6 +255,9 @@ static inline void tsv_byte_array_read(struct encode_context *ectxt,
 static inline int add_deserialization_func(void *ctxt, int type,
 			void (*dfunc)(struct encode_context *,
 				      struct decode_context *))
+{ return 0; }
+
+static inline int ipc_log_context_destroy(void *ctxt)
 { return 0; }
 
 #endif

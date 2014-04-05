@@ -716,6 +716,9 @@ __nf_conntrack_alloc(struct net *net, u16 zone,
 	/* Don't set timer yet: wait for confirmation */
 	setup_timer(&ct->timeout, death_by_timeout, (unsigned long)ct);
 	write_pnet(&ct->ct_net, net);
+#if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
+	ct->nattype_entry = 0;
+#endif
 #ifdef CONFIG_NF_CONNTRACK_ZONES
 	if (zone) {
 		struct nf_conntrack_zone *nf_ct_zone;
@@ -1101,7 +1104,7 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 
 /* Refresh the NAT type entry. */
 #if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
-	(void)nattype_refresh_timer(ct->nattype_entry);
+	(void)nattype_refresh_timer(ct->nattype_entry, ct->timeout.expires);
 #endif
 
 acct:

@@ -153,3 +153,4 @@ obj-$(CONFIG_LGE_BROADCAST_ONESEG) += broadcast/
 obj-$(CONFIG_LGE_FELICA) 	+= felica/
 
 obj-$(CONFIG_BIF)		+= bif/
+obj-$(CONFIG_SENSORS)		+= sensors/

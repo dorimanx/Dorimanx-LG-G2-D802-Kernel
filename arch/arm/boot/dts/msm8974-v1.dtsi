@@ -17,6 +17,21 @@
  */
 
 /include/ "msm8974.dtsi"
+
+/include/ "msm-pm8x41-rpm-regulator.dtsi"
+/include/ "msm-pm8841.dtsi"
+&spmi_bus {
+	pm8941_lsid0: qcom,pm8941@0 {
+		reg = <0x0>;
+	};
+	pm8941_lsid1: qcom,pm8941@1 {
+		reg = <0x1>;
+	};
+};
+/include/ "msm-pm8941.dtsi"
+/include/ "msm8974-regulator.dtsi"
+/include/ "msm8974-clock.dtsi"
+
 /include/ "msm8974-v1-iommu.dtsi"
 /include/ "msm8974-v1-iommu-domains.dtsi"
 /include/ "msm8974-v1-pm.dtsi"
@@ -50,6 +65,7 @@
 /* CoreSight */
 &tmc_etr {
 	qcom,reset-flush-race;
+	qcom,byte-cntr-absent;
 };
 
 &stm {
@@ -118,7 +134,7 @@
 	qcom,iommu-groups = <&venus_domain_ns &venus_domain_cp>;
 	qcom,iommu-group-buffer-types = <0xfff 0x1ff>;
 	qcom,buffer-type-tz-usage-table = <0x1 0x1>,
-					<0x1fe 0x2>;
+					<0x7fe 0x2>;
 };
 
 &sfpb_spinlock {
@@ -131,4 +147,37 @@
 
 &usb_otg {
 	qcom,hsusb-otg-pnoc-errata-fix;
+};
+
+&gdsc_venus {
+	qcom,skip-logic-collapse;
+	qcom,retain-periph;
+	qcom,retain-mem;
+};
+
+&gdsc_mdss {
+	qcom,skip-logic-collapse;
+	qcom,retain-periph;
+	qcom,retain-mem;
+};
+
+&gdsc_oxili_gx {
+	qcom,retain-mem;
+	qcom,retain-periph;
+};
+
+&krait_regulator_pmic {
+	status = "ok";
+
+	qcom,ctl@2000 {
+		status = "ok";
+	};
+
+	qcom,ps@2100 {
+		status = "ok";
+	};
+
+	qcom,freq@2200 {
+		status = "ok";
+	};
 };

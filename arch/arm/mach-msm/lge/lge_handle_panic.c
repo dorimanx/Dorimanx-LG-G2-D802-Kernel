@@ -144,6 +144,18 @@ static int gen_modem_panic(const char *val, struct kernel_param *kp)
 module_param_call(gen_modem_panic, gen_modem_panic, param_get_bool, &dummy_arg,
 		S_IWUSR | S_IRUGO);
 
+
+/* START : gen_subsys_modem_restart */
+static int gen_subsys_modem_restart(const char *val, struct kernel_param *kp)
+{
+	subsys_modem_restart();
+	return 0;
+}
+module_param_call(gen_subsys_modem_restart, gen_subsys_modem_restart, param_get_bool, &dummy_arg,
+		S_IWUSR | S_IRUGO);
+/* END : gen_subsys_modem_restart */
+
+
 static int gen_wcnss_panic(const char *val, struct kernel_param *kp)
 {
 	subsystem_restart("wcnss");

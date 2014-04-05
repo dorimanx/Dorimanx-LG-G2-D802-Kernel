@@ -17,3 +17,15 @@
 
 };
 
+&gdsc_venus {
+	qcom,skip-logic-collapse;
+};
+
+&gdsc_mdss {
+	qcom,retain-periph;
+};
+
+&gdsc_oxili_gx {
+	qcom,retain-mem;
+	qcom,retain-periph;
+};

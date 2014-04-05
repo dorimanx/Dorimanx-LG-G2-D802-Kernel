@@ -176,6 +176,7 @@ struct dvb_demux_feed {
 	int buffer_size;
 	enum dmx_tsp_format_t tsp_out_format;
 	struct dmx_secure_mode secure_mode;
+	struct dmx_cipher_operations cipher_ops;
 
 	struct timespec timeout;
 	struct dvb_demux_filter *filter;
@@ -233,8 +234,8 @@ struct dvb_demux {
 				struct dmx_buffer_status *dmx_buffer_status);
 	int (*reuse_decoder_buffer)(struct dvb_demux_feed *feed,
 				int cookie);
-	int (*set_secure_mode)(struct dvb_demux_feed *feed,
-				struct dmx_secure_mode *secure_mode);
+	int (*set_cipher_op)(struct dvb_demux_feed *feed,
+				struct dmx_cipher_operations *cipher_ops);
 	u32 (*check_crc32)(struct dvb_demux_feed *feed,
 			    const u8 *buf, size_t len);
 	void (*memcopy)(struct dvb_demux_feed *feed, u8 *dst,
@@ -325,6 +326,8 @@ void dvb_dmx_process_idx_pattern(struct dvb_demux_feed *feed,
 		u64 curr_match_tsp, u64 prev_match_tsp,
 		u64 curr_pusi_tsp, u64 prev_pusi_tsp);
 void dvb_dmx_notify_idx_events(struct dvb_demux_feed *feed);
+int dvb_dmx_notify_section_event(struct dvb_demux_feed *feed,
+	struct dmx_data_ready *event, int should_lock);
 
 /**
  * dvb_dmx_is_video_feed - Returns whether the PES feed

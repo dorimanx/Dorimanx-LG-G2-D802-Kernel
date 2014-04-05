@@ -19,8 +19,16 @@
 #define FASTRPC_IOCTL_INVOKE  _IOWR('R', 1, struct fastrpc_ioctl_invoke)
 #define FASTRPC_IOCTL_MMAP    _IOWR('R', 2, struct fastrpc_ioctl_mmap)
 #define FASTRPC_IOCTL_MUNMAP  _IOWR('R', 3, struct fastrpc_ioctl_munmap)
+#define FASTRPC_IOCTL_INVOKE_FD  _IOWR('R', 4, struct fastrpc_ioctl_invoke_fd)
+#define FASTRPC_IOCTL_SETMODE    _IOWR('R', 5, uint32_t)
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
 #define DEVICE_NAME      "adsprpc-smd"
+
+/* Driver should operate in parallel with the co-processor */
+#define FASTRPC_MODE_PARALLEL    0
+
+/* Driver should operate in serial mode with the co-processor */
+#define FASTRPC_MODE_SERIAL      1
 
 /* Retrives number of input buffers from the scalars parameter */
 #define REMOTE_SCALARS_INBUFS(sc)        (((sc) >> 16) & 0x0ff)
@@ -92,6 +100,11 @@ struct fastrpc_ioctl_invoke {
 	uint32_t handle;	/* remote handle */
 	uint32_t sc;		/* scalars describing the data */
 	remote_arg_t *pra;	/* remote arguments list */
+};
+
+struct fastrpc_ioctl_invoke_fd {
+	struct fastrpc_ioctl_invoke inv;
+	int *fds;		/* fd list */
 };
 
 struct fastrpc_ioctl_munmap {

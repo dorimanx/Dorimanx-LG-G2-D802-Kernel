@@ -152,6 +152,7 @@ int tdmb_t3a00_power_on(void)
 
 		/* VDD IO 1.8V Enable */
 		power_set_pm8941_regulator(1);
+
 		udelay(500);
 		
 		gpio_set_value(DMB_EN, 1);
@@ -579,9 +580,12 @@ static int  broadcast_t3a00_probe(struct spi_device *spi)
 	pm_qos_add_request(&t3a00_ctrl_info.pm_req_list, PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
 #endif
 	printk("broadcast_t3a00_probe End. \n");
-	
+
+/*[Start]wonhee.jeong add this source for power off L10(Vu3)/L13(Z) 1.8V Power when device booting*/
 	power_set_pm8941_regulator(1);
 	power_set_pm8941_regulator(0);
+/*[End]wonhee.jeong add this source for power off L10(Vu3)/L13(Z) 1.8V Power when device booting*/
+
 	return rc;
 }
 

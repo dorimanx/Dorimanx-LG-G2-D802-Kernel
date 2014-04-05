@@ -99,7 +99,7 @@ struct mhl_msm_state_t {
 	int mhl_mode;
 	struct completion rgnd_done;
 	struct completion msc_cmd_done;
-	uint8_t devcap_state;
+	uint16_t devcap_state;
 	uint8_t path_en_state;
 	struct work_struct mhl_msc_send_work;
 	struct list_head list_cmd;
@@ -137,7 +137,8 @@ struct mhl_tx_ctrl {
 	uint8_t chip_rev_id;
 	int mhl_mode;
 	struct completion rgnd_done;
-	void (*notify_usb_online)(int online);
+	void (*notify_usb_online)(void *ctx, int online);
+	void *notify_ctx;
 	struct usb_ext_notification *mhl_info;
 	bool disc_enabled;
 	struct power_supply mhl_psy;
@@ -145,9 +146,10 @@ struct mhl_tx_ctrl {
 	int current_val;
 	struct completion msc_cmd_done;
 	uint8_t devcap[16];
-	uint8_t devcap_state;
+	uint16_t devcap_state;
 	uint8_t status[2];
 	uint8_t path_en_state;
+	uint8_t tmds_en_state;
 	void *hdmi_mhl_ops;
 	struct work_struct mhl_msc_send_work;
 	struct list_head list_cmd;
@@ -163,6 +165,7 @@ struct mhl_tx_ctrl {
 	bool tx_powered_off;
 	uint8_t dwnstream_hpd;
 	bool mhl_det_discon;
+	bool irq_req_done;
 };
 
 int mhl_i2c_reg_read(struct i2c_client *client,

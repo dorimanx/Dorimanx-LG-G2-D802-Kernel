@@ -61,6 +61,7 @@ struct mmc_ios {
 #define MMC_TIMING_UHS_SDR104	4
 #define MMC_TIMING_UHS_DDR50	5
 #define MMC_TIMING_MMC_HS200	6
+#define MMC_TIMING_MMC_HS400	7
 
 #define MMC_SDR_MODE		0
 #define MMC_1_2V_DDR_MODE	1
@@ -249,6 +250,7 @@ struct mmc_host {
 						/* DDR mode at 1.8V */
 #define MMC_CAP_1_2V_DDR	(1 << 12)	/* can support */
 						/* DDR mode at 1.2V */
+#define MMC_CAP_HSDDR		(MMC_CAP_1_8V_DDR | MMC_CAP_1_2V_DDR)
 #define MMC_CAP_POWER_OFF_CARD	(1 << 13)	/* Can power off after boot */
 #define MMC_CAP_BUS_WIDTH_TEST	(1 << 14)	/* CMD14/CMD19 bus width ok */
 #define MMC_CAP_UHS_SDR12	(1 << 15)	/* Host supports UHS SDR12 mode */
@@ -299,6 +301,12 @@ struct mmc_host {
 #define MMC_CAP2_CORE_RUNTIME_PM (1 << 19)
 /* Allows Asynchronous SDIO irq while card is in 4-bit mode */
 #define MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE (1 << 20)
+
+#define MMC_CAP2_HS400_1_8V	(1 << 21)        /* can support */
+#define MMC_CAP2_HS400_1_2V	(1 << 22)        /* can support */
+#define MMC_CAP2_CORE_PM	(1 << 23)       /* use PM framework */
+#define MMC_CAP2_HS400		(MMC_CAP2_HS400_1_8V | \
+				 MMC_CAP2_HS400_1_2V)
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
 	int			clk_requests;	/* internal reference counter */
@@ -567,6 +575,11 @@ static inline unsigned int mmc_host_clk_rate(struct mmc_host *host)
 static inline int mmc_use_core_runtime_pm(struct mmc_host *host)
 {
 	return host->caps2 & MMC_CAP2_CORE_RUNTIME_PM;
+}
+
+static inline int mmc_use_core_pm(struct mmc_host *host)
+{
+	return host->caps2 & MMC_CAP2_CORE_PM;
 }
 
 #endif /* LINUX_MMC_HOST_H */

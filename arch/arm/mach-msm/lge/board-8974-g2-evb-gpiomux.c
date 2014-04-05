@@ -1274,27 +1274,27 @@ static struct msm_gpiomux_config sensor_configs[] __initdata = {
 
 #if defined(CONFIG_LGE_SM100) || defined(CONFIG_TSPDRV)
 static struct gpiomux_setting vibrator_suspend_cfg = {
-       .func = GPIOMUX_FUNC_GPIO,
-       .drv = GPIOMUX_DRV_2MA,
-       .pull = GPIOMUX_PULL_DOWN,
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
 };
 
 static struct gpiomux_setting vibrator_active_cfg_gpio27 = {
-       .func = GPIOMUX_FUNC_6,
-       .drv = GPIOMUX_DRV_2MA,
-       .pull = GPIOMUX_PULL_NONE,
+	.func = GPIOMUX_FUNC_6,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
 };
 
 static struct gpiomux_setting vibrator_active_cfg_gpio85 = {
-       .func = GPIOMUX_FUNC_GPIO,
-       .drv = GPIOMUX_DRV_2MA,
-       .pull = GPIOMUX_PULL_NONE,
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
 };
 
 static struct gpiomux_setting vibrator_active_cfg_gpio89 = {
-       .func = GPIOMUX_FUNC_GPIO,
-       .drv = GPIOMUX_DRV_2MA,
-       .pull = GPIOMUX_PULL_NONE,
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
 };
 
 static struct msm_gpiomux_config vibrator_configs[] = {
@@ -1593,13 +1593,13 @@ void __init msm_8974_init_gpiomux(void)
 					ARRAY_SIZE(slimport_configs_rev_a));
 		printk(KERN_INFO "slimport gpio configs for rev.A\n");
 	}
-//msm_gpiomux_install(msm_display_configs, ARRAY_SIZE(msm_display_configs));
+/* msm_gpiomux_install(msm_display_configs, ARRAY_SIZE(msm_display_configs)); */
 #endif
 #if 0 /* disable sensor GPIO setting (enable ADSP)*/
 	msm_gpiomux_install(sensor_configs, ARRAY_SIZE(sensor_configs));
 #endif
 #if defined(CONFIG_LGE_SM100) || defined(CONFIG_TSPDRV)
-       msm_gpiomux_install(vibrator_configs, ARRAY_SIZE(vibrator_configs));
+	msm_gpiomux_install(vibrator_configs, ARRAY_SIZE(vibrator_configs));
 #endif
 #ifdef CONFIG_EARJACK_DEBUGGER
 	msm_gpiomux_install(msm_earjack_debugger_configs,

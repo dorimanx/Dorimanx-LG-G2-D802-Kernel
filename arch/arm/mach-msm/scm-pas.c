@@ -16,6 +16,9 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/clk.h>
+#include <linux/dma-mapping.h>
+
+#include <asm/cacheflush.h>
 
 #include <mach/scm.h>
 #include <mach/socinfo.h>
@@ -136,24 +139,30 @@ int pas_init_image(enum pas_id id, const u8 *metadata, size_t size)
 	} request;
 	u32 scm_ret = 0;
 	void *mdata_buf;
+	dma_addr_t mdata_phys;
+	DEFINE_DMA_ATTRS(attrs);
 
 	ret = scm_pas_enable_bw();
 	if (ret)
 		return ret;
 
-	/* Make memory physically contiguous */
-	mdata_buf = kmemdup(metadata, size, GFP_KERNEL);
-
-	if (!mdata_buf)
+	dma_set_attr(DMA_ATTR_STRONGLY_ORDERED, &attrs);
+	mdata_buf = dma_alloc_attrs(NULL, size, &mdata_phys, GFP_KERNEL,
+					&attrs);
+	if (!mdata_buf) {
+		pr_err("Allocation for metadata failed.\n");
 		return -ENOMEM;
+	}
+
+	memcpy(mdata_buf, metadata, size);
 
 	request.proc = id;
-	request.image_addr = virt_to_phys(mdata_buf);
+	request.image_addr = mdata_phys;
 
 	ret = scm_call(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD, &request,
 			sizeof(request), &scm_ret, sizeof(scm_ret));
 
-	kfree(mdata_buf);
+	dma_free_attrs(NULL, size, mdata_buf, mdata_phys, &attrs);
 	scm_pas_disable_bw();
 
 	if (ret)
@@ -249,9 +258,14 @@ int pas_supported(enum pas_id id)
 }
 EXPORT_SYMBOL(pas_supported);
 
-static int __init scm_pas_init(void)
+void scm_pas_init(enum msm_bus_fabric_master_type id)
 {
 	int i, rate;
+	static int is_inited;
+
+	if (is_inited)
+		return;
+
 	for (i = 0; i < NUM_CLKS; i++) {
 		scm_clocks[i] = clk_get_sys("scm", scm_clock_names[i]);
 		if (IS_ERR(scm_clocks[i]))
@@ -262,20 +276,14 @@ static int __init scm_pas_init(void)
 	rate = clk_round_rate(scm_clocks[CORE_CLK_SRC], 1);
 	clk_set_rate(scm_clocks[CORE_CLK_SRC], rate);
 
-	if (cpu_is_msm8974() || cpu_is_msm8226() || cpu_is_msm8610()) {
-		scm_pas_bw_tbl[0].vectors[0].src = MSM_BUS_MASTER_CRYPTO_CORE0;
-		scm_pas_bw_tbl[1].vectors[0].src = MSM_BUS_MASTER_CRYPTO_CORE0;
-	} else {
-		if (!IS_ERR(scm_clocks[BUS_CLK]))
-			clk_set_rate(scm_clocks[BUS_CLK], 64000000);
-		else
-			pr_warn("unable to get bus clock\n");
-	}
+	scm_pas_bw_tbl[0].vectors[0].src = id;
+	scm_pas_bw_tbl[1].vectors[0].src = id;
+
+	clk_set_rate(scm_clocks[BUS_CLK], 64000000);
 
 	scm_perf_client = msm_bus_scale_register_client(&scm_pas_bus_pdata);
 	if (!scm_perf_client)
 		pr_warn("unable to register bus client\n");
 
-	return 0;
+	is_inited = 1;
 }
-module_init(scm_pas_init);

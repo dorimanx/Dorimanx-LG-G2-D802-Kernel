@@ -28,6 +28,7 @@
 #include <linux/async.h>
 #include <linux/slimport.h>
 
+#include "slimport_tx_reg.h"
 #include "slimport_tx_drv.h"
 #ifdef CONFIG_SLIMPORT_DYNAMIC_HPD
 #include "../msm/mdss/mdss_hdmi_slimport.h"
@@ -47,7 +48,7 @@ static int hdcp_enable = 1;
 
 /* HDCP switch for external block*/
 /* external_block_en = 1: enable, 0: disable*/
-int external_block_en = 0;
+int external_block_en;
 
 
 /* to access global platform data */
@@ -76,13 +77,15 @@ struct anx7808_data {
 	struct workqueue_struct    *workqueue;
 	struct mutex    lock;
 	struct wake_lock slimport_lock;
+	struct delayed_work dwc3_ref_clk_work;
+	bool slimport_connected;
 };
 
 static unsigned int cable_smem_size;
 
-struct msm_hdmi_slimport_ops *hdmi_slimport_ops = NULL;
-
 #ifdef CONFIG_SLIMPORT_DYNAMIC_HPD
+struct msm_hdmi_slimport_ops *hdmi_slimport_ops;
+
 void slimport_set_hdmi_hpd(int on)
 {
 	int rc = 0;
@@ -93,7 +96,7 @@ void slimport_set_hdmi_hpd(int on)
 		rc = hdmi_slimport_ops->set_upstream_hpd(g_pdata->hdmi_pdev, 1);
 		pr_info("%s %s: hpd on = %s\n", LOG_TAG, __func__,
 				rc ? "failed" : "passed");
-	}else{
+	} else {
 		rc = hdmi_slimport_ops->set_upstream_hpd(g_pdata->hdmi_pdev, 0);
 		pr_info("%s %s: hpd off = %s\n", LOG_TAG, __func__,
 				rc ? "failed" : "passed");
@@ -121,7 +124,7 @@ bool slimport_is_connected(void)
 	if (!pdata)
 		return false;
 
-	//spin_lock(&pdata->lock);
+	/* spin_lock(&pdata->lock); */
 
 	if (gpio_get_value_cansleep(pdata->gpio_cbl_det)) {
 		mdelay(10);
@@ -131,7 +134,7 @@ bool slimport_is_connected(void)
 			result = true;
 		}
 	}
-	//spin_unlock(&pdata->lock);
+	/* spin_unlock(&pdata->lock); */
 
 	return result;
 }
@@ -224,7 +227,7 @@ static ssize_t sp_hdcp_feature_store(struct device *dev, struct device_attribute
 	if (ret)
 		return ret;
 	hdcp_enable = val;
-	pr_info(" hdcp_enable = %d\n",hdcp_enable);
+	pr_info(" hdcp_enable = %d\n", hdcp_enable);
 	return count;
 }
 
@@ -262,53 +265,54 @@ static ssize_t anx7730_write_reg_store(struct device *dev, struct device_attribu
 	unchar tmp;
 	int id, reg, val = 0 ;
 
-	if (sp_tx_system_state != STATE_PLAY_BACK){
+	if (sp_tx_system_state != STATE_PLAY_BACK) {
 		pr_err("%s: error!, Not STATE_PLAY_BACK\n", LOG_TAG);
 		return -EINVAL;
 	}
 
-	if(sp_tx_rx_type != RX_HDMI){
+	if (sp_tx_rx_type != RX_HDMI) {
 		pr_err("%s: error!, rx is not anx7730\n", LOG_TAG);
 		return -EINVAL;
 	}
 
-	if(count != 7 && count != 5){
+	if (count != 7 && count != 5) {
 		pr_err("%s: cnt:%d, invalid input!\n", LOG_TAG, count-1);
 		pr_err("%s: ex) 05df   -> op:0(read)  id:5 reg:0xdf \n", LOG_TAG);
 		pr_err("%s: ex) 15df5f -> op:1(wirte) id:5 reg:0xdf val:0x5f\n", LOG_TAG);
 		return -EINVAL;
 	}
 
-	ret = snprintf(&op,2,buf);
-	ret = snprintf(&i,2,buf+1);
-	ret = snprintf(r,3,buf+2);
+	ret = snprintf(&op, 2, buf);
+	ret = snprintf(&i, 2, buf+1);
+	ret = snprintf(r, 3, buf+2);
 
-	id = simple_strtoul(&i,NULL,10);
-	reg = simple_strtoul(r,NULL,16);
+	id = simple_strtoul(&i, NULL, 10);
+	reg = simple_strtoul(r, NULL, 16);
 
-	if ((id != 0 && id != 1 && id != 5 && id != 6 && id != 7 )){
+	if ((id != 0 && id != 1 && id != 5 && id != 6 && id != 7)) {
 		pr_err("%s: invalid addr id! (id:0,1,5,6,7)\n", LOG_TAG);
 		return -EINVAL;
 	}
 
-	switch(op){
-		case 0x30: /* "0" -> read */
-			i2c_master_read_reg(id,reg,&tmp);
-			pr_info("%s: anx7730 read(%d,0x%x)= 0x%x \n",LOG_TAG,id,reg,tmp);
-			break;
+	switch (op) {
 
-		case 0x31: /* "1" -> write */
-			ret = snprintf(v,3,buf+4);
-			val = simple_strtoul(v,NULL,16);
+	case 0x30: /* "0" -> read */
+		i2c_master_read_reg(id, reg, &tmp);
+		pr_info("%s: anx7730 read(%d,0x%x)= 0x%x \n", LOG_TAG, id, reg, tmp);
+		break;
 
-			i2c_master_write_reg(id,reg,val);
-			i2c_master_read_reg(id,reg,&tmp);
-			pr_info("%s: anx7730 write(%d,0x%x,0x%x)\n",LOG_TAG,id,reg,tmp);
-			break;
+	case 0x31: /* "1" -> write */
+		ret = snprintf(v, 3, buf+4);
+		val = simple_strtoul(v, NULL, 16);
 
-		default:
-			pr_err("%s: invalid operation code! (0:read, 1:write)\n", LOG_TAG);
-			return -EINVAL;
+		i2c_master_write_reg(id, reg, val);
+		i2c_master_read_reg(id, reg, &tmp);
+		pr_info("%s: anx7730 write(%d,0x%x,0x%x)\n", LOG_TAG, id, reg, tmp);
+		break;
+
+	default:
+		pr_err("%s: invalid operation code! (0:read, 1:write)\n", LOG_TAG);
+		return -EINVAL;
 	}
 
 	return count;
@@ -319,20 +323,27 @@ anx7808 addr id:: HDMI_rx(0x7e:0, 0x80:1) DP_tx(0x72:5, 0x7a:6, 0x78:7)
 ex:read ) 05df   = read:0  id:5 reg:0xdf
 ex:write) 15df5f = write:1 id:5 reg:0xdf val:0x5f
 */
-static int anx7808_id_change(int id){
+static int anx7808_id_change(int id)
+{
 	int chg_id = 0;
 
-	switch(id){
-		case 0: chg_id = 0x7e; //RX_P0
-			break;
-		case 1: chg_id = 0x80; //RX_P1
-			break;
-		case 5: chg_id = 0x72; //TX_P2
-			break;
-		case 6: chg_id = 0x7a; //TX_P1
-			break;
-		case 7: chg_id = 0x78; //TX_P0
-			break;
+	switch (id) {
+
+	case 0:
+		chg_id = 0x7e; /* RX_P0 */
+		break;
+	case 1:
+		chg_id = 0x80; /* RX_P1 */
+		break;
+	case 5:
+		chg_id = 0x72; /* TX_P2 */
+		break;
+	case 6:
+		chg_id = 0x7a; /* TX_P1 */
+		break;
+	case 7:
+		chg_id = 0x78; /* TX_P0 */
+		break;
 	}
 	return chg_id;
 }
@@ -347,56 +358,57 @@ static ssize_t anx7808_write_reg_store(struct device *dev, struct device_attribu
 	unchar tmp;
 	int id, reg, val = 0 ;
 
-	if (sp_tx_system_state != STATE_PLAY_BACK){
+	if (sp_tx_system_state != STATE_PLAY_BACK) {
 		pr_err("%s: error!, Not STATE_PLAY_BACK\n", LOG_TAG);
 		return -EINVAL;
 	}
 
-	if(count != 7 && count != 5){
+	if (count != 7 && count != 5) {
 		pr_err("%s: cnt:%d, invalid input!\n", LOG_TAG, count-1);
 		pr_err("%s: ex) 05df   -> op:0(read)  id:5 reg:0xdf \n", LOG_TAG);
 		pr_err("%s: ex) 15df5f -> op:1(wirte) id:5 reg:0xdf val:0x5f\n", LOG_TAG);
 		return -EINVAL;
 	}
 
-	ret = snprintf(&op,2,buf);
-	ret = snprintf(&i,2,buf+1);
-	ret = snprintf(r,3,buf+2);
+	ret = snprintf(&op, 2, buf);
+	ret = snprintf(&i, 2, buf+1);
+	ret = snprintf(r, 3, buf+2);
 
-	id = simple_strtoul(&i,NULL,10);
-	reg = simple_strtoul(r,NULL,16);
+	id = simple_strtoul(&i, NULL, 10);
+	reg = simple_strtoul(r, NULL, 16);
 
-	if ((id != 0 && id != 1 && id != 5 && id != 6 && id != 7 )){
+	if ((id != 0 && id != 1 && id != 5 && id != 6 && id != 7)) {
 		pr_err("%s: invalid addr id! (id:0,1,5,6,7)\n", LOG_TAG);
 		return -EINVAL;
 	}
 
-	id = anx7808_id_change(id); //ex) 5 -> 0x72
+	id = anx7808_id_change(id); /* ex) 5 -> 0x72 */
 
-	switch(op){
-		case 0x30: /* "0" -> read */
-			sp_read_reg(id, reg, &tmp);
-			pr_info("%s: anx7808 read(0x%x,0x%x)= 0x%x \n",LOG_TAG,id,reg,tmp);
-			break;
+	switch (op) {
 
-		case 0x31: /* "1" -> write */
-			ret = snprintf(v,3,buf+4);
-			val = simple_strtoul(v,NULL,16);
+	case 0x30: /* "0" -> read */
+		sp_read_reg(id, reg, &tmp);
+		pr_info("%s: anx7808 read(0x%x,0x%x)= 0x%x \n", LOG_TAG, id, reg, tmp);
+		break;
 
-			sp_write_reg(id, reg, val);
-			sp_read_reg(id, reg, &tmp);
-			pr_info("%s: anx7808 write(0x%x,0x%x,0x%x)\n",LOG_TAG,id,reg,tmp);
-			break;
+	case 0x31: /* "1" -> write */
+		ret = snprintf(v, 3, buf+4);
+		val = simple_strtoul(v, NULL, 16);
 
-		default:
-			pr_err("%s: invalid operation code! (0:read, 1:write)\n", LOG_TAG);
-			return -EINVAL;
+		sp_write_reg(id, reg, val);
+		sp_read_reg(id, reg, &tmp);
+		pr_info("%s: anx7808 write(0x%x,0x%x,0x%x)\n", LOG_TAG, id, reg, tmp);
+		break;
+
+	default:
+		pr_err("%s: invalid operation code! (0:read, 1:write)\n", LOG_TAG);
+		return -EINVAL;
 	}
 
 	return count;
 }
 
-#ifdef SP_REGISTER_SET_TEST //Slimport test
+#ifdef SP_REGISTER_SET_TEST /* Slimport test */
 /*sysfs read interface*/
 static ssize_t ctrl_reg0_show(struct device *dev, struct device_attribute *attr,
 		 char *buf)
@@ -644,7 +656,7 @@ static struct device_attribute slimport_device_attrs[] = {
 	__ATTR(hdcp_switch, S_IRUGO | S_IWUSR, sp_external_block_show, sp_external_block_store),
 	__ATTR(anx7730, S_IRUGO | S_IWUSR, NULL, anx7730_write_reg_store),
 	__ATTR(anx7808, S_IRUGO | S_IWUSR, NULL, anx7808_write_reg_store),
-#ifdef SP_REGISTER_SET_TEST//slimport test
+#ifdef SP_REGISTER_SET_TEST /* slimport test */
 	__ATTR(ctrl_reg0, S_IRUGO | S_IWUSR, ctrl_reg0_show, ctrl_reg0_store),
 	__ATTR(ctrl_reg10, S_IRUGO | S_IWUSR, ctrl_reg10_show, ctrl_reg10_store),
 	__ATTR(ctrl_reg11, S_IRUGO | S_IWUSR, ctrl_reg11_show, ctrl_reg11_store),
@@ -874,7 +886,7 @@ static void slimport_playback_proc(void)
 	else
 		sp_tx_video_mute(0);
 }
-/* // blcok this due to dongle issue 
+/* // blcok this due to dongle issue
 static void slimport_cable_monitor(struct anx7808_data *anx7808)
 {
 	if ((gpio_get_value_cansleep(anx7808->pdata->gpio_cbl_det))
@@ -1088,6 +1100,23 @@ static int anx7808_system_init(void)
 	return 0;
 }
 
+extern void dwc3_ref_clk_set(bool);
+
+static void dwc3_ref_clk_work_func(struct work_struct *work)
+{
+	struct anx7808_data *td = container_of(work, struct anx7808_data,
+						dwc3_ref_clk_work.work);
+	bool is_connected = slimport_is_connected();
+
+	if (!td->slimport_connected && is_connected) {
+		td->slimport_connected = true;
+		dwc3_ref_clk_set(true);
+	} else if (td->slimport_connected && !is_connected) {
+		td->slimport_connected = false;
+		dwc3_ref_clk_set(false);
+	} else
+		pr_info("%s %s : ignore incorrect irq\n", LOG_TAG, __func__);
+}
 static irqreturn_t anx7808_cbl_det_isr(int irq, void *data)
 {
 	struct anx7808_data *anx7808 = data;
@@ -1102,6 +1131,9 @@ static irqreturn_t anx7808_cbl_det_isr(int irq, void *data)
 		wake_unlock(&anx7808->slimport_lock);
 		wake_lock_timeout(&anx7808->slimport_lock, 2*HZ);
 	}
+	queue_delayed_work(anx7808->workqueue, &anx7808->dwc3_ref_clk_work,
+					msecs_to_jiffies(10));
+
 	return IRQ_HANDLED;
 }
 
@@ -1358,6 +1390,7 @@ static int anx7808_i2c_probe(struct i2c_client *client,
 	}
 
 	INIT_DELAYED_WORK(&anx7808->work, anx7808_work_func);
+	INIT_DELAYED_WORK(&anx7808->dwc3_ref_clk_work, dwc3_ref_clk_work_func);
 
 	anx7808->workqueue = create_singlethread_workqueue("anx7808_work");
 	if (anx7808->workqueue == NULL) {
@@ -1388,7 +1421,7 @@ static int anx7808_i2c_probe(struct i2c_client *client,
 	sbl_cable_type = anx7808_get_sbl_cable_type();
 
 	if ((lge_get_laf_mode() != LGE_LAF_MODE_LAF) &&
-		( sbl_cable_type != CBL_910K)){
+		(sbl_cable_type != CBL_910K)) {
 
 		ret = request_threaded_irq(client->irq, NULL, anx7808_cbl_det_isr,
 						IRQF_TRIGGER_RISING
@@ -1413,7 +1446,7 @@ static int anx7808_i2c_probe(struct i2c_client *client,
 			pr_err("interrupt wake enable fail\n");
 			goto err3;
 		}
-	}else {
+	} else {
 		pr_err("%s %s : %s, Disable cbl det irq!!\n", LOG_TAG, __func__,
 			sbl_cable_type == CBL_910K ? "910K Cable Connected" : "Laf Mode");
 	}

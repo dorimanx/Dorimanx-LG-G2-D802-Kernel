@@ -1842,13 +1842,6 @@ static int ext4_setup_super(struct super_block *sb, struct ext4_super_block *es,
 		ext4_msg(sb, KERN_WARNING,
 			 "warning: mounting fs with errors, "
 			 "running e2fsck is recommended");
-	#ifdef CONFIG_EXT4_LGE_JOURNAL_RECOVERY
-	/*
-	 * 2013-07-25, G2-FS@lge.com
-	 * in this case, we need to run e2fsck with j & fy option, let's return EJOURNAL
-	*/
-		res = EJOURNAL;
-	#endif
 	}
 	else if ((__s16) le16_to_cpu(es->s_max_mnt_count) > 0 &&
 		 le16_to_cpu(es->s_mnt_count) >=
@@ -2991,9 +2984,6 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 	__u64 blocks_count;
 	int err;
 	unsigned int journal_ioprio = DEFAULT_JOURNAL_IOPRIO;
-#ifdef CONFIG_EXT4_LGE_JOURNAL_RECOVERY
-	int mountOK=0;
-#endif
 	ext4_group_t first_not_zeroed;
 
 	sbi = kzalloc(sizeof(*sbi), GFP_KERNEL);
@@ -3622,12 +3612,7 @@ no_journal:
 		ret = -ENOMEM;
 		goto failed_mount4;
 	}
-#ifdef CONFIG_EXT4_LGE_JOURNAL_RECOVERY
-	mountOK=ext4_setup_super(sb, es, sb->s_flags & MS_RDONLY);
-#else
 	ext4_setup_super(sb, es, sb->s_flags & MS_RDONLY);
-#endif
-
 
 	/* determine the minimum size of new large inodes, if present */
 	if (sbi->s_inode_size > EXT4_GOOD_OLD_INODE_SIZE) {
@@ -3706,24 +3691,7 @@ no_journal:
 
 	kfree(orig_data);
 
-#ifdef CONFIG_EXT4_LGE_JOURNAL_RECOVERY
-/*
- *2013-07-25, G2-FS@lge.com
- *if 'sbi->s_mount_state & EXT4_ERROR_FS ' mountOK gets EJOURNAL
- *in this case, we need to run e2fsck with j & fy options
- *To do this, ext4_fill_super() should return its failure value.
- *Frst value '3' shows the phone is in the middle of factory reset or the first bootup.
- *Let's return EJOURNAL when mountOK gets EJOURNAL and frst is not 3.
-*/
-
-if ( (mountOK == EJOURNAL) && (get_lge_frst_status( ) != 3 ) )
-	return -EJOURNAL;
-else
 	return 0;
-#else
-	return 0;
-#endif
-
 
 cantfind_ext4:
 	if (!silent)
@@ -3733,7 +3701,7 @@ cantfind_ext4:
 2013-06-14, G2-FS@lge.com
 add return code if ext4 superblock is damaged
 */
-	ret=-ESUPER;
+	ret = -ESUPER;
 #endif
 	goto failed_mount;
 
@@ -3775,7 +3743,7 @@ failed_mount3:
 failed_mount2:
 	printk(KERN_ERR "EXT4-fs: failed_mount2\n");
 #ifdef CONFIG_MACH_LGE
-ret=-ESUPER;
+ret = -ESUPER;
 #endif
 	for (i = 0; i < db_count; i++)
 		brelse(sbi->s_group_desc[i]);
@@ -4315,7 +4283,7 @@ static int ext4_remount(struct super_block *sb, int *flags, char *data)
 	/* LGE_UPDATE, 2013/05/07, G2-FS@lge.com
 	 * For more information
 	 */
-	if(*flags & MS_RDONLY)
+	if (*flags & MS_RDONLY)
 		ext4_msg(sb, KERN_INFO, "re-mount start. with ro");
 	else
 		ext4_msg(sb, KERN_INFO, "re-mount start. with rw");

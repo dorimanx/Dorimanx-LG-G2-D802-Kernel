@@ -17,7 +17,7 @@
 	};
 
 	earjack-debugger {
-		status = "ok";
+		status = "disable";
 	};
 
 	hall-bu52031nvx {

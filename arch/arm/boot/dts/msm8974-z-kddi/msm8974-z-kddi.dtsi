@@ -23,6 +23,7 @@
    /include/ "msm8974-z-kddi-tdmb.dtsi"
 */
 /include/ "msm8974-z-kddi-sound.dtsi"
+/include/ "msm8974-z-kddi-lp5521.dtsi"
 
 &soc {
 	serial@f991d000 {
@@ -37,6 +38,10 @@
 	i2c@f9967000 {
 		CXD2355AGG-i2c@2b {
 			status = "ok";
+		};
+		lp5521@32 {
+			status = "ok";
+			revision = "rev_b...";
 		};
 	};
 	/*  LGE_CHANGE_E, [NFC][shawn.park@lge.com], 2013-07-02, Sony NFC Bring up */
@@ -81,7 +86,7 @@
 		qcom,sup-voltages = <1800 2950>;
 		qcom,bus-width = <4>;
 		qcom,xpc;
-		/* qcom,nonremovable; */
+		qcom,nonremovable;
 		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "SDR104";
 		qcom,current-limit = <800>;
 

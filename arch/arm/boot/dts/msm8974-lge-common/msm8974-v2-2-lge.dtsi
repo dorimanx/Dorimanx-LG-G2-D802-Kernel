@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/include/ "../msm8974-v2-2.dtsi"
+/include/ "../msm8974-v2.2.dtsi"
 /include/ "msm8974-lge-common.dtsi"
 
 &soc {
@@ -39,4 +39,32 @@
 			qcom,iadc-poll-eoc;
 		};
 	};
+};
+
+&gdsc_venus {
+	lge,use_workaround = <0>;
+};
+
+&gdsc_mdss {
+	lge,use_workaround = <0>;
+};
+
+&gdsc_jpeg {
+	lge,use_workaround = <0>;
+};
+
+&gdsc_vfe {
+	lge,use_workaround = <0>;
+};
+
+&gdsc_oxili_gx {
+	lge,use_workaround = <0>;
+};
+
+&gdsc_oxili_cx {
+	lge,use_workaround = <0>;
+};
+
+&gdsc_usb_hsic {
+	lge,use_workaround = <0>;
 };

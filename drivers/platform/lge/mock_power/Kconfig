@@ -1,0 +1,14 @@
+config MOCK_POWER
+	bool "LG mock power driver to test a power on mobile device"
+	default n
+	help
+	  Say Y to enable LG mock power driver to test a power on mobile device.
+	  This is used to test power supply interface with platform and is able
+          to enable or disable in runtime even though a system uses a real battery.
+
+config MOCK_POWER_DEBUGFS
+	bool "LG mock power debugfs"
+	depends on MOCK_POWER
+	default n
+	help
+	  Say Y to support a debugfs for LG mock power.

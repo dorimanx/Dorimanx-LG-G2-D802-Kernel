@@ -21,6 +21,6 @@ struct dm_dev_tty {
 
 extern struct dm_dev_tty *lge_dm_dev_tty;
 
-#endif /*                   */
-#endif /*              */
+#endif /* CONFIG_LGE_DM_DEV */
+#endif /*TTY_LGE_DM_H_ */
 

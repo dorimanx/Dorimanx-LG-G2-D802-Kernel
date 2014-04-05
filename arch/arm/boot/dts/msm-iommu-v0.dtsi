@@ -29,11 +29,11 @@
 						0x80>;
 		qcom,msm-bus,name = "lpass_ebi";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,active-only;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<11 512 0 0>,
 				<11 512 0 1000>;
+		qcom,msm-enable-remote-spinlock;
 		status = "disabled";
 
 		lpass_q6_fw: qcom,iommu-ctx@fd000000 {
@@ -87,7 +87,6 @@
 						0x80>;
 		qcom,msm-bus,name = "copss_ebi";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,active-only;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<88 512 0 0>,
@@ -178,7 +177,6 @@
 						0x80>;
 		qcom,msm-bus,name = "mdpe_ebi";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,active-only;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<92 512 0 0>,
@@ -220,7 +218,6 @@
 						0x80>;
 		qcom,msm-bus,name = "mdps_ebi";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,active-only;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<22 512 0 0>,
@@ -263,7 +260,6 @@
 						0x80>;
 		qcom,msm-bus,name = "gfx_ebi";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,active-only;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<26 512 0 0>,
@@ -315,7 +311,6 @@
 						0x80>;
 		qcom,msm-bus,name = "vfe_ebi";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,active-only;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<29 512 0 0>,
@@ -326,16 +321,8 @@
 			compatible = "qcom,msm-smmu-v0-ctx";
 			reg = <0xfd890000 0x1000>;
 			interrupts = <0 65 0>;
-			qcom,iommu-ctx-mids = <0>;
+			qcom,iommu-ctx-mids = <0 1 2 3 4 5 6 7 8 9>;
 			label = "vfe0";
-		};
-
-		qcom,iommu-ctx@fd891000 {
-			compatible = "qcom,msm-smmu-v0-ctx";
-			reg = <0xfd891000 0x1000>;
-			interrupts = <0 65 0>;
-			qcom,iommu-ctx-mids = <1>;
-			label = "vfe1";
 		};
 	};
 };

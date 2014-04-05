@@ -13,7 +13,7 @@ config LGE_BROADCAST_ONESEG
 
 config LGE_BROADCAST_TDMB
 	bool "LGE broadcast TDMB device Driver"
-	depends on (MACH_MSM8974_G2_KR)||(MACH_MSM8974_Z_KR)||(MACH_MSM8974_VU3_KR)
+	depends on (MACH_MSM8974_G2_KR)||(MACH_MSM8974_Z_KR)||(MACH_MSM8974_VU3_KR)||(MACH_MSM8974_B1_KR)
 	default y
 	help
 	  Select this if you want to use TDMB broadcast service

@@ -16,6 +16,8 @@
 #include "mdss_fb.h"
 #include "mdp3_ppp.h"
 
+#define MDP_IS_IMGTYPE_BAD(x) ((x) >= MDP_IMGTYPE_LIMIT)
+
 /* bg_config_lut not needed since it is same as src */
 const uint32_t src_cfg_lut[MDP_IMGTYPE_LIMIT] = {
 	[MDP_RGB_565] = MDP_RGB_565_SRC_REG,
@@ -30,9 +32,11 @@ const uint32_t src_cfg_lut[MDP_IMGTYPE_LIMIT] = {
 	[MDP_Y_CRCB_H2V2] = MDP_Y_CBCR_H2V2_SRC_REG,
 	[MDP_Y_CBCR_H2V2] = MDP_Y_CBCR_H2V2_SRC_REG,
 	[MDP_Y_CBCR_H2V2_ADRENO] = MDP_Y_CBCR_H2V2_SRC_REG,
+	[MDP_Y_CBCR_H2V2_VENUS] = MDP_Y_CBCR_H2V2_SRC_REG,
 	[MDP_YCRYCB_H2V1] = MDP_YCRYCB_H2V1_SRC_REG,
 	[MDP_Y_CBCR_H2V1] = MDP_Y_CRCB_H2V1_SRC_REG,
 	[MDP_Y_CRCB_H2V1] = MDP_Y_CRCB_H2V1_SRC_REG,
+	[MDP_BGRX_8888] = MDP_RGBX_8888_SRC_REG,
 };
 
 const uint32_t out_cfg_lut[MDP_IMGTYPE_LIMIT] = {
@@ -48,9 +52,11 @@ const uint32_t out_cfg_lut[MDP_IMGTYPE_LIMIT] = {
 	[MDP_Y_CRCB_H2V2] = MDP_Y_CBCR_H2V2_DST_REG,
 	[MDP_Y_CBCR_H2V2] = MDP_Y_CBCR_H2V2_DST_REG,
 	[MDP_Y_CBCR_H2V2_ADRENO] = MDP_Y_CBCR_H2V2_DST_REG,
+	[MDP_Y_CBCR_H2V2_VENUS] = MDP_Y_CBCR_H2V2_DST_REG,
 	[MDP_YCRYCB_H2V1] = MDP_YCRYCB_H2V1_DST_REG,
 	[MDP_Y_CBCR_H2V1] = MDP_Y_CRCB_H2V1_DST_REG,
 	[MDP_Y_CRCB_H2V1] = MDP_Y_CRCB_H2V1_DST_REG,
+	[MDP_BGRX_8888] = MDP_RGBX_8888_DST_REG,
 };
 
 const uint32_t pack_patt_lut[MDP_IMGTYPE_LIMIT] = {
@@ -58,8 +64,8 @@ const uint32_t pack_patt_lut[MDP_IMGTYPE_LIMIT] = {
 	[MDP_BGR_565] = PPP_GET_PACK_PATTERN(0, CLR_B, CLR_G, CLR_R, 8),
 	[MDP_RGB_888] = PPP_GET_PACK_PATTERN(0, CLR_R, CLR_G, CLR_B, 8),
 	[MDP_BGR_888] = PPP_GET_PACK_PATTERN(0, CLR_B, CLR_G, CLR_R, 8),
-	[MDP_BGRA_8888] = PPP_GET_PACK_PATTERN(CLR_ALPHA, CLR_R,
-		CLR_G, CLR_B, 8),
+	[MDP_BGRA_8888] = PPP_GET_PACK_PATTERN(CLR_ALPHA, CLR_B,
+		CLR_G, CLR_R, 8),
 	[MDP_RGBA_8888] = PPP_GET_PACK_PATTERN(CLR_ALPHA, CLR_R,
 		CLR_G, CLR_B, 8),
 	[MDP_ARGB_8888] = PPP_GET_PACK_PATTERN(CLR_ALPHA, CLR_R,
@@ -72,10 +78,14 @@ const uint32_t pack_patt_lut[MDP_IMGTYPE_LIMIT] = {
 	[MDP_Y_CBCR_H2V2] = PPP_GET_PACK_PATTERN(0, 0, CLR_CB, CLR_CR, 8),
 	[MDP_Y_CBCR_H2V2_ADRENO] = PPP_GET_PACK_PATTERN(0, 0, CLR_CB,
 		CLR_CR, 8),
+	[MDP_Y_CBCR_H2V2_VENUS] = PPP_GET_PACK_PATTERN(0, 0, CLR_CB,
+		CLR_CR, 8),
 	[MDP_YCRYCB_H2V1] = PPP_GET_PACK_PATTERN(CLR_Y,
 		CLR_CR, CLR_Y, CLR_CB, 8),
 	[MDP_Y_CBCR_H2V1] = PPP_GET_PACK_PATTERN(0, 0, CLR_CB, CLR_CR, 8),
 	[MDP_Y_CRCB_H2V1] = PPP_GET_PACK_PATTERN(0, 0, CLR_CR, CLR_CB, 8),
+	[MDP_BGRX_8888] = PPP_GET_PACK_PATTERN(CLR_ALPHA, CLR_B,
+		CLR_G, CLR_R, 8),
 };
 
 const uint32_t dst_op_reg[MDP_IMGTYPE_LIMIT] = {
@@ -90,6 +100,8 @@ const uint32_t src_op_reg[MDP_IMGTYPE_LIMIT] = {
 	[MDP_Y_CRCB_H2V2] = PPP_OP_SRC_CHROMA_420 | PPP_OP_COLOR_SPACE_YCBCR,
 	[MDP_Y_CBCR_H2V2] = PPP_OP_SRC_CHROMA_420 | PPP_OP_COLOR_SPACE_YCBCR,
 	[MDP_Y_CBCR_H2V2_ADRENO] = PPP_OP_SRC_CHROMA_420 |
+			PPP_OP_COLOR_SPACE_YCBCR,
+	[MDP_Y_CBCR_H2V2_VENUS] = PPP_OP_SRC_CHROMA_420 |
 			PPP_OP_COLOR_SPACE_YCBCR,
 	[MDP_Y_CBCR_H2V1] = PPP_OP_SRC_CHROMA_H2V1,
 	[MDP_Y_CRCB_H2V1] = PPP_OP_SRC_CHROMA_H2V1,
@@ -109,9 +121,11 @@ const uint32_t bytes_per_pixel[MDP_IMGTYPE_LIMIT] = {
 	[MDP_Y_CBCR_H2V1] = 1,
 	[MDP_Y_CBCR_H2V2] = 1,
 	[MDP_Y_CBCR_H2V2_ADRENO] = 1,
+	[MDP_Y_CBCR_H2V2_VENUS] = 1,
 	[MDP_Y_CRCB_H2V1] = 1,
 	[MDP_Y_CRCB_H2V2] = 1,
 	[MDP_YCRYCB_H2V1] = 2,
+	[MDP_BGRX_8888] = 4,
 };
 
 const bool per_pixel_alpha[MDP_IMGTYPE_LIMIT] = {
@@ -1497,56 +1511,56 @@ void ppp_load_y_scale_table(int idx)
 
 uint32_t ppp_bpp(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return bytes_per_pixel[type];
 }
 
 uint32_t ppp_src_config(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return src_cfg_lut[type];
 }
 
 uint32_t ppp_out_config(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return out_cfg_lut[type];
 }
 
 uint32_t ppp_pack_pattern(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return pack_patt_lut[type];
 }
 
 uint32_t ppp_dst_op_reg(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return dst_op_reg[type];
 }
 
 uint32_t ppp_src_op_reg(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return src_op_reg[type];
 }
 
 bool ppp_per_p_alpha(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return per_pixel_alpha[type];
 }
 
 bool ppp_multi_plane(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return multi_plane[type];
 }

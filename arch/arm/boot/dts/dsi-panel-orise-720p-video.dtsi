@@ -10,11 +10,9 @@
  * GNU General Public License for more details.
  */
 
-&soc {
-	qcom,mdss_dsi_orise_720p_video {
-		compatible = "qcom,mdss-dsi-panel";
+&mdss_mdp {
+	dsi_orise_720_vid: qcom,mdss_dsi_orise_720p_video {
 		label = "orise 720p video mode dsi panel";
-		status = "disable";
 		qcom,dsi-ctrl-phandle = <&mdss_dsi1>;
 		qcom,mdss-pan-res = <720 1280>;
 		qcom,mdss-pan-bpp = <24>;
@@ -36,7 +34,7 @@
 		qcom,mdss-pan-dsi-stream = <0>;
 		qcom,mdss-pan-dsi-mdp-tr = <0x0>;
 		qcom,mdss-pan-dsi-dma-tr = <0x04>;
-		qcom,mdss-pan-dsi-frame-rate = <60>;
+		qcom,mdss-pan-dsi-framerate = <60>;
 		qcom,panel-phy-regulatorSettings = [03 01 01 00  /* Regualotor settings */
 						    20 00 01];
 		qcom,panel-phy-timingSettings = [69 29 1f 00 55 55

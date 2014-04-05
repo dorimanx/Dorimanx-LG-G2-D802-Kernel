@@ -22,5 +22,6 @@ struct bq51053b_wlc_platform_data {
 };
 
 extern int is_wireless_charger_plugged(void);
+extern int wireless_charging_completed(void);
 
 #endif

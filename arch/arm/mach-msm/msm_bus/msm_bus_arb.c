@@ -59,6 +59,8 @@ uint64_t msm_bus_div64(unsigned int w, uint64_t bw)
 		return 1;
 
 	switch (w) {
+	case 0:
+		WARN(1, "AXI: Divide by 0 attempted\n");
 	case 1: return bw;
 	case 2:	return (bw >> 1);
 	case 4:	return (bw >> 2);
@@ -342,6 +344,15 @@ static int update_path(int curr, int pnode, uint64_t req_clk, uint64_t req_bw,
 		return -ENXIO;
 	}
 
+	/**
+	 * If master supports dual configuration, check if
+	 * the configuration needs to be changed based on
+	 * incoming requests
+	 */
+	if (info->node_info->dual_conf)
+		fabdev->algo->config_master(fabdev, info,
+			req_clk, req_bw);
+
 	info->link_info.sel_bw = &info->link_info.bw[ctx];
 	info->link_info.sel_clk = &info->link_info.clk[ctx];
 	*info->link_info.sel_bw += add_bw;
@@ -417,6 +428,13 @@ static int update_path(int curr, int pnode, uint64_t req_clk, uint64_t req_bw,
 			req_clk);
 		bwsum_hz = BW_TO_CLK_FREQ_HZ(hop->node_info->buswidth,
 			bwsum);
+		/* Account for multiple channels if any */
+		if (hop->node_info->num_sports > 1)
+			bwsum_hz = msm_bus_div64(hop->node_info->num_sports,
+				bwsum_hz);
+		MSM_BUS_DBG("AXI: Hop: %d, ports: %d, bwsum_hz: %llu\n",
+				hop->node_info->id, hop->node_info->num_sports,
+				bwsum_hz);
 		MSM_BUS_DBG("up-clk: curr_hz: %llu, req_hz: %llu, bw_hz %llu\n",
 			curr_clk, req_clk, bwsum_hz);
 		ret = fabdev->algo->update_clks(fabdev, hop, index,
@@ -473,7 +491,7 @@ uint32_t msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata)
 	deffab = msm_bus_get_fabric_device(MSM_BUS_FAB_DEFAULT);
 	if (!deffab) {
 		MSM_BUS_ERR("Error finding default fabric\n");
-		return -ENXIO;
+		return 0;
 	}
 
 	nfab = msm_bus_get_num_fab();
@@ -592,7 +610,8 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 	pdata = client->pdata;
 	if (!pdata) {
 		MSM_BUS_ERR("Null pdata passed to update-request\n");
-		return -ENXIO;
+		ret = -ENXIO;
+		goto err;
 	}
 
 	if (index >= pdata->num_usecases) {
@@ -632,15 +651,6 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 			curr_clk = client->pdata->usecase[curr].vectors[i].ib;
 			curr_bw = client->pdata->usecase[curr].vectors[i].ab;
 			MSM_BUS_DBG("ab: %llu ib: %llu\n", curr_bw, curr_clk);
-		}
-
-		if (index == 0) {
-			/* This check protects the bus driver from clients
-			 * that can leave non-zero requests after
-			 * unregistering.
-			 * */
-			req_clk = 0;
-			req_bw = 0;
 		}
 
 		if (!pdata->active_only) {
@@ -764,11 +774,47 @@ void msm_bus_scale_client_reset_pnodes(uint32_t cl)
  */
 void msm_bus_scale_unregister_client(uint32_t cl)
 {
+	int i;
 	struct msm_bus_client *client = (struct msm_bus_client *)(cl);
+	bool warn = false;
 	if (IS_ERR_OR_NULL(client))
 		return;
-	if (client->curr != 0)
+
+	for (i = 0; i < client->pdata->usecase->num_paths; i++) {
+		if ((client->pdata->usecase[0].vectors[i].ab) ||
+			(client->pdata->usecase[0].vectors[i].ib)) {
+			warn = true;
+			break;
+		}
+	}
+
+	if (warn) {
+		int num_paths = client->pdata->usecase->num_paths;
+		int ab[num_paths], ib[num_paths];
+		WARN(1, "%s called unregister with non-zero vectors\n",
+			client->pdata->name);
+
+		/*
+		 * Save client values and zero them out to
+		 * cleanly unregister
+		 */
+		for (i = 0; i < num_paths; i++) {
+			ab[i] = client->pdata->usecase[0].vectors[i].ab;
+			ib[i] = client->pdata->usecase[0].vectors[i].ib;
+			client->pdata->usecase[0].vectors[i].ab = 0;
+			client->pdata->usecase[0].vectors[i].ib = 0;
+		}
+
 		msm_bus_scale_client_update_request(cl, 0);
+
+		/* Restore client vectors if required for re-registering. */
+		for (i = 0; i < num_paths; i++) {
+			client->pdata->usecase[0].vectors[i].ab = ab[i];
+			client->pdata->usecase[0].vectors[i].ib = ib[i];
+		}
+	} else if (client->curr != 0)
+		msm_bus_scale_client_update_request(cl, 0);
+
 	MSM_BUS_DBG("Unregistering client %d\n", cl);
 	mutex_lock(&msm_bus_lock);
 	msm_bus_scale_client_reset_pnodes(cl);

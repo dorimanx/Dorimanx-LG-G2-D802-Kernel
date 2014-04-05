@@ -20,7 +20,6 @@
 #include <linux/debugfs.h>
 #include <linux/version.h>
 #include <linux/slab.h>
-#include <linux/of.h>
 #include <mach/board.h>
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
@@ -28,75 +27,15 @@
 #include "msm_vidc_internal.h"
 #include "msm_vidc_debug.h"
 #include "vidc_hfi_api.h"
-#include "msm_smem.h"
 #include "vidc_hfi_api.h"
 #include "msm_vidc_resources.h"
+#include "msm_vidc_res_parse.h"
 
 #define BASE_DEVICE_NUMBER 32
 
 struct msm_vidc_drv *vidc_driver;
 
-struct buffer_info {
-	struct list_head list;
-	int type;
-	int num_planes;
-	int fd[VIDEO_MAX_PLANES];
-	int buff_off[VIDEO_MAX_PLANES];
-	int size[VIDEO_MAX_PLANES];
-	u32 uvaddr[VIDEO_MAX_PLANES];
-	u32 device_addr[VIDEO_MAX_PLANES];
-	struct msm_smem *handle[VIDEO_MAX_PLANES];
-};
-
-struct msm_v4l2_vid_inst {
-	struct msm_vidc_inst *vidc_inst;
-	void *mem_client;
-	struct list_head registered_bufs;
-};
-
-struct master_slave {
-	int masters_ocmem[2];
-	int masters_ddr[2];
-	int slaves_ocmem[2];
-	int slaves_ddr[2];
-};
-
-struct bus_pdata_config {
-	int *masters;
-	int *slaves;
-	char *name;
-};
-
-static struct master_slave bus_vectors_masters_slaves = {
-	.masters_ocmem = {MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-				MSM_BUS_MASTER_VIDEO_P1_OCMEM},
-	.masters_ddr = {MSM_BUS_MASTER_VIDEO_P0, MSM_BUS_MASTER_VIDEO_P1},
-	.slaves_ocmem = {MSM_BUS_SLAVE_OCMEM, MSM_BUS_SLAVE_OCMEM},
-	.slaves_ddr = {MSM_BUS_SLAVE_EBI_CH0, MSM_BUS_SLAVE_EBI_CH0},
-};
-
-static struct bus_pdata_config bus_pdata_config_vector[] = {
-{
-	.masters = bus_vectors_masters_slaves.masters_ocmem,
-	.slaves = bus_vectors_masters_slaves.slaves_ocmem,
-	.name = "qcom,enc-ocmem-ab-ib",
-},
-{
-	.masters = bus_vectors_masters_slaves.masters_ocmem,
-	.slaves = bus_vectors_masters_slaves.slaves_ocmem,
-	.name = "qcom,dec-ocmem-ab-ib",
-},
-{
-	.masters = bus_vectors_masters_slaves.masters_ddr,
-	.slaves = bus_vectors_masters_slaves.slaves_ddr,
-	.name = "qcom,enc-ddr-ab-ib",
-},
-{
-	.masters = bus_vectors_masters_slaves.masters_ddr,
-	.slaves = bus_vectors_masters_slaves.slaves_ddr,
-	.name = "qcom,dec-ddr-ab-ib",
-},
-};
+uint32_t msm_vidc_pwr_collapse_delay = 10000;
 
 static inline struct msm_vidc_inst *get_vidc_inst(struct file *filp, void *fh)
 {
@@ -104,232 +43,38 @@ static inline struct msm_vidc_inst *get_vidc_inst(struct file *filp, void *fh)
 					struct msm_vidc_inst, event_handler);
 }
 
-static inline struct msm_v4l2_vid_inst *get_v4l2_inst(struct file *filp,
-			void *fh)
-{
-	struct msm_vidc_inst *vidc_inst;
-	vidc_inst = container_of(filp->private_data,
-			struct msm_vidc_inst, event_handler);
-	return (struct msm_v4l2_vid_inst *)vidc_inst->priv;
-}
-
-struct buffer_info *get_registered_buf(struct list_head *list,
-				int fd, u32 buff_off, u32 size, int *plane)
-{
-	struct buffer_info *temp;
-	struct buffer_info *ret = NULL;
-	int i;
-	if (!list || fd < 0 || !plane) {
-		dprintk(VIDC_ERR, "Invalid input\n");
-		goto err_invalid_input;
-	}
-	*plane = 0;
-	if (!list_empty(list)) {
-		list_for_each_entry(temp, list, list) {
-			for (i = 0; (i < temp->num_planes)
-				&& (i < VIDEO_MAX_PLANES); i++) {
-				if (temp && temp->fd[i] == fd &&
-						(CONTAINS(temp->buff_off[i],
-						temp->size[i], buff_off)
-						 || CONTAINS(buff_off,
-						 size, temp->buff_off[i])
-						 || OVERLAPS(buff_off, size,
-						 temp->buff_off[i],
-						 temp->size[i]))) {
-					dprintk(VIDC_DBG,
-							"This memory region is already mapped\n");
-					ret = temp;
-					*plane = i;
-					break;
-				}
-			}
-			if (ret)
-				break;
-		}
-	}
-err_invalid_input:
-	return ret;
-}
-
-struct buffer_info *get_same_fd_buffer(struct list_head *list,
-		int fd, int *plane)
-{
-	struct buffer_info *temp;
-	struct buffer_info *ret = NULL;
-	int i;
-	if (!list || fd < 0 || !plane) {
-		dprintk(VIDC_ERR, "Invalid input\n");
-		goto err_invalid_input;
-	}
-	*plane = 0;
-	if (!list_empty(list)) {
-		list_for_each_entry(temp, list, list) {
-			for (i = 0; (i < temp->num_planes)
-				&& (i < VIDEO_MAX_PLANES); i++) {
-				if (temp && temp->fd[i] == fd)  {
-					dprintk(VIDC_INFO,
-					"Found same fd buffer\n");
-					ret = temp;
-					*plane = i;
-					break;
-				}
-			}
-			if (ret)
-				break;
-		}
-	}
-err_invalid_input:
-	return ret;
-}
-
-static struct buffer_info *device_to_uvaddr(
-	struct list_head *list, u32 device_addr)
-{
-	struct buffer_info *temp = NULL;
-	int found = 0;
-	int i;
-	if (!list || !device_addr) {
-		dprintk(VIDC_ERR, "Invalid input\n");
-		goto err_invalid_input;
-	}
-	if (!list_empty(list)) {
-		list_for_each_entry(temp, list, list) {
-			for (i = 0; (i < temp->num_planes)
-				&& (i < VIDEO_MAX_PLANES); i++) {
-				if (temp && temp->device_addr[i]
-						== device_addr)  {
-					dprintk(VIDC_INFO,
-					"Found same fd buffer\n");
-					found = 1;
-					break;
-				}
-			}
-			if (found)
-				break;
-		}
-	}
-err_invalid_input:
-	return temp;
-}
-
 static int msm_v4l2_open(struct file *filp)
 {
-	int rc = 0;
 	struct video_device *vdev = video_devdata(filp);
 	struct msm_video_device *vid_dev =
 		container_of(vdev, struct msm_video_device, vdev);
 	struct msm_vidc_core *core = video_drvdata(filp);
-	struct msm_v4l2_vid_inst *v4l2_inst = kzalloc(sizeof(*v4l2_inst),
-						GFP_KERNEL);
-	if (!v4l2_inst) {
-		dprintk(VIDC_ERR,
-			"Failed to allocate memory for this instance\n");
-		rc = -ENOMEM;
-		goto fail_nomem;
-	}
-	v4l2_inst->mem_client = msm_smem_new_client(SMEM_ION, &core->resources);
-	if (!v4l2_inst->mem_client) {
-		dprintk(VIDC_ERR, "Failed to create memory client\n");
-		rc = -ENOMEM;
-		goto fail_mem_client;
-	}
+	struct msm_vidc_inst *vidc_inst;
 
-	v4l2_inst->vidc_inst = msm_vidc_open(core->id, vid_dev->type);
-	if (!v4l2_inst->vidc_inst) {
+	vidc_inst = msm_vidc_open(core->id, vid_dev->type);
+	if (!vidc_inst) {
 		dprintk(VIDC_ERR,
 		"Failed to create video instance, core: %d, type = %d\n",
 		core->id, vid_dev->type);
-		rc = -ENOMEM;
-		goto fail_open;
+		return -ENOMEM;
 	}
-	INIT_LIST_HEAD(&v4l2_inst->registered_bufs);
-	v4l2_inst->vidc_inst->priv = v4l2_inst;
 	clear_bit(V4L2_FL_USES_V4L2_FH, &vdev->flags);
-	filp->private_data = &(v4l2_inst->vidc_inst->event_handler);
-	return rc;
-fail_open:
-	msm_smem_delete_client(v4l2_inst->mem_client);
-fail_mem_client:
-	kfree(v4l2_inst);
-fail_nomem:
-	return rc;
-}
-static int msm_v4l2_release_output_buffers(struct msm_v4l2_vid_inst *v4l2_inst)
-{
-	struct list_head *ptr, *next;
-	struct buffer_info *bi;
-	struct v4l2_buffer buffer_info;
-	struct v4l2_plane plane[VIDEO_MAX_PLANES];
-	int rc = 0;
-	int i;
-	list_for_each_safe(ptr, next, &v4l2_inst->registered_bufs) {
-		bi = list_entry(ptr, struct buffer_info, list);
-		if (bi->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-			buffer_info.type = bi->type;
-			for (i = 0; (i < bi->num_planes)
-				&& (i < VIDEO_MAX_PLANES); i++) {
-				plane[i].reserved[0] = bi->fd[i];
-				plane[i].reserved[1] = bi->buff_off[i];
-				plane[i].length = bi->size[i];
-				plane[i].m.userptr = bi->device_addr[i];
-				buffer_info.m.planes = plane;
-				dprintk(VIDC_DBG,
-					"Releasing buffer: %d, %d, %d\n",
-					buffer_info.m.planes[i].reserved[0],
-					buffer_info.m.planes[i].reserved[1],
-					buffer_info.m.planes[i].length);
-			}
-			buffer_info.length = bi->num_planes;
-			rc = msm_vidc_release_buf(v4l2_inst->vidc_inst,
-					&buffer_info);
-			if (rc)
-				dprintk(VIDC_ERR,
-					"Failed Release buffer: %d, %d, %d\n",
-					buffer_info.m.planes[0].reserved[0],
-					buffer_info.m.planes[0].reserved[1],
-					buffer_info.m.planes[0].length);
-			list_del(&bi->list);
-			for (i = 0; i < bi->num_planes; i++) {
-				if (bi->handle[i])
-					msm_smem_free(v4l2_inst->mem_client,
-							bi->handle[i]);
-			}
-			kfree(bi);
-		}
-	}
-	return rc;
+	filp->private_data = &(vidc_inst->event_handler);
+	return 0;
 }
 
 static int msm_v4l2_close(struct file *filp)
 {
 	int rc = 0;
-	struct list_head *ptr, *next;
-	struct buffer_info *bi;
 	struct msm_vidc_inst *vidc_inst;
-	struct msm_v4l2_vid_inst *v4l2_inst;
-	int i;
 	vidc_inst = get_vidc_inst(filp, NULL);
-	v4l2_inst = get_v4l2_inst(filp, NULL);
-	rc = msm_v4l2_release_output_buffers(v4l2_inst);
+	rc = msm_vidc_release_buffers(vidc_inst,
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 	if (rc)
 		dprintk(VIDC_WARN,
 			"Failed in %s for release output buffers\n", __func__);
-	list_for_each_safe(ptr, next, &v4l2_inst->registered_bufs) {
-		bi = list_entry(ptr, struct buffer_info, list);
-		if (bi->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-			list_del(&bi->list);
-			for (i = 0; (i < bi->num_planes)
-				&& (i < VIDEO_MAX_PLANES); i++) {
-				if (bi->handle[i])
-					msm_smem_free(v4l2_inst->mem_client,
-							bi->handle[i]);
-			}
-			kfree(bi);
-		}
-	}
-	msm_smem_delete_client(v4l2_inst->mem_client);
+
 	rc = msm_vidc_close(vidc_inst);
-	kfree(v4l2_inst);
 	return rc;
 }
 
@@ -379,11 +124,9 @@ int msm_v4l2_reqbufs(struct file *file, void *fh,
 				struct v4l2_requestbuffers *b)
 {
 	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
-	struct msm_v4l2_vid_inst *v4l2_inst;
 	int rc = 0;
-	v4l2_inst = get_v4l2_inst(file, NULL);
 	if (b->count == 0)
-		rc = msm_v4l2_release_output_buffers(v4l2_inst);
+		rc = msm_vidc_release_buffers(vidc_inst, b->type);
 	if (rc)
 		dprintk(VIDC_WARN,
 			"Failed in %s for release output buffers\n", __func__);
@@ -393,223 +136,19 @@ int msm_v4l2_reqbufs(struct file *file, void *fh,
 int msm_v4l2_prepare_buf(struct file *file, void *fh,
 				struct v4l2_buffer *b)
 {
-	struct msm_smem *handle = NULL;
-	struct buffer_info *binfo;
-	struct buffer_info *temp;
-	struct msm_vidc_inst *vidc_inst;
-	struct msm_v4l2_vid_inst *v4l2_inst;
-	int plane = 0;
-	int i, rc = 0;
-	struct hfi_device *hdev;
-	enum hal_buffer buffer_type;
-
-	vidc_inst = get_vidc_inst(file, fh);
-	v4l2_inst = get_v4l2_inst(file, fh);
-	if (!v4l2_inst || !vidc_inst || !vidc_inst->core
-		|| !vidc_inst->core->device) {
-		rc = -EINVAL;
-		goto exit;
-	}
-
-	hdev = vidc_inst->core->device;
-
-	if (!v4l2_inst->mem_client) {
-		dprintk(VIDC_ERR, "Failed to get memory client\n");
-		rc = -ENOMEM;
-		goto exit;
-	}
-	binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
-	if (!binfo) {
-		dprintk(VIDC_ERR, "Out of memory\n");
-		rc = -ENOMEM;
-		goto exit;
-	}
-	if (b->length > VIDEO_MAX_PLANES) {
-		dprintk(VIDC_ERR, "Num planes exceeds max: %d, %d\n",
-			b->length, VIDEO_MAX_PLANES);
-		rc = -EINVAL;
-		goto exit;
-	}
-	for (i = 0; i < b->length; ++i) {
-		buffer_type = HAL_BUFFER_OUTPUT;
-		if (EXTRADATA_IDX(b->length) &&
-			(i == EXTRADATA_IDX(b->length)) &&
-			!b->m.planes[i].length) {
-			continue;
-		}
-		temp = get_registered_buf(&v4l2_inst->registered_bufs,
-				b->m.planes[i].reserved[0],
-				b->m.planes[i].reserved[1],
-				b->m.planes[i].length, &plane);
-		if (temp) {
-			dprintk(VIDC_DBG,
-				"This memory region has already been prepared\n");
-			rc = -EINVAL;
-			kfree(binfo);
-			goto exit;
-		}
-		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-			buffer_type = HAL_BUFFER_INPUT;
-
-		temp = get_same_fd_buffer(&v4l2_inst->registered_bufs,
-				b->m.planes[i].reserved[0], &plane);
-
-		if (temp) {
-			binfo->type = b->type;
-			binfo->fd[i] = b->m.planes[i].reserved[0];
-			binfo->buff_off[i] = b->m.planes[i].reserved[1];
-			binfo->size[i] = b->m.planes[i].length;
-			binfo->uvaddr[i] = b->m.planes[i].m.userptr;
-			binfo->device_addr[i] =
-			temp->handle[plane]->device_addr + binfo->buff_off[i];
-			binfo->handle[i] = NULL;
-		} else {
-			handle = msm_smem_user_to_kernel(v4l2_inst->mem_client,
-					b->m.planes[i].reserved[0],
-					b->m.planes[i].reserved[1],
-					buffer_type);
-			if (!handle) {
-				dprintk(VIDC_ERR,
-					"Failed to get device buffer address\n");
-				kfree(binfo);
-				goto exit;
-			}
-			binfo->type = b->type;
-			binfo->fd[i] = b->m.planes[i].reserved[0];
-			binfo->buff_off[i] = b->m.planes[i].reserved[1];
-			binfo->size[i] = b->m.planes[i].length;
-			binfo->uvaddr[i] = b->m.planes[i].m.userptr;
-			binfo->device_addr[i] =
-				handle->device_addr + binfo->buff_off[i];
-			binfo->handle[i] = handle;
-			dprintk(VIDC_DBG, "Registering buffer: %d, %d, %d\n",
-					b->m.planes[i].reserved[0],
-					b->m.planes[i].reserved[1],
-					b->m.planes[i].length);
-			rc = msm_smem_cache_operations(v4l2_inst->mem_client,
-				binfo->handle[i], SMEM_CACHE_CLEAN);
-			if (rc)
-				dprintk(VIDC_WARN,
-					"CACHE Clean failed: %d, %d, %d\n",
-					b->m.planes[i].reserved[0],
-					b->m.planes[i].reserved[1],
-					b->m.planes[i].length);
-		}
-		b->m.planes[i].m.userptr = binfo->device_addr[i];
-	}
-	binfo->num_planes = b->length;
-	list_add_tail(&binfo->list, &v4l2_inst->registered_bufs);
-	rc = msm_vidc_prepare_buf(v4l2_inst->vidc_inst, b);
-exit:
-	return rc;
+	return msm_vidc_prepare_buf(get_vidc_inst(file, fh), b);
 }
 
 int msm_v4l2_qbuf(struct file *file, void *fh,
 				struct v4l2_buffer *b)
 {
-	struct msm_vidc_inst *vidc_inst;
-	struct msm_v4l2_vid_inst *v4l2_inst;
-	struct buffer_info *binfo;
-	int plane = 0;
-	int rc = 0;
-	int i;
-	if (b->length > VIDEO_MAX_PLANES) {
-		dprintk(VIDC_ERR, "num planes exceeds max: %d\n",
-			b->length);
-		return -EINVAL;
-	}
-	vidc_inst = get_vidc_inst(file, fh);
-	v4l2_inst = get_v4l2_inst(file, fh);
-	for (i = 0; i < b->length; ++i) {
-		if (EXTRADATA_IDX(b->length) &&
-			(i == EXTRADATA_IDX(b->length)) &&
-			!b->m.planes[i].length) {
-			b->m.planes[i].m.userptr = 0;
-			continue;
-		}
-		binfo = get_registered_buf(&v4l2_inst->registered_bufs,
-				b->m.planes[i].reserved[0],
-				b->m.planes[i].reserved[1],
-				b->m.planes[i].length, &plane);
-		if (!binfo) {
-			dprintk(VIDC_ERR,
-				"This buffer is not registered: %d, %d, %d\n",
-				b->m.planes[i].reserved[0],
-				b->m.planes[i].reserved[1],
-				b->m.planes[i].length);
-			rc = -EINVAL;
-			goto err_invalid_buff;
-		}
-		b->m.planes[i].m.userptr = binfo->device_addr[i];
-		dprintk(VIDC_DBG, "Queueing device address = 0x%x\n",
-				binfo->device_addr[i]);
-		if (binfo->handle[i] &&
-			(b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)) {
-			rc = msm_smem_cache_operations(v4l2_inst->mem_client,
-					binfo->handle[i], SMEM_CACHE_CLEAN);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"Failed to clean caches: %d\n", rc);
-				goto err_invalid_buff;
-			}
-		}
-	}
-	rc = msm_vidc_qbuf(v4l2_inst->vidc_inst, b);
-err_invalid_buff:
-	return rc;
+	return msm_vidc_qbuf(get_vidc_inst(file, fh), b);
 }
 
 int msm_v4l2_dqbuf(struct file *file, void *fh,
 				struct v4l2_buffer *b)
 {
-	int rc = 0;
-	int i;
-	struct msm_v4l2_vid_inst *v4l2_inst;
-	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
-	struct buffer_info *buffer_info;
-	if (b->length > VIDEO_MAX_PLANES) {
-		dprintk(VIDC_ERR, "num planes exceed maximum: %d\n",
-			b->length);
-		return -EINVAL;
-	}
-	v4l2_inst = get_v4l2_inst(file, fh);
-	rc = msm_vidc_dqbuf((void *)vidc_inst, b);
-	if (rc) {
-		dprintk(VIDC_DBG,
-			"Failed to dqbuf, capability: %d, rc: %d\n",
-			b->type, rc);
-		goto fail_dq_buf;
-	}
-	for (i = 0; i < b->length; i++) {
-		if (EXTRADATA_IDX(b->length) &&
-				(i == EXTRADATA_IDX(b->length)) &&
-				!b->m.planes[i].m.userptr) {
-			continue;
-		}
-		buffer_info = device_to_uvaddr(
-				&v4l2_inst->registered_bufs,
-				b->m.planes[i].m.userptr);
-		b->m.planes[i].m.userptr = buffer_info->uvaddr[i];
-		if (!b->m.planes[i].m.userptr) {
-			dprintk(VIDC_ERR,
-			"Failed to find user virtual address, 0x%lx, %d, %d\n",
-			b->m.planes[i].m.userptr, b->type, i);
-			rc = -EINVAL;
-			goto fail_dq_buf;
-		}
-		if (buffer_info->handle[i] &&
-			(b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)) {
-			rc = msm_smem_cache_operations(v4l2_inst->mem_client,
-				buffer_info->handle[i], SMEM_CACHE_INVALIDATE);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"Failed to clean caches: %d\n", rc);
-				goto fail_dq_buf;
-			}
-		}
-	}
-fail_dq_buf:
-	return rc;
+	return msm_vidc_dqbuf(get_vidc_inst(file, fh), b);
 }
 
 int msm_v4l2_streamon(struct file *file, void *fh,
@@ -645,12 +184,11 @@ static int msm_v4l2_unsubscribe_event(struct v4l2_fh *fh,
 static int msm_v4l2_decoder_cmd(struct file *file, void *fh,
 				struct v4l2_decoder_cmd *dec)
 {
-	struct msm_v4l2_vid_inst *v4l2_inst;
 	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
 	int rc = 0;
-	v4l2_inst = get_v4l2_inst(file, NULL);
 	if (dec->cmd == V4L2_DEC_CMD_STOP)
-		rc = msm_v4l2_release_output_buffers(v4l2_inst);
+		rc = msm_vidc_release_buffers(vidc_inst,
+				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 	if (rc)
 		dprintk(VIDC_WARN,
 			"Failed to release dec output buffers: %d\n", rc);
@@ -660,12 +198,11 @@ static int msm_v4l2_decoder_cmd(struct file *file, void *fh,
 static int msm_v4l2_encoder_cmd(struct file *file, void *fh,
 				struct v4l2_encoder_cmd *enc)
 {
-	struct msm_v4l2_vid_inst *v4l2_inst;
 	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
 	int rc = 0;
-	v4l2_inst = get_v4l2_inst(file, NULL);
 	if (enc->cmd == V4L2_ENC_CMD_STOP)
-		rc = msm_v4l2_release_output_buffers(v4l2_inst);
+		rc = msm_vidc_release_buffers(vidc_inst,
+				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 	if (rc)
 		dprintk(VIDC_WARN,
 			"Failed to release enc output buffers: %d\n", rc);
@@ -734,578 +271,6 @@ static const struct v4l2_file_operations msm_v4l2_vidc_fops = {
 
 void msm_vidc_release_video_device(struct video_device *pvdev)
 {
-}
-
-static size_t get_u32_array_num_elements(struct platform_device *pdev,
-					char *name)
-{
-	struct device_node *np = pdev->dev.of_node;
-	int len;
-	size_t num_elements = 0;
-	if (!of_get_property(np, name, &len)) {
-		dprintk(VIDC_ERR, "Failed to read %s from device tree\n",
-			name);
-		goto fail_read;
-	}
-
-	num_elements = len / sizeof(u32);
-	if (num_elements <= 0) {
-		dprintk(VIDC_ERR, "%s not specified in device tree\n",
-			name);
-		goto fail_read;
-	}
-	return num_elements / 2;
-
-fail_read:
-	return 0;
-}
-
-static int read_hfi_type(struct platform_device *pdev)
-{
-	struct device_node *np = pdev->dev.of_node;
-	int rc = 0;
-	const char *hfi_name = NULL;
-
-	if (np) {
-		rc = of_property_read_string(np, "qcom,hfi", &hfi_name);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed to read hfi from device tree\n");
-			goto err_hfi_read;
-		}
-		if (!strcmp(hfi_name, "venus"))
-			rc = VIDC_HFI_VENUS;
-		else if (!strcmp(hfi_name, "q6"))
-			rc = VIDC_HFI_Q6;
-		else
-			rc = -EINVAL;
-	} else
-		rc = VIDC_HFI_Q6;
-
-err_hfi_read:
-	return rc;
-}
-
-static inline void msm_vidc_free_freq_table(
-		struct msm_vidc_platform_resources *res)
-{
-	kfree(res->load_freq_tbl);
-	res->load_freq_tbl = NULL;
-}
-
-static inline void msm_vidc_free_reg_table(
-			struct msm_vidc_platform_resources *res)
-{
-	kfree(res->reg_set.reg_tbl);
-	res->reg_set.reg_tbl = NULL;
-}
-
-static inline void msm_vidc_free_bus_vectors(
-			struct msm_vidc_platform_resources *res)
-{
-	int i, j;
-	if (res->bus_pdata) {
-		for (i = 0; i < ARRAY_SIZE(bus_pdata_config_vector); i++) {
-			for (j = 0; j < res->bus_pdata[i].num_usecases; j++) {
-				kfree(res->bus_pdata[i].usecase[j].vectors);
-				res->bus_pdata[i].usecase[j].vectors = NULL;
-			}
-			kfree(res->bus_pdata[i].usecase);
-			res->bus_pdata[i].usecase = NULL;
-		}
-		kfree(res->bus_pdata);
-		res->bus_pdata = NULL;
-	}
-}
-
-static inline void msm_vidc_free_iommu_groups(
-			struct msm_vidc_platform_resources *res)
-{
-	kfree(res->iommu_group_set.iommu_maps);
-	res->iommu_group_set.iommu_maps = NULL;
-}
-
-static inline void msm_vidc_free_buffer_usage_table(
-			struct msm_vidc_platform_resources *res)
-{
-	kfree(res->buffer_usage_set.buffer_usage_tbl);
-	res->buffer_usage_set.buffer_usage_tbl = NULL;
-}
-
-static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
-{
-	int rc = 0;
-	int num_elements = 0;
-	struct platform_device *pdev = res->pdev;
-
-	num_elements = get_u32_array_num_elements(pdev, "qcom,load-freq-tbl");
-	if (num_elements == 0) {
-		dprintk(VIDC_ERR, "no elements in frequency table\n");
-		return rc;
-	}
-
-	res->load_freq_tbl = kzalloc(num_elements * sizeof(*res->load_freq_tbl),
-			GFP_KERNEL);
-	if (!res->load_freq_tbl) {
-		dprintk(VIDC_ERR,
-				"%s Failed to alloc load_freq_tbl\n",
-				__func__);
-		return -ENOMEM;
-	}
-
-	if (of_property_read_u32_array(pdev->dev.of_node,
-		"qcom,load-freq-tbl", (u32 *)res->load_freq_tbl,
-		num_elements * 2)) {
-		dprintk(VIDC_ERR, "Failed to read frequency table\n");
-		msm_vidc_free_freq_table(res);
-		return -EINVAL;
-	}
-
-	res->load_freq_tbl_size = num_elements;
-	return rc;
-}
-
-static int msm_vidc_load_reg_table(struct msm_vidc_platform_resources *res)
-{
-	struct reg_set *reg_set;
-	struct platform_device *pdev = res->pdev;
-	int i;
-	int rc = 0;
-
-	reg_set = &res->reg_set;
-	reg_set->count = get_u32_array_num_elements(pdev, "qcom,reg-presets");
-	if (reg_set->count == 0) {
-		dprintk(VIDC_DBG, "no elements in reg set\n");
-		return rc;
-	}
-
-	reg_set->reg_tbl = kzalloc(reg_set->count *
-			sizeof(*(reg_set->reg_tbl)), GFP_KERNEL);
-	if (!reg_set->reg_tbl) {
-		dprintk(VIDC_ERR, "%s Failed to alloc register table\n",
-			__func__);
-		return -ENOMEM;
-	}
-
-	if (of_property_read_u32_array(pdev->dev.of_node, "qcom,reg-presets",
-		(u32 *)reg_set->reg_tbl, reg_set->count * 2)) {
-		dprintk(VIDC_ERR, "Failed to read register table\n");
-		msm_vidc_free_reg_table(res);
-		return -EINVAL;
-	}
-	for (i = 0; i < reg_set->count; i++) {
-		dprintk(VIDC_DBG,
-			"reg = %x, value = %x\n",
-			reg_set->reg_tbl[i].reg,
-			reg_set->reg_tbl[i].value
-		);
-	}
-	return rc;
-}
-
-static void msm_vidc_free_bus_vector(struct msm_bus_scale_pdata *bus_pdata)
-{
-	int i;
-	for (i = 0; i < bus_pdata->num_usecases; i++) {
-		kfree(bus_pdata->usecase[i].vectors);
-		bus_pdata->usecase[i].vectors = NULL;
-	}
-
-	kfree(bus_pdata->usecase);
-	bus_pdata->usecase = NULL;
-}
-
-static int msm_vidc_load_bus_vector(struct platform_device *pdev,
-			struct msm_bus_scale_pdata *bus_pdata, u32 num_ports,
-			struct bus_pdata_config *bus_pdata_config)
-{
-	struct bus_values {
-	    u32 ab;
-	    u32 ib;
-	};
-	struct bus_values *values;
-	int i, j;
-	int rc = 0;
-
-	values = kzalloc(sizeof(*values) * bus_pdata->num_usecases, GFP_KERNEL);
-	if (!values) {
-		dprintk(VIDC_ERR, "%s Failed to alloc bus_values\n", __func__);
-		rc = -ENOMEM;
-		goto err_mem_alloc;
-	}
-
-	if (of_property_read_u32_array(pdev->dev.of_node,
-		    bus_pdata_config->name, (u32 *)values,
-		    bus_pdata->num_usecases * (sizeof(*values)/sizeof(u32)))) {
-		dprintk(VIDC_ERR, "%s Failed to read bus values\n", __func__);
-		rc = -EINVAL;
-		goto err_parse_dt;
-	}
-
-	bus_pdata->usecase = kzalloc(sizeof(*bus_pdata->usecase) *
-		    bus_pdata->num_usecases, GFP_KERNEL);
-	if (!bus_pdata->usecase) {
-		dprintk(VIDC_ERR,
-			"%s Failed to alloc bus_pdata usecase\n", __func__);
-		rc = -ENOMEM;
-		goto err_parse_dt;
-	}
-	bus_pdata->name = bus_pdata_config->name;
-	for (i = 0; i < bus_pdata->num_usecases; i++) {
-		bus_pdata->usecase[i].vectors = kzalloc(
-			sizeof(*bus_pdata->usecase[i].vectors) * num_ports,
-			GFP_KERNEL);
-		if (!bus_pdata->usecase) {
-			dprintk(VIDC_ERR,
-				"%s Failed to alloc bus_pdata usecase\n",
-				__func__);
-			break;
-		}
-		for (j = 0; j < num_ports; j++) {
-			bus_pdata->usecase[i].vectors[j].ab = (u64)values[i].ab
-									* 1000;
-			bus_pdata->usecase[i].vectors[j].ib = (u64)values[i].ib
-									* 1000;
-			bus_pdata->usecase[i].vectors[j].src =
-						bus_pdata_config->masters[j];
-			bus_pdata->usecase[i].vectors[j].dst =
-						bus_pdata_config->slaves[j];
-			dprintk(VIDC_DBG,
-				"ab = %llu, ib = %llu, src = %d, dst = %d\n",
-				bus_pdata->usecase[i].vectors[j].ab,
-				bus_pdata->usecase[i].vectors[j].ib,
-				bus_pdata->usecase[i].vectors[j].src,
-				bus_pdata->usecase[i].vectors[j].dst);
-		}
-		bus_pdata->usecase[i].num_paths = num_ports;
-	}
-	if (i < bus_pdata->num_usecases) {
-		for (--i; i >= 0; i--) {
-			kfree(bus_pdata->usecase[i].vectors);
-			bus_pdata->usecase[i].vectors = NULL;
-		}
-		kfree(bus_pdata->usecase);
-		bus_pdata->usecase = NULL;
-		rc = -EINVAL;
-	}
-err_parse_dt:
-	kfree(values);
-err_mem_alloc:
-	return rc;
-}
-
-static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
-{
-	u32 num_ports = 0;
-	int rc = 0;
-	int i;
-	struct platform_device *pdev = res->pdev;
-	u32 num_bus_pdata = ARRAY_SIZE(bus_pdata_config_vector);
-
-	if (of_property_read_u32_array(pdev->dev.of_node, "qcom,bus-ports",
-			(u32 *)&num_ports, 1) || (num_ports == 0))
-		goto err_mem_alloc;
-
-	res->bus_pdata = kzalloc(sizeof(*res->bus_pdata) * num_bus_pdata,
-				GFP_KERNEL);
-	if (!res->bus_pdata) {
-		dprintk(VIDC_ERR, "Failed to alloc memory\n");
-		rc = -ENOMEM;
-		goto err_mem_alloc;
-	}
-	for (i = 0; i < num_bus_pdata; i++) {
-		if (!res->has_ocmem &&
-			(!strcmp(bus_pdata_config_vector[i].name,
-				"qcom,enc-ocmem-ab-ib")
-			|| !strcmp(bus_pdata_config_vector[i].name,
-				"qcom,dec-ocmem-ab-ib"))) {
-			continue;
-		}
-		res->bus_pdata[i].num_usecases = get_u32_array_num_elements(
-					pdev, bus_pdata_config_vector[i].name);
-		if (res->bus_pdata[i].num_usecases == 0) {
-			dprintk(VIDC_ERR, "no elements in %s\n",
-				bus_pdata_config_vector[i].name);
-			rc = -EINVAL;
-			break;
-		}
-
-		rc = msm_vidc_load_bus_vector(pdev, &res->bus_pdata[i],
-				num_ports, &bus_pdata_config_vector[i]);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed to load bus vector: %d\n", i);
-			break;
-		}
-	}
-	if (i < num_bus_pdata) {
-		for (--i; i >= 0; i--)
-			msm_vidc_free_bus_vector(&res->bus_pdata[i]);
-		kfree(res->bus_pdata);
-		res->bus_pdata = NULL;
-	}
-err_mem_alloc:
-	return rc;
-}
-
-static int msm_vidc_load_iommu_groups(struct msm_vidc_platform_resources *res)
-{
-	int rc = 0;
-	struct platform_device *pdev = res->pdev;
-	struct device_node *ctx_node;
-	struct iommu_set *iommu_group_set = &res->iommu_group_set;
-	int array_size;
-	int i;
-	struct iommu_info *iommu_map;
-	u32 *buffer_types = NULL;
-
-	if (!of_get_property(pdev->dev.of_node, "qcom,iommu-groups",
-				&array_size)) {
-		dprintk(VIDC_DBG, "iommu_groups property not present\n");
-		iommu_group_set->count = 0;
-		return 0;
-	}
-
-	iommu_group_set->count = array_size / sizeof(u32);
-	if (iommu_group_set->count == 0) {
-		dprintk(VIDC_ERR, "No group present in iommu_groups\n");
-		rc = -ENOENT;
-		goto err_no_of_node;
-	}
-
-	iommu_group_set->iommu_maps = kzalloc(iommu_group_set->count *
-			sizeof(*(iommu_group_set->iommu_maps)), GFP_KERNEL);
-	if (!iommu_group_set->iommu_maps) {
-		dprintk(VIDC_ERR, "%s Failed to alloc iommu_maps\n",
-			__func__);
-		rc = -ENOMEM;
-		goto err_no_of_node;
-	}
-
-	buffer_types = kzalloc(iommu_group_set->count * sizeof(*buffer_types),
-				GFP_KERNEL);
-	if (!buffer_types) {
-		dprintk(VIDC_ERR,
-			"%s Failed to alloc iommu group buffer types\n",
-			__func__);
-		rc = -ENOMEM;
-		goto err_load_groups;
-	}
-
-	rc = of_property_read_u32_array(pdev->dev.of_node,
-			"qcom,iommu-group-buffer-types", buffer_types,
-			iommu_group_set->count);
-	if (rc) {
-		dprintk(VIDC_ERR,
-		    "%s Failed to read iommu group buffer types\n", __func__);
-		goto err_load_groups;
-	}
-
-	for (i = 0; i < iommu_group_set->count; i++) {
-		iommu_map = &iommu_group_set->iommu_maps[i];
-		ctx_node = of_parse_phandle(pdev->dev.of_node,
-				"qcom,iommu-groups", i);
-		if (!ctx_node) {
-			dprintk(VIDC_ERR, "Unable to parse phandle : %u\n", i);
-			rc = -EBADHANDLE;
-			goto err_load_groups;
-		}
-
-		rc = of_property_read_string(ctx_node, "label",
-				&(iommu_map->name));
-		if (rc) {
-			dprintk(VIDC_ERR, "Could not find label property\n");
-			goto err_load_groups;
-		}
-
-		if (!of_get_property(ctx_node, "qcom,virtual-addr-pool",
-				&array_size)) {
-			dprintk(VIDC_ERR,
-				"Could not find any addr pool for group : %s\n",
-				iommu_map->name);
-			rc = -EBADHANDLE;
-			goto err_load_groups;
-		}
-
-		iommu_map->npartitions = array_size / sizeof(u32) / 2;
-
-		rc = of_property_read_u32_array(ctx_node,
-				"qcom,virtual-addr-pool",
-				(u32 *)iommu_map->addr_range,
-				iommu_map->npartitions * 2);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Could not read addr pool for group : %s\n",
-				iommu_map->name);
-			goto err_load_groups;
-		}
-
-		iommu_map->buffer_type = buffer_types[i];
-		iommu_map->is_secure =
-			of_property_read_bool(ctx_node,	"qcom,secure-domain");
-	}
-	kfree(buffer_types);
-	return 0;
-err_load_groups:
-	kfree(buffer_types);
-	msm_vidc_free_iommu_groups(res);
-err_no_of_node:
-	return rc;
-}
-
-static int msm_vidc_load_buffer_usage_table(
-		struct msm_vidc_platform_resources *res)
-{
-	int rc = 0;
-	struct platform_device *pdev = res->pdev;
-	struct buffer_usage_set *buffer_usage_set = &res->buffer_usage_set;
-
-	buffer_usage_set->count = get_u32_array_num_elements(
-				    pdev, "qcom,buffer-type-tz-usage-table");
-	if (buffer_usage_set->count == 0) {
-		dprintk(VIDC_DBG, "no elements in buffer usage set\n");
-		return 0;
-	}
-
-	buffer_usage_set->buffer_usage_tbl = kzalloc(buffer_usage_set->count *
-			sizeof(*(buffer_usage_set->buffer_usage_tbl)),
-			GFP_KERNEL);
-	if (!buffer_usage_set->buffer_usage_tbl) {
-		dprintk(VIDC_ERR, "%s Failed to alloc buffer usage table\n",
-			__func__);
-		rc = -ENOMEM;
-		goto err_load_buf_usage;
-	}
-
-	rc = of_property_read_u32_array(pdev->dev.of_node,
-		    "qcom,buffer-type-tz-usage-table",
-		(u32 *)buffer_usage_set->buffer_usage_tbl,
-		buffer_usage_set->count *
-		(sizeof(*buffer_usage_set->buffer_usage_tbl)/sizeof(u32)));
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to read buffer usage table\n");
-		goto err_load_buf_usage;
-	}
-
-	return 0;
-err_load_buf_usage:
-	msm_vidc_free_buffer_usage_table(res);
-	return rc;
-}
-
-
-static int read_platform_resources_from_dt(
-		struct msm_vidc_platform_resources *res)
-{
-	struct platform_device *pdev = res->pdev;
-	struct resource *kres = NULL;
-	int rc = 0;
-
-	if (!pdev->dev.of_node) {
-		dprintk(VIDC_ERR, "DT node not found\n");
-		return -ENOENT;
-	}
-
-	res->fw_base_addr = 0x0;
-
-	kres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	res->register_base = kres ? kres->start : -1;
-	res->register_size = kres ? (kres->end + 1 - kres->start) : -1;
-
-	kres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	res->irq = kres ? kres->start : -1;
-
-	res->has_ocmem = of_property_read_bool(pdev->dev.of_node,
-						"qcom,has-ocmem");
-
-	rc = msm_vidc_load_freq_table(res);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to load freq table: %d\n", rc);
-		goto err_load_freq_table;
-	}
-	rc = msm_vidc_load_reg_table(res);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to load reg table: %d\n", rc);
-		goto err_load_reg_table;
-	}
-	rc = msm_vidc_load_bus_vectors(res);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to load bus vectors: %d\n", rc);
-		goto err_load_bus_vectors;
-	}
-	rc = msm_vidc_load_iommu_groups(res);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to load iommu groups: %d\n", rc);
-		goto err_load_iommu_groups;
-	}
-	rc = msm_vidc_load_buffer_usage_table(res);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"Failed to load buffer usage table: %d\n", rc);
-		goto err_load_buffer_usage_table;
-	}
-
-	rc = of_property_read_u32(pdev->dev.of_node, "qcom,max-hw-load",
-			&res->max_load);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"Failed to determine max load supported: %d\n", rc);
-		goto err_load_buffer_usage_table;
-	}
-
-	return rc;
-
-err_load_buffer_usage_table:
-	msm_vidc_free_iommu_groups(res);
-err_load_iommu_groups:
-	msm_vidc_free_bus_vectors(res);
-err_load_bus_vectors:
-	msm_vidc_free_reg_table(res);
-err_load_reg_table:
-	msm_vidc_free_freq_table(res);
-err_load_freq_table:
-	return rc;
-}
-
-static int read_platform_resources_from_board(
-		struct msm_vidc_platform_resources *res)
-{
-	struct resource *kres = NULL;
-	struct platform_device *pdev = res->pdev;
-	struct msm_vidc_v4l2_platform_data *pdata = pdev->dev.platform_data;
-	int c = 0, rc = 0;
-
-	if (!pdata) {
-		dprintk(VIDC_ERR, "Platform data not found\n");
-		return -ENOENT;
-	}
-
-	res->fw_base_addr = 0x0;
-
-	kres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	res->register_base = kres ? kres->start : -1;
-	res->register_size = kres ? (kres->end + 1 - kres->start) : -1;
-
-	kres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	res->irq = kres ? kres->start : -1;
-
-	res->load_freq_tbl = kzalloc(pdata->num_load_table *
-			sizeof(*res->load_freq_tbl), GFP_KERNEL);
-
-	if (!res->load_freq_tbl) {
-		dprintk(VIDC_ERR, "%s Failed to alloc load_freq_tbl\n",
-				__func__);
-		return -ENOMEM;
-	}
-
-	res->load_freq_tbl_size = pdata->num_load_table;
-	for (c = 0; c > pdata->num_load_table; ++c) {
-		res->load_freq_tbl[c].load = pdata->load_table[c][0];
-		res->load_freq_tbl[c].freq = pdata->load_table[c][1];
-	}
-
-	res->max_load = pdata->max_load;
-	return rc;
 }
 
 static int read_platform_resources(struct msm_vidc_core *core,
@@ -1382,6 +347,31 @@ static ssize_t msm_vidc_link_name_show(struct device *dev,
 
 static DEVICE_ATTR(link_name, 0644, msm_vidc_link_name_show, NULL);
 
+static ssize_t store_pwr_collapse_delay(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	unsigned long val = 0;
+	int rc = 0;
+	rc = kstrtoul(buf, 0, &val);
+	if (rc)
+		return rc;
+	else if (val == 0)
+		return -EINVAL;
+	msm_vidc_pwr_collapse_delay = val;
+	return count;
+}
+
+static ssize_t show_pwr_collapse_delay(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n", msm_vidc_pwr_collapse_delay);
+}
+
+static DEVICE_ATTR(pwr_collapse_delay, 0644, show_pwr_collapse_delay,
+		store_pwr_collapse_delay);
+
 static int __devinit msm_vidc_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -1399,6 +389,12 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 	rc = msm_vidc_initialize_core(pdev, core);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to init core\n");
+		goto err_v4l2_register;
+	}
+	rc = device_create_file(&pdev->dev, &dev_attr_pwr_collapse_delay);
+	if (rc) {
+		dprintk(VIDC_ERR,
+				"Failed to create pwr_collapse_delay sysfs node");
 		goto err_v4l2_register;
 	}
 	if (core->hfi_type == VIDC_HFI_Q6) {
@@ -1521,11 +517,7 @@ static int __devexit msm_vidc_remove(struct platform_device *pdev)
 	video_unregister_device(&core->vdev[MSM_VIDC_DECODER].vdev);
 	v4l2_device_unregister(&core->v4l2_dev);
 
-	msm_vidc_free_freq_table(&core->resources);
-	msm_vidc_free_reg_table(&core->resources);
-	msm_vidc_free_bus_vectors(&core->resources);
-	msm_vidc_free_iommu_groups(&core->resources);
-	msm_vidc_free_buffer_usage_table(&core->resources);
+	msm_vidc_free_platform_resources(&core->resources);
 	kfree(core);
 	return rc;
 }

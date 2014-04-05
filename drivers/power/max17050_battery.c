@@ -255,6 +255,10 @@ int max17050_get_current(void)
 	int avg_ibatt_ma;
 	u16 sign_bit;
 
+	if (max17050_i2c_client == NULL) {
+		pr_info("[MAX17050] %s: i2c NULL", __func__);
+		return 999;
+	}
 	read_reg = max17050_read_reg(max17050_i2c_client, MAX17050_CURRENT);
 	if (read_reg < 0)
 		return 999; /*Error Value return.*/

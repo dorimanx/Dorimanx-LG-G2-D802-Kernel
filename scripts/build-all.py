@@ -46,8 +46,8 @@ make_command = ["vmlinux", "modules", "dtbs"]
 make_env = os.environ
 make_env.update({
         'ARCH': 'arm',
-        'CROSS_COMPILE': 'arm-none-linux-gnueabi-',
         'KCONFIG_NOTIMESTAMP': 'true' })
+make_env.setdefault('CROSS_COMPILE', 'arm-none-linux-gnueabi-')
 all_options = {}
 
 def error(msg):
@@ -88,6 +88,7 @@ def scan_configs():
         r'[fm]sm[0-9]*_defconfig',
         r'apq*_defconfig',
         r'qsd*_defconfig',
+	r'msmkrypton*_defconfig',
         )
     for p in arch_pats:
         for n in glob.glob('arch/arm/configs/' + p):

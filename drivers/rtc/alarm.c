@@ -22,9 +22,11 @@
 #include <linux/sched.h>
 #include <linux/spinlock.h>
 #include <linux/wakelock.h>
+#include <linux/zwait.h>
 
 #include <asm/mach/time.h>
 
+#define ALARM_DELTA 120
 #define ANDROID_ALARM_PRINT_ERROR (1U << 0)
 #define ANDROID_ALARM_PRINT_INIT_STATUS (1U << 1)
 #define ANDROID_ALARM_PRINT_TSET (1U << 2)
@@ -80,7 +82,8 @@ static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 {
 	struct alarm *alarm;
 	bool is_wakeup = base == &alarms[ANDROID_ALARM_RTC_WAKEUP] ||
-			base == &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP];
+			base == &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP] ||
+			base == &alarms[ANDROID_ALARM_RTC_POWEROFF_WAKEUP];
 
 	if (base->stopped) {
 		pr_alarm(FLOW, "changed alarm while setting the wall time\n");
@@ -422,15 +425,25 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 	hrtimer_cancel(&alarms[ANDROID_ALARM_RTC_WAKEUP].timer);
 	hrtimer_cancel(&alarms[
 			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP].timer);
+	hrtimer_cancel(&alarms[
+			ANDROID_ALARM_RTC_POWEROFF_WAKEUP].timer);
 
 	tmp_queue = &alarms[ANDROID_ALARM_RTC_WAKEUP];
 	if (tmp_queue->first)
 		wakeup_queue = tmp_queue;
+
 	tmp_queue = &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP];
 	if (tmp_queue->first && (!wakeup_queue ||
 				hrtimer_get_expires(&tmp_queue->timer).tv64 <
 				hrtimer_get_expires(&wakeup_queue->timer).tv64))
 		wakeup_queue = tmp_queue;
+
+	tmp_queue = &alarms[ANDROID_ALARM_RTC_POWEROFF_WAKEUP];
+	if (tmp_queue->first && (!wakeup_queue ||
+				hrtimer_get_expires(&tmp_queue->timer).tv64 <
+				hrtimer_get_expires(&wakeup_queue->timer).tv64))
+		wakeup_queue = tmp_queue;
+
 	if (wakeup_queue) {
 		rtc_read_time(alarm_rtc_dev, &rtc_current_rtc_time);
 		getnstimeofday(&wall_time);
@@ -454,7 +467,7 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 			rtc_delta.tv_sec, rtc_delta.tv_nsec);
 		if (rtc_current_time + 1 >= rtc_alarm_time) {
 			pr_alarm(SUSPEND, "alarm about to go off\n");
-			memset(&rtc_alarm, 0, sizeof(rtc_alarm));
+			rtc_time_to_tm(0, &rtc_alarm.time);
 			rtc_alarm.enabled = 0;
 			rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
 
@@ -465,6 +478,8 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 									false);
 			update_timer_locked(&alarms[
 				ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP], false);
+			update_timer_locked(&alarms[
+					ANDROID_ALARM_RTC_POWEROFF_WAKEUP], false);
 			err = -EBUSY;
 			spin_unlock_irqrestore(&alarm_slock, flags);
 		}
@@ -479,7 +494,7 @@ static int alarm_resume(struct platform_device *pdev)
 
 	pr_alarm(SUSPEND, "alarm_resume(%p)\n", pdev);
 
-	memset(&alarm, 0, sizeof(alarm));
+	rtc_time_to_tm(0, &alarm.time);
 	alarm.enabled = 0;
 	rtc_set_alarm(alarm_rtc_dev, &alarm);
 
@@ -487,6 +502,8 @@ static int alarm_resume(struct platform_device *pdev)
 	suspended = false;
 	update_timer_locked(&alarms[ANDROID_ALARM_RTC_WAKEUP], false);
 	update_timer_locked(&alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP],
+									false);
+	update_timer_locked(&alarms[ANDROID_ALARM_RTC_POWEROFF_WAKEUP],
 									false);
 	spin_unlock_irqrestore(&alarm_slock, flags);
 
@@ -512,6 +529,15 @@ static void alarm_shutdown(struct platform_device *dev)
 	rtc_tm_to_time(&rtc_time, &rtc_secs);
 	alarm_delta = wall_time.tv_sec - rtc_secs;
 	alarm_time = power_on_alarm - alarm_delta;
+
+	/*
+	 * Substract ALARM_DELTA from actual alarm time
+	 * to powerup the device before actual alarm
+	 * expiration.
+	 */
+	if ((alarm_time - ALARM_DELTA) > rtc_secs)
+		alarm_time -= ALARM_DELTA;
+
 	if (alarm_time <= rtc_secs)
 		goto disable_alarm;
 
@@ -597,6 +623,31 @@ static struct platform_driver alarm_driver = {
 	}
 };
 
+#ifdef CONFIG_ZERO_WAIT
+static int zw_alarm_notifier_call(struct notifier_block *nb,
+			unsigned long state, void *ptr)
+{
+	switch (state) {
+	case ZW_STATE_OFF:
+		alarm_driver.suspend = alarm_suspend;
+		alarm_driver.resume = alarm_resume;
+		break;
+
+	case ZW_STATE_ON_SYSTEM:
+	case ZW_STATE_ON_USER:
+		alarm_driver.suspend = NULL;
+		alarm_driver.resume = NULL;
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block zw_alarm_nb = {
+	.notifier_call = zw_alarm_notifier_call,
+};
+#endif /* CONFIG_ZERO_WAIT */
+
 static int __init alarm_late_init(void)
 {
 	unsigned long   flags;
@@ -615,6 +666,11 @@ static int __init alarm_late_init(void)
 			timespec_to_ktime(timespec_sub(tmp_time, system_time));
 
 	spin_unlock_irqrestore(&alarm_slock, flags);
+
+#ifdef CONFIG_ZERO_WAIT
+	zw_notifier_chain_register(&zw_alarm_nb, NULL);
+#endif
+
 	return 0;
 }
 

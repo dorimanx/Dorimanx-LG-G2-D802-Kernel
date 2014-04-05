@@ -448,7 +448,8 @@ static int snd_pcm_hw_params(struct snd_pcm_substream *substream,
 	runtime->silence_threshold = 0;
 	runtime->silence_size = 0;
 	runtime->boundary = runtime->buffer_size;
-	while (runtime->boundary * 2 <= LONG_MAX - runtime->buffer_size)
+	while (runtime->boundary * 2 * runtime->channels <=
+					LONG_MAX - runtime->buffer_size)
 		runtime->boundary *= 2;
 
 	snd_pcm_timer_resolution_change(substream);
@@ -1778,11 +1779,11 @@ static int snd_pcm_hw_rule_sample_bits(struct snd_pcm_hw_params *params,
 	return snd_interval_refine(hw_param_interval(params, rule->var), &t);
 }
 
-#if SNDRV_PCM_RATE_5512 != 1 << 0 || SNDRV_PCM_RATE_192000 != 1 << 12
+#if SNDRV_PCM_RATE_5512 != 1 << 0 || SNDRV_PCM_RATE_192000 != 1 << 14
 #error "Change this table"
 #endif
 
-static unsigned int rates[] = { 5512, 8000, 11025, 16000, 22050, 32000, 44100,
+static unsigned int rates[] = { 5512, 8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100,
                                  48000, 64000, 88200, 96000, 176400, 192000 };
 
 const struct snd_pcm_hw_constraint_list snd_pcm_known_rates = {
@@ -2618,6 +2619,7 @@ static int snd_pcm_common_ioctl1(struct file *file,
 	case SNDRV_COMPRESS_GET_PARAMS:
 	case SNDRV_COMPRESS_TSTAMP:
 	case SNDRV_COMPRESS_DRAIN:
+	case SNDRV_COMPRESS_METADATA_MODE:
 		return snd_compressed_ioctl(substream, cmd, arg);
 	default:
 		if (((cmd >> 8) & 0xff) == 'U')

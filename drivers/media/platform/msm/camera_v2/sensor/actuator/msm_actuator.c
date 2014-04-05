@@ -27,13 +27,14 @@ DEFINE_MSM_MUTEX(msm_actuator_mutex);
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
 
-/*                                                                         */
+/* LGE_CHANGE_S Lens Pos Default Infinity, sungmin.woo@lge.com, 2013-06-20 */
 #define PLACE_LENS_INF_POS_WHEN_ENTER_CAMERA
-/*                                                                         */
+/* LGE_CHANGE_E Lens Pos Default Infinity, sungmin.woo@lge.com, 2013-06-20 */
 
 static struct msm_actuator msm_vcm_actuator_table;
 static struct msm_actuator msm_piezo_actuator_table;
 
+static struct i2c_driver msm_actuator_i2c_driver;
 static struct msm_actuator *actuators[] = {
 	&msm_vcm_actuator_table,
 	&msm_piezo_actuator_table,
@@ -44,6 +45,7 @@ static int32_t msm_actuator_piezo_set_default_focus(
 	struct msm_actuator_move_params_t *move_params)
 {
 	int32_t rc = 0;
+	struct msm_camera_i2c_reg_setting reg_setting;
 	CDBG("Enter\n");
 
 	if (a_ctrl->curr_step_pos != 0) {
@@ -52,10 +54,12 @@ static int32_t msm_actuator_piezo_set_default_focus(
 			a_ctrl->initial_code, 0, 0);
 		a_ctrl->func_tbl->actuator_parse_i2c_params(a_ctrl,
 			a_ctrl->initial_code, 0, 0);
+		reg_setting.reg_setting = a_ctrl->i2c_reg_tbl;
+		reg_setting.data_type = a_ctrl->i2c_data_type;
+		reg_setting.size = a_ctrl->i2c_tbl_index;
 		rc = a_ctrl->i2c_client.i2c_func_tbl->
 			i2c_write_table_w_microdelay(
-			&a_ctrl->i2c_client, a_ctrl->i2c_reg_tbl,
-			a_ctrl->i2c_tbl_index, a_ctrl->i2c_data_type);
+			&a_ctrl->i2c_client, &reg_setting);
 		if (rc < 0) {
 			pr_err("%s: i2c write error:%d\n",
 				__func__, rc);
@@ -76,9 +80,14 @@ static void msm_actuator_parse_i2c_params(struct msm_actuator_ctrl_t *a_ctrl,
 	uint16_t i2c_byte1 = 0, i2c_byte2 = 0;
 	uint16_t value = 0;
 	uint32_t size = a_ctrl->reg_tbl_size, i = 0;
-	struct msm_camera_i2c_reg_tbl *i2c_tbl = a_ctrl->i2c_reg_tbl;
+	struct msm_camera_i2c_reg_array *i2c_tbl = a_ctrl->i2c_reg_tbl;
 	CDBG("Enter\n");
 	for (i = 0; i < size; i++) {
+		/* check that the index into i2c_tbl cannot grow larger that
+		the allocated size of i2c_tbl */
+		if ((a_ctrl->total_steps + 1) < (a_ctrl->i2c_tbl_index)) {
+			break;
+		}
 		if (write_arr[i].reg_write_type == MSM_ACTUATOR_WRITE_DAC) {
 			value = (next_lens_position <<
 				write_arr[i].data_shift) |
@@ -156,7 +165,7 @@ static int32_t msm_actuator_init_focus(struct msm_actuator_ctrl_t *a_ctrl,
 	return rc;
 }
 
-/*                                                                             */
+/*LGE_CHANGE_S, Skip actuator boundary region, 2013-05-12, seongjo.kim@lge.com */
 #if 0 // QMC Original
 static void msm_actuator_write_focus(
 	struct msm_actuator_ctrl_t *a_ctrl,
@@ -214,16 +223,25 @@ static void msm_actuator_write_focus(
 	CDBG("Exit\n");
 }
 #endif
-/*                                                                             */
+/*LGE_CHANGE_E, Skip actuator boundary region, 2013-05-12, seongjo.kim@lge.com */
 
 static int32_t msm_actuator_piezo_move_focus(
 	struct msm_actuator_ctrl_t *a_ctrl,
 	struct msm_actuator_move_params_t *move_params)
 {
 	int32_t dest_step_position = move_params->dest_step_pos;
+	struct damping_params_t ringing_params_kernel;
 	int32_t rc = 0;
 	int32_t num_steps = move_params->num_steps;
+	struct msm_camera_i2c_reg_setting reg_setting;
 	CDBG("Enter\n");
+
+	if (copy_from_user(&ringing_params_kernel,
+		&(move_params->ringing_params[0]),
+		sizeof(struct damping_params_t))) {
+		pr_err("copy_from_user failed\n");
+		return -EFAULT;
+	}
 
 	if (num_steps == 0)
 		return rc;
@@ -232,12 +250,13 @@ static int32_t msm_actuator_piezo_move_focus(
 	a_ctrl->func_tbl->actuator_parse_i2c_params(a_ctrl,
 		(num_steps *
 		a_ctrl->region_params[0].code_per_step),
-		move_params->ringing_params[0].hw_params, 0);
+		ringing_params_kernel.hw_params, 0);
 
+	reg_setting.reg_setting = a_ctrl->i2c_reg_tbl;
+	reg_setting.data_type = a_ctrl->i2c_data_type;
+	reg_setting.size = a_ctrl->i2c_tbl_index;
 	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write_table_w_microdelay(
-		&a_ctrl->i2c_client,
-		a_ctrl->i2c_reg_tbl, a_ctrl->i2c_tbl_index,
-		a_ctrl->i2c_data_type);
+		&a_ctrl->i2c_client, &reg_setting);
 	if (rc < 0) {
 		pr_err("i2c write error:%d\n", rc);
 		return rc;
@@ -253,6 +272,7 @@ static int32_t msm_actuator_move_focus(
 	struct msm_actuator_move_params_t *move_params)
 {
 	int32_t rc = 0;
+	struct damping_params_t ringing_params_kernel;
 	int8_t sign_dir = move_params->sign_dir;
 	uint16_t step_boundary = 0;
 	uint16_t target_step_pos = 0;
@@ -261,6 +281,18 @@ static int32_t msm_actuator_move_focus(
 	uint16_t curr_lens_pos = 0;
 	int dir = move_params->dir;
 	int32_t num_steps = move_params->num_steps;
+	struct msm_camera_i2c_reg_setting reg_setting;
+/* LGE_CHANGE_S, fix kernel sometimes crash while AF, 2013.11.4, yousung.kang@lge.com */
+   struct damping_params_t damping_param, *usr_damping_param ;
+/* LGE_CHANGE_E, fix kernel sometimes crash while AF, 2013.11.4, yousung.kang@lge.com  */
+
+	if (copy_from_user(&ringing_params_kernel,
+		&(move_params->ringing_params[a_ctrl->curr_region_index]),
+		sizeof(struct damping_params_t))) {
+		pr_err("copy_from_user failed\n");
+		return -EFAULT;
+	}
+
 
 	CDBG("called, dir %d, num_steps %d\n", dir, num_steps);
 
@@ -269,15 +301,24 @@ static int32_t msm_actuator_move_focus(
 
 	curr_lens_pos = a_ctrl->step_position_table[a_ctrl->curr_step_pos];
 	a_ctrl->i2c_tbl_index = 0;
-	/*                                                                          */
-	pr_err("curr_step_pos =%d dest_step_pos =%d curr_lens_pos=%d\n",
+	CDBG("curr_step_pos =%d dest_step_pos =%d curr_lens_pos=%d\n",
 		a_ctrl->curr_step_pos, dest_step_pos, curr_lens_pos);
-	/*                                                                          */
 
 	while (a_ctrl->curr_step_pos != dest_step_pos) {
 		step_boundary =
 			a_ctrl->region_params[a_ctrl->curr_region_index].
 			step_bound[dir];
+
+ /* LGE_CHANGE_S, fix kernel sometimes crash while AF, 2013.11.4, yousung.kang@lge.com */
+		usr_damping_param = &(move_params->ringing_params[a_ctrl->curr_region_index]) ;
+		 if (copy_from_user(&damping_param,
+		     (void *)usr_damping_param,
+		     sizeof(struct damping_params_t))){
+		     pr_err("%s: ringing_param is on FAULT Address : %p\n",
+		      __func__, (void *)usr_damping_param ) ;
+             return -EFAULT;
+		}
+/* LGE_CHANGE_E, fix kernel sometimes crash while AF, 2013.11.4, yousung.kang@lge.com	*/
 		if ((dest_step_pos * sign_dir) <=
 			(step_boundary * sign_dir)) {
 
@@ -286,9 +327,13 @@ static int32_t msm_actuator_move_focus(
 				a_ctrl->step_position_table[target_step_pos];
 			a_ctrl->func_tbl->actuator_write_focus(a_ctrl,
 					curr_lens_pos,
-					&(move_params->
-						ringing_params[a_ctrl->
-						curr_region_index]),
+/* LGE_CHANGE_S, fix kernel sometimes crash while AF, 2013.11.4, yousung.kang@lge.com */
+#if 0
+					&ringing_params_kernel,
+#else
+			        &damping_param,
+#endif
+/* LGE_CHANGE_E, fix kernel sometimes crash while AF, 2013.11.4, yousung.kang@lge.com	*/
 					sign_dir,
 					target_lens_pos);
 			curr_lens_pos = target_lens_pos;
@@ -297,14 +342,19 @@ static int32_t msm_actuator_move_focus(
 #if 0 //QMC Original
 			target_step_pos = step_boundary;
 #else
-			target_step_pos = dest_step_pos;   /*                                                                                             */
+			target_step_pos = dest_step_pos;   /* LGE_CHANGE, to prevent boundary stop in actuator movement, 2013-06-15, hyungmoo.huh@lge.com */
 #endif
 			target_lens_pos =
 				a_ctrl->step_position_table[target_step_pos];
 			a_ctrl->func_tbl->actuator_write_focus(a_ctrl,
 					curr_lens_pos,
-					&(move_params->ringing_params[a_ctrl->
-						curr_region_index]),
+/* LGE_CHANGE_S, fix kernel sometimes crash while AF, 2013.11.4, yousung.kang@lge.com */
+#if 0
+					&ringing_params_kernel,
+#else
+					&damping_param,
+#endif
+/* LGE_CHANGE_E, fix kernel sometimes crash while AF, 2013.11.4, yousung.kang@lge.com	*/
 					sign_dir,
 					target_lens_pos);
 			curr_lens_pos = target_lens_pos;
@@ -314,10 +364,11 @@ static int32_t msm_actuator_move_focus(
 		a_ctrl->curr_step_pos = target_step_pos;
 	}
 
+	reg_setting.reg_setting = a_ctrl->i2c_reg_tbl;
+	reg_setting.data_type = a_ctrl->i2c_data_type;
+	reg_setting.size = a_ctrl->i2c_tbl_index;
 	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write_table_w_microdelay(
-		&a_ctrl->i2c_client,
-		a_ctrl->i2c_reg_tbl, a_ctrl->i2c_tbl_index,
-		a_ctrl->i2c_data_type);
+		&a_ctrl->i2c_client, &reg_setting);
 	if (rc < 0) {
 		pr_err("i2c write error:%d\n", rc);
 		return rc;
@@ -337,19 +388,18 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 	uint16_t step_boundary = 0;
 	uint32_t max_code_size = 1;
 	uint16_t data_size = set_info->actuator_params.data_size;
-/*                                                                         */
+/* LGE_CHANGE_S Lens Pos Default Infinity, sungmin.woo@lge.com, 2013-06-20 */
 #ifdef PLACE_LENS_INF_POS_WHEN_ENTER_CAMERA
 	uint8_t wdata[2];
 	uint16_t inf_pos= 0;
 #endif
-/*                                                                         */
-
+/* LGE_CHANGE_E Lens Pos Default Infinity, sungmin.woo@lge.com, 2013-06-20 */
 	CDBG("Enter\n");
 
-/*                                                                                                    */
+/* LGE_CHANGE_S [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
 	wake_unlock(&a_ctrl->camera_wake_lock);
 	pr_err(" %s:%d acutuator_wake_lock unlock \n",__func__,__LINE__);
-/*                                                                                                    */
+/* LGE_CHANGE_E [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
 
 	for (; data_size > 0; data_size--)
 		max_code_size *= 2;
@@ -393,11 +443,11 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 		}
 	}
 
-/*                                                            */
+/* LGE_CHANGE_S, Set EEPROM, kyungjin.min@lge.com, 2013-04-29 */
     for (step_index = 0;
 		step_index < set_info->af_tuning_params.total_steps;
 		step_index++)
-/*                                                                                */
+/* LGE_CHANGE_S, Remove log for reducing current, seongjo.kim@lge.com, 2013-06-26 */
     {
       if (current_moment == CAMERA_ENTER_MOMENT)
       {
@@ -406,17 +456,17 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 	       a_ctrl->step_position_table[step_index]);
 	  }
     }
-/*                                                                                */
-/*                                                            */
+/* LGE_CHANGE_E, Remove log for reducing current, seongjo.kim@lge.com, 2013-06-26 */
+/* LGE_CHANGE_E, Set EEPROM, kyungjin.min@lge.com, 2013-04-29 */
 
-/*                                                                         */
+/* LGE_CHANGE_S Lens Pos Default Infinity, sungmin.woo@lge.com, 2013-06-20 */
 #ifdef PLACE_LENS_INF_POS_WHEN_ENTER_CAMERA
 	inf_pos = a_ctrl->step_position_table[15];
 
 	wdata[0] = (inf_pos & 0xFFF0)>>4;
 	wdata[1] = ((inf_pos & 0x000F)<<4) | 0b0100 ;
 
-	/*                                                                                                     */
+	/* LGE_CHANGE_S Exception Lens Pos Default Infinity only enter moment, seongjo.kim@lge.com, 2013-06-23 */
 	if (current_moment == CAMERA_ENTER_MOMENT)
 	{
 		a_ctrl->i2c_client.i2c_func_tbl->i2c_write(
@@ -426,9 +476,9 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 		current_moment = CAMERA_ENTER_MOMENT_AFTER;
 		pr_err("Place lens on INF pos!\n");
 	}
-	/*                                                                                                     */
+	/* LGE_CHANGE_E Exception Lens Pos Default Infinity only enter moment, seongjo.kim@lge.com, 2013-06-23 */
 #endif
-/*                                                                         */
+/* LGE_CHANGE_E Lens Pos Default Infinity, sungmin.woo@lge.com, 2013-06-20 */
 
 	CDBG("Exit\n");
 	return 0;
@@ -445,10 +495,10 @@ static int32_t msm_actuator_set_default_focus(
 	if (a_ctrl->curr_step_pos != 0)
 		rc = a_ctrl->func_tbl->actuator_move_focus(a_ctrl, move_params);
 #else
-/*                                                                                  */
+/* LGE_CHAGNE_S, change actuator default position, 2013-06-14, hyungmoo.huh@lge.com */
 	if (a_ctrl->curr_step_pos != move_params->dest_step_pos)
 		rc = a_ctrl->func_tbl->actuator_move_focus(a_ctrl, move_params);
-/*                                                                                  */
+/* LGE_CHAGNE_E, change actuator default position, 2013-06-14, hyungmoo.huh@lge.com */
 #endif
 	CDBG("Exit\n");
 	return rc;
@@ -521,8 +571,11 @@ static int32_t msm_actuator_init(struct msm_actuator_ctrl_t *a_ctrl,
 
 	a_ctrl->i2c_data_type = set_info->actuator_params.i2c_data_type;
 	a_ctrl->i2c_client.addr_type = set_info->actuator_params.i2c_addr_type;
-	a_ctrl->reg_tbl_size = set_info->actuator_params.reg_tbl_size;
-	if (a_ctrl->reg_tbl_size > MAX_ACTUATOR_REG_TBL_SIZE) {
+	if (set_info->actuator_params.reg_tbl_size <=
+		MAX_ACTUATOR_REG_TBL_SIZE) {
+		a_ctrl->reg_tbl_size = set_info->actuator_params.reg_tbl_size;
+	} else {
+		a_ctrl->reg_tbl_size = 0;
 		pr_err("MAX_ACTUATOR_REG_TBL_SIZE is exceeded.\n");
 		return -EFAULT;
 	}
@@ -530,7 +583,7 @@ static int32_t msm_actuator_init(struct msm_actuator_ctrl_t *a_ctrl,
 	kfree(a_ctrl->i2c_reg_tbl);
 
 	a_ctrl->i2c_reg_tbl =
-		kmalloc(sizeof(struct msm_camera_i2c_reg_tbl) *
+		kmalloc(sizeof(struct msm_camera_i2c_reg_array) *
 		(set_info->af_tuning_params.total_steps + 1), GFP_KERNEL);
 	if (!a_ctrl->i2c_reg_tbl) {
 		pr_err("kmalloc fail\n");
@@ -641,7 +694,11 @@ static int32_t msm_actuator_get_subdev_id(struct msm_actuator_ctrl_t *a_ctrl,
 		pr_err("failed\n");
 		return -EINVAL;
 	}
-	*subdev_id = a_ctrl->pdev->id;
+	if (a_ctrl->act_device_type == MSM_CAMERA_PLATFORM_DEVICE)
+		*subdev_id = a_ctrl->pdev->id;
+	else
+		*subdev_id = a_ctrl->subdev_id;
+
 	CDBG("subdev_id %d\n", *subdev_id);
 	CDBG("Exit\n");
 	return 0;
@@ -673,9 +730,9 @@ static int msm_actuator_open(struct v4l2_subdev *sd,
 	int rc = 0;
 	struct msm_actuator_ctrl_t *a_ctrl =  v4l2_get_subdevdata(sd);
 	CDBG("Enter\n");
-	/*                                                                                                     */
+	/* LGE_CHANGE_S Exception Lens Pos Default Infinity only enter moment, seongjo.kim@lge.com, 2013-06-23 */
 	current_moment = CAMERA_ENTER_MOMENT;
-	/*                                                                                                     */
+	/* LGE_CHANGE_E Exception Lens Pos Default Infinity only enter moment, seongjo.kim@lge.com, 2013-06-23 */
 	if (!a_ctrl) {
 		pr_err("failed\n");
 		return -EINVAL;
@@ -690,13 +747,13 @@ static int msm_actuator_open(struct v4l2_subdev *sd,
 	return rc;
 }
 
-/*                                                                       */
+/*LGE_CHANGE_S, Fix the Actuator Noise, 2013-06-16, kyungjin.min@lge.com */
 #define IMX135_ACT_STOP_POS 10
 #define IMX135_ACT_HW_DAMPING_MID 0xA
 #define IMX135_ACT_HW_DAMPING_LAST 0x7
 #define IMX135_ACT_HW_DAMPING_FASTEST 0xC
 
-/*                                                                         */
+/* LGE_CHAGNE_S, check VCM movement done, 2013-06-28, hyungmoo.huh@lge.com */
 static int32_t msm_actuator_check_move_done(struct msm_actuator_ctrl_t * a_ctrl)
 {
 	uint16_t read_data, read_addr, read_cnt=0;
@@ -713,7 +770,7 @@ static int32_t msm_actuator_check_move_done(struct msm_actuator_ctrl_t * a_ctrl)
 	}
 	return -1;
 }
-/*                                                                         */
+/* LGE_CHAGNE_E, check VCM movement done, 2013-06-28, hyungmoo.huh@lge.com */
 
 static int msm_actuator_StablePosition_move(struct msm_actuator_ctrl_t * a_ctrl,
 	int16_t next_dac, int16_t damping_parm, unsigned int delay)
@@ -725,18 +782,18 @@ static int msm_actuator_StablePosition_move(struct msm_actuator_ctrl_t * a_ctrl,
 
 		if(a_ctrl->i2c_reg_tbl != NULL){
 			a_ctrl->func_tbl->actuator_parse_i2c_params(a_ctrl, next_dac, damping_parm, 0);
-			rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write_table_w_microdelay(
-			&a_ctrl->i2c_client,
-			a_ctrl->i2c_reg_tbl, a_ctrl->i2c_tbl_index,
-			a_ctrl->i2c_data_type);
+//			rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write_table_w_microdelay(
+//			&a_ctrl->i2c_client,
+//			a_ctrl->i2c_reg_tbl, a_ctrl->i2c_tbl_index,
+//			a_ctrl->i2c_data_type);
 
 			if (rc < 0) {
 				pr_err("%s: i2c write error:[1]%d\n",
 					__func__, rc);
 				return rc;
 			}
-			//                                                                                                                  
-			msm_actuator_check_move_done(a_ctrl); /*                                                                   */
+			//msleep(delay); /* LGE_CHANGE, do need delay because of checking VCM movement , 2013-06-28, hyungmoo.huh@lge.com */
+			msm_actuator_check_move_done(a_ctrl); /* LGE_CHANGE, check VCM movement , 2013-06-28, hyungmoo.huh@lge.com */
 		}
 		else{
 			pr_err("%s: a_ctrl->i2c_reg_tbl == NULL\n",
@@ -763,14 +820,17 @@ static unsigned int msm_actuator_StablePosition_delay_calc(int16_t cur_dac, int1
 	else if(delay < 50) delay = 60;
 
 	//return delay;
-	return 0; /*                                                                                                  */
+	return 0; /* LGE_CHANGE, do not need delay because of checking VCM movement, 2013-06-28, hyungmoo.huh@lge.com */
 }
 
 static int16_t msm_actuator_StablePosition_pos_calc(int16_t cur_pos)
 {
 	//You can use the actuator postion tuning
-	//return cur_pos * 1 /2;
-	return 0; /*                                                                                            */
+#if defined(CONFIG_LG_OIS)
+	return 0;
+#else
+	return cur_pos * 1 /2; /* LGE_CHANGE, Fix tick noise about AF module, 2013-08-13, kyungjin.min@lge.com */
+#endif
 }
 
 static int32_t msm_actuator_StablePosition(struct msm_actuator_ctrl_t *a_ctrl)
@@ -812,7 +872,7 @@ static int32_t msm_actuator_StablePosition(struct msm_actuator_ctrl_t *a_ctrl)
 			{
 				next_dac = msm_actuator_StablePosition_dac_calc(a_ctrl, next_pos);
 				//rc = msm_actuator_StablePosition_move(a_ctrl, next_dac, IMX135_ACT_HW_DAMPING_LAST, 110);
-				/*                                                                      */
+				/* LGE_CHANGE, speed up VCM movement , 2013-06-28, hyungmoo.huh@lge.com */
 				rc = msm_actuator_StablePosition_move(a_ctrl, next_dac, IMX135_ACT_HW_DAMPING_FASTEST, delay);
 				if (rc < 0) {
 					pr_err("%s: i2c write error:[1]%d\n",
@@ -831,20 +891,18 @@ static int32_t msm_actuator_StablePosition(struct msm_actuator_ctrl_t *a_ctrl)
 		}
 
 	}
-/*                                                                         */
+/* LGE_CHAGNE_S, Move to inside for loop, 2013-07-02, hyungmoo.huh@lge.com */
 #if 0
 	a_ctrl->i2c_tbl_index = 0;
 	msleep(50); // delay can be changed but put max due to it's small enough
 	a_ctrl->curr_step_pos = 0;
 #endif
-/*                                                                         */
+/* LGE_CHAGNE_E, Move to inside for loop, 2013-07-02, hyungmoo.huh@lge.com */
 	CDBG("%s: called\n", __func__);
 
 	return rc;
 }
-/*                                                                       */
-
-
+/*LGE_CHANGE_E, Fix the Actuator Noise, 2013-06-16, kyungjin.min@lge.com */
 
 static int msm_actuator_close(struct v4l2_subdev *sd,
 	struct v4l2_subdev_fh *fh) {
@@ -856,18 +914,18 @@ static int msm_actuator_close(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-/*                                                                                                    */
+/* LGE_CHANGE_S [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
 	wake_lock_timeout(&a_ctrl->camera_wake_lock, 2*HZ);
 	pr_err(" %s:%d Before suspend, msm_actuator_close need time to work complete. \n",__func__,__LINE__);
-/*                                                                                                    */
+/* LGE_CHANGE_E [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
 
-/*                                                                                    */
+/* LGE_CHANGE_S [20130622][youngbae.choi@lge.com] : To Prevent changing mutex context */
 	mutex_lock(a_ctrl->actuator_mutex);
-/*                                                                                    */
+/* LGE_CHANGE_E [20130622][youngbae.choi@lge.com] : To Prevent changing mutex context */
 
-/*                                                                       */
+/*LGE_CHANGE_S, Fix the Actuator Noise, 2013-06-16, kyungjin.min@lge.com */
 	msm_actuator_StablePosition(a_ctrl);
-/*                                                                       */
+/*LGE_CHANGE_E, Fix the Actuator Noise, 2013-06-16, kyungjin.min@lge.com */
 	if (a_ctrl->act_device_type == MSM_CAMERA_PLATFORM_DEVICE) {
 		rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_util(
 			&a_ctrl->i2c_client, MSM_CCI_RELEASE);
@@ -877,9 +935,9 @@ static int msm_actuator_close(struct v4l2_subdev *sd,
 	kfree(a_ctrl->i2c_reg_tbl);
 	a_ctrl->i2c_reg_tbl = NULL;
 
-/*                                                                                    */
+/* LGE_CHANGE_S [20130622][youngbae.choi@lge.com] : To Prevent changing mutex context */
 	mutex_unlock(a_ctrl->actuator_mutex);
-/*                                                                                    */
+/* LGE_CHANGE_E [20130622][youngbae.choi@lge.com] : To Prevent changing mutex context */
 
 	CDBG("Exit\n");
 	return rc;
@@ -952,6 +1010,11 @@ static struct v4l2_subdev_ops msm_actuator_subdev_ops = {
 	.core = &msm_actuator_subdev_core_ops,
 };
 
+static const struct i2c_device_id msm_actuator_i2c_id[] = {
+	{"qcom,actuator", (kernel_ulong_t)NULL},
+	{ }
+};
+
 static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
@@ -959,19 +1022,46 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 	struct msm_actuator_ctrl_t *act_ctrl_t = NULL;
 	CDBG("Enter\n");
 
+	if (client == NULL) {
+		pr_err("msm_actuator_i2c_probe: client is null\n");
+		rc = -EINVAL;
+		goto probe_failure;
+	}
+
+	act_ctrl_t = kzalloc(sizeof(struct msm_actuator_ctrl_t),
+		GFP_KERNEL);
+	if (!act_ctrl_t) {
+		pr_err("%s:%d failed no memory\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
+
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		pr_err("i2c_check_functionality failed\n");
 		goto probe_failure;
 	}
 
-	act_ctrl_t = (struct msm_actuator_ctrl_t *)(id->driver_data);
 	CDBG("client = %x\n", (unsigned int) client);
+
+	rc = of_property_read_u32(client->dev.of_node, "cell-index",
+		&act_ctrl_t->subdev_id);
+	CDBG("cell-index %d, rc %d\n", act_ctrl_t->subdev_id, rc);
+	if (rc < 0) {
+		pr_err("failed rc %d\n", rc);
+		return rc;
+	}
+
+	act_ctrl_t->i2c_driver = &msm_actuator_i2c_driver;
 	act_ctrl_t->i2c_client.client = client;
+	act_ctrl_t->curr_step_pos = 0,
+	act_ctrl_t->curr_region_index = 0,
 	/* Set device type as I2C */
 	act_ctrl_t->act_device_type = MSM_CAMERA_I2C_DEVICE;
 	act_ctrl_t->i2c_client.i2c_func_tbl = &msm_sensor_qup_func_tbl;
 	act_ctrl_t->act_v4l2_subdev_ops = &msm_actuator_subdev_ops;
 	act_ctrl_t->actuator_mutex = &msm_actuator_mutex;
+
+	act_ctrl_t->cam_name = act_ctrl_t->subdev_id;
+	CDBG("act_ctrl_t->cam_name: %d", act_ctrl_t->cam_name);
 	/* Assign name for sub device */
 	snprintf(act_ctrl_t->msm_sd.sd.name, sizeof(act_ctrl_t->msm_sd.sd.name),
 		"%s", act_ctrl_t->i2c_driver->driver.name);
@@ -988,7 +1078,7 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 	act_ctrl_t->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_ACTUATOR;
 	act_ctrl_t->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x2;
 	msm_sd_register(&act_ctrl_t->msm_sd);
-	CDBG("succeeded\n");
+	pr_info("msm_actuator_i2c_probe: succeeded\n");
 	CDBG("Exit\n");
 
 probe_failure:
@@ -1047,6 +1137,7 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 
 	cci_client = msm_actuator_t->i2c_client.cci_client;
 	cci_client->cci_subdev = msm_cci_get_subdev();
+	cci_client->cci_i2c_master = MASTER_MAX;
 	v4l2_subdev_init(&msm_actuator_t->msm_sd.sd,
 		msm_actuator_t->act_v4l2_subdev_ops);
 	v4l2_set_subdevdata(&msm_actuator_t->msm_sd.sd, msm_actuator_t);
@@ -1060,24 +1151,28 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 	msm_actuator_t->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x2;
 	msm_sd_register(&msm_actuator_t->msm_sd);
 
-/*                                                                                                    */
+/* LGE_CHANGE_S [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
 	wake_lock_init(&msm_actuator_t->camera_wake_lock, WAKE_LOCK_SUSPEND, "acutuator_wake_lock");
-/*                                                                                                    */
+/* LGE_CHANGE_E [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
 	CDBG("Exit\n");
 	return rc;
 }
 
-static const struct i2c_device_id msm_actuator_i2c_id[] = {
-	{"msm_actuator", (kernel_ulong_t)NULL},
-	{ }
+static const struct of_device_id msm_actuator_i2c_dt_match[] = {
+	{.compatible = "qcom,actuator"},
+	{}
 };
+
+MODULE_DEVICE_TABLE(of, msm_actuator_i2c_dt_match);
 
 static struct i2c_driver msm_actuator_i2c_driver = {
 	.id_table = msm_actuator_i2c_id,
 	.probe  = msm_actuator_i2c_probe,
 	.remove = __exit_p(msm_actuator_i2c_remove),
 	.driver = {
-		.name = "msm_actuator",
+		.name = "qcom,actuator",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_actuator_i2c_dt_match,
 	},
 };
 

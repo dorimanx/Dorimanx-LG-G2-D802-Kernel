@@ -23,9 +23,9 @@
 #include <mach/board_lge.h>
 
 #if defined(CONFIG_LCD_KCAL)
-/*             
-                          
-                                
+/* LGE_CHANGE_S
+* change code for LCD KCAL
+* 2013-05-08, seojin.lee@lge.com
 */
 
 static struct kcal_platform_data *kcal_pdata;
@@ -68,25 +68,21 @@ static ssize_t kcal_ctrl_store(struct device *dev,
 
 	sscanf(buf, "%d", &cmd);
 
-	if(cmd != 1)
+	if (cmd != 1)
 		return last_status_kcal_ctrl = -EINVAL;
 
 	last_status_kcal_ctrl = kcal_pdata->refresh_display();
 
-	if(last_status_kcal_ctrl)
-	{
+	if (last_status_kcal_ctrl)
 		return -EINVAL;
-	}
 	else
-	{
 		return count;
-	}
 }
 
 static ssize_t kcal_ctrl_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	if(last_status_kcal_ctrl)
+	if (last_status_kcal_ctrl)
 		return sprintf(buf, "NG\n");
 	else
 		return sprintf(buf, "OK\n");
@@ -101,16 +97,16 @@ static int kcal_ctrl_probe(struct platform_device *pdev)
 
 	kcal_pdata = pdev->dev.platform_data;
 
-	if(!kcal_pdata->set_values || !kcal_pdata->get_values ||
+	if (!kcal_pdata->set_values || !kcal_pdata->get_values ||
 					!kcal_pdata->refresh_display) {
 		return -1;
 	}
 
 	rc = device_create_file(&pdev->dev, &dev_attr_kcal);
-	if(rc !=0)
+	if (rc != 0)
 		return -1;
 	rc = device_create_file(&pdev->dev, &dev_attr_kcal_ctrl);
-	if(rc !=0)
+	if (rc != 0)
 		return -1;
 
 	return 0;

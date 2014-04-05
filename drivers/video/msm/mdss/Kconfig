@@ -37,9 +37,24 @@ config MACH_MSM8974_A1
 	depends on MACH_LGE
 	bool "LGE LCD support configuration for A1"
 	default n
-config LGE_OLED_IMG_TUNING
+config LGE_SUPORT_OLED_TUNING
 	depends on (MACH_MSM8974_Z_KR || MACH_MSM8974_Z_US || MACH_MSM8974_Z_KDDI) && OLED_SUPPORT
 	bool "Enable sysfs for OLED image tuning"
 	default y
 	---help---
 	Support the image tuning for the LGD OLED Panel.
+
+config FB_MSM_MDSS_DSI_CTRL_STATUS
+	tristate "DSI controller status check feature"
+	---help---
+	  Check DSI controller status periodically (default period is 5
+	  seconds) by sending Bus-Turn-Around (BTA) command. If DSI controller
+	  fails to acknowledge the BTA command, it sends PANEL_ALIVE=0 status
+	  to HAL layer to reset the controller.
+
+config FB_MSM_MDSS_MDP3
+	depends on FB_MSM_MDSS
+	bool "MDP3 display controller"
+	---help---
+	The MDP3 provides support for an older version display controller
+	included in latest display sub-system, known as MDSS.

@@ -21,8 +21,8 @@
 			synaptics,fw_version = "E010";
 			synaptics,platform_data	{
 				/*Caps*/
-				x_max = <1100>;
-				y_max	= <1900>;
+				x_max = <720>;
+				y_max	= <1280>;
 				lcd_x  = <720>;
 				lcd_y  = <1280>; 
 				/*role*/

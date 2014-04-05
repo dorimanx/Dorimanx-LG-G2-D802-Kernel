@@ -31,9 +31,9 @@
 #include <mach/board_lge.h>
 #endif
 #if defined(CONFIG_USB_DWC3_MSM_VZW_SUPPORT)
-int lge_usb_config_finish = 0;
-extern void send_drv_state_uevent(int usb_drv_state);   
-#endif  
+int lge_usb_config_finish;
+extern void send_drv_state_uevent(int usb_drv_state);
+#endif
 /*
  * The code in this file is utility code, used to build a gadget driver
  * from one or more "function" drivers, one or more "configuration"
@@ -44,9 +44,9 @@ extern void send_drv_state_uevent(int usb_drv_state);
 /* big enough to hold our biggest descriptor */
 #define USB_BUFSIZ	4096
 #ifdef CONFIG_SMB349_VZW_FAST_CHG
-bool usb_connected_flag = false;
+bool usb_connected_flag;
 EXPORT_SYMBOL(usb_connected_flag);
-bool usb_configured_flag = false;
+bool usb_configured_flag;
 EXPORT_SYMBOL(usb_configured_flag);
 extern void set_vzw_usb_charging_state(int kind_of_state);
 #endif
@@ -85,6 +85,9 @@ MODULE_PARM_DESC(iSerialNumber, "SerialNumber string");
 
 static char composite_manufacturer[50];
 
+#ifdef CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
+static int nSetConfig = 0;
+#endif //CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
 /*-------------------------------------------------------------------------*/
 /**
  * next_ep_desc() - advance to the next EP descriptor
@@ -535,7 +538,8 @@ static int bos_desc(struct usb_composite_dev *cdev)
 
 	/*
 	 * A SuperSpeed device shall include the USB2.0 extension descriptor
-	 * and shall support LPM when operating in USB2.0 HS mode.
+	 * and shall support LPM when operating in USB2.0 HS mode, as well as
+	 * a HS device when operating in USB2.1 HS mode.
 	 */
 	usb_ext = cdev->req->buf + le16_to_cpu(bos->wTotalLength);
 	bos->bNumDeviceCaps++;
@@ -545,33 +549,37 @@ static int bos_desc(struct usb_composite_dev *cdev)
 	usb_ext->bDevCapabilityType = USB_CAP_TYPE_EXT;
 	usb_ext->bmAttributes = cpu_to_le32(USB_LPM_SUPPORT);
 
-	/*
-	 * The Superspeed USB Capability descriptor shall be implemented by all
-	 * SuperSpeed devices.
-	 */
-	ss_cap = cdev->req->buf + le16_to_cpu(bos->wTotalLength);
-	bos->bNumDeviceCaps++;
-	le16_add_cpu(&bos->wTotalLength, USB_DT_USB_SS_CAP_SIZE);
-	ss_cap->bLength = USB_DT_USB_SS_CAP_SIZE;
-	ss_cap->bDescriptorType = USB_DT_DEVICE_CAPABILITY;
-	ss_cap->bDevCapabilityType = USB_SS_CAP_TYPE;
-	ss_cap->bmAttributes = 0; /* LTM is not supported yet */
-	ss_cap->wSpeedSupported = cpu_to_le16(USB_LOW_SPEED_OPERATION |
-				USB_FULL_SPEED_OPERATION |
-				USB_HIGH_SPEED_OPERATION |
-				USB_5GBPS_OPERATION);
-	ss_cap->bFunctionalitySupport = USB_LOW_SPEED_OPERATION;
+	if (gadget_is_superspeed(cdev->gadget)) {
+		/*
+		 * The Superspeed USB Capability descriptor shall be
+		 * implemented by all SuperSpeed devices.
+		 */
+		ss_cap = cdev->req->buf + le16_to_cpu(bos->wTotalLength);
+		bos->bNumDeviceCaps++;
+		le16_add_cpu(&bos->wTotalLength, USB_DT_USB_SS_CAP_SIZE);
+		ss_cap->bLength = USB_DT_USB_SS_CAP_SIZE;
+		ss_cap->bDescriptorType = USB_DT_DEVICE_CAPABILITY;
+		ss_cap->bDevCapabilityType = USB_SS_CAP_TYPE;
+		ss_cap->bmAttributes = 0; /* LTM is not supported yet */
+		ss_cap->wSpeedSupported = cpu_to_le16(USB_LOW_SPEED_OPERATION |
+					USB_FULL_SPEED_OPERATION |
+					USB_HIGH_SPEED_OPERATION |
+					USB_5GBPS_OPERATION);
+		ss_cap->bFunctionalitySupport = USB_LOW_SPEED_OPERATION;
 
-	/* Get Controller configuration */
-	if (cdev->gadget->ops->get_config_params)
-		cdev->gadget->ops->get_config_params(&dcd_config_params);
-	else {
-		dcd_config_params.bU1devExitLat = USB_DEFAULT_U1_DEV_EXIT_LAT;
-		dcd_config_params.bU2DevExitLat =
-			cpu_to_le16(USB_DEFAULT_U2_DEV_EXIT_LAT);
+		/* Get Controller configuration */
+		if (cdev->gadget->ops->get_config_params)
+			cdev->gadget->ops->get_config_params
+				(&dcd_config_params);
+		else {
+			dcd_config_params.bU1devExitLat =
+				USB_DEFAULT_U1_DEV_EXIT_LAT;
+			dcd_config_params.bU2DevExitLat =
+				cpu_to_le16(USB_DEFAULT_U2_DEV_EXIT_LAT);
+		}
+		ss_cap->bU1devExitLat = dcd_config_params.bU1devExitLat;
+		ss_cap->bU2DevExitLat = dcd_config_params.bU2DevExitLat;
 	}
-	ss_cap->bU1devExitLat = dcd_config_params.bU1devExitLat;
-	ss_cap->bU2DevExitLat = dcd_config_params.bU2DevExitLat;
 
 	return le16_to_cpu(bos->wTotalLength);
 }
@@ -609,7 +617,7 @@ static void reset_config(struct usb_composite_dev *cdev)
 	}
 	cdev->config = NULL;
 #if defined(CONFIG_USB_DWC3_MSM_VZW_SUPPORT)
-        lge_usb_config_finish = 0;
+	lge_usb_config_finish = 0;
 #endif
 }
 
@@ -653,10 +661,8 @@ static int set_config(struct usb_composite_dev *cdev,
 
 	cdev->config = c;
 #if defined(CONFIG_USB_DWC3_MSM_VZW_SUPPORT)
-        if (result == 0) 
-        {
-            lge_usb_config_finish = 1;
-        }
+	if (result == 0)
+		lge_usb_config_finish = 1;
 #endif
 	/* Initialize all interfaces by setting them to altsetting zero. */
 	for (tmp = 0; tmp < MAX_CONFIG_INTERFACES; tmp++) {
@@ -731,6 +737,11 @@ done:
 #endif
 	if (result >= 0 && cdev->delayed_status)
 		result = USB_GADGET_DELAYED_STATUS;
+#ifdef CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
+    if( !result )
+        nSetConfig = number;
+	INFO(cdev, "%s : Set Config Number is %d\n", __func__, nSetConfig );
+#endif //CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
 	return result;
 }
 
@@ -855,6 +866,11 @@ int usb_remove_config(struct usb_composite_dev *cdev,
 	unsigned long flags;
 
 	spin_lock_irqsave(&cdev->lock, flags);
+
+	if (WARN_ON(!config->cdev)) {
+		spin_unlock_irqrestore(&cdev->lock, flags);
+		return 0;
+	}
 
 	if (cdev->config == config)
 		reset_config(cdev);
@@ -1142,7 +1158,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	/* we handle all standard USB descriptors */
 	case USB_REQ_GET_DESCRIPTOR:
 #ifdef CONFIG_SMB349_VZW_FAST_CHG
-		if (!usb_connected_flag){
+		if (!usb_connected_flag) {
 			usb_connected_flag = true;
 			pr_info("%s: usb_connected_flag set to TURE!! \n", __func__);
 		}
@@ -1167,6 +1183,9 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 					cdev->desc.bcdUSB = cpu_to_le16(0x0210);
 					DBG(cdev, "Config SS device in HS\n");
 				}
+			} else if (gadget->l1_supported) {
+				cdev->desc.bcdUSB = cpu_to_le16(0x0210);
+				DBG(cdev, "Config HS device with LPM(L1)\n");
 			}
 
 			value = min(w_length, (u16) sizeof cdev->desc);
@@ -1207,7 +1226,8 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				value = min(w_length, (u16) value);
 			break;
 		case USB_DT_BOS:
-			if (gadget_is_superspeed(gadget)) {
+			if (gadget_is_superspeed(gadget) ||
+				gadget->l1_supported) {
 				value = bos_desc(cdev);
 				value = min(w_length, (u16) value);
 			}
@@ -1233,7 +1253,6 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 #ifdef CONFIG_SMB349_VZW_FAST_CHG
 		usb_configured_flag = true;
 		pr_info("%s: usb_configured_flag set to TRUE!!\n", __func__);
-		//send_drv_state_uevent(1);
 		set_vzw_usb_charging_state(2);
 #endif
 		break;
@@ -1260,6 +1279,15 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 			break;
 		if (w_value && !f->set_alt)
 			break;
+		/*
+		 * We put interfaces in default settings (alt 0)
+		 * upon set config#1. Call set_alt for non-zero
+		 * alternate setting.
+		 */
+		if (!w_value && cdev->config) {
+			value = 0;
+			break;
+		}
 		value = f->set_alt(f, w_index, w_value);
 		if (value == USB_GADGET_DELAYED_STATUS) {
 			DBG(cdev,
@@ -1382,6 +1410,14 @@ unknown:
 			if (c && c->setup)
 				value = c->setup(c, ctrl);
 		}
+		if (value == USB_GADGET_DELAYED_STATUS) {
+			DBG(cdev,
+			 "%s: interface %d (%s) requested delayed status\n",
+					__func__, intf, f->name);
+			cdev->delayed_status++;
+			DBG(cdev, "delayed_status count %d\n",
+					cdev->delayed_status);
+		}
 
 		goto done;
 	}
@@ -1420,6 +1456,10 @@ static void composite_disconnect(struct usb_gadget *gadget)
 		reset_config(cdev);
 	if (composite->disconnect)
 		composite->disconnect(cdev);
+	if (cdev->delayed_status != 0) {
+		INFO(cdev, "delayed status mismatch..resetting\n");
+		cdev->delayed_status = 0;
+	}
 	spin_unlock_irqrestore(&cdev->lock, flags);
 }
 

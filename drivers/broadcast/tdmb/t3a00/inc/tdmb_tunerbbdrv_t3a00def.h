@@ -81,8 +81,8 @@ typedef enum t3a00_service_type
 	T3A00_DMB = 2,
 	T3A00_VISUAL =3,
 	T3A00_DATA = 4,
-	T3A00_ENSQUERY = 6,	/*           */
-	T3A00_BLT_TEST = 9, /*           */
+	T3A00_ENSQUERY = 6,	/* LGE Added */
+	T3A00_BLT_TEST = 9, /* LGE Added */
 	T3A00_SERVICE_MAX
 }t3a00_service_type;
 /* ----------------------------------------------------------

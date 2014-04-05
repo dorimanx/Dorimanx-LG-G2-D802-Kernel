@@ -38,12 +38,20 @@ struct hdmi_tx_platform_data {
 	struct dss_module_power power_data[HDMI_TX_MAX_PM];
 };
 
+struct hdmi_audio {
+	int sample_rate;
+	int channel_num;
+	int spkr_alloc;
+	int level_shift;
+	int down_mix;
+};
+
 struct hdmi_tx_ctrl {
 	struct platform_device *pdev;
 	struct hdmi_tx_platform_data pdata;
 	struct mdss_panel_data panel_data;
 
-	int audio_sample_rate;
+	struct hdmi_audio audio_data;
 
 	struct mutex mutex;
 #ifdef CONFIG_SLIMPORT_DYNAMIC_HPD
@@ -53,6 +61,7 @@ struct hdmi_tx_ctrl {
 	struct switch_dev sdev;
 	struct switch_dev audio_sdev;
 	struct workqueue_struct *workq;
+	spinlock_t hpd_state_lock;
 
 	uint32_t video_resolution;
 
@@ -63,11 +72,13 @@ struct hdmi_tx_ctrl {
 	u32 hpd_off_pending;
 	u32 hpd_feature_on;
 	u32 hpd_initialized;
+	u32 vote_hdmi_core_on;
 	u8  timing_gen_on;
 	u32 mhl_max_pclk;
 	u8  mhl_hpd_on;
 #ifdef CONFIG_SLIMPORT_ANX7808
 	u32 sp_test_mode;
+	u8 audio_enabled;
 #endif
 	struct completion hpd_done;
 	struct work_struct hpd_int_work;
@@ -77,10 +88,13 @@ struct hdmi_tx_ctrl {
 	bool hdcp_feature_on;
 	u32 present_hdcp;
 
-	u8 spd_vendor_name[8];
-	u8 spd_product_description[16];
+	u8 spd_vendor_name[9];
+	u8 spd_product_description[17];
 
 	struct hdmi_tx_ddc_ctrl ddc_ctrl;
+
+	void (*hdmi_tx_hpd_done) (void *data);
+	void *downstream_data;
 
 	void *feature_data[HDMI_TX_FEAT_MAX];
 };

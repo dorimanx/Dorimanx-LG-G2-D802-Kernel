@@ -20,8 +20,9 @@
 #include "msm_camera_io_util.h"
 
 #define V4L2_IDENT_CSID                            50002
-#define CSID_VERSION_V2                      0x02000011
-#define CSID_VERSION_V3                      0x30000000
+#define CSID_VERSION_V20                      0x02000011
+#define CSID_VERSION_V22                      0x02001000
+#define CSID_VERSION_V30                      0x30000000
 #define MSM_CSID_DRV_NAME                    "msm_csid"
 
 #define DBG_CSID 0
@@ -196,6 +197,27 @@ static struct msm_cam_clk_info csid_8974_clk_info[] = {
 	{"csi_rdi_clk", -1},
 };
 
+static struct msm_cam_clk_info csid_8610_clk_info[] = {
+	{"csi_ahb_clk", -1},
+	{"csi_src_clk", 200000000},
+	{"csi_clk", -1},
+	{"csi0phy_mux_clk", -1},
+	{"csi1phy_mux_clk", -1},
+	{"csi0pix_mux_clk", -1},
+	{"csi0rdi_mux_clk", -1},
+	{"csi1rdi_mux_clk", -1},
+	{"csi2rdi_mux_clk", -1},
+};
+
+static struct msm_cam_clk_info csid_8610_clk_src_info[] = {
+	{"csi_phy_src_clk", 0},
+	{"csi_phy_src_clk", 0},
+	{"csi_pix_src_clk", 0},
+	{"csi_rdi_src_clk", 0},
+	{"csi_rdi_src_clk", 0},
+	{"csi_rdi_src_clk", 0},
+};
+
 static struct camera_vreg_t csid_8960_vreg_info[] = {
 	{"mipi_csi_vdd", REG_LDO, 1200000, 1200000, 20000},
 };
@@ -207,6 +229,7 @@ static struct camera_vreg_t csid_vreg_info[] = {
 static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 {
 	int rc = 0;
+	struct camera_vreg_t *cam_vreg;
 
 	if (!csid_version) {
 		pr_err("%s:%d csid_version NULL\n", __func__, __LINE__);
@@ -229,31 +252,50 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 		return rc;
 	}
 
-	if (CSID_VERSION <= CSID_VERSION_V2) {
+	if (CSID_VERSION == CSID_VERSION_V20)
+		cam_vreg = csid_8960_vreg_info;
+	else
+		cam_vreg = csid_vreg_info;
+
+	if (CSID_VERSION < CSID_VERSION_V30) {
 		rc = msm_camera_config_vreg(&csid_dev->pdev->dev,
-			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 1);
 		if (rc < 0) {
 			pr_err("%s: regulator on failed\n", __func__);
 			goto vreg_config_failed;
 		}
-
 		rc = msm_camera_enable_vreg(&csid_dev->pdev->dev,
-			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 1);
 		if (rc < 0) {
 			pr_err("%s: regulator enable failed\n", __func__);
 			goto vreg_enable_failed;
 		}
 
-		rc = msm_cam_clk_enable(&csid_dev->pdev->dev,
-			csid_8960_clk_info, csid_dev->csid_clk,
-			ARRAY_SIZE(csid_8960_clk_info), 1);
-		if (rc < 0) {
-			pr_err("%s: clock enable failed\n", __func__);
-			goto clk_enable_failed;
+		if (CSID_VERSION == CSID_VERSION_V20) {
+			rc = msm_cam_clk_enable(&csid_dev->pdev->dev,
+				csid_8960_clk_info, csid_dev->csid_clk,
+				ARRAY_SIZE(csid_8960_clk_info), 1);
+			if (rc < 0) {
+				pr_err("%s: 8960: clock enable failed\n",
+					 __func__);
+				goto clk_enable_failed;
+			}
+		} else {
+			msm_cam_clk_sel_src(&csid_dev->pdev->dev,
+				&csid_8610_clk_info[3], csid_8610_clk_src_info,
+				ARRAY_SIZE(csid_8610_clk_src_info));
+			rc = msm_cam_clk_enable(&csid_dev->pdev->dev,
+				csid_8610_clk_info, csid_dev->csid_clk,
+				ARRAY_SIZE(csid_8610_clk_info), 1);
+			if (rc < 0) {
+				pr_err("%s: 8610: clock enable failed\n",
+					 __func__);
+				goto clk_enable_failed;
+			}
 		}
-	} else if (CSID_VERSION >= CSID_VERSION_V3) {
+	} else if (CSID_VERSION >= CSID_VERSION_V30) {
 		rc = msm_camera_config_vreg(&csid_dev->pdev->dev,
 			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 1);
@@ -291,29 +333,27 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 
 	msm_csid_reset(csid_dev);
 	csid_dev->csid_state = CSID_POWER_UP;
-	pr_err(" %s:%d CSID_POWER_UP %d \n",__func__,__LINE__,csid_dev->csid_state);
-
-/*                                                                                                                     */
-	wake_lock_timeout(&csid_dev->csid_wake_lock, 2*HZ);	
-/*                                                                                                                     */
+/* LGE_CHANGE_S [youngbae.choi@lge.com][20130625] : To enter the deep sleep after finish camera open , for google talk */
+	wake_lock_timeout(&csid_dev->csid_wake_lock, 2*HZ);
+/* LGE_CHANGE_E [youngbae.choi@lge.com][20130625] : To enter the deep sleep after finish camera open , for google talk */
 	return rc;
 
 clk_enable_failed:
-	if (CSID_VERSION <= CSID_VERSION_V2) {
+	if (CSID_VERSION < CSID_VERSION_V30) {
 		msm_camera_enable_vreg(&csid_dev->pdev->dev,
-			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
-	} else if (CSID_VERSION >= CSID_VERSION_V3) {
+	} else if (CSID_VERSION >= CSID_VERSION_V30) {
 		msm_camera_enable_vreg(&csid_dev->pdev->dev,
 			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
 	}
 vreg_enable_failed:
-	if (CSID_VERSION <= CSID_VERSION_V2) {
+	if (CSID_VERSION < CSID_VERSION_V30) {
 		msm_camera_config_vreg(&csid_dev->pdev->dev,
-			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
-	} else if (CSID_VERSION >= CSID_VERSION_V3) {
+	} else if (CSID_VERSION >= CSID_VERSION_V30) {
 		msm_camera_config_vreg(&csid_dev->pdev->dev,
 			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
@@ -327,10 +367,9 @@ vreg_config_failed:
 static int msm_csid_release(struct csid_device *csid_dev)
 {
 	uint32_t irq;
-
-/*                                                                                                                     */
-	wake_unlock(&csid_dev->csid_wake_lock);	
-/*                                                                                                                     */
+/* LGE_CHANGE_S [youngbae.choi@lge.com][20130625] : To enter the deep sleep after finish camera open , for google talk */
+	wake_unlock(&csid_dev->csid_wake_lock);
+/* LGE_CHANGE_E [youngbae.choi@lge.com][20130625] : To enter the deep sleep after finish camera open , for google talk */
 
 	if (csid_dev->csid_state != CSID_POWER_UP) {
 		pr_err("%s: csid invalid state %d\n", __func__,
@@ -344,7 +383,7 @@ static int msm_csid_release(struct csid_device *csid_dev)
 
 	disable_irq(csid_dev->irq->start);
 
-	if (csid_dev->hw_version <= CSID_VERSION_V2) {
+	if (csid_dev->hw_version == CSID_VERSION_V20) {
 		msm_cam_clk_enable(&csid_dev->pdev->dev, csid_8960_clk_info,
 			csid_dev->csid_clk, ARRAY_SIZE(csid_8960_clk_info), 0);
 
@@ -355,7 +394,20 @@ static int msm_csid_release(struct csid_device *csid_dev)
 		msm_camera_config_vreg(&csid_dev->pdev->dev,
 			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
-	} else if (csid_dev->hw_version >= CSID_VERSION_V3) {
+	} else if (csid_dev->hw_version == CSID_VERSION_V22) {
+		msm_cam_clk_enable(&csid_dev->pdev->dev,
+			csid_8610_clk_info,
+			csid_dev->csid_clk,
+			ARRAY_SIZE(csid_8610_clk_info), 0);
+
+		msm_camera_enable_vreg(&csid_dev->pdev->dev,
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 0);
+
+		msm_camera_config_vreg(&csid_dev->pdev->dev,
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 0);
+	} else if (csid_dev->hw_version >= CSID_VERSION_V30) {
 		msm_cam_clk_enable(&csid_dev->pdev->dev, csid_8974_clk_info,
 			csid_dev->csid_clk, ARRAY_SIZE(csid_8974_clk_info), 0);
 
@@ -371,7 +423,6 @@ static int msm_csid_release(struct csid_device *csid_dev)
 	iounmap(csid_dev->base);
 	csid_dev->base = NULL;
 	csid_dev->csid_state = CSID_POWER_DOWN;
-	pr_err(" %s:%d CSID_POWER_DOWN %d \n",__func__,__LINE__,csid_dev->csid_state);
 	return 0;
 }
 
@@ -395,12 +446,19 @@ static long msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 	case CSID_CFG: {
 		struct msm_camera_csid_params csid_params;
 		struct msm_camera_csid_vc_cfg *vc_cfg = NULL;
-		int32_t i = 0;
+		int8_t i = 0;
 		if (copy_from_user(&csid_params,
 			(void *)cdata->cfg.csid_params,
 			sizeof(struct msm_camera_csid_params))) {
 			pr_err("%s: %d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
+			break;
+		}
+		if (csid_params.lut_params.num_cid < 1 ||
+			csid_params.lut_params.num_cid > 16) {
+			pr_err("%s: %d num_cid outside range\n",
+				 __func__, __LINE__);
+			rc = -EINVAL;
 			break;
 		}
 		for (i = 0; i < csid_params.lut_params.num_cid; i++) {
@@ -584,11 +642,9 @@ static int __devinit csid_probe(struct platform_device *pdev)
 	}
 
 	new_csid_dev->csid_state = CSID_POWER_DOWN;
-	pr_err(" %s:%d CSID_POWER_DOWN %d \n",__func__,__LINE__,new_csid_dev->csid_state);
-
-/*                                                                                                                     */
+/* LGE_CHANGE_S [youngbae.choi@lge.com][20130625] : To enter the deep sleep after finish camera open , for google talk */
 	wake_lock_init(&new_csid_dev->csid_wake_lock, WAKE_LOCK_SUSPEND, "csid_wake_lock");
-/*                                                                                                                     */
+/* LGE_CHANGE_E [youngbae.choi@lge.com][20130625] : To enter the deep sleep after finish camera open , for google talk */
 	return 0;
 
 csid_no_resource:

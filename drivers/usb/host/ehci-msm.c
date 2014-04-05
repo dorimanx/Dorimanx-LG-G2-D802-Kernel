@@ -1,6 +1,6 @@
 /* ehci-msm.c - HSUSB Host Controller Driver Implementation
  *
- * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * Partly derived from ehci-fsl.c and ehci-hcd.c
  * Copyright (c) 2000-2004 by David Brownell
@@ -28,6 +28,7 @@
 #include <linux/pm_runtime.h>
 
 #include <linux/usb/otg.h>
+#include <linux/usb/msm_hsusb.h>
 #include <linux/usb/msm_hsusb_hw.h>
 
 #define MSM_USB_BASE (hcd->regs)
@@ -47,11 +48,21 @@ static int ehci_msm_reset(struct usb_hcd *hcd)
 		return retval;
 
 	/* bursts of unspecified length. */
-	writel(0, USB_AHBBURST);
+	writel_relaxed(0, USB_AHBBURST);
 	/* Use the AHB transactor */
 	writel_relaxed(0x08, USB_AHBMODE);
 	/* Disable streaming mode and select host mode */
-	writel(0x13, USB_USBMODE);
+	writel_relaxed(0x13, USB_USBMODE);
+
+	if (ehci->transceiver->flags & ENABLE_SECONDARY_PHY) {
+		ehci_dbg(ehci, "using secondary hsphy\n");
+		writel_relaxed(readl_relaxed(USB_PHY_CTRL2) | (1<<16),
+							USB_PHY_CTRL2);
+	}
+
+	/* Disable ULPI_TX_PKT_EN_CLR_FIX which is valid only for HSIC */
+	writel_relaxed(readl_relaxed(USB_GENCONFIG2) & ~(1<<19),
+					USB_GENCONFIG2);
 
 	ehci_port_power(ehci, 1);
 	return 0;
@@ -103,6 +114,7 @@ static struct hc_driver msm_hc_driver = {
 	.bus_resume		= ehci_bus_resume,
 };
 
+static u64 msm_ehci_dma_mask = DMA_BIT_MASK(64);
 static int ehci_msm_probe(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd;
@@ -110,6 +122,11 @@ static int ehci_msm_probe(struct platform_device *pdev)
 	int ret;
 
 	dev_dbg(&pdev->dev, "ehci_msm proble\n");
+
+	if (!pdev->dev.dma_mask)
+		pdev->dev.dma_mask = &msm_ehci_dma_mask;
+	if (!pdev->dev.coherent_dma_mask)
+		pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 
 	hcd = usb_create_hcd(&msm_hc_driver, &pdev->dev, dev_name(&pdev->dev));
 	if (!hcd) {
@@ -247,15 +264,23 @@ static int ehci_msm_pm_suspend(struct device *dev)
 static int ehci_msm_pm_resume(struct device *dev)
 {
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	int ret;
 
 	dev_dbg(dev, "ehci-msm PM resume\n");
 
 	if (!hcd->rh_registered)
 		return 0;
 
-	ehci_prepare_ports_for_controller_resume(hcd_to_ehci(hcd));
+	/* Notify OTG to bring hw out of LPM before restoring wakeup flags */
+	ret = usb_phy_set_suspend(phy, 0);
+	if (ret)
+		return ret;
 
-	return usb_phy_set_suspend(phy, 0);
+	ehci_prepare_ports_for_controller_resume(hcd_to_ehci(hcd));
+	/* Resume root-hub to handle USB event if any else initiate LPM again */
+	usb_hcd_resume_root_hub(hcd);
+
+	return ret;
 }
 #endif
 

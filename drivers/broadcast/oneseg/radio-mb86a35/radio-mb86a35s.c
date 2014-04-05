@@ -18,7 +18,7 @@
 #undef PERFORMANCE_TEST	
 #define WORKAROUND_XX
 
-#if 1 //   
+#if 1 //LGE
 #include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
@@ -35,7 +35,7 @@
 #include "isdbt_common.h"
 #endif
 
-#if 1//   
+#if 1//LGE
 #define QC_SPI_MAX (188*40)//(188*32)//(188*60)
 
 #ifndef boolean
@@ -82,12 +82,12 @@ static int mmbi_tuner_drv_open = -1;
 static u8 *wdata_buf;
 static u8 *rdata_buf;
 
-//                                                         
+// Modified by harold.kim@lge.com 20120613 for SPI DMA Tx {
 //static u8 wx_data_buf[TX_RX_DATA_BUF_SIZE+32] = {0,};
 //static u8 rx_data_buf[TX_RX_DATA_BUF_SIZE+32] = {0,};
 static u8 wx_data_buf[TX_RX_DATA_BUF_SIZE+32] __cacheline_aligned;
 static u8 rx_data_buf[TX_RX_DATA_BUF_SIZE+32] __cacheline_aligned;
-//                                                         
+// Modified by harold.kim@lge.com 20120613 for SPI DMA Tx }
 
 static unsigned int buf_id = 0;
 
@@ -111,7 +111,7 @@ extern void isdbt_hw_deinit(void);
 #endif
 
 
-//                                                  
+//static struct spi_device *mb86a35s_spi_device; LGE
 
 static int devmajor = NODE_MAJOR;
 static char *devname = NODE_PATHNAME;
@@ -161,7 +161,7 @@ static u8 REG30 = MB86A35_DEF_REG30;
 
 static int mb86a35s_spi_rf_recv(unsigned char reg, unsigned char *data, unsigned int size);
 
-/*     */
+/* LGE */
 //extern int isdbt_init(void* dev);
 
 /************************************************************************/
@@ -7854,7 +7854,7 @@ int mb86a35_IOCTL_CH_SEARCH(mb86a35_cmdcontrol_t * cmdctrl, unsigned int cmd,
 		mb86a35_i2c_master_send(reg, value);
 
 		/* WAIT */
-		//                       
+		//msleep(100); //LGE TEST
 
 		sreg = MB86A35_REG_SUBR_CHANNEL0;
 		rtncode =
@@ -9855,10 +9855,10 @@ int mb86a35_IOCTL_STREAM_READ(mb86a35_cmdcontrol_t * cmdctrl, unsigned int cmd, 
 		goto stream_read_return;
 	}
 
-#if 1 //    
+#if 1 // LGE
 	MMBICtrlInfo.IsdbtPowerOnState = TRUE;
 	MMBICtrlInfo.spi_irq_status = FALSE;
-//                                                                    
+// eric0.kim@lge.com [2012.07.27] Block this code due to sync as 325		
 #if 0		
 	wake_lock(&MMBICtrlInfo.wake_lock);
 #endif
@@ -9931,7 +9931,7 @@ int mb86a35_IOCTL_STREAM_READ_CTRL(mb86a35_cmdcontrol_t * cmdctrl, unsigned int 
 			rtncode = -EINVAL;
 			goto stream_read_ctrl_return;
 		}
-#if 0 //   
+#if 0 //LGE
 		if (STREAM_READ_CTRL->BUF == NULL) {
 			rtncode = -EINVAL;
 			goto stream_read_ctrl_return;
@@ -9941,13 +9941,13 @@ int mb86a35_IOCTL_STREAM_READ_CTRL(mb86a35_cmdcontrol_t * cmdctrl, unsigned int 
 			rtncode =  -EFAULT;
 			goto stream_read_ctrl_return;
 		}
-#if 0 //   
+#if 0 //LGE
 		if (STREAM_READ_CTRL->BUF_SIZE % STREAM_READ_CTRL->READ_SIZE) {
 			rtncode = -EINVAL;
 			goto stream_read_ctrl_return;
 		}
 #endif
-		#if 0 //   
+		#if 0 //LGE
 		read_size = STREAM_READ_CTRL->READ_SIZE;
 		read_buff = STREAM_READ_CTRL->BUF;
 		buff_size = STREAM_READ_CTRL->BUF_SIZE;
@@ -9958,7 +9958,7 @@ int mb86a35_IOCTL_STREAM_READ_CTRL(mb86a35_cmdcontrol_t * cmdctrl, unsigned int 
 
 		mbt_dataring_create(&buf_id, read_size*30);
 		MMBICtrlInfo.IsdbtPowerOnState = TRUE;
-//                                                                    
+// eric0.kim@lge.com [2012.07.27] Block this code due to sync as 325		
 #if 0		
 		wake_lock(&MMBICtrlInfo.wake_lock);
 #endif
@@ -10046,7 +10046,7 @@ int mb86a35_IOCTL_STREAM_READ_CTRL(mb86a35_cmdcontrol_t * cmdctrl, unsigned int 
 			goto stream_read_ctrl_return;
 		}
 		
-		#if 0 //   
+		#if 0 //LGE
 		//read_size = 0;
 		//read_buff = NULL;
 		//buff_size = 0;
@@ -10057,7 +10057,7 @@ int mb86a35_IOCTL_STREAM_READ_CTRL(mb86a35_cmdcontrol_t * cmdctrl, unsigned int 
 		mbt_dataring_destroy(&buf_id);
 
 		MMBICtrlInfo.IsdbtPowerOnState = FALSE;
-//                                                                    
+// eric0.kim@lge.com [2012.07.27] Block this code due to sync as 325		
 #if 0		
 		wake_unlock(&MMBICtrlInfo.wake_lock);
 #endif
@@ -10312,7 +10312,7 @@ static int mb86a35_open(struct inode *inode, struct file *filp)
 		 PRINT_LHEADER, (int)filp->private_data);
 
 	//lge
-//                                                                  
+// eric0.kim@lge.com [2012.07.27] Add this code due to sync as 325		
 #if 1		
 	wake_lock(&MMBICtrlInfo.wake_lock);
 #endif
@@ -10372,7 +10372,7 @@ int mb86a35_close(struct inode *inode, struct file *filp)
 	filp->private_data = NULL;
 
 	mmbi_tuner_drv_open  = -1;
-//                                                                  
+// eric0.kim@lge.com [2012.07.27] Add this code due to sync as 325		
 #if 1		
 	wake_unlock(&MMBICtrlInfo.wake_lock);
 #endif
@@ -10404,7 +10404,7 @@ static
 ssize_t mb86a35_read(struct file *filp, char *buf, size_t count, loff_t * f_pos)
 {
 	int rtncode = 0;
-	#if 1 //   
+	#if 1 //LGE
 	int avail_data_size = 0;
 	int empty = 0;
 	unsigned char* read_buf = NULL;
@@ -10421,7 +10421,7 @@ ssize_t mb86a35_read(struct file *filp, char *buf, size_t count, loff_t * f_pos)
 		 PRINT_LHEADER, (int)filp, (int)buf, count, (int)f_pos);
 
 	
-#if 1 //   
+#if 1 //LGE
 	empty = mbt_dataring_empty(buf_id);
 
 	avail_data_size = mbt_dataring_avail(buf_id);
@@ -10557,7 +10557,7 @@ long mb86a35_ioctl(struct file *filp, unsigned int cmd,
 	//	 " : ioctl(inode:0x%08x,filp:0x%08x,cmd:0x%08x,arg:0x%08x)  called.\n",
 	//	 PRINT_LHEADER, (int)inode, (int)filp, cmd, (int)arg);
 
-	//                               
+	//printk("LGE Driver change!!!");
 
 	cmdctrl = (mb86a35_cmdcontrol_t *) filp->private_data;
 	if (cmdctrl == NULL) {
@@ -10849,7 +10849,7 @@ static struct file_operations mb86a35_fops = {
 	release:mb86a35_close,		/* close() system call entry */
 };
 
-//    
+// LGE
 static int broadcast_mmbi_device_init(struct broadcast_mmbi_chdevice *pbroadcast, int index)
 {
 	int rc;
@@ -10958,7 +10958,7 @@ irqreturn_t mb86a35s_irq_handler(int irq, void *dev)
 			return IRQ_HANDLED;
 		}	
 //		isr_time = ktime_get();
-		//                                                                                
+		//printk("***** broadcast_tdmb_spi_isr coming *******\n"); 	//LGE_BROADCAST_TEST_I
 #ifdef MMB_WQ_FEATURE
 		queue_work(pIsdbtInfo->spi_wq, &pIsdbtInfo->spi_work);
 #else
@@ -11304,7 +11304,7 @@ stream_read_ctrl_return:
 	return;
 }
 
-//         
+//LGE start
 extern int broadcast_mmbi_chk_dev_drv_start(void);
 //end
 /************************************************************************/
@@ -11407,7 +11407,7 @@ static int __devinit mb86a35s_spi_probe(struct spi_device *spi)
 
 #endif
 	
-#if 1 //   
+#if 1 //LGE
 	MMBICtrlInfo.pSpiDevice = spi;
 
 	MMBICtrlInfo.pSpiDevice->irq = irq;
@@ -11447,12 +11447,12 @@ static int __devinit mb86a35s_spi_probe(struct spi_device *spi)
 	wake_lock_init(&MMBICtrlInfo.wake_lock,  WAKE_LOCK_SUSPEND, dev_name(&spi->dev));
 
 	
-	//                                                         
+	// Modified by harold.kim@lge.com 20120613 for SPI DMA Tx {
 	//wdata_buf = (u8*)(((u32)wx_data_buf +31)&~31);
 	//rdata_buf = (u8*)(((u32)rx_data_buf +31)&~31);
 	wdata_buf = wx_data_buf;
 	rdata_buf = rx_data_buf;
-	//                                                         
+	// Modified by harold.kim@lge.com 20120613 for SPI DMA Tx }
 
 	broadcast_mmbi_chk_dev_drv_start();
 

@@ -21,55 +21,55 @@ static struct msm_sensor_power_setting ov8825_power_setting[] = {
 		.seq_type = SENSOR_VREG,
 		.seq_val = CAM_VIO,
 		.config_val = 0,
-		.delay = 5,
+		.delay = 1,
 	},
 	{
 		.seq_type = SENSOR_VREG,
 		.seq_val = CAM_VANA,
 		.config_val = 0,
-		.delay = 5,
+		.delay = 1,
 	},
 	{
 		.seq_type = SENSOR_VREG,
 		.seq_val = CAM_VDIG,
 		.config_val = 0,
-		.delay = 5,
+		.delay = 1,
 	},
 	{
 		.seq_type = SENSOR_VREG,
 		.seq_val = CAM_VAF,
 		.config_val = 0,
-		.delay = 15,
+		.delay = 5,
 	},
 	{
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_STANDBY,
 		.config_val = GPIO_OUT_LOW,
-		.delay = 15,
+		.delay = 1,
 	},
 	{
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
 		.config_val = GPIO_OUT_LOW,
-		.delay = 40,
+		.delay = 5,
 	},
 	{
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_STANDBY,
 		.config_val = GPIO_OUT_HIGH,
-		.delay = 40,
+		.delay = 5,
 	},
 	{
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
 		.config_val = GPIO_OUT_HIGH,
-		.delay = 40,
+		.delay = 10,
 	},
 	{
 		.seq_type = SENSOR_CLK,
 		.seq_val = SENSOR_CAM_MCLK,
 		.config_val = 24000000,
-		.delay = 5,
+		.delay = 10,
 	},
 	{
 		.seq_type = SENSOR_I2C_MUX,
@@ -93,9 +93,15 @@ static const struct i2c_device_id ov8825_i2c_id[] = {
 	{ }
 };
 
+static int32_t msm_ov8825_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *id)
+{
+	return msm_sensor_i2c_probe(client, id, &ov8825_s_ctrl);
+}
+
 static struct i2c_driver ov8825_i2c_driver = {
 	.id_table = ov8825_i2c_id,
-	.probe  = msm_sensor_i2c_probe,
+	.probe  = msm_ov8825_i2c_probe,
 	.driver = {
 		.name = OV8825_SENSOR_NAME,
 	},

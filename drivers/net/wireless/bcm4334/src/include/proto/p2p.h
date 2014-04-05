@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  *
  * Fundamental types and constants relating to WFA P2P (aka WiFi Direct)
  *
- * $Id: p2p.h 356417 2012-09-12 16:41:24Z $
+ * $Id: p2p.h 384536 2013-02-12 04:13:09Z $
  */
 
 #ifndef _P2P_H_
@@ -402,6 +402,8 @@ BWL_PRE_PACKED_STRUCT struct wifi_p2p_noa_se {
 typedef struct wifi_p2p_noa_se wifi_p2p_noa_se_t;
 
 #define P2P_NOA_SE_FIXED_LEN	5
+
+#define P2P_NOA_SE_MAX_DESC	2	
 
 
 #define P2P_NOA_DESC_CNT_RESERVED	0	

@@ -53,7 +53,7 @@
 			ti,pre-chg-current-ma = <256>;
 			ti,sys-vmin-mv = <3500>;
 			ti,vin-limit-mv = <4600>;
-			ti,icl-vbus-mv = <4652>;
+			ti,icl-vbus-mv = <4610>;
 
 			lge,no-init-cable = <0 0 0>;
 			lge,cable-mhl-1k = <5000 500 500>;
@@ -306,6 +306,7 @@
 
 	gpio@df00 { /* GPIO 32 */
 		status = "ok";
+		revision = "...rev_f";		/* jh.heo@lge.com, NFC Clk change after Rev.G */
 		qcom,mode = <0>;		/* QPNP_PIN_MODE_DIG_IN */
 		qcom,pull = <5>;		/* QPNP_PIN_PULL_NO */
 		qcom,master-en = <1>;		/* Enable Module */
@@ -364,7 +365,7 @@
 		status = "ok";			/* rgb_led en for lp5521 */
 		qcom,mode = <1>;		/* QPNP_PIN_MODE_DIG_OUT */
 		qcom,output-type = <0>;		/* QPNP_PIN_OUT_BUF_CMOS */
-		qcom,pull = <5>;		/* QPNP_PIN_PULL_NO */
+		qcom,pull = <3>;		/* QPNP_PIN_PULL_NO */
 		qcom,vin-sel = <2>;		/* QPNP_PIN_VIN0 1.8V */
 		qcom,out-strength = <2>;	/* QPNP_PIN_OUT_STRENGTH_MED */
 		qcom,src-sel = <0>;		/* QPNP_PIN_SEL_FUNC_CONSTANT */

@@ -16,7 +16,7 @@ menuconfig IPV6
 	  For specific information about IPv6 under Linux, read the HOWTO at
 	  <http://www.bieringer.de/linux/IPv6/>.
 
-	  To compile this protocol support as a module, choose M here: the 
+	  To compile this protocol support as a module, choose M here: the
 	  module will be called ipv6.
 
 if IPV6
@@ -28,14 +28,14 @@ config IPV6_PRIVACY
 	  support.  With this option, additional periodically-altered
 	  pseudo-random global-scope unicast address(es) will be assigned to
 	  your interface(s).
-	
+
 	  We use our standard pseudo-random algorithm to generate the
           randomized interface identifier, instead of one described in RFC 3041.
 
 	  By default the kernel does not generate temporary addresses.
 	  To use temporary addresses, do
-	
-	        echo 2 >/proc/sys/net/ipv6/conf/all/use_tempaddr 
+
+	        echo 2 >/proc/sys/net/ipv6/conf/all/use_tempaddr
 
 	  See <file:Documentation/networking/ip-sysctl.txt> for details.
 
@@ -253,11 +253,11 @@ config IPV6_PIMSM_V2
 config LGP_DATA_TCPIP_SLAAC_IPV6_ALLOCATION_BOOSTER
 	bool "IPv6: LGU+ IPv6 requirements"
 	---help---
-	  When the SLAAC(StateLess Address AoutoCongifutation) process is being operated, 
+	  When the SLAAC(StateLess Address AoutoCongifutation) process is being operated,
 	  we will set the value of waiting time to 0.02 sec for Link-local IPv6 address and will not operate the DAD process for Global IPv6 address.
 
 config LGP_DATA_BUGFIX_IPV6_ADDRCONF_KERNEL_CRASH
-	bool "IPv6: Bug Fix of Kernel Crash
+	bool "IPv6: Bug Fix of Kernel Crash"
 	---help---
 	During DAD process, if the interface of ipv6 were down, kernel crash will be occured.
 
