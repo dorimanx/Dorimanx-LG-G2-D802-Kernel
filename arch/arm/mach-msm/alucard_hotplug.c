@@ -93,39 +93,21 @@ static struct core_thermal_data core_thermal_info = {
 #define DOWN_INDEX		(0)
 #define UP_INDEX		(1)
 
-#define RQ_AVG_TIMER_RATE	10
-
 static struct runqueue_data {
 	unsigned int nr_run_avg;
-	unsigned int update_rate;
 	int64_t last_time;
 	int64_t total_time;
-	struct delayed_work work;
-	struct workqueue_struct *nr_run_wq;
 	spinlock_t lock;
 };
 
 static struct runqueue_data *rq_data;
-static void rq_work_fn(struct work_struct *work);
 
-static void start_rq_work(void)
+static void init_rq_avg_stats(void)
 {
 	rq_data->nr_run_avg = 0;
 	rq_data->last_time = 0;
 	rq_data->total_time = 0;
-	if (rq_data->nr_run_wq == NULL)
-		rq_data->nr_run_wq =
-			create_singlethread_workqueue("nr_run_avg");
 
-	queue_delayed_work(rq_data->nr_run_wq, &rq_data->work,
-			   msecs_to_jiffies(rq_data->update_rate));
-	return;
-}
-
-static void stop_rq_work(void)
-{
-	if (rq_data->nr_run_wq)
-		cancel_delayed_work(&rq_data->work);
 	return;
 }
 
@@ -136,19 +118,23 @@ static int __init init_rq_avg(void)
 		pr_err("%s cannot allocate memory\n", __func__);
 		return -ENOMEM;
 	}
-	spin_lock_init(&rq_data->lock);
-	rq_data->update_rate = RQ_AVG_TIMER_RATE;
-	INIT_DEFERRABLE_WORK(&rq_data->work, rq_work_fn);
 
 	return 0;
 }
 
-static void rq_work_fn(struct work_struct *work)
+static int __exit exit_rq_avg(void)
+{
+	kfree(rq_data);
+	return 0;
+}
+
+static unsigned int get_nr_run_avg(void)
 {
 	int64_t time_diff = 0;
 	int64_t nr_run = 0;
 	unsigned long flags = 0;
 	int64_t cur_time;
+	unsigned int nr_run_avg;
 
 	cur_time = ktime_to_ns(ktime_get());
 
@@ -172,21 +158,9 @@ static void rq_work_fn(struct work_struct *work)
 	rq_data->total_time += time_diff;
 	rq_data->last_time = cur_time;
 
-	if (rq_data->update_rate != 0)
-		queue_delayed_work(rq_data->nr_run_wq, &rq_data->work,
-				   msecs_to_jiffies(rq_data->update_rate));
-
-	spin_unlock_irqrestore(&rq_data->lock, flags);
-}
-
-static unsigned int get_nr_run_avg(void)
-{
-	unsigned int nr_run_avg;
-	unsigned long flags = 0;
-
-	spin_lock_irqsave(&rq_data->lock, flags);
 	nr_run_avg = rq_data->nr_run_avg;
 	rq_data->nr_run_avg = 0;
+
 	spin_unlock_irqrestore(&rq_data->lock, flags);
 
 	return nr_run_avg;
@@ -354,7 +328,6 @@ static void cpus_hotplugging(bool state) {
 	mutex_lock(&timer_mutex);
 
 	if (state) {
-		start_rq_work();
 		for_each_possible_cpu(cpu) {
 			struct hotplug_cpuinfo *this_hotplug_cpuinfo;
 			this_hotplug_cpuinfo =
@@ -376,8 +349,11 @@ static void cpus_hotplugging(bool state) {
 		/* Initiate timer time stamp */
 		time_stamp = ktime_get();
 
+		init_rq_avg_stats;
+
 		delay = msecs_to_jiffies(
 			hotplug_tuners_ins.hotplug_sampling_rate);
+
 		queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
 				delay);
 	} else {
@@ -385,7 +361,6 @@ static void cpus_hotplugging(bool state) {
 		cancel_delayed_work_sync(&alucard_hotplug_work);
 		cancel_work_sync(&up_work);
 		cancel_work_sync(&down_work);
-		stop_rq_work();
 		mutex_lock(&timer_mutex);
 	}
 
@@ -687,9 +662,10 @@ static inline int do_core_control(int online, int num_cores_limit)
 	} else {
 		core_thermal_info.num_cores = online;
 	}
-
+#if 0
 	pr_info("Core Sensor Temp.[%u], Max Cores[%d]\n",
 			temp, core_thermal_info.num_cores);
+#endif
 
 	return core_thermal_info.num_cores;
 }
@@ -732,7 +708,11 @@ static void hotplug_work_fn(struct work_struct *work)
 	if (core_thermal_enable > 0 || atomic_read(&core_thermal_lock) > 0)
 		upmaxcoreslimit = do_core_control(online_cpus,
 					upmaxcoreslimit);
-
+#if 0
+	pr_info("ONLINE CPUS[%u], CPU[%u], \
+				rq_avg[%u]\n", online_cpus, \
+				cpu, rq_avg);
+#endif
 	for_each_cpu_not(cpu, cpu_online_mask) {
 		struct hotplug_cpuinfo *this_hotplug_cpuinfo;
 		cputime64_t cur_wall_time, cur_idle_time;
@@ -808,7 +788,7 @@ static void hotplug_work_fn(struct work_struct *work)
 			down_rq = hotplug_rq[cpu][DOWN_INDEX];
 
 #if 0
-			printk(KERN_ERR "ONLINE CPUS[%u], CPU[%u], \
+			pr_info("ONLINE CPUS[%u], CPU[%u], \
 				cur_freq[%u], cur_load[%d], \
 				rq_avg[%u]\n", online_cpus, \
 				cpu, cur_freq, cur_load, rq_avg);
@@ -824,7 +804,8 @@ static void hotplug_work_fn(struct work_struct *work)
 				schedule_down_cpu);
 #endif
 
-			if ((online_cpus - online_cpu) > upmaxcoreslimit) {
+			if (cpu > 0
+					&& (online_cpus - online_cpu) > upmaxcoreslimit) {
 				ref_cpu = this_hotplug_cpuinfo->up_by_cpu;
 				if (ref_cpu >= 0) {
 					ref_hotplug_cpuinfo =
@@ -1003,9 +984,6 @@ static int __init alucard_hotplug_init(void)
 		return ret;
 	}
 
-	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0)
-		start_rq_work();
-
 	for_each_possible_cpu(cpu) {
 		struct hotplug_cpuinfo *this_hotplug_cpuinfo;
 		this_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
@@ -1026,11 +1004,15 @@ static int __init alucard_hotplug_init(void)
 	INIT_WORK(&up_work, cpu_up_work);
 	INIT_WORK(&down_work, cpu_down_work);
 
-	delay = msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate);
+	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0) {
+		init_rq_avg_stats();
 
-	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0)
+		delay = msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate);
+
 		queue_delayed_work_on(0, alucardhp_wq,
 			&alucard_hotplug_work, delay);
+
+	}
 
 	return ret;
 }
@@ -1040,7 +1022,8 @@ static void __exit alucard_hotplug_exit(void)
 	cancel_delayed_work_sync(&alucard_hotplug_work);
 	cancel_work_sync(&up_work);
 	cancel_work_sync(&down_work);
-	stop_rq_work();
+	exit_rq_avg;
+
 
 	mutex_destroy(&timer_mutex);
 
