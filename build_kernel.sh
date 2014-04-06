@@ -18,27 +18,33 @@ clear
 
 #--project/				(progect container folder)
 #------LG-G2-D802-Ramdisk/		(ramdisk files for boot.img)
+#------ramdisk-tmp/			(ramdisk tmp store without .git)
+#--------lib/modules/			(modules dir, will be added to system on boot)
 #------dorimanx-LG-G2-D802-Kernel/	(kernel source goes here)
-#--------READY-KERNEL/			(output directory, where the final boot.img and modules are placed)
+#--------READY-KERNEL/			(output directory, where the final boot.img is placed)
 #----------meta-inf/			(meta-inf folder for your flashable zip)
 #----------system/
 
 # location
-KERNELDIR=`readlink -f .`;
+KERNELDIR=$(readlink -f .);
+export HOST=$(uname -n);
 
 # begin by ensuring the required directory structure is complete, and empty
 echo "Initialising................."
-if [ -e ../LG-G2-D802-Ramdisk/lib/modules/ ]; then
-	rm -rf ../LG-G2-D802-Ramdisk/lib/
-fi;
-rm -rf $KERNELDIR/READY-KERNEL/boot
-rm -f $KERNELDIR/READY-KERNEL/*.zip
-rm -f $KERNELDIR/READY-KERNEL/*.img
-rm -f $KERNELDIR/READY-KERNEL/system/lib/modules/*.ko
-mkdir -p $KERNELDIR/READY-KERNEL/boot
-mkdir -p ../LG-G2-D802-Ramdisk/lib/modules/
+rm -rf "$KERNELDIR"/READY-KERNEL/boot
+rm -f "$KERNELDIR"/READY-KERNEL/*.zip
+rm -f "$KERNELDIR"/READY-KERNEL/*.img
+mkdir -p "$KERNELDIR"/READY-KERNEL/boot
 
-#force regeneration of .dtb and zImage files for every compile
+if [ -d ../ramdisk-tmp ]; then
+	rm -rf ../ramdisk-tmp/*
+else
+	mkdir ../ramdisk-tmp
+	chown root:root ../ramdisk-tmp
+	chmod 777 ../ramdisk-tmp
+fi
+
+# force regeneration of .dtb and zImage files for every compile
 rm -f arch/arm/boot/*.dtb
 rm -f arch/arm/boot/*.cmd
 rm -f arch/arm/boot/zImage
@@ -46,82 +52,197 @@ rm -f arch/arm/boot/Image
 
 export PATH=$PATH:tools/lz4demo
 
+BUILD_800=0
+BUILD_801=0
+BUILD_802=0
+BUILD_803=0
+BUILD_LS_980=0
+BUILD_VS_980=0
+
+echo "What to cook for you?!";
+select CHOICE in D800 D801 D802 D803 LS980 VS980; do
+	case "$CHOICE" in
+		"D800")
+			export KERNEL_CONFIG=dorimanx_d800_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_d800_defconfig
+			BUILD_800=1;
+			break;;
+		"D801")
+			export KERNEL_CONFIG=dorimanx_d801_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_d801_defconfig
+			BUILD_801=1;
+			break;;
+		"D802")
+			export KERNEL_CONFIG=dorimanx_d802_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_d802_defconfig
+			BUILD_802=1;
+			break;;
+		"D803")
+			export KERNEL_CONFIG=dorimanx_d803_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_d803_defconfig
+			BUILD_803=1
+			break;;
+		"LS980")
+			export KERNEL_CONFIG=dorimanx_ls980_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_ls980_defconfig
+			BUILD_LS_980=1;
+			break;;
+		"VS980")
+			export KERNEL_CONFIG=dorimanx_vs980_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_vs980_defconfig
+			BUILD_VS_980=1;
+			break;;
+	esac;
+done;
+
 if [ -e /usr/bin/python3 ]; then
 	rm /usr/bin/python
 	ln -s /usr/bin/python2.7 /usr/bin/python
 fi;
 
 # move into the kernel directory and compile the main image
-echo "Compiling Kernel............."
-if [ ! -f $KERNELDIR/.config ]; then
-	sh load_config.sh
+echo "Compiling Kernel.............";
+if [ ! -f "$KERNELDIR"/.config ]; then
+	if [ "$BUILD_800" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_d800_defconfig .config
+	elif [ "$BUILD_801" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_d801_defconfig .config
+	elif [ "$BUILD_802" -eq "1" ]; then
+		sh load_config-802.sh
+	elif [ "$BUILD_803" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_d803_defconfig .config
+	elif [ "$BUILD_LS_980" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_ls980_defconfig .config
+	elif [ "$BUILD_VS_980" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_vs980_defconfig .config
+	fi;
 fi;
 
-# read config
-. $KERNELDIR/.config;
+if [ -f "$KERNELDIR"/.config ]; then
+	BRANCH_800=$(grep -R "CONFIG_MACH_MSM8974_G2_ATT=y" .config | wc -l)
+	BRANCH_801=$(grep -R "CONFIG_MACH_MSM8974_G2_TMO_US=y" .config | wc -l)
+	BRANCH_802=$(grep -R "CONFIG_MACH_MSM8974_G2_OPEN_COM=y" .config | wc -l)
+	BRANCH_803=$(grep -R "CONFIG_MACH_MSM8974_G2_CA=y" .config | wc -l)
+	BRANCH_LS_980=$(grep -R "CONFIG_MACH_MSM8974_G2_SPR=y" .config | wc -l)
+	BRANCH_VS_980=$(grep -R "CONFIG_MACH_MSM8974_G2_VZW=y" .config | wc -l)
+	if [ "$BRANCH_800" -eq "0" ] && [ "$BUILD_800" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_d800_defconfig .config
+	fi;
+	if [ "$BRANCH_801" -eq "0" ] && [ "$BUILD_801" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_d801_defconfig .config
+	fi;
+	if [ "$BRANCH_802" -eq "0" ] && [ "$BUILD_802" -eq "1" ]; then
+		sh load_config-802.sh
+	fi;
+	if [ "$BRANCH_803" -eq "0" ] && [ "$BUILD_803" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_d803_defconfig .config
+	fi;
+	if [ "$BRANCH_LS_980" -eq "0" ] && [ "$BUILD_LS_980" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_ls980_defconfig .config
+	fi;
+	if [ "$BRANCH_VS_980" -eq "0" ] && [ "$BUILD_VS_980" -eq "1" ]; then
+		cp arch/arm/configs/dorimanx_vs980_defconfig .config
+	fi;
+fi;
 
-cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/dorimanx_defconfig;
+# get version from config
+GETVER=$(grep 'Kernel-.*-V' .config |sed 's/Kernel-//g' | sed 's/.*".//g' | sed 's/-L.*//g');
+GETBRANCH=$(grep '.*-LG' .config |sed 's/Kernel-Dorimanx-V//g' | sed 's/[1-9].*-LG-//g' | sed 's/.*".//g' | sed 's/-PWR.*//g');
+
+cp "$KERNELDIR"/.config "$KERNELDIR"/arch/arm/configs/"$KERNEL_CONFIG_FILE";
 
 # remove all old modules before compile
-for i in `find $KERNELDIR/ -name "*.ko"`; do
-        rm -f $i;
+for i in $(find "$KERNELDIR"/ -name "*.ko"); do
+        rm -f "$i";
 done;
 
+# dorimanx detection ;)
+if [ "$HOST" == "dorimanx-virtual-machine" ] || [ "$HOST" == "dorimanx" ]; then
+	NR_CPUS=16;
+	echo "Dori power detected!";
+else
+	NR_CPUS=4
+        echo "not dorimanx system detected, setting $NR_CPUS build threads"
+fi;
+
 # build zImage
-make ARCH=arm dorimanx_defconfig zImage -j16
+time make -j ${NR_CPUS}
+
+cp "$KERNELDIR"/.config "$KERNELDIR"/arch/arm/configs/"$KERNEL_CONFIG_FILE";
+
+stat "$KERNELDIR"/arch/arm/boot/zImage || exit 1;
 
 # compile the modules, and depmod to create the final zImage
 echo "Compiling Modules............"
-make modules -j16
+time make modules -j ${NR_CPUS} || exit 1
 
 # move the compiled zImage and modules into the READY-KERNEL working directory
 echo "Move compiled objects........"
 
-for i in `find $KERNELDIR -name '*.ko'`; do
-	cp -av $i $KERNELDIR/READY-KERNEL/system/lib/modules/
+cp -a ../LG-G2-D802-Ramdisk/* ../ramdisk-tmp/
+rm -rf ../ramdisk-tmp/.git
+
+for i in $(find "$KERNELDIR" -name '*.ko'); do
+        cp -av "$i" ../ramdisk-tmp/lib/modules/;
 done;
 
-#for i in `find $KERNELDIR -name '*.ko'`; do
-#        cp -av $i ../LG-G2-D802-Ramdisk/lib/modules/
-#done;
+chmod 755 ../ramdisk-tmp/lib/modules/*
 
-cp arch/arm/boot/zImage READY-KERNEL/boot
+# remove empty directory placeholders from tmp-initramfs
+for i in $(find ../ramdisk-tmp/ -name EMPTY_DIRECTORY); do
+	rm -f "$i";
+done;
 
-# create the ramdisk and move it to the output working directory
-echo "Create ramdisk..............."
-scripts/mkbootfs ../LG-G2-D802-Ramdisk | gzip > ramdisk.gz 2>/dev/null
-mv ramdisk.gz READY-KERNEL/boot
+if [ -e "$KERNELDIR"/arch/arm/boot/zImage ]; then
 
-# clean modules from ramdisk.
-#rm -rf ../LG-G2-D802-Ramdisk/lib/
+	cp arch/arm/boot/zImage READY-KERNEL/boot
 
-# create the dt.img from the compiled device files, necessary for msm8974 boot images
-echo "Create dt.img................"
-scripts/dtbTool -v -s 2048 -o READY-KERNEL/boot/dt.img arch/arm/boot/
+	# create the ramdisk and move it to the output working directory
+	echo "Create ramdisk..............."
+	scripts/mkbootfs ../ramdisk-tmp | gzip > ramdisk.gz 2>/dev/null
+	mv ramdisk.gz READY-KERNEL/boot
 
-# resore python3
-if [ -e /usr/bin/python3 ]; then
-	rm /usr/bin/python
-	ln -s /usr/bin/python3 /usr/bin/python
+	# create the dt.img from the compiled device files, necessary for msm8974 boot images
+	echo "Create dt.img................"
+	./scripts/dtbTool -v -s 2048 -o READY-KERNEL/boot/dt.img arch/arm/boot/
+
+	if [ -e /usr/bin/python3 ]; then
+		rm /usr/bin/python
+		ln -s /usr/bin/python3 /usr/bin/python
+	fi;
+
+	# add kernel config to kernle zip for other devs
+	cp "$KERNELDIR"/.config READY-KERNEL/
+
+	# build the final boot.img ready for inclusion in flashable zip
+	echo "Build boot.img..............."
+	cp scripts/mkbootimg READY-KERNEL/boot
+	cd READY-KERNEL/boot
+	base=0x00000000
+	offset=0x05000000
+	tags_addr=0x04800000
+	cmd_line="console=ttyHSL0,115200,n8 androidboot.hardware=g2 user_debug=31 msm_rtb.filter=0x0"
+	./mkbootimg --kernel zImage --ramdisk ramdisk.gz --cmdline "$cmd_line" --base $base --offset $offset --tags-addr $tags_addr --pagesize 2048 --dt dt.img -o newboot.img
+	mv newboot.img ../boot.img
+
+	# cleanup all temporary working files
+	echo "Post build cleanup..........."
+	cd ..
+	rm -rf boot
+
+	# create the flashable zip file from the contents of the output directory
+	echo "Make flashable zip..........."
+	zip -r Kernel-"${GETVER}"-"$(date +"[%H-%M]-[%d-%m]-LG-${GETBRANCH}-PWR-CORE")".zip * >/dev/null
+	stat boot.img
+	rm -f ./*.img
+	cd ..
+else
+	if [ -e /usr/bin/python3 ]; then
+		rm /usr/bin/python
+		ln -s /usr/bin/python3 /usr/bin/python
+	fi;
+
+	# with red-color
+	 echo -e "\e[1;31mKernel STUCK in BUILD! no zImage exist\e[m"
 fi;
 
-# build the final boot.img ready for inclusion in flashable zip
-echo "Build boot.img..............."
-cp scripts/mkbootimg READY-KERNEL/boot
-cd READY-KERNEL/boot
-base=0x00000000
-offset=0x05000000
-tags_addr=0x04800000
-cmd_line="console=ttyHSL0,115200,n8 androidboot.hardware=g2 user_debug=31 msm_rtb.filter=0x0"
-./mkbootimg --kernel zImage --ramdisk ramdisk.gz --cmdline "$cmd_line" --base $base --offset $offset --tags-addr $tags_addr --pagesize 2048 --dt dt.img -o newboot.img
-mv newboot.img ../boot.img
-
-# cleanup all temporary working files
-echo "Post build cleanup..........."
-cd ..
-rm -rf boot
-
-# create the flashable zip file from the contents of the output directory
-echo "Make flashable zip..........."
-zip -r Dorimanx-LG-G2-D802-Kernel.zip * >/dev/null
-cd ..
