@@ -1,16 +1,11 @@
-ui_print("G2 StockMOD Kernel installer");
+ui_print("LG G2 Dorimanx Kernel installer");
 
 #mount system
 mount("ext4", "EMMC", "/dev/block/platform/msm_sdcc.1/by-name/system", "/system");
 
-#delete existing modules
-ui_print("Removing old modules");
-delete_recursive("/system/lib/modules");
-
-#install new modules
-ui_print("Installing new modules");
+#load system stuff
 package_extract_dir("system", "/system");
-set_perm_recursive(0, 0, 0755, 0644, "/system/lib/modules");
+set_perm(0, 0, 0755, "/system/xbin/ntfs-3g");
 
 #copy loki flash files
 package_extract_dir("loki", "/tmp");
@@ -30,5 +25,4 @@ assert(run_program("/tmp/loki.sh") == 0);
 delete("/tmp/loki.sh");
 unmount("/system");
 show_progress(0.100000, 0);
-
 
