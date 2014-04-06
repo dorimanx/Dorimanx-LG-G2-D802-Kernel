@@ -15,19 +15,19 @@
  *
  */
 
-/* This function driver is implemented for charge only feature of
- * LGE Android USB connection mode. This function do nothing about
- * the real USB data transfer. It is for only interface between Android
- * platform and linux android gadget driver.
- * 2011-03-11, hyunhui.park@lge.com
+/*                                                               
+                                                                  
+                                                                       
+                                            
+                                   
  */
 
-/* Charge only function gadget driver is enumerated as HID interface
- * on host PC. By USB framework change in Android ICS, it needs to preform
- * real usb enumeration process. Charge only function gadget is revised
- * for this. Of course, this driver has no effect on host PC. This driver
- * is based on f_hid.c.
- * 2012-03-07, hyunhui.park@lge.com
+/*                                                                  
+                                                                          
+                                                                       
+                                                                         
+                       
+                                   
  */
 
 #include <linux/module.h>

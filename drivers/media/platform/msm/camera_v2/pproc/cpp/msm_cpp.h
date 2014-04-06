@@ -182,9 +182,9 @@ struct cpp_device {
 	char *fw_name_bin;
 	struct workqueue_struct *timer_wq;
 	struct msm_cpp_work_t *work;
-/*QCT_PATCH S, fix lockup when start camera with 13M resolution, 2013-10-31, yt.kim@lge.com */
+/*                                                                                          */
 	uint8_t stream_cnt;
-/*QCT_PATCH E, fix lockup when start camera with 13M resolution, 2013-10-31, yt.kim@lge.com */
+/*                                                                                          */
 	int domain_num;
 	struct iommu_domain *domain;
 	struct device *iommu_ctx;

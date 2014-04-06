@@ -112,8 +112,8 @@
 
 #ifdef CONFIG_MACH_LGE
 /*
-2013-06-14, G2-FS@lge.com
-add ext4 fs errno type for ext4 superblock
+                         
+                                          
 */
 #define ESUPER      150 /*ext4 superblock is damaged */
 #endif

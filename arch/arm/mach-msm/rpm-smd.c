@@ -1170,7 +1170,7 @@ int msm_rpm_wait_for_ack(uint32_t msg_id)
 	elem = msm_rpm_get_entry_from_msg_id(msg_id);
 	if (!elem)
 		return rc;
-#ifndef CONFIG_MACH_LGE /* LGE Workaround */
+#ifndef CONFIG_MACH_LGE /*                */
 	wait_for_completion(&elem->ack);
 #else
 	rpm_noack_timeout_count = 0;

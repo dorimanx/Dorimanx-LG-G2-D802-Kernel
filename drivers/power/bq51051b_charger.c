@@ -29,7 +29,7 @@
 #include <linux/i2c/smb349_charger.h>
 #ifdef CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO
 #include <linux/qpnp/pin.h>
-#endif/*CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO*/
+#endif/*                                    */
 #include <linux/delay.h>
 
 #define	LGE_WLC_CHARGER_TEMP_SCENARIO_SYSFS
@@ -37,7 +37,7 @@
 #ifdef LGE_WLC_CHARGER_TEMP_SCENARIO_SYSFS
 int at_batt_temp;
 int at_batt_temp_flag;
-#endif/*LGE_WLC_CHARGER_TEMP_SCENARIO_SYSFS*/
+#endif/*                                   */
 
 #ifdef CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO
 enum {
@@ -46,11 +46,11 @@ enum {
 	WLC_TEMP_UNDIER_M10		= 2,
 	WLC_TEMP_OVER_60		= 3,
 };
-#endif/*CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO*/
+#endif/*                                    */
 
 #ifdef CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO
 static int wlc_temp_state;
-#endif/*CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO*/
+#endif/*                                    */
 
 struct bq51051b_wlc_chip {
 	struct device *dev;
@@ -160,7 +160,7 @@ static void wireless_current_control(bool state)
 
 	WLC_DBG_INFO("half_current : %d\n", state);
 }
-#endif/*CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO*/
+#endif/*                                    */
 
 #ifdef CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO
 static void wireless_ts_control(bool state)
@@ -182,7 +182,7 @@ static void wireless_ts_control(bool state)
 
 	return;
 }
-#endif/*CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO*/
+#endif/*                                    */
 
 #ifdef CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO
 void wireless_temp_satate(int temp_state)
@@ -211,7 +211,7 @@ void wireless_temp_satate(int temp_state)
 
 	return;
 }
-#endif/*CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO*/
+#endif/*                                    */
 
 #ifdef CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO
 void wireless_temp_monitor(int batt_temp)
@@ -257,13 +257,13 @@ void wireless_temp_monitor(int batt_temp)
 
 	return;
 }
-#endif/*CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO*/
+#endif/*                                    */
 
 void wireless_current_ctl(int batt_temp)
 {
 #ifdef CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO
 	wireless_temp_monitor(batt_temp);
-#endif/*CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO*/
+#endif/*                                    */
 	return;
 }
 EXPORT_SYMBOL(wireless_current_ctl);
@@ -321,11 +321,11 @@ static ssize_t at_temp_store(struct device *dev,
 
 	return size;
 }
-#endif/*LGE_WLC_CHARGER_TEMP_SCENARIO_SYSFS*/
+#endif/*                                   */
 
 #ifdef LGE_WLC_CHARGER_TEMP_SCENARIO_SYSFS
 DEVICE_ATTR(at_temp, 0660, at_temp_show, at_temp_store);
-#endif/*LGE_WLC_CHARGER_TEMP_SCENARIO_SYSFS*/
+#endif/*                                   */
 
 static int __devinit bq51051b_wlc_hw_init(struct bq51051b_wlc_chip *chip)
 {
@@ -431,7 +431,7 @@ static int __devinit bq51051b_wlc_probe(struct platform_device *pdev)
 	struct bq51051b_wlc_platform_data *pdata;
 #ifdef LGE_WLC_CHARGER_TEMP_SCENARIO_SYSFS
 	int err = 0;
-#endif/*LGE_WLC_CHARGER_TEMP_SCENARIO_SYSFS*/
+#endif/*                                   */
 	WLC_DBG_INFO("probe\n");
 
 	if (pdev->dev.of_node) {
@@ -504,7 +504,7 @@ static int __devinit bq51051b_wlc_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO
 	wlc_temp_state = WLC_TEMP_NORMAL;
-#endif/*CONFIG_LGE_WLC_CHARGER_TEMP_SCENARIO*/
+#endif/*                                    */
 
 	/* For Booting Wireless_charging and For Power Charging Logo In Wireless Charging */
 	if (wireless_charger_is_plugged(chip))
@@ -512,7 +512,7 @@ static int __devinit bq51051b_wlc_probe(struct platform_device *pdev)
 
 #ifdef LGE_WLC_CHARGER_TEMP_SCENARIO_SYSFS
 	err = device_create_file(&pdev->dev, &dev_attr_at_temp);
-#endif/*LGE_WLC_CHARGER_TEMP_SCENARIO_SYSFS*/
+#endif/*                                   */
 	WLC_DBG_INFO("probe success\n");
 	return 0;
 
@@ -540,7 +540,7 @@ static int __devexit bq51051b_wlc_remove(struct platform_device *pdev)
 	kfree(chip);
 #ifdef LGE_WLC_CHARGER_TEMP_SCENARIO_SYSFS
 	device_remove_file(&pdev->dev, &dev_attr_at_temp);
-#endif/*LGE_WLC_CHARGER_TEMP_SCENARIO_SYSFS*/
+#endif/*                                   */
 	return 0;
 }
 

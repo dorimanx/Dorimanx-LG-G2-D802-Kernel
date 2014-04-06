@@ -185,7 +185,7 @@ int32_t read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl)
 				return rc;
 			}
 		}
-#ifdef QULCOMM_ORIGINAL // original (do not use it in LGE)
+#ifdef QULCOMM_ORIGINAL //                                
 		if (emap[j].pageen.valid_size) {
 			e_ctrl->i2c_client.addr_type = emap[j].pageen.addr_t;
 			rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
@@ -221,7 +221,7 @@ int32_t read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl)
 			}
 			memptr += emap[j].mem.valid_size;
 		}
-#ifdef QULCOMM_ORIGINAL // original (do not use it in LGE)
+#ifdef QULCOMM_ORIGINAL //                                
 		if (emap[j].pageen.valid_size) {
 			e_ctrl->i2c_client.addr_type = emap[j].pageen.addr_t;
 			rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
@@ -368,7 +368,7 @@ static int msm_eeprom_alloc_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 			goto out;
 		}
 
-#ifdef QULCOMM_ORIGINAL // original (do not use it in LGE)
+#ifdef QULCOMM_ORIGINAL //                                
 		snprintf(property, 14, "qcom,pageen%d", i);
 		rc = of_property_read_u32_array(of, property,
 			(uint32_t *) &eb->eeprom_map[i].pageen, count);
@@ -809,8 +809,8 @@ static int32_t msm_eeprom_spi_remove(struct spi_device *sdev)
 	return 0;
 }
 
-/* [LGE_CHANGE_S] youngbae.choi@lge.com, 2013-05-16
- * extern import eeprom read function  */
+/*                                                 
+                                       */
 struct msm_eeprom_ctrl_t *global_e_ctrl  = NULL;
 struct msm_eeprom_board_info *global_eb_info = NULL;
 
@@ -818,15 +818,15 @@ int32_t msm_eeprom_read(void)
 {
 	int32_t rc = 0;
 	int i=0, /*j=0,*/ n_res=0;
-	uint8_t af_value1, af_value2;/* LGE_CHANGE, Set EEPROM, kyungjin.min@lge.com, 2013-04-29 */
+	uint8_t af_value1, af_value2;/*                                                          */
 
-/* LGE_CHANGE_S, fixed WBT issue., 2013.11.16, youngil.yun[Start] */
+/*                                                                */
 	if(global_e_ctrl == NULL)
 	{
 		printk("%s: global_e_ctrl is NULL\n", __func__);
 		return -EINVAL;
 	}
-/* LGE_CHANGE_E, fixed WBT issue., 2013.11.16, youngil.yun[End] */
+/*                                                              */
 
 	if(global_e_ctrl != NULL){
 		for(i=0;i<3; i++){
@@ -842,13 +842,13 @@ int32_t msm_eeprom_read(void)
 //		for (j = 0; j < global_e_ctrl->num_bytes; j++)
 //			pr_err("memory_data[%d] = 0x%X\n", j, global_e_ctrl->memory_data[j]);
 
-/* LGE_CHANGE_S, Set EEPROM, kyungjin.min@lge.com, 2013-04-29 */
+/*                                                            */
 		af_value1 = (uint8_t)(global_e_ctrl->memory_data[9]<<8) |(global_e_ctrl->memory_data[10]);
 		af_value2 = (uint8_t)(global_e_ctrl->memory_data[11]<<8) |(global_e_ctrl->memory_data[12]);
 
 		CDBG("%s, af_value1 = %d\n", __func__, af_value1);
 		CDBG("%s, af_value2 = %d\n", __func__, af_value2);
-/* LGE_CHANGE_E, Set EEPROM, kyungjin.min@lge.com, 2013-04-29 */
+/*                                                            */
 	}
 	else
 	{
@@ -861,8 +861,8 @@ int32_t msm_eeprom_read(void)
 }
 EXPORT_SYMBOL(msm_eeprom_read);
 
-/* [LGE_CHANGE_E] youngbae.choi@lge.com, 2013-05-16
- * extern import eeprom read function  */
+/*                                                 
+                                       */
 
 static int32_t msm_eeprom_platform_probe(struct platform_device *pdev)
 {
@@ -1005,12 +1005,12 @@ static int32_t msm_eeprom_platform_probe(struct platform_device *pdev)
 		goto memdata_free;
 	}
 #else
-/* [LGE_CHANGE_S] youngbae.choi@lge.com, 2013-05-16
- * extern import eeprom read function  */
+/*                                                 
+                                       */
 	global_e_ctrl = e_ctrl;
 	global_eb_info = eb_info;
-/* [LGE_CHANGE_S] youngbae.choi@lge.com, 2013-05-16
- * extern import eeprom read function  */
+/*                                                 
+                                       */
 #endif
 	v4l2_subdev_init(&e_ctrl->msm_sd.sd,
 		e_ctrl->eeprom_v4l2_subdev_ops);
@@ -1036,8 +1036,8 @@ static int32_t msm_eeprom_platform_probe(struct platform_device *pdev)
 	CDBG("%s X\n", __func__);
 	return rc;
 
-/* [LGE_CHANGE_S] youngbae.choi@lge.com, 2013-05-16
- * extern import eeprom read function  */
+/*                                                 
+                                       */
 #ifdef QULCOMM_ORIGINAL
 power_down:
 	msm_camera_power_down(power_info, e_ctrl->eeprom_device_type,
@@ -1046,8 +1046,8 @@ memdata_free:
 	kfree(e_ctrl->memory_data);
 	kfree(eb_info->eeprom_map);
 #endif
-/* [LGE_CHANGE_S] youngbae.choi@lge.com, 2013-05-16
- * extern import eeprom read function  */
+/*                                                 
+                                       */
 board_free:
 	kfree(e_ctrl->eboard_info);
 cciclient_free:

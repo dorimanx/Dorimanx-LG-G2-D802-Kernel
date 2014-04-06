@@ -1106,11 +1106,11 @@ static void msm_hsl_set_termios(struct uart_port *port,
 	 */
 	baud = uart_get_baud_rate(port, termios, old, 200, 4000000);
 
-	/* 20111205, chaeuk.lee@lge.com, Add IrDA UART [START]
-	 * Set UART for IrDA
-	 * 0x03 : UART_IRDA | RX_INVERT
-	 * [CAUTION] UARTDM register must be set AFTER UARTDM clock has been set
-	*/
+	/*                                                    
+                     
+                                
+                                                                         
+ */
 	#ifdef CONFIG_LGE_IRDA_KDDI
 	if(port->line == 3){
 		msm_hsl_write(port, 0x03, UARTDM_IRDA_ADDR);

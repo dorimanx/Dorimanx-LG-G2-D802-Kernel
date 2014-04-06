@@ -4167,7 +4167,7 @@ bool dhd_is_concurrent_mode(dhd_pub_t *dhd)
 }
 
 
-/* LGE_patch : S : config file setting */
+/*                                     */
 #if defined(CONFIG_LGE_BCM433X_PATCH)
 #include <linux/fs.h>
 #include <linux/ctype.h>
@@ -4417,8 +4417,8 @@ err:
 	ret = -1;
 	goto out;
 }
-#endif /* CONFIG_LGE_BCM433X_PATCH */
-/* LGE_patch : E : config file setting */
+#endif /*                          */
+/*                                     */
 
 #if !defined(AP) && defined(WLP2P)
 /* From Android JerryBean release, the concurrent mode is enabled by default and the firmware

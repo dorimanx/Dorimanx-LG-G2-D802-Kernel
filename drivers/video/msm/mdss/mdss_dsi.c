@@ -247,10 +247,10 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 		}
 
 #if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_VU3_LGD_PANEL)
-		/* LGE_CHANGE_S
-		 * power sequence for LGD_FHD panel
-		 * 2013-04-05, yeonjun.kim@lge.com
-		 */
+		/*             
+                                     
+                                    
+   */
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
 			msleep(1);
@@ -264,11 +264,11 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 	} else {
 
 #if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_VU3_LGD_PANEL)
-		/* LGE_CHANGE
-		 * Change Power off sequence to meet system matching
-		 * (vdda off - reset - disp off - vddio off)
-		 * 2013-09-09, baryun.hwang@lge.com
-		 */
+		/*           
+                                                      
+                                              
+                                     
+   */
 		ret = msm_dss_enable_vreg(
 			ctrl_pdata->power_data.vreg_config+1,
 			1, 0);
@@ -885,7 +885,7 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 				ctrl_pdata, ctrl_pdata->ndx);
 
 #if defined(CONFIG_MACH_LGE)
-	/* LGE_CHANGE, command panel does not be powered off */
+	/*                                                   */
 	if (pdata->panel_info.type == MIPI_VIDEO_PANEL)
 #endif
 		WARN((ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT),

@@ -33,13 +33,13 @@
 #endif
 
 #if 0   //Fix me to enable IEF_SWITCH
-/* LGE_CHANGE_S, Apply IEF on/off , 2013-06-24, jeongda.lee@lge.com */
+/*                                                                  */
 #if defined(CONFIG_MACH_LGE) && !(defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI))
 #define IEF_SWITCH
 extern int mdss_dsi_panel_ief_on(void);
 extern int mdss_dsi_panel_ief_off(void);
 #endif
-/* LGE_CHANGE_E, Apply IEF on/off , 2013-06-24, jeongda.lee@lge.com */
+/*                                                                  */
 #endif
 
 static int32_t msm_sensor_enable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf)
@@ -816,14 +816,14 @@ static int32_t msm_sensor_get_dt_data(struct device_node *of_node,
 		rc = 0;
 	}
 
-	/* LGE_CHANGE_S, OIS capability, 2013-06-26, kh.kang@lge.com */
+	/*                                                           */
 	if (of_property_read_bool(of_node, "qcom,gpio-ois-ldo") == true) {
 		sensordata->sensor_init_params->ois_supported = true;
 	}
 	else {
 		sensordata->sensor_init_params->ois_supported = false;
 	}
-	/* LGE_CHANGE_E, OIS capability, 2013-06-26, kh.kang@lge.com */
+	/*                                                           */
 
 	rc = of_property_read_u32(of_node, "qcom,cci-master",
 		&s_ctrl->cci_i2c_master);
@@ -1020,10 +1020,10 @@ static struct msm_cam_clk_info cam_8610_clk_info[] = {
 };
 
 static struct msm_cam_clk_info cam_8974_clk_info[] = {
-/* soojung.lim@lge.com, 2013-05-23
- * To use 24MHz GP/GCC_GP clock for V2 H/W
- * For 19.2MHz, then use below setting
- *	[SENSOR_CAM_MCLK] = {"cam_src_clk", 19200000},
+/*                                
+                                          
+                                      
+                                                 
  */
 	[SENSOR_CAM_MCLK] = {"cam_src_clk", 24000000},
 	[SENSOR_CAM_CLK] = {"cam_clk", 0},
@@ -1297,8 +1297,8 @@ int32_t msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t rc = 0;
 	uint16_t chipid = 0;
-/* [LGE_CHANGE_S] youngbae.choi@lge.com, 2013-05-16
- * when failed matching ID , retry the read. */
+/*                                                 
+                                             */
 	int i = 0;
 	int n_res = 0;
 
@@ -1837,7 +1837,7 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		}
 		break;
 	}
-/* LGE_CHANGE_S, OIS update, 2013-06-26, kh.kang@lge.com */
+/*                                                       */
 #if defined(CONFIG_LG_OIS)
 	case CFG_OIS_ON:{
 		enum ois_ver_t ver;
@@ -1885,7 +1885,7 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		break;
 	}
 #endif
-/* LGE_CHANGE_E, OIS upgrade, 2013-06-26, kh.kang@lge.com */
+/*                                                        */
 	default:
 		rc = -EFAULT;
 		break;
@@ -1969,11 +1969,11 @@ static struct msm_camera_i2c_fn_t msm_sensor_qup_func_tbl = {
 	.i2c_write_conf_tbl = msm_camera_qup_i2c_write_conf_tbl,
 };
 
-/* [LGE_CHANGE_S] youngbae.choi@lge.com, 2013-05-16
- * extern import eeprom read function  */
+/*                                                 
+                                       */
 extern int32_t msm_eeprom_read(void);
-/* [LGE_CHANGE_E] youngbae.choi@lge.com, 2013-05-16
- * extern import eeprom read function  */
+/*                                                 
+                                       */
 int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 {
 	int32_t rc = 0;
@@ -2035,8 +2035,8 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 		return rc;
 	}
 
-/* [LGE_CHANGE_S] youngbae.choi@lge.com, 2013-05-16
- * in case of imx135 sensor, excute the eeprom read function  */
+/*                                                 
+                                                              */
 	if(strcmp(s_ctrl->sensordata->sensor_name, "imx135") == 0){
 		rc = msm_eeprom_read();
 		if(rc < 0)
@@ -2044,8 +2044,8 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 		else
 			pr_err("%s: read eeprom success\n", __func__);
 	}
-/* [LGE_CHANGE_E] youngbae.choi@lge.com, 2013-05-16
- * in case of imx135 sensor, excute the eeprom read function  */
+/*                                                 
+                                                              */
 
 	CDBG("%s %s probe succeeded\n", __func__,
 		s_ctrl->sensordata->sensor_name);

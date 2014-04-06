@@ -18,18 +18,18 @@
 #include <media/v4l2-subdev.h>
 #include <media/msmb_camera.h>
 #include "msm_camera_i2c.h"
-/* LGE_CHANGE_S [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
+/*                                                                                                    */
 #include <linux/wakelock.h>
-/* LGE_CHANGE_E [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
+/*                                                                                                    */
 
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
 
-/* LGE_CHANGE_S Exception Lens Pos Default Infinity only enter moment, seongjo.kim@lge.com, 2013-06-23 */
+/*                                                                                                     */
 #define CAMERA_ENTER_MOMENT                      1
 #define CAMERA_ENTER_MOMENT_AFTER                2
 static int current_moment;
-/* LGE_CHANGE_E Exception Lens Pos Default Infinity only enter moment, seongjo.kim@lge.com, 2013-06-23 */
+/*                                                                                                     */
 struct msm_actuator_ctrl_t;
 
 struct msm_actuator_func_tbl {
@@ -89,9 +89,9 @@ struct msm_actuator_ctrl_t {
 	uint16_t i2c_tbl_index;
 	enum cci_i2c_master_t cci_master;
 	uint32_t subdev_id;
-/* LGE_CHANGE_S [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
+/*                                                                                                    */
 	struct wake_lock        camera_wake_lock;
-/* LGE_CHANGE_E [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
+/*                                                                                                    */
 };
 
 #endif

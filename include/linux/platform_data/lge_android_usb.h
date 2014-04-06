@@ -41,4 +41,4 @@ int lgeusb_get_factory_composition(char *);
 #define LGEUSB_FACTORY_130K 2
 #define LGEUSB_FACTORY_910K 3
 
-#endif /* __LGE_ANDROID_USB_H__ */
+#endif /*                       */

@@ -255,7 +255,7 @@ bool is_ftt_online(struct ftt_charger_device *ftt_pdev)
 #ifdef CONFIG_MACH_LGE
 			set_wireless_power_supply_control((int)ftt_pdev->ftt_online);
 			printk("[FTT] ftt_online : %d\n", ftt_pdev->ftt_online);
-#endif/*CONFIG_MACH_LGE*/
+#endif/*               */
 		}
 		return ftt_pdev->ftt_online;
 	}

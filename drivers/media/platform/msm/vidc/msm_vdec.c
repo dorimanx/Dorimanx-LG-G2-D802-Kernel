@@ -27,10 +27,10 @@
 #define MAX_NUM_OUTPUT_BUFFERS 6
 #endif
 
-// LGE_CHANGE_S, [G2_Player][kyungmin.jun@lge.com], 20131202  DEFAULT_CONCEAL_COLOR value change from green to black {
+//                                                                                                                    
 //#define DEFAULT_CONCEAL_COLOR 0x0
 #define DEFAULT_CONCEAL_COLOR 0x108080
-// LGE_CHANGE_S, [G2_Player][kyungmin.jun@lge.com], 20131202 DEFAULT_CONCEAL_COLOR value change from green to black }
+//                                                                                                                   
 
 #define TZ_INFO_GET_FEATURE_VERSION_ID 0x3
 #define TZ_DYNAMIC_BUFFER_FEATURE_ID 12
@@ -1118,7 +1118,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 				"Failed to set new buffer count(%d) on FW, err: %d\n",
 				new_buf_count.buffer_count_actual, rc);
 		}
-		// LGE_CHANGE_S, [G2_Player][haewook.kim@lge.com], 20130626, msm vdec Update firmware with input buffer count
+		//                                                                                                           
 		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
 		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
 		new_buf_count.buffer_count_actual = *num_buffers;
@@ -1129,7 +1129,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 					"Failed to set new buffer count(%d) on FW, err: %d\n",
 			new_buf_count.buffer_count_actual, rc);
 		}
-		// LGE_CHANGE_E, [G2_Player][haewook.kim@lge.com], 20130626, msm vdec Update firmware with input buffer count
+		//                                                                                                           
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		dprintk(VIDC_DBG, "Getting bufreqs on capture plane\n");

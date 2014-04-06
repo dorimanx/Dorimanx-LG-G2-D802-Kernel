@@ -20,8 +20,8 @@
 #include <mach/board_lge.h>
 
 #define KS8851_IRQ_GPIO 94
-/* soojung.lim@lge.com, 2013-05-23
- * To use 24MHz GP/GCC_GP clock for V2 H/W
+/*                                
+                                          
  */
 int g_is_tlmm_spare_reg_value;
 
@@ -190,7 +190,7 @@ static struct gpiomux_setting gpio_epm_config = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
-/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 #if defined(CONFIG_BCMDHD) || defined(CONFIG_BCMDHD_MODULE)
 #else
 static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
@@ -205,7 +205,7 @@ static struct gpiomux_setting wcnss_5wire_active_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 #endif
-/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 
 static struct gpiomux_setting gpio_i2c_config = {
 	.func = GPIOMUX_FUNC_3,
@@ -891,7 +891,7 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	},
 #endif
 
-/* LGE_CHANGE_S, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+/*                                                        */
 #ifndef CONFIG_LGE_BLUETOOTH
 	{
 		.gpio      = 53,		/* BLSP2 QUP4 SPI_DATA_MOSI */
@@ -921,8 +921,8 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[0],
 		},
 	},
-#endif /* CONFIG_LGE_BLUETOOTH */
-/* LGE_CHANGE_S, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+#endif /*                      */
+/*                                                        */
 	{
 		.gpio      = 81,		/* EPM enable */
 		.settings = {
@@ -999,10 +999,10 @@ static struct msm_gpiomux_config sd_card_det __initdata = {
 	},
 };
 
-/* LGE_CHANGE_S
- * Camera bring up - Separate Rev.A and B setting
- * In case of Rev.B, MAIN_CAM_RESET is changed from GPIO_90 to GPIO_4
- * 2013-03-20, youmi.jun@lge.com
+/*             
+                                                 
+                                                                     
+                                
  */
 #if defined(CONFIG_MACH_LGE)
 static struct msm_gpiomux_config msm_sensor_configs_rev_a[] __initdata = {
@@ -1145,7 +1145,7 @@ static struct msm_gpiomux_config msm_sensor_configs_rev_a[] __initdata = {
 	},
 #endif
 
-/* LGE_CHANGE_S, [NFC][byunggu.kang@lge.com], 2013-03-27 */
+/*                                                       */
 #if defined(CONFIG_NFC_BCM2079X)
 #else
 	{
@@ -1156,12 +1156,12 @@ static struct msm_gpiomux_config msm_sensor_configs_rev_a[] __initdata = {
 		},
 	},
 #endif
-/* LGE_CHANGE_E, [NFC][byunggu.kang@lge.com], 2013-03-27 */
+/*                                                       */
 
 #if defined(CONFIG_MACH_LGE)
-/* LGE_CHANGE_S
- * Camera bring up - TMUS
- * 2013-03-14, jinw.kim@lge.com
+/*             
+                         
+                               
  */
 	{
 		.gpio = 57, /* 13M_VCM_EN */
@@ -1341,7 +1341,7 @@ static struct msm_gpiomux_config msm_sensor_configs_rev_b[] __initdata = {
 	},
 #endif
 
-/* LGE_CHANGE_S, [NFC][byunggu.kang@lge.com], 2013-03-27 */
+/*                                                       */
 #if defined(CONFIG_NFC_BCM2079X)
 #else
 	{
@@ -1352,12 +1352,12 @@ static struct msm_gpiomux_config msm_sensor_configs_rev_b[] __initdata = {
 		},
 	},
 #endif
-/* LGE_CHANGE_E, [NFC][byunggu.kang@lge.com], 2013-03-27 */
+/*                                                       */
 
 #if defined(CONFIG_MACH_LGE)
-/* LGE_CHANGE_S
- * Camera bring up - TMUS
- * 2013-03-14, jinw.kim@lge.com
+/*             
+                         
+                               
  */
 	{
 		.gpio = 57, /* 13M_VCM_EN */
@@ -1397,7 +1397,7 @@ static struct msm_gpiomux_config msm_sensor_configs_rev_b[] __initdata = {
  #endif
 };
 #endif
-/* LGE_CHANGE_E, Camera bring up - Separate Rev.A and B setting */
+/*                                                              */
 
 #ifndef CONFIG_MACH_LGE
 static struct gpiomux_setting pri_auxpcm_act_cfg = {
@@ -1446,7 +1446,7 @@ static struct msm_gpiomux_config msm8974_pri_auxpcm_configs[] __initdata = {
 };
 #endif
 
-/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 #if defined(CONFIG_BCMDHD) || defined(CONFIG_BCMDHD_MODULE)
 #else
 static struct msm_gpiomux_config wcnss_5wire_interface[] = {
@@ -1487,7 +1487,7 @@ static struct msm_gpiomux_config wcnss_5wire_interface[] = {
 	},
 };
 #endif
-/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 
 static struct msm_gpiomux_config msm_taiko_config[] __initdata = {
 	{
@@ -1821,7 +1821,7 @@ static struct gpiomux_setting sdc4_data_1_suspend_cfg = {
 };
 
 static struct msm_gpiomux_config msm8974_sdc4_configs[] __initdata = {
-/* LGE_CHANGE_S, [NFC][byunggu.kang@lge.com], 2013-03-27 */
+/*                                                       */
 #if defined(CONFIG_NFC_BCM2079X)
 #else
 	{
@@ -1833,7 +1833,7 @@ static struct msm_gpiomux_config msm8974_sdc4_configs[] __initdata = {
 		},
 	},
 #endif
-/* LGE_CHANGE_E, [NFC][byunggu.kang@lge.com], 2013-03-27 */
+/*                                                       */
 
 	{
 		/* DAT2 */
@@ -1852,9 +1852,9 @@ static struct msm_gpiomux_config msm8974_sdc4_configs[] __initdata = {
 		},
 	},
 #if 0	/* Camera will use gpio 96 */
-/* LGE_CHANGE_S
- * Camera bring up - TMUS
- * 2013-03-14, jinw.kim@lge.com
+/*             
+                         
+                               
  */
 	{
 		/* DAT0 */
@@ -1892,7 +1892,7 @@ static void msm_gpiomux_sdc4_install(void)
 static void msm_gpiomux_sdc4_install(void) {}
 #endif /* CONFIG_MMC_MSM_SDC4_SUPPORT */
 
-/* LGE_CHANGE_S, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+/*                                                        */
 #ifdef CONFIG_LGE_BLUETOOTH
 static struct gpiomux_setting bt_gpio_uart_active_config = {
 	.func = GPIOMUX_FUNC_2,
@@ -2065,10 +2065,10 @@ static void bluetooth_msm_gpiomux_install(void)
     /* PCM I/F */
 	msm_gpiomux_install(bt_pcm_configs, ARRAY_SIZE(bt_pcm_configs));
 }
-#endif /* CONFIG_LGE_BLUETOOTH */
-/* LGE_CHANGE_E, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+#endif /*                      */
+/*                                                        */
 
-/*  LGE_CHANGE_S, [NFC][wongab.jeon@lge.com], 2013-02-13, NFC Bring up */
+/*                                                                     */
 #ifdef CONFIG_NFC_BCM2079X
 static struct gpiomux_setting nfc_bcm2079x_sda_cfg = {
 	.func = GPIOMUX_FUNC_3,
@@ -2146,7 +2146,7 @@ static struct msm_gpiomux_config msm8974_nfc_configs[] __initdata = {
 	},
 };
 #endif
-/*  LGE_CHANGE_E, [NFC][wongab.jeon@lge.com], 2013-02-13, NFC Bring up */
+/*                                                                     */
 
 #if defined(CONFIG_USB_LGE_USB3_REDRIVER)
 static struct gpiomux_setting usb3_rd_en_cfg = {
@@ -2193,8 +2193,8 @@ void __init msm_8974_init_gpiomux(void)
 		return;
 	}
 
-/* soojung.lim@lge.com, 2013-05-23
- * To use 24MHz GP/GCC_GP clock for V2 H/W
+/*                                
+                                          
  */
 if (socinfo_get_version() >= 0x20000) {
 	g_is_tlmm_spare_reg_value = 0x7;
@@ -2213,21 +2213,21 @@ if (socinfo_get_version() >= 0x20000) {
 
 #if defined(CONFIG_MACH_LGE)
 #ifdef CONFIG_MAX17048_FUELGAUGE
-	/* [Power] yeonhwa.so@lge.com
-	 * If MAX17048 is removed, we modify and use it*/
+	/*                           
+                                                */
 	if (HW_REV_A <= lge_get_board_revno()) {
 		msm_gpiomux_install(msm_fuel_gauge_configs,
 				ARRAY_SIZE(msm_fuel_gauge_configs));
 	}
 #endif
 #endif
-/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 #if defined(CONFIG_BCMDHD) || defined(CONFIG_BCMDHD_MODULE)
 #else
 	msm_gpiomux_install(wcnss_5wire_interface,
 				ARRAY_SIZE(wcnss_5wire_interface));
 #endif
-/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 
 	msm_gpiomux_install(msm8974_slimbus_config,
 			ARRAY_SIZE(msm8974_slimbus_config));
@@ -2300,23 +2300,23 @@ if (socinfo_get_version() >= 0x20000) {
 	msm_gpiomux_install(vibrator_configs, ARRAY_SIZE(vibrator_configs));
 #endif
 
-/* LGE_CHANGE_S, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+/*                                                        */
 #ifdef CONFIG_LGE_BLUETOOTH
 	bluetooth_msm_gpiomux_install();
-#endif /* CONFIG_LGE_BLUETOOTH */
-/* LGE_CHANGE_E, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+#endif /*                      */
+/*                                                        */
 
-/*  LGE_CHANGE_S, [NFC][wongab.jeon@lge.com], 2013-02-13, NFC Bring up */
+/*                                                                     */
 #ifdef CONFIG_NFC_BCM2079X
 	msm_gpiomux_install(msm8974_nfc_configs, ARRAY_SIZE(msm8974_nfc_configs));
 #endif
-/*  LGE_CHANGE_E, [NFC][wongab.jeon@lge.com], 2013-02-13, NFC Bring up */
+/*                                                                     */
 
 	msm_gpiomux_install(msm_hall_ic_configs, ARRAY_SIZE(msm_hall_ic_configs));
 #if defined(CONFIG_MACH_LGE)
-/* LGE_CHANGE_S
- * Camera bring up - Separate Rev.A and B setting
- * 2013-03-20, youmi.jun@lge.com
+/*             
+                                                 
+                                
  */
 	switch (lge_get_board_revno()) {
 	case HW_REV_A:
@@ -2327,8 +2327,8 @@ if (socinfo_get_version() >= 0x20000) {
 		msm_gpiomux_install(msm_sensor_configs_rev_b, ARRAY_SIZE(msm_sensor_configs_rev_b));
 			break;
 	}
-/* LGE_CHANGE_E, Camera bring up - Separate Rev.A and B setting */
-#endif /* #if defined(CONFIG_MACH_LGE) */
+/*                                                              */
+#endif /*                              */
 
 #if defined(CONFIG_USB_LGE_USB3_REDRIVER)
 	if (lge_get_board_revno() < HW_REV_B)

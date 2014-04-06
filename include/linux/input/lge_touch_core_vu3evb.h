@@ -19,7 +19,7 @@
 #define LGE_TOUCH_CORE_H
 
 /* #define MT_PROTOCOL_A */
-/* #define LGE_TOUCH_TIME_DEBUG */
+/*                              */
 
 #define MAX_FINGER	10
 #define MAX_BUTTON	4

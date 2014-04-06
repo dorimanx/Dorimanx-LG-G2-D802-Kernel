@@ -66,9 +66,9 @@ struct lge_hw_smem_id2_type {
 
 #define subsys_to_drv(d) container_of(d, struct modem_data, subsys_desc)
 
-/* [START] jin.park@lge.com, SSR FEATURE */
+/*                                       */
 char ssr_noti[MAX_SSR_REASON_LEN];
-/* [END] jin.park@lge.com, SSR FEATURE */
+/*                                     */
 
 static void log_modem_sfr(void)
 {
@@ -88,9 +88,9 @@ static void log_modem_sfr(void)
 	strlcpy(reason, smem_reason, min(size, sizeof(reason)));
 	pr_err("modem subsystem failure reason: %s.\n", reason);
 
-/* [START] jin.park@lge.com, SSR FEATURE */
+/*                                       */
 	strlcpy(ssr_noti, smem_reason, min(size, sizeof(ssr_noti)));
-/* [END] jin.park@lge.com, SSR FEATURE */
+/*                                     */
 
 	smem_reason[0] = '\0';
 	wmb();
@@ -111,7 +111,7 @@ static int check_modem_reset(void)
 
 	smem_id2 = smem_get_entry(SMEM_ID_VENDOR2, &size);
 
-/* [START] kyeongsu.jang@lge.com, Add a routine to check NULL */
+/*                                                            */
 	if(smem_id2 != 0 && smem_id2->modem_reset != 1) {
 		return 1;
 	}
@@ -123,7 +123,7 @@ static int check_modem_reset(void)
 		smem_id2->modem_reset = 0;
 	}
 	wmb();
-/* [END] kyeongsu.jang@lge.com, Add a routine to check NULL */
+/*                                                          */
 
 	return ret;
 }

@@ -40,20 +40,23 @@
 #include <mach/rpm-smd.h>
 #include <mach/rpm-regulator-smd.h>
 #include <mach/socinfo.h>
-#include <mach/msm_bus_board.h>
+#include <mach/msm_smem.h>
 #include "../board-dt.h"
 #include "../clock.h"
 #include "../devices.h"
 #include "../spm.h"
-#include "../modem_notifier.h"
 #include "../pm.h"
+#include "../modem_notifier.h"
 #include "../platsmp.h"
 #include <mach/board_lge.h>
 
+#ifdef CONFIG_MACH_MSM8974_G2_VZW
+#include <linux/platform_data/lge_android_usb.h>
+#endif
 #if defined(CONFIG_LCD_KCAL)
-/* LGE_CHANGE_S
-* change code for LCD KCAL
-* 2013-05-08, seojin.lee@lge.com
+/*             
+                          
+                                
 */
 #include <linux/module.h>
 #include "../../../../drivers/video/msm/mdss/mdss_fb.h"
@@ -109,13 +112,33 @@ void __init lge_add_lcd_misc_devices(void)
 	platform_device_register(&lcd_misc_device);
 }
 #endif
+#ifdef CONFIG_MACH_MSM8974_G2_VZW
+struct lge_android_usb_platform_data lge_android_usb_pdata = {
+	.vendor_id = 0x1004,
+	.factory_pid = 0x6000,
+	.iSerialNumber = 0,
+	.product_name = "LGE Android Phone",
+	.manufacturer_name = "LG Electronics Inc.",
+	.factory_composition = "acm,diag",
+};
+struct platform_device lge_android_usb_device = {
+	.name = "lge_android_usb",
+	.id = -1,
+	.dev = {
+		.platform_data = &lge_android_usb_pdata,
+	},
+};
+void __init lge_add_android_usb_devices(void)
+{
+	platform_device_register(&lge_android_usb_device);
+}
+#endif /* CONFIG_MACH_MSM8974_G2_VZW */
 
 #if defined(CONFIG_LCD_KCAL)
-/* LGE_CHANGE_S
-* change code for LCD KCAL
-* 2013-05-08, seojin.lee@lge.com
+/*             
+                          
+                                
 */
-
 extern int g_kcal_r;
 extern int g_kcal_g;
 extern int g_kcal_b;
@@ -142,7 +165,6 @@ int kcal_set_values(int kcal_r, int kcal_g, int kcal_b)
 		g_kcal_g = kcal_g;
 		g_kcal_b = kcal_b;
 #endif
-
 	return 0;
 }
 
@@ -184,14 +206,15 @@ void __init lge_add_lcd_kcal_devices(void)
  * into this category, and thus the driver should not be added here. The
  * EPROBE_DEFER can satisfy most dependency problems.
  */
-/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 #if defined(CONFIG_BCMDHD) || defined(CONFIG_BCMDHD_MODULE)
 extern void init_bcm_wifi(void);
 #endif
-/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 
 void __init msm8974_add_drivers(void)
 {
+	msm_smem_init();
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();
@@ -218,15 +241,18 @@ void __init msm8974_add_drivers(void)
 #ifdef CONFIG_LGE_DIAG_ENABLE_SYSFS
 	lge_add_diag_devices();
 #endif
-/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+#ifdef CONFIG_MACH_MSM8974_G2_VZW
+	lge_add_android_usb_devices();
+#endif
+/*                                                                    */
 #if defined(CONFIG_BCMDHD) || defined(CONFIG_BCMDHD_MODULE)
 	init_bcm_wifi();
 #endif
-/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 #if defined(CONFIG_LCD_KCAL)
-/* LGE_CHANGE_S
-* change code for LCD KCAL
-* 2013-05-08, seojin.lee@lge.com
+/*             
+                          
+                                
 */
 	lge_add_lcd_kcal_devices();
 #endif /* CONFIG_LCD_KCAL */

@@ -119,4 +119,4 @@
 #define CL_AR33		0x33	/* The "real" Pixel Panning register (?) */
 #define CL_AR34		0x34	/* TEST */
 
-#endif /* __CLGENFB_H__ */
+#endif /*               */

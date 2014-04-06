@@ -48,7 +48,7 @@ extern int msm_serial_set_uart_console(int enable);
 
 static int earjack_debugger_detected(void *dev)
 {
-//[START] VU3 detects earjack debugger even though it doesn't have it. When it's detected, it starts showing UART log and this logging makes device performance low. gunmin.lee@lge.com 2013/07/15
+//                                                                                                                                                                                                
 #if defined CONFIG_MACH_MSM8974_VU3_KR
 	printk("earjack debugger is detected on VU3 but do not allow to use it!");
 	return 0;
@@ -56,7 +56,7 @@ static int earjack_debugger_detected(void *dev)
 	struct earjack_debugger_device *adev = dev;
 	return !!gpio_get_value(adev->gpio);
 #endif
-//[END] VU3 detects earjack debugger even though it doesn't have it. When it's detected, it starts showing UART log and this logging makes device performance low. gunmin.lee@lge.com 2013/07/15
+//                                                                                                                                                                                              
 }
 
 static irqreturn_t earjack_debugger_irq_handler(int irq, void *_dev)
@@ -65,12 +65,12 @@ static irqreturn_t earjack_debugger_irq_handler(int irq, void *_dev)
 	unsigned int um = lge_get_uart_mode();
 	int detect;
 
-	/* LGE_CHANGE_S
-	 * add debounce time because accure earjack popup noise
-	 * sangwoo2.park@lge.com 2012/12/20
-	 */
+	/*             
+                                                        
+                                    
+  */
 	msleep(400);
-	/* LGE_CHANGE_E */
+	/*              */
 
 	detect = earjack_debugger_detected(adev);
 

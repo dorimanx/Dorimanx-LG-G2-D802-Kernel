@@ -57,9 +57,9 @@
 
 #include "mdss_fb.h"
 #ifdef CONFIG_LGE_ESD_CHECK
-/* LGE_CHANGE_S
-* change code for ESD check
-* 2013-04-10, seojin.lee@lge.com
+/*             
+                           
+                                
 */
 #include "mdss_dsi.h"
 #endif
@@ -106,9 +106,9 @@ static u32 mdss_fb_pseudo_palette[16] = {
 extern int load_888rle_image(char *filename);
 #endif
 #ifdef CONFIG_LGE_ESD_CHECK
-/* LGE_CHANGE_S
-* change code for ESD check
-* 2013-04-08, seojin.lee@lge.com
+/*             
+                           
+                                
 */
 static struct dsi_buf esd_dsi_panel_tx_buf;
 static struct dsi_buf esd_dsi_panel_rx_buf;
@@ -128,12 +128,12 @@ static struct dsi_cmd_desc cmds_macp_off = {DTYPE_GEN_WRITE2, 1, 0, 0, 0,
 	sizeof(macp_off), macp_off};
 static struct dsi_cmd_desc cmds_macp_on = {DTYPE_GEN_WRITE2, 1, 0, 0, 0,
 	sizeof(macp_on), macp_on};
-#endif /* CONFIG_LGE_ESD_CHECK */
+#endif /*                      */
 
 #if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG)
 extern struct mdp_csc_cfg dmb_csc_convert;
 extern int pp_set_dmb_status(int flag);
-#endif /* LGE_BROADCAST */
+#endif /*               */
 
 static struct msm_mdp_interface *mdp_instance;
 
@@ -428,10 +428,10 @@ static int mdss_fb_draw_bootlogo(struct msm_fb_data_type *mfd)
 	}
 	mdss_fb_pan_display(&mfd->fbi->var, mfd->fbi);
 
-	/* LGE_CHANGE
-	 * Turn backlight on right after logo image.
-	 * 2013-01-30, baryun.hwang@lge.com
-	 */
+	/*           
+                                             
+                                    
+  */
 	mfd->bl_updated = 1;
 	mutex_lock(&mfd->lock);
 	mdss_fb_set_backlight(mfd, -BOOT_BRIGHTNESS);
@@ -445,9 +445,9 @@ static int mdss_fb_draw_bootlogo(struct msm_fb_data_type *mfd)
 }
 #endif
 #ifdef CONFIG_LGE_ESD_CHECK
-/* LGE_CHANGE_S
-* change code for ESD check
-* 2013-04-08, seojin.lee@lge.com
+/*             
+                           
+                                
 */
 static ssize_t write_reg_adr(struct device *dev, struct device_attribute *attr,
 						const char *buf, size_t count)
@@ -568,7 +568,7 @@ static ssize_t read_reg(struct device *dev, struct device_attribute *attr, char 
 DEVICE_ATTR(show_reg_value, 0644, read_reg, write_reg_adr);
 DEVICE_ATTR(write_cmd_type, 0644, NULL, write_cmd);
 DEVICE_ATTR(write_cmd_size, 0644, NULL, write_size);
-#endif /* CONFIG_LGE_ESD_CHECK */
+#endif /*                      */
 
 #if defined(CONFIG_MACH_LGE)
 #if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_VU3_LGD_PANEL)
@@ -684,10 +684,10 @@ static int mdss_fb_probe(struct platform_device *pdev)
 #endif
 
 #ifdef CONFIG_LGE_ESD_CHECK
-	/* LGE_CHANGE_S
-	 * change code for ESD check
-	 * 2013-04-08, seojin.lee@lge.com
-	 */
+	/*             
+                             
+                                  
+  */
 	if (local_pdata == NULL)
 		local_pdata = pdata;
 	if (local_mfd == NULL)
@@ -707,7 +707,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	if (rc) {
 		printk(KERN_ERR "### %s : fail to create sysfs\n", __func__);
 	}
-#endif /* CONFIG_LGE_ESD_CHECK */
+#endif /*                      */
 
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_FB_MSM_LOGO)
 #if defined(CONFIG_MACH_MSM8974_G2_DCM)
@@ -2509,7 +2509,7 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 #if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG)
 	int dmb_flag = 0;
 	struct mdp_csc_cfg dmb_csc_cfg;
-#endif /* LGE_BROADCAST */
+#endif /*               */
 
 	if (!info || !info->par)
 		return -EINVAL;
@@ -2589,7 +2589,7 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			return ret;
 		memcpy(dmb_csc_convert.csc_mv, dmb_csc_cfg.csc_mv, sizeof(dmb_csc_cfg.csc_mv));
 		break;
-#endif /* LGE_BROADCAST */
+#endif /*               */
 
 	default:
 		if (mfd->mdp.ioctl_handler)
@@ -2741,9 +2741,9 @@ int __init mdss_fb_init(void)
 	if (platform_driver_register(&mdss_fb_driver))
 		return rc;
 #ifdef CONFIG_LGE_ESD_CHECK
-/* LGE_CHANGE_S
-* change code for ESD check
-* 2013-04-08, seojin.lee@lge.com
+/*             
+                           
+                                
 */
 	mdss_dsi_buf_alloc(&esd_dsi_panel_tx_buf, ALIGN(DSI_BUF_SIZE, SZ_4K));
 	mdss_dsi_buf_alloc(&esd_dsi_panel_rx_buf, ALIGN(DSI_BUF_SIZE, SZ_4K));

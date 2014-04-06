@@ -288,7 +288,7 @@ static int32_t qpnp_vadc_enable(struct qpnp_vadc_chip *vadc, bool state)
 	return 0;
 }
 
-/* [START] yeonhwa.so@lge.com ADD V-adc reg. dump function for debug */
+/*                                                                   */
 #ifdef CONFIG_MACH_LGE
 /* Reg. address list which is possible to be read , related to PM8941 VADC1_USR_VADC */
 static int adc_reg[] = {	0x04, 0x05, 0x08, 0x09, 0x10, 0x11, 0x12
@@ -316,7 +316,7 @@ static int32_t qpnp_vadc_full_reg_print(struct qpnp_vadc_chip *vadc)
 }
 
 #endif
-/* [END] yeonhwa.so@lge.com */
+/*                          */
 
 static int32_t qpnp_vadc_status_debug(struct qpnp_vadc_chip *vadc)
 {
@@ -1439,7 +1439,7 @@ int thermal_threshold = 3;
 #endif
 
 #ifdef CONFIG_MACH_LGE
-/* FIXME: LGE_MIG: refactoring required */
+/*                                      */
 void xo_therm_logging(void)
 {
 	struct qpnp_vadc_result tmp;

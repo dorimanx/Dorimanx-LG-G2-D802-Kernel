@@ -35,8 +35,8 @@
  * (as a macro let's say).
  */
 
-/* BEGIN : janghyun.baek@lge.com 2012-12-26 Temporarily change mode to 777
- * debug power sysfs node */
+/*                                                                        
+                          */
 #ifdef CONFIG_LGE_PM
 #define PSEUDO_BATT_ATTR(_name)						\
 {									\
@@ -64,7 +64,7 @@
 	.store = power_supply_store_property,				\
 }
 #endif
-/* END : janghyun.baek@lge.com 2012-12-26 */
+/*                                        */
 
 static struct device_attribute power_supply_attrs[];
 
@@ -281,18 +281,18 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(removed),
 #endif
 #if defined(CONFIG_LGE_CURRENTNOW)
-	/* kwangdo.yi@lge.com [jointlab] Thu 04 Apr 2013 S
-	   sysfs for reading current now
-	 */
+	/*                                                
+                                 
+  */
 	POWER_SUPPLY_CN_ATTR(current_now, 0444),
 	POWER_SUPPLY_CN_ATTR(enable_bms, 0644),
-	/* kwangdo.yi@lge.com [jointlab] Thu 04 Apr 2013 E */
+	/*                                                 */
 #endif
 #ifdef CONFIG_FTT_CHARGER_V3
 	POWER_SUPPLY_ATTR(ftt_anntena_level),
 #endif
 #ifdef CONFIG_MAX17050_FUELGAUGE
-	/* junnyoung.jang@lge.com 20130420 Add battery condition */
+	/*                                                       */
 	POWER_SUPPLY_ATTR(battery_condition),
 	POWER_SUPPLY_ATTR(battery_age),
 #endif

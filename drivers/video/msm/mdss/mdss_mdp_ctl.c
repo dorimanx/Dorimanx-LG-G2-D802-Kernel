@@ -44,15 +44,15 @@ enum {
 #define MDSS_MDP_PERF_UPDATE_ALL -1
 
 #ifdef CONFIG_OLED_SUPPORT
-/* LGE_CHANGE
- * This is for slimport underrun(plug/unplug) patch from case#01249713
- * 2013-07-22, minkyeong.kim@lge.com
+/*           
+                                                                      
+                                    
  */
 #define QMC_SLIMPORT_UNDERRUN_PATCH
-/* LGE_CHANGE
- * This is for power on/off test patch from case#01266650
- * Patch to prevent kernel crash occur at mdss_mdp_video_line_count
- * 2013-08-09, isaac.park@lge.com
+/*           
+                                                         
+                                                                   
+                                 
  */
 #define QMC_POWERONOFF_PATCH
 #endif

@@ -865,7 +865,7 @@ void INC_AIRPLAY_SETTING(INC_UINT8 ucI2CID)
 }
 
 
-#if 1 /* LGE Mod. Error Log Add. */
+#if 1 /*                         */
 INC_UINT8 INC_CHANNEL_START(INC_UINT8 ucI2CID, ST_SUBCH_INFO* pChInfo)
 {
 	INC_UINT16 wEnsemble;
@@ -1026,7 +1026,7 @@ INC_UINT8 INC_CHANNEL_START(INC_UINT8 ucI2CID, ST_SUBCH_INFO* pChInfo)
 }
 #endif
 
-/* LGE ADD for Test */
+/*                  */
 INC_UINT8 INC_RE_SYNCDETECTOR(INC_UINT8 ucI2CID, ST_SUBCH_INFO* pChInfo)
 {
 	INC_UINT16 wEnsemble;
@@ -1225,7 +1225,7 @@ INC_UINT8 INC_GET_ANT_LEVEL(INC_UINT8 ucI2CID)
 	INC_GET_CER(ucI2CID);
 	unCER = pInfo->uiCER;
 
-	//Delete reason : In ChannStart fail, ucTmid value may be invalid LGE
+	//                                                                   
 	//if(pInfo->ucTmid == TMID_0)    //if DAB
 	//unCER = pInfo->uiCER + ((pInfo->uiCER / 10.0) * 2.5);
 
@@ -1244,7 +1244,7 @@ INC_UINT8 INC_GET_ANT_LEVEL(INC_UINT8 ucI2CID)
 	printk("\n ucVber = %d, uiCER = %d ucAntLevel = %d, unRefAntLevel = %d\n", pInfo->ucVber, pInfo->uiCER, pInfo->ucAntLevel, unRefAntLevel);
 
 	/* Srart : Correct AntLevel DMB */
-	/* ucTmid block LGE */
+	/*                  */
 	if(/*(pInfo->ucTmid == TMID_1) &&*/(unRefAntLevel == 0) && (pInfo->uiCER < 1300) && (pInfo->ucVber >= 50))
 	 unRefAntLevel+=1;
 

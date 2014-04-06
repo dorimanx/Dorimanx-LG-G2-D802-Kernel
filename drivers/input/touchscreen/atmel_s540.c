@@ -1392,7 +1392,7 @@ static int mxt_read_and_process_messages(struct mxt_data *data, u8 count)
 }
 
 #ifdef CUST_B_TOUCH
-// LGE_CHANGE_S [naomi.kim@lge.com] 13.06.18, make width minor data
+//                                                                 
 #if TOUCHEVENTFILTER
 int set_minor_data(struct mxt_data *data, int area, u8 vector)
 {
@@ -1455,7 +1455,7 @@ int set_minor_data(struct mxt_data *data, int area, u8 vector)
 	return minor;
 }
 #endif
-// LGE_CHANGE_E [naomi.kim@lge.com] 13.06.18, make width minor data
+//                                                                 
 
 static char* get_tool_type(struct mxt_data *data, struct t_data touch_data) {
 	if (touch_data.tool == MT_TOOL_FINGER) {
@@ -1595,7 +1595,7 @@ static void mxt_process_messages_t44(struct work_struct *work)
 			input_report_abs(data->input_dev, ABS_MT_WIDTH_MINOR,
 				data->ts_data.curr_data[i].touch_minor);
 
-		// LGE_CHANGE_S [naomi.kim@lge.com] 13.06.18, add more debugging data
+		//                                                                   
 			#if TOUCHEVENTFILTER
 			dev_dbg(dev,
 				"report_data[%d] : x: %d y: %d, z: %d, M: %d, m: %d, orient: %d)\n",
@@ -1617,7 +1617,7 @@ static void mxt_process_messages_t44(struct work_struct *work)
 					data->ts_data.curr_data[i].orientation
 			);
 			#endif
-			// LGE_CHANGE_E [naomi.kim@lge.com] 13.06.18, add more debugging data
+			//                                                                   
 		}
 #if DEBUG_ABS
 		if (data->ts_data.curr_data[i].status == FINGER_PRESSED) {
@@ -4100,7 +4100,7 @@ static void mxt_active_mode_start(struct mxt_data *data)
 	/* T8 setting */
 	mxt_change_cfg(data, data->T8_address, 2,  t8_active_mode[0]);
 	mxt_change_cfg(data, data->T8_address, 4,  t8_active_mode[1]);
-	data->anti->autocal = true; /* hyunjee.yoon@lge.com : use auto cal for 2s after lcd on*/
+	data->anti->autocal = true; /*                                                        */
 	/* T46 setting */
 	mxt_change_cfg(data, data->T46_address, 0,  t46_active_mode[0]);
 	mxt_change_cfg(data, data->T46_address, 2,  t46_active_mode[1]);

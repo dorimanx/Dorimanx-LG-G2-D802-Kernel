@@ -2329,4 +2329,4 @@ extern void ql_dump_all(struct ql_adapter *qdev);
 #define QL_DUMP_ALL(qdev)
 #endif
 
-#endif /* _QLGE_H_ */
+#endif /*          */

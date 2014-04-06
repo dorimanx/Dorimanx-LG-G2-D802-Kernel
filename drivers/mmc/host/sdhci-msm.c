@@ -41,10 +41,10 @@
 #include <linux/iopoll.h>
 
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/* LGE_CHANGE
- * For adjustable drive strength value on user level
- * but, it doesn't operate in user build image
- * 2013-06-17, G2-FS@lge.com
+/*           
+                                                    
+                                              
+                            
  */
 #include <linux/debugfs.h>
 #endif
@@ -342,10 +342,10 @@ enum vdd_io_level {
 };
 
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/* LGE_CHANGE
- * For adjustable drive strength value on user level
- * but, it doesn't operate in user build image
- * 2013-06-17, G2-FS@lge.com
+/*           
+                                                    
+                                              
+                            
  */
 static void msmsdhci_dbg_createhost(struct sdhci_msm_host *);
 #endif
@@ -2900,9 +2900,9 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc->caps2 |= MMC_CAP2_CACHE_CTRL;
 	#ifdef CONFIG_MACH_LGE
 	/*
-	2013-06-05, g2-fs@lge.com
-	enable BKOPS feature since it has been disabled by default
-	*/
+                          
+                                                           
+ */
 	msm_host->mmc->caps2 |= MMC_CAP2_INIT_BKOPS;
 	#endif
 	msm_host->mmc->caps2 |= MMC_CAP2_POWEROFF_NOTIFY;
@@ -2976,10 +2976,10 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	/* Successful initialization */
 
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/* LGE_CHANGE
- * For adjustable drive strength value on user level
- * but, it doesn't operate in user image
- * 2013-06-17, G2-FS@lge.com
+/*           
+                                                    
+                                        
+                            
  */
     msmsdhci_dbg_createhost(msm_host);
 #endif
@@ -3185,10 +3185,10 @@ MODULE_DESCRIPTION("Qualcomm Secure Digital Host Controller Interface driver");
 MODULE_LICENSE("GPL v2");
 
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/* LGE_CHANGE
- * For adjustable drive strength value on user level
- * but, it doesn't operate in user image
- * 2013-06-17, G2-FS@lge.com
+/*           
+                                                    
+                                        
+                            
  */
 static int gpio_to_value(int cfg)
 {

@@ -317,7 +317,7 @@ static void pet_watchdog_work(struct work_struct *work)
 		schedule_delayed_work_on(0, &wdog_dd->dogwork_struct,
 							delay_time);
 #ifdef CONFIG_MACH_LGE
-	/* FIXME: LGE_MIG: refactoring required */
+	/*                                      */
 	xo_therm_logging();
 #endif
 }

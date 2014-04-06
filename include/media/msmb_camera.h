@@ -36,7 +36,7 @@
 #define MSM_CAMERA_SUBDEV_LED_FLASH    11
 #define MSM_CAMERA_SUBDEV_STROBE_FLASH 12
 #define MSM_CAMERA_SUBDEV_BUF_MNGR     13
-#define MSM_CAMERA_SUBDEV_OIS		   14    /*LGE_CHANGE, OIS interface, 2013-05-29, kh.kang@lge.com */
+#define MSM_CAMERA_SUBDEV_OIS		   14    /*                                                       */
 
 #define MSM_MAX_CAMERA_SENSORS  5
 

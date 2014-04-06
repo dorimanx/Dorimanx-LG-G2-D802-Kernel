@@ -88,13 +88,13 @@ static int mpq_sdmx_scramble_odd = 0x3;
 module_param(mpq_sdmx_scramble_odd, int, S_IRUGO | S_IWUSR);
 
 /* Whether to use secure demux or bypass it. Use for debugging */
-/* LGE_BROADCAST_FULLSEG { */
+/*                         */
 #ifdef  CONFIG_MACH_LGE
 static int mpq_bypass_sdmx = 0;
 #else
 static int mpq_bypass_sdmx = 1;
 #endif
-/* LGE_BROADCAST_FULLSEG } */
+/*                         */
 module_param(mpq_bypass_sdmx, int, S_IRUGO | S_IWUSR);
 
 /* Max number of TS packets allowed as input for a single sdmx process */

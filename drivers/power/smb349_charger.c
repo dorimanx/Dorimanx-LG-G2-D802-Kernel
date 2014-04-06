@@ -232,6 +232,10 @@ enum irqstat_idx {
 
 #define I2C_SUSPEND_WORKAROUND 1
 #define SMB349_BOOSTBACK_WORKAROUND 1
+#ifdef I2C_SUSPEND_WORKAROUND
+extern bool i2c_suspended;
+#endif
+
 #if SMB349_BOOSTBACK_WORKAROUND
 #define DISABLE_CHG_INPUTFET BIT(0)
 bool   smb349_console_silent;
@@ -336,7 +340,7 @@ static int wireless_charging;
 #endif
 
 #ifdef CONFIG_MAX17050_FUELGAUGE
-/*junnyoung.jang@lge.com 20130326 Add battery condition */
+/*                                                      */
 static int g_batt_soc;
 static int g_batt_vol;
 static int g_batt_age;
@@ -902,7 +906,7 @@ static int get_prop_batt_voltage_now_max17048(void)
 }
 
 #ifdef CONFIG_MAX17050_FUELGAUGE
-/*junnyoung.jang@lge.com 20130326 Add battery condition */
+/*                                                      */
 void lge_pm_battery_age_update(void)
 {
 	if (pseudo_batt_age_mode)
@@ -1052,7 +1056,7 @@ static int smb349_get_prop_batt_health(struct smb349_struct *smb349_chg)
 	int batt_temp;
 	batt_temp = smb349_get_prop_batt_temp(smb349_chg);
 
-	/* TODO : implements LGE charing scenario */
+	/*                                        */
 	if (batt_temp >= 550)
 		return POWER_SUPPLY_HEALTH_OVERHEAT;
 	if (batt_temp <= -100)
@@ -1584,9 +1588,9 @@ static ssize_t at_pmic_reset_show(struct device *dev,
 }
 DEVICE_ATTR(at_charge, 0644, at_chg_status_show, at_chg_status_store);
 DEVICE_ATTR(at_chcomp, 0644, at_chg_complete_show, at_chg_complete_store);
-//LGE_START miracle.kim@lge.com 2013-11-19 change at_pmrst sysfs permission for CTS test
+//                                                                                      
 DEVICE_ATTR(at_pmrst, 0640, at_pmic_reset_show, NULL);
-//LGE_END miracle.kim@lge.com 2013-11-19 change at_pmrst sysfs permission for CTS test
+//                                                                                    
 
 /* for dynamically smb349 irq debugging */
 static int smb349_irq_debug;
@@ -2474,14 +2478,14 @@ static void smb349_check_suspended_worker(struct work_struct *work)
         struct smb349_struct *smb349_chg =
                 container_of(work, struct smb349_struct, check_suspended_work.work);
 
-        if (smb349_chg->suspended)
+        if (smb349_chg->suspended && i2c_suspended)
 	{
 		printk("smb349 suspended. try i2c operation after 100ms.\n");
 		schedule_delayed_work(&smb349_chg->check_suspended_work, msecs_to_jiffies(100));
 	}
 	else
 	{
-		//printk("smb349 resumed. do smb349_irq.\n");
+		pr_debug("smb349 resumed. do smb349_irq.\n");
 		schedule_delayed_work(&smb349_chg->irq_work, 0);
 	}
 }
@@ -2519,7 +2523,7 @@ static enum power_supply_property smb349_batt_power_props[] = {
 	POWER_SUPPLY_PROP_PSEUDO_BATT,
 	POWER_SUPPLY_PROP_EXT_PWR_CHECK,
 #ifdef CONFIG_MAX17050_FUELGAUGE
-/*junnyoung.jang@lge.com 20130326 Add battery condition */
+/*                                                      */
 	POWER_SUPPLY_PROP_BATTERY_CONDITION,
 	POWER_SUPPLY_PROP_BATTERY_AGE,
 #endif
@@ -3748,11 +3752,11 @@ static int smb349_batt_power_get_property(struct power_supply *psy,
 #endif
 		break;
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
-		/* it makes ibat max set following themral mitigation.
-		 * But, SMB349 cannot control ibat current like PMIC.
-		 * if LGE charging scenario make charging thermal control,
-		 * it is good interface to use LG mitigation level.
-		 */
+		/*                                                    
+                                                       
+                                                            
+                                                     
+   */
 		val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_PSEUDO_BATT:
@@ -3762,7 +3766,7 @@ static int smb349_batt_power_get_property(struct power_supply *psy,
 		val->intval = lge_pm_get_cable_type();
 		break;
 #ifdef CONFIG_MAX17050_FUELGAUGE
-/*junnyoung.jang@lge.com 20130326 Add battery condition */
+/*                                                      */
 	case POWER_SUPPLY_PROP_BATTERY_CONDITION:
 		val->intval = lge_pm_get_battery_condition();
 		break;
@@ -3885,11 +3889,11 @@ static int smb349_batt_power_set_property(struct power_supply *psy,
 		smb349_enable_charging(smb349_chg, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
-		/* it makes ibat max set following themral mitigation.
-		 * But, SMB349 cannot control ibat current like PMIC.
-		 * if LGE charging scenario make charging thermal control,
-		 * it is good interface to use LG mitigation level.
-		 */
+		/*                                                    
+                                                       
+                                                            
+                                                     
+   */
 		break;
 	default:
 		return -EINVAL;

@@ -685,7 +685,7 @@ static int mtv250_ioctl(struct inode *inode, struct file *filp,
 			break;	
 
 		case IOCTL_ISDBT_LGE_GET_TUNER_INFO:
-		//	DMBMSG("[mtv] IOCTL_ISDBT_LGE_GET_TUNER_INFO\n");
+		//                                                  
 	
 			lge_tuner_info.LOCK = rtvISDBT_GetLockStatus() == RTV_ISDBT_CHANNEL_LOCK_OK ? 1: 0;
 

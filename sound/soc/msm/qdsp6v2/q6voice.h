@@ -1440,7 +1440,7 @@ int voc_set_rx_vol_step(uint32_t session_id, uint32_t dir, uint32_t vol_step,
 			uint32_t ramp_duration);
 int voc_set_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute,
 		    uint32_t ramp_duration);
-int voc_set_phonememo_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute); //[Audio][BSP] sehwan.lee@lge.com phonememo initial code
+int voc_set_phonememo_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute); //                                                      
 int voc_set_rx_device_mute(uint32_t session_id, uint32_t mute,
 			   uint32_t ramp_duration);
 int voc_get_rx_device_mute(uint32_t session_id);

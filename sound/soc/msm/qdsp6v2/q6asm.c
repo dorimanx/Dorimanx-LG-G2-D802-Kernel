@@ -4406,7 +4406,7 @@ int q6asm_set_lgesoundmabl_lrbalancecontrol(struct audio_client *ac, int lrbalan
 fail_cmd:
 	return rc;
 }
-#endif //CONFIG_SND_LGE_MABL
+#endif //                   
 
 int q6asm_read(struct audio_client *ac)
 {

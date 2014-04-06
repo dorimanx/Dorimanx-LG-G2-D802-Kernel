@@ -335,7 +335,7 @@ int bcm_wifi_set_power(int enable)
 		}
 
 		/* WLAN chip down */
-		/* jaeshick, 20131011 :LGE-ANDROID-WLAN [CASE#712600] - remove mdelay from broadcom */
+		/*                                                                                  */
 		/* mdelay(100);//for booting time save */
 		printk(KERN_ERR "%s: wifi power successed to pull down\n", __func__);
 	}

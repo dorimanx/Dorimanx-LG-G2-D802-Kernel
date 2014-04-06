@@ -224,9 +224,9 @@
 #define MXT_PIXELS_PER_MM	20
 
 #ifdef CUST_B_TOUCH
-// LGE_CHANGE_S [naomi.kim@lge.com] 13.06.17, set data format
+//                                                           
 #define TOUCHEVENTFILTER	1
-// LGE_CHANGE_E [naomi.kim@lge.com] 13.06.17, set data format
+//                                                           
 #endif
 
 #define MXT_MAX_FW_PATH				64

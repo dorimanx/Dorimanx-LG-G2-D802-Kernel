@@ -398,7 +398,7 @@ static struct file_operations broadcast_mmbi_chk_dev_fops = {
 	release:broadcast_mmbi_chk_dev_close,		/* close() system call entry */
 };
 
-// LGE
+//    
 static int broadcast_mmbi_chk_dev_device_init(struct broadcast_mmbi_chk_dev_chdevice *pbroadcast, int index)
 {
 	int rc;

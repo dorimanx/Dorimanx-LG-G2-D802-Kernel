@@ -709,7 +709,7 @@ static int compressed_set_volume(struct msm_audio *prtd, uint32_t volume)
 	return rc;
 }
 
-#if 0//def CONFIG_SND_LGE_EFFECT
+#if 0//                         
 int lgesoundeffect_set_enable(int enable)
 {
 	int rc = 0;

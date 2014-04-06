@@ -87,10 +87,10 @@ enum mem_buffer_allocation_mode {
 static int clock_inv;
 static int tsif_mode = 2;
 
-/* LGE_BROADCAST_FULLSEG { */
+/*                         */
 //static int allocation_mode = MPQ_DMX_TSPP_INTERNAL_ALLOC;
 static int allocation_mode = MPQ_DMX_TSPP_CONTIGUOUS_PHYS_ALLOC;
-/* LGE_BROADCAST_FULLSEG } */
+/*                         */
 
 static int tspp_out_buffer_size = TSPP_BUFFER_SIZE;
 static int tspp_notification_size =

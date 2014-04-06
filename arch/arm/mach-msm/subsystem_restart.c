@@ -602,8 +602,8 @@ void *subsystem_get(const char *name)
 			retval = ERR_PTR(ret);
 			goto err_start;
 		}
-		/* QCT Debug code for modem stuck issue,
-		 * secheol.pyo@lge.com, 2013-05-01*/
+		/*                                      
+                                    */
 		pr_info("[LGE Debug] subsys: %s get start %d by %d[%s]\n",
 			name, subsys->count,
 			current->pid, current->comm);
@@ -643,8 +643,8 @@ void subsystem_put(void *subsystem)
 			subsys->desc->name, __func__))
 		goto err_out;
 	if (!--subsys->count) {
-/* [LGE_S]QCT Debug code for modem stuck issue,
- * secheol.pyo@lge.com, 2013-05-01
+/*                                             
+                                  
  */
 		pr_info("[LGE DEBUG]subsys: %s put stop %d by %d[%s]\n",
 			 subsys->desc->name, subsys->count,
@@ -663,8 +663,8 @@ void subsystem_put(void *subsystem)
 			subsys->count++;
 		}
 #endif
-/* [LGE_E]QCT Debug code for modem stuck issue,
- * secheol.pyo@lge.com, 2013-05-01
+/*                                             
+                                  
  */
 	}
 	mutex_unlock(&track->lock);
@@ -879,7 +879,7 @@ int subsys_modem_restart(void)
 
 	rsl = dev->restart_level;
 	dev->restart_level = RESET_SUBSYS_COUPLED;
-	ignore_errors_by_subsys_modem_restart = true; //dj.seo@lge.com , temp add
+	ignore_errors_by_subsys_modem_restart = true; //                         
 	ret = subsystem_restart_dev(dev);
 	dev->restart_level = rsl;
 	modem_reboot_cnt--;

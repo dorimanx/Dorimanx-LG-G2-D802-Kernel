@@ -1155,9 +1155,9 @@ static struct pvs_table * __init select_freq_plan(
 	}
 
 	/*
-	 * added userspace interface for speed_bin & pvs_bin info
-	 * 2013-06-07 fred.cho@lge.com
-	 */
+                                                          
+                               
+  */
 	set_speed_pvs_bin(drv.speed_bin, drv.pvs_bin);
 
 	return &params->pvs_tables[drv.pvs_rev][drv.speed_bin][drv.pvs_bin];

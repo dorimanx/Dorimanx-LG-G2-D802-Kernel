@@ -32,4 +32,4 @@ int lgeusb_get_sub_ver(char *);
 int debug_pmic_register_for_usb(void);
 #endif
 
-#endif /* __U_LGEUSB_H__ */
+#endif /*                */

@@ -464,10 +464,10 @@ int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 	if (data->flags & MDP_MEMORY_ID_TYPE_FB) {
 		pr_debug("fb mem buf=0x%x\n", data->addr);
 #ifdef QMC_PATCH
-		/* LGE_CHANGE
-		 * QMC patch to prevent null point crash
-		 * 2013-09-03, baryun.hwang@lge.com
-		 */
+		/*           
+                                          
+                                     
+   */
 		if (data->srcp_file != NULL)
 #endif
 			fput_light(data->srcp_file, data->p_need);

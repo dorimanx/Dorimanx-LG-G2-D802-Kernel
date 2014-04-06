@@ -396,12 +396,12 @@ static long broadcast_dmb_ioctl_control(struct file *filep, unsigned int cmd,	un
 		printk(KERN_DEBUG"LGE_BROADCAST_DMB_IOCTL_RESYNC result = %d \n", rc);
 		break;
 	case LGE_BROADCAST_DMB_IOCTL_DETECT_SYNC:
-		//printk(KERN_DEBUG"[1seg][broadcast_dmb_ioctl_control][LGE_BROADCAST_DMB_IOCTL_DETECT_SYNC][s]\n");
+		//                                                                                                  
 		rc = broadcast_dmb_detect_sync(argp);
-		//printk(KERN_DEBUG"LGE_BROADCAST_DMB_IOCTL_DETECT_SYNC result = %d \n", rc);
+		//                                                                           
 		break;
 	case LGE_BROADCAST_DMB_IOCTL_GET_SIG_INFO:
-		//printk(KERN_DEBUG"[1seg][broadcast_dmb_ioctl_control][LGE_BROADCAST_DMB_IOCTL_GET_SIG_INFO][s]\n");
+		//                                                                                                   
 		rc = broadcast_dmb_get_sig_info(argp);
 		break;
 	case LGE_BROADCAST_DMB_IOCTL_GET_CH_INFO:

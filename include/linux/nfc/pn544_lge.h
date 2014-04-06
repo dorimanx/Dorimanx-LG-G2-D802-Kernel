@@ -41,13 +41,13 @@
 
 #define PN544_MAGIC	0xE9
 
-/*  LGE_START byunggu.kang@lge.com 2013-10-09 NFC Bring up for B1 */
+/*                                                                */
 #ifdef CONFIG_LGE_NFC_PN547
 #define PN544_DRV_NAME      "pn547"
 #else
 #define PN544_DRV_NAME      "pn544"
 #endif
-/*  LGE_END byunggu.kang@lge.com 2013-10-09 NFC Bring up for B1 */
+/*                                                              */
 
 /* #define NFC_GPIO_VEN	47 */		/* byunggu */
 /* #define NFC_GPIO_IRQ	59 */    	/* byunggu */
@@ -107,5 +107,5 @@ struct pn544_gpio {
 #define dprintk(fmt, args...) do { } while (0)
 #endif
 
-#endif /* _PN544_LGE_H_ */
+#endif /*               */
 

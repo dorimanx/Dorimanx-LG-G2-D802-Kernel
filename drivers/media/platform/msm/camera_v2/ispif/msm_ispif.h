@@ -15,9 +15,9 @@
 
 #include <linux/clk.h>
 #include <linux/io.h>
-/* LGE_CHANGE_S [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
+/*                                                                                                    */
 #include <linux/wakelock.h>
-/* LGE_CHANGE_E [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
+/*                                                                                                    */
 #include <media/v4l2-subdev.h>
 #include <media/msmb_ispif.h>
 #include "msm_sd.h"
@@ -63,8 +63,8 @@ struct ispif_device {
 	struct clk *ahb_clk;
 	struct completion reset_complete[VFE_MAX];
 	uint32_t hw_num_isps;
-/* LGE_CHANGE_S [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
+/*                                                                                                    */
 	struct wake_lock        camera_wake_lock;
-/* LGE_CHANGE_E [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
+/*                                                                                                    */
 };
 #endif

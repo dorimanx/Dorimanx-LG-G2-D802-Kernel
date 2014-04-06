@@ -104,7 +104,7 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 					curr_l);
 			}
 		break;
-/*LGE_CHANGE S, Use AIS algo., 2013-10-25, jungpyo.hong@lge.com */
+/*                                                              */
 #if 1
 	case MSM_CAMERA_LED_HIGH_20P:
 		/* 130 */
@@ -147,7 +147,7 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 		}
 		break;
 #endif
-/*LGE_CHANGE E, Use AIS algo., 2013-10-25, jungpyo.hong@lge.com */
+/*                                                              */
 
 	case MSM_CAMERA_LED_INIT:
 	case MSM_CAMERA_LED_RELEASE:
@@ -160,9 +160,9 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 		break;
 
 #if defined(CONFIG_MACH_LGE)
-/* LGE_CHANGE
- * Separate pre-flash and torch mode
- *  2013-10-02, jinw.kim@lge.com
+/*           
+                                    
+                                
  */
 	case MSM_CAMERA_LED_TORCH:		//For torch, Video recording
 		CDBG("%s:%d MSM_CAMERA_LED_TORCH\n", __func__, __LINE__);

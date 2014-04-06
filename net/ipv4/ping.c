@@ -895,6 +895,7 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 		sin6->sin6_family = AF_INET6;
 		sin6->sin6_port = 0;
 		sin6->sin6_addr = ip6->saddr;
+		sin6->sin6_scope_id = 0;
 
 		if (np->sndflow)
 			sin6->sin6_flowinfo =

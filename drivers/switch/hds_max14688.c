@@ -1324,7 +1324,7 @@ static int max14688_read_mic_impedence (struct device *dev)
 
     int rc;
 
-    /* FIXME: LGE_MIG: qpnp_vadc_read_tmp is temporal api */
+    /*                                                    */
     rc = qpnp_vadc_read_lge(P_MUX6_1_1,&result);
     if (rc < 0) {
 	   if (rc == -ETIMEDOUT) {

@@ -29,7 +29,7 @@
 #define CYCLES_PER_MICRO_SEC 4915
 #define CCI_MAX_DELAY 10000
 
-#define CCI_TIMEOUT msecs_to_jiffies(300) //msecs_to_jiffies(100) /*LGE_PATCH, change to 300ms, 2014-01-13, yousung.kang@lge.com */
+#define CCI_TIMEOUT msecs_to_jiffies(300) //                                                                                       
 
 /* TODO move this somewhere else */
 #define MSM_CCI_DRV_NAME "msm_cci"
@@ -774,11 +774,11 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
 	struct msm_camera_cci_ctrl *cci_ctrl)
 {
 	int32_t rc = 0;
-/*QCT_PATCH S, add the retrial code only in msm_cci_config() function , 2013-12-09, yousung.kang@lge.com */
+/*                                                                                                       */
 #if 1
 	int32_t trialCnt = 3;
 #endif
-/*QCT_PATCH E, add the retrial code only in msm_cci_config() function , 2013-12-09, yousung.kang@lge.com */
+/*                                                                                                       */
 	CDBG("%s line %d cmd %d\n", __func__, __LINE__,cci_ctrl->cmd);
 	switch (cci_ctrl->cmd) {
 	case MSM_CCI_INIT:
@@ -791,7 +791,7 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
 		rc = msm_cci_i2c_read_bytes(sd, cci_ctrl);
 		break;
 	case MSM_CCI_I2C_WRITE:
-/*QCT_PATCH E, add the retrial code only in msm_cci_config() function , 2013-12-09, yousung.kang@lge.com */
+/*                                                                                                       */
 #if 1 // QCT Test
 	    do{
 			   rc = msm_cci_i2c_write(sd, cci_ctrl);
@@ -803,7 +803,7 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
         rc = msm_cci_i2c_write(sd, cci_ctrl);
 
 #endif
-/*QCT_PATCH E, add the retrial code only in msm_cci_config() function , 2013-12-09, yousung.kang@lge.com */
+/*                                                                                                       */
 		break;
 	case MSM_CCI_GPIO_WRITE:
 		break;

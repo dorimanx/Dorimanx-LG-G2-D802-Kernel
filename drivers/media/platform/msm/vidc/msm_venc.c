@@ -21,7 +21,7 @@
 #define MSM_VENC_DVC_NAME "msm_venc_8974"
 #define MIN_NUM_OUTPUT_BUFFERS 4
 #define MIN_NUM_CAPTURE_BUFFERS 4
-//to applying the bit rate in 3G VT - sukhui.kim@lge.com
+//                                                      
 #define MIN_BIT_RATE 32000
 #define MAX_BIT_RATE 160000000
 #define DEFAULT_BIT_RATE 64000

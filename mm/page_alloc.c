@@ -782,9 +782,9 @@ bool is_cma_pageblock(struct page *page)
 }
 
 #ifdef CONFIG_MACH_LGE
-/* LGE_UPDATE, 2013/11/18, G2-KK-FS@lge.com
- * add the EXPORT_SYMBOL(is_cma_pageblock) because build is failed by tuxera exFAT
- * this code is tuxera guide.
+/*                                         
+                                                                                  
+                             
  */
 EXPORT_SYMBOL(is_cma_pageblock);
 #endif

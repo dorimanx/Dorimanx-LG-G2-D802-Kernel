@@ -28,9 +28,9 @@ extern int mdss_dsi_lane_config(struct mdss_panel_data *pdata, int enable);
 #endif
 
 #ifdef CONFIG_MACH_LGE
-/* LGE_UPDATE_S for MINIOS2.0 */
+/*                            */
 #include <mach/board_lge.h>
-/* LGE_UPDATE_E for MINIOS2.0 */
+/*                            */
 #endif
 
 /* wait for at least 2 vsyncs for lowest refresh rate (24hz) */
@@ -198,7 +198,7 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 		       (hsync_polarity << 0);  /* HSYNC Polarity */
 
 #ifdef CONFIG_MACH_LGE
-	/* LGE_UPDATE_S for MINIOS2.0 */
+	/*                            */
 	if (lge_get_boot_mode() == LGE_BOOT_MODE_MINIOS) {
 		if (MDSS_INTF_HDMI == ctx->intf_type) {
 			pr_info("[miniOS] Enable HDMI Grayscale Ramp Pattern");
@@ -206,7 +206,7 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 			mdp_video_write(ctx, MDSS_MDP_REG_INTF_TPG_MAIN_CONTROL, 0x40);
 		}
 	}
-	/* LGE_UPDATE_E for MINIOS2.0 */
+	/*                            */
 #endif
 
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_HSYNC_CTL, hsync_ctl);
@@ -806,10 +806,10 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 				   mdss_mdp_video_underrun_intr_done, ctl);
 
 #ifdef CONFIG_LGE_LCD_TUNING
-	/* LGE_CHANGE
-	 * Implement for LCD porch tuning
-	 * 2013-01-25, baryun.hwang@lge.com
-	 */
+	/*           
+                                  
+                                    
+  */
 	pinfo->lcdc.h_back_porch = tun_porch_value[0];
 	pinfo->lcdc.h_front_porch = tun_porch_value[2];
 	pinfo->lcdc.v_back_porch = tun_porch_value[3];

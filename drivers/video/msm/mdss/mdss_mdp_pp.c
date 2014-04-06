@@ -23,9 +23,9 @@
 #include <mach/msm_bus_board.h>
 
 #if defined(CONFIG_LCD_KCAL)
-/* LGE_CHANGE_S
-* change code for LCD KCAL
-* 2013-05-08, seojin.lee@lge.com
+/*             
+                          
+                                
 */
 #include <mach/board_lge.h>
 extern int g_kcal_r;
@@ -133,7 +133,7 @@ struct mdp_csc_cfg dmb_csc_convert = {
 	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
 #endif
 };
-#endif /* LGE_BROADCAST */
+#endif /*               */
 
 #if defined(CONFIG_LGE_BROADCAST_ONESEG)
 struct mdp_csc_cfg dmb_csc_convert = {
@@ -173,7 +173,7 @@ struct mdp_csc_cfg dmb_csc_convert = {
 	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
 #endif
 };
-#endif /* LGE_BROADCAST ONESEG */
+#endif /*                      */
 #define CSC_MV_OFF	0x0
 #define CSC_BV_OFF	0x2C
 #define CSC_LV_OFF	0x14
@@ -439,7 +439,7 @@ int pp_set_dmb_status(int flag)
 	dmb_status = flag;
 	return 0;
 }
-#endif /* LGE_BROADCAST */
+#endif /*               */
 
 static u32 pp_hist_read(char __iomem *v_addr,
 				struct pp_hist_col_info *hist_info);
@@ -943,7 +943,7 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 			} else {
 				mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP, pipe->num, 1, MDSS_MDP_CSC_YUV2RGB);
 			}
-#endif /* LGE_BROADCAST */
+#endif /*               */
 		}
 	}
 
@@ -2068,9 +2068,9 @@ int mdss_mdp_pp_init(struct device *dev)
 
 	}
 #if defined(CONFIG_LCD_KCAL)
-/* LGE_CHANGE_S
-* change code for LCD KCAL
-* 2013-05-08, seojin.lee@lge.com
+/*             
+                          
+                                
 */
 	if (!ret) {
 		mdss_mdp_pp_argc();

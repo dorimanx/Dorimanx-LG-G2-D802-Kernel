@@ -1092,10 +1092,10 @@ int mmc_interrupt_hpi(struct mmc_card *card)
 
 out:
 #ifdef CONFIG_MACH_LGE
-	/* LGE_CHANGE
-	* add debug code
-	* 2013-07-08, G2-FS@lge.com
-	*/
+	/*           
+                 
+                            
+ */
 	if (err)
 		pr_err("%s: mmc_interrupt_hpi() failed. err: (%d)\n",	mmc_hostname(card->host), err);
 #endif
@@ -1283,12 +1283,12 @@ void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card)
 			limit_us = 3000000;
 		else
 			#ifdef CONFIG_MACH_LGE
-			/* LGE_CHANGE
-			 * Although we already applied enough time,
-			 * timeout-error occurs until now with several-ultimate-crappy-memory.
-			 * So, we give more time than before.
-			 * 2013-03-09, G2-FS@lge.com
-			 */
+			/*           
+                                              
+                                                                         
+                                        
+                               
+    */
 			limit_us = 300000;
 			#else
 			limit_us = 100000;
@@ -1918,10 +1918,10 @@ void mmc_power_up(struct mmc_host *host)
 	 * to reach the minimum voltage.
 	 */
 	#ifdef CONFIG_MACH_LGE
-	/* LGE_CHANGE
-	* Augmenting delay-time for some crappy card.
-	* 2013-03-09, G2-FS@lge.com
-	*/
+	/*           
+                                              
+                            
+ */
 	mmc_delay(20);
 	#else
 	mmc_delay(10);
@@ -1937,10 +1937,10 @@ void mmc_power_up(struct mmc_host *host)
 	 * time required to reach a stable voltage.
 	 */
 #ifdef CONFIG_MACH_LGE
-	/* LGE_CHANGE
-	* Augmenting delay-time for some crappy card.
-	* 2013-03-09, G2-FS@lge.com
-	*/
+	/*           
+                                              
+                            
+ */
 	mmc_delay(20);
 #else
 	mmc_delay(10);
@@ -1952,9 +1952,9 @@ void mmc_power_up(struct mmc_host *host)
 void mmc_power_off(struct mmc_host *host)
 {
 	#ifdef CONFIG_MACH_LGE
-		/* LGE_CHANGE, 2013-07-09, G2-FS@lge.com
-		* If it is already power-off, skip below.
-		*/
+		/*                                      
+                                           
+  */
 		if (host->ios.power_mode == MMC_POWER_OFF) {
 			printk(KERN_INFO "[LGE][MMC][%-18s( )] host->index:%d, already power-off, skip below\n", __func__, host->index);
 			return;
@@ -2135,8 +2135,8 @@ void mmc_detect_change(struct mmc_host *host, unsigned long delay)
 	host->detect_change = 1;
 #ifdef CONFIG_MACH_LGE
 /*
- * LGE_UPDATE, 2013/09/10, G2-KK-FS@lge.com
- * add wake_lock because of lockup issue when copying/moving big size files
+                                           
+                                                                           
  */
 	wake_lock(&host->detect_wake_lock);
 #endif
@@ -3208,10 +3208,10 @@ void mmc_rescan(struct work_struct *work)
 	bool extend_wakelock = false;
 
 #ifdef CONFIG_MACH_LGE
-	/* LGE_CHANGE
-	* Adding Print
-	* 2011-11-10, warkap.seo@lge.com
-	*/
+	/*           
+               
+                                 
+ */
 	printk(KERN_INFO "[LGE][MMC][%-18s( ) START!] %d\n", __func__, host->index);
 #endif
 
@@ -3275,8 +3275,8 @@ void mmc_rescan(struct work_struct *work)
 		wake_lock_timeout(&host->detect_wake_lock, HZ / 2);
 #ifdef CONFIG_MACH_LGE
 /*
- * LGE_UPDATE, 2013/09/10, G2-KK-FS@lge.com
- * add wake_lock because of lockup issue when copying/moving big size files
+                                           
+                                                                           
  */
 	else
 		wake_unlock(&host->detect_wake_lock);

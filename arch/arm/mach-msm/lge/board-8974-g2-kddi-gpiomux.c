@@ -20,8 +20,8 @@
 #include <mach/board_lge.h>
 
 /* #define KS8851_IRQ_GPIO 94 */
-/* soojung.lim@lge.com, 2013-05-23
- * To use 24MHz GP/GCC_GP clock for V2 H/W
+/*                                
+                                          
  */
 int g_is_tlmm_spare_reg_value;
 
@@ -246,7 +246,7 @@ static struct gpiomux_setting gpio_epm_config = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
-/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 #if defined(CONFIG_BCMDHD) || defined(CONFIG_BCMDHD_MODULE)
 #else
 static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
@@ -261,10 +261,10 @@ static struct gpiomux_setting wcnss_5wire_active_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 #endif
-/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 
 
-/* LGE_CHANGE_E,[1seg][youngbea.jung@lge.com], 2013-05-14, 1seg Bring Up */
+/*                                                                       */
 #if defined(CONFIG_LGE_BROADCAST_ONESEG)/* taew00k.kang */
 static struct gpiomux_setting lge_1seg_int_pin_suspend = {
 /* 1SEG SPI INTERUPT, 1SEG POWER EN, 1SEG LDO EN */
@@ -303,7 +303,7 @@ static struct gpiomux_setting lge_1seg_gpio_blsp8_spi_suspend_config = {
 
 #endif
 
-/* LGE_CHANGE_E,[1seg][youngbea.jung@lge.com], 2013-05-14, 1seg Bring Up */
+/*                                                                       */
 #if defined(CONFIG_LGE_BROADCAST_ONESEG)/* taew00k.kang */
 static struct msm_gpiomux_config lge_1seg_blsp_configs[] __initdata = {
 	{
@@ -353,7 +353,7 @@ static struct msm_gpiomux_config lge_1seg_blsp_configs[] __initdata = {
 		},
 	},
 };
-#endif /* defined (CONFIG_LGE_BROADCAST_ONESEG) && (CONFIG_MACH_MSM8974_G2_KDDI))//taew00k.kang */
+#endif /*                                                                                       */
 
 static struct gpiomux_setting gpio_i2c_config = {
 	.func = GPIOMUX_FUNC_3,
@@ -554,9 +554,9 @@ static struct gpiomux_setting max17048_int_config = {
 #endif
 
 #if 0
-/* LGE_CHANGE
- * MAIN_CAM_RESET is changed from GPIO_90 to GPIO_4 - To fix build error after changing the function of GPIO_4
- * 2013-03-18, jinw.kim@lge.com
+/*           
+                                                                                                              
+                               
  */
 static struct gpiomux_setting touch_id_act_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -687,9 +687,9 @@ static struct gpiomux_setting hsic_resume_susp_cfg = {
 
 #if 0	/* Camera will use gpio 145 */
 static struct msm_gpiomux_config msm_hsic_configs[] = {
-/* LGE_CHANGE
- * Camera bring up - DCM
- * 2013-03-14, jinw.kim@lge.com
+/*           
+                        
+                               
  */
 	{
 		.gpio = 145,               /* HSIC_DATA */
@@ -1149,9 +1149,9 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		},
 	},
 #if 0
-/* LGE_CHANGE
- * MAIN_CAM_RESET is changed from GPIO_90 to GPIO_4
- * 2013-03-18, jinw.kim@lge.com
+/*           
+                                                   
+                               
  */
 #ifdef CONFIG_MACH_LGE
 	{
@@ -1209,7 +1209,7 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	},
 #endif
 
-/* LGE_CHANGE_S, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+/*                                                        */
 #ifndef CONFIG_LGE_BLUETOOTH
 	{
 		.gpio      = 53,		/* BLSP2 QUP4 SPI_DATA_MOSI */
@@ -1239,8 +1239,8 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[0],
 		},
 	},
-#endif /* CONFIG_LGE_BLUETOOTH */
-/* LGE_CHANGE_S, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+#endif /*                      */
+/*                                                        */
 	{
 		.gpio      = 81,		/* EPM enable */
 		.settings = {
@@ -1451,11 +1451,11 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &cam_settings[1],
 		},
 	},
-#endif  /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif  /*                             */
 #if defined(CONFIG_MACH_LGE)
-/* LGE_CHANGE
- * MAIN_CAM_RESET is changed from GPIO_90 to GPIO_4
- * 2013-03-18, jinw.kim@lge.com
+/*           
+                                                   
+                               
  */
 	{
 		.gpio = 4, /* CAM1_RST_N */
@@ -1474,7 +1474,7 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &cam_settings[1],
 		},
 	},
-#endif  /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif  /*                             */
 #endif
 
 #if defined(CONFIG_BACKLIGHT_LM3630)
@@ -1488,7 +1488,7 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &cam_settings[1],
 		},
 	},
-#endif  /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif  /*                             */
 #endif
 /* TSIF1 GPIO 89~92 is used for 1seg tsif */
 #if !defined(CONFIG_LGE_BROADCAST_ONESEG)
@@ -1499,11 +1499,11 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &cam_settings[1],
 		},
 	},
-#endif  /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif  /*                             */
 #if defined(CONFIG_MACH_LGE)
-/* LGE_CHANGE_S
- * Camera bring up - DCM
- * 2013-03-14, jinw.kim@lge.com
+/*             
+                        
+                               
  */
 	{
 		.gpio = 57, /* 13M_VCM_EN */
@@ -1591,7 +1591,7 @@ static struct msm_gpiomux_config msm8974_pri_auxpcm_configs[] __initdata = {
 };
 #endif
 
-/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 #if defined(CONFIG_BCMDHD) || defined(CONFIG_BCMDHD_MODULE)
 #else
 static struct msm_gpiomux_config wcnss_5wire_interface[] = {
@@ -1633,7 +1633,7 @@ static struct msm_gpiomux_config wcnss_5wire_interface[] = {
 	},
 };
 #endif
-/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 
 static struct msm_gpiomux_config msm_taiko_config[] __initdata = {
 	{
@@ -1879,9 +1879,9 @@ static struct gpiomux_setting sdc3_suspend_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
-/* LGE_UPDATE, G2-FS@lge.com, 2013/03/27
-* Setting GPIO-37 as IN/PD when sleep in G2-KR-Rev-B.
-* [GPIOMUX_SUSPENDED] = &sdc3_suspend_cfg, //sdc3_data_1_suspend_cfg
+/*                                      
+                                                     
+                                                                    
 */
 /*
 static struct gpiomux_setting sdc3_data_1_suspend_cfg = {
@@ -1988,7 +1988,7 @@ static struct msm_gpiomux_config msm8974_sdc4_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &sdc4_suspend_cfg,
 		},
 	},
-#endif  /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif  /*                             */
 #if !defined(CONFIG_LGE_NFC_SONY_KDDI)
 	{
 		/* DAT2 */
@@ -2010,9 +2010,9 @@ static struct msm_gpiomux_config msm8974_sdc4_configs[] __initdata = {
 	},
 #endif
 #if 0	/* Camera will use gpio 96 */
-/* LGE_CHANGE_S
- * Camera bring up - DCM
- * 2013-03-14, jinw.kim@lge.com
+/*             
+                        
+                               
  */
 	{
 		/* DAT0 */
@@ -2033,7 +2033,7 @@ static struct msm_gpiomux_config msm8974_sdc4_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &sdc4_suspend_cfg,
 		},
 	},
-#endif /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif /*                             */
 	{
 		/* CLK */
 		.gpio      = 93,
@@ -2053,7 +2053,7 @@ static void msm_gpiomux_sdc4_install(void)
 static void msm_gpiomux_sdc4_install(void) {}
 #endif /* CONFIG_MMC_MSM_SDC4_SUPPORT */
 
-/* LGE_CHANGE_S, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+/*                                                        */
 #ifdef CONFIG_LGE_BLUETOOTH
 static struct gpiomux_setting bt_gpio_uart_active_config = {
 	.func = GPIOMUX_FUNC_2,
@@ -2226,8 +2226,8 @@ static void bluetooth_msm_gpiomux_install(void)
     /* PCM I/F */
 	msm_gpiomux_install(bt_pcm_configs, ARRAY_SIZE(bt_pcm_configs));
 }
-#endif /* CONFIG_LGE_BLUETOOTH */
-/* LGE_CHANGE_E, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+#endif /*                      */
+/*                                                        */
 
 
 static struct msm_gpiomux_config apq8074_dragonboard_ts_config[] __initdata = {
@@ -2257,8 +2257,8 @@ void __init msm_8974_init_gpiomux(void)
 		return;
 	}
 
-/* soojung.lim@lge.com, 2013-05-23
- * To use 24MHz GP/GCC_GP clock for V2 H/W
+/*                                
+                                          
  */
 if (socinfo_get_version() >= 0x20000) {
 	g_is_tlmm_spare_reg_value = 0x7;
@@ -2267,7 +2267,7 @@ if (socinfo_get_version() >= 0x20000) {
 
 #if defined(CONFIG_LGE_BROADCAST_ONESEG)
 	msm_gpiomux_install(lge_1seg_blsp_configs, ARRAY_SIZE(lge_1seg_blsp_configs));
-#endif  /* CONFIG_LGE_BROADCAST_ONESEG */
+#endif  /*                             */
 
 #if defined(CONFIG_LGE_NFC_SONY_KDDI)
 	if (lge_get_board_revno() >= HW_REV_C)
@@ -2294,13 +2294,13 @@ if (socinfo_get_version() >= 0x20000) {
 			ARRAY_SIZE(msm_fuel_gauge_configs));
 #endif
 #endif
-/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 #if defined(CONFIG_BCMDHD) || defined(CONFIG_BCMDHD_MODULE)
 #else
 	msm_gpiomux_install(wcnss_5wire_interface,
 				ARRAY_SIZE(wcnss_5wire_interface));
 #endif
-/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 
 	msm_gpiomux_install(msm8974_slimbus_config,
 			ARRAY_SIZE(msm8974_slimbus_config));
@@ -2362,11 +2362,11 @@ if (socinfo_get_version() >= 0x20000) {
 #if defined(CONFIG_LGE_SM100) || defined(CONFIG_TSPDRV)
 	msm_gpiomux_install(vibrator_configs, ARRAY_SIZE(vibrator_configs));
 #endif
-/* LGE_CHANGE_S, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+/*                                                        */
 #ifdef CONFIG_LGE_BLUETOOTH
 	bluetooth_msm_gpiomux_install();
-#endif /* CONFIG_LGE_BLUETOOTH */
-/* LGE_CHANGE_E, [BT][younghyun.kwon@lge.com], 2013-01-29 */
+#endif /*                      */
+/*                                                        */
 
 	if (of_board_is_dragonboard() && machine_is_apq8074())
 		msm_gpiomux_install(apq8074_dragonboard_ts_config,

@@ -14,9 +14,9 @@
 #define IMX208_SENSOR_NAME "imx208"
 DEFINE_MSM_MUTEX(imx208_mut);
 
-// LGE_CHNAGE_S sungsik.kim 2013/04/07 {
+//                                      
 #define CONFIG_IMX208_DEBUG
-// LGE_CHNAGE_E sungsik.kim 2013/04/07 }
+//                                      
 
 #undef CDBG
 #ifdef CONFIG_IMX208_DEBUG
@@ -128,13 +128,13 @@ static int32_t imx208_platform_probe(struct platform_device *pdev)
 	CDBG("%s E\n", __func__);
 	match = of_match_device(imx208_dt_match, &pdev->dev);
 	
-/* LGE_CHANGE_S : WBT, 2013-5-31, jonghwan.ko@lge.com */
+/*                                                    */
 	if(!match)
 	{
 		pr_err(" %s failed ",__func__);
 	      return -ENODEV;
 	}
-/* LGE_CHANGE_E : WBT, 2013-5-31, jonghwan.ko@lge.com */
+/*                                                    */
 	      
 	rc = msm_sensor_platform_probe(pdev, match->data);
 	CDBG("%s: X, rc = %d\n", __func__, rc);

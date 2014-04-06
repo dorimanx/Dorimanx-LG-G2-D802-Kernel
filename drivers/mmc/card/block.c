@@ -1531,9 +1531,9 @@ static int mmc_blk_err_check(struct mmc_card *card,
 		unsigned long timeout;
 
 		#ifdef CONFIG_MACH_LGE
-		/* LGE_CHANGE, 2013/12/02, G2-KK-FS@lge.com
-		 * Apply for more information in case of IOWAIT-cpu-long-occupation
-		 */
+		/*                                         
+                                                                     
+   */
 		unsigned long timeout_5s;
 		unsigned long time_in_stuck = 0;
 		#endif
@@ -1549,9 +1549,9 @@ static int mmc_blk_err_check(struct mmc_card *card,
 		timeout = jiffies + msecs_to_jiffies(MMC_BLK_TIMEOUT_MS);
 
 		#ifdef CONFIG_MACH_LGE
-		/* LGE_CHANGE, 2013/12/02, G2-KK-FS@lge.com
-		 * Apply for more information in case of IOWAIT-cpu-long-occupation
-		 */
+		/*                                         
+                                                                     
+   */
 		timeout_5s = jiffies + msecs_to_jiffies(5000);
 		#endif
 
@@ -1581,9 +1581,9 @@ static int mmc_blk_err_check(struct mmc_card *card,
 				return MMC_BLK_CMD_ERR;
 			}
 			#ifdef CONFIG_MACH_LGE
-			/* LGE_CHANGE, 2013/12/02, G2-KK-FS@lge.com
-			 * Apply for more information in case of IOWAIT-cpu-long-occupation
-			 */
+			/*                                         
+                                                                      
+    */
 			else if(time_after(jiffies, timeout_5s)) {
 				time_in_stuck += 5;
 				pr_warning("%s: might be stuck in programming state"\

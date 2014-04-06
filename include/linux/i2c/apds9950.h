@@ -21,7 +21,7 @@
 
 #ifdef CONFIG_SENSOR_APDS9950
 
-#ifdef CONFIG_OF /* seonghyon.cho@lge.com 2012.10.25 */
+#ifdef CONFIG_OF /*                                  */
 /* Analog voltage @2.7 V */
 #define AVDD_VTG_MIN_UV		2700000
 #define AVDD_VTG_MAX_UV		3300000

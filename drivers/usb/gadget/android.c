@@ -86,7 +86,7 @@
 #include "f_mtp.c"
 #ifdef CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
 #include "f_lg_mtp.c"
-#endif //CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
+#endif //                                       
 #include "f_accessory.c"
 #define USB_ETH_RNDIS y
 #include "f_rndis.c"
@@ -1723,7 +1723,7 @@ static struct android_usb_function lg_mtp_function = {
 	.bind_config	= lg_mtp_function_bind_config,
 	.ctrlrequest	= lg_mtp_function_ctrlrequest,
 };
-#endif //CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
+#endif //                                       
 
 /* PTP function is same as MTP with slightly different interface descriptor */
 static struct android_usb_function ptp_function = {
@@ -2335,7 +2335,7 @@ static struct android_usb_function charge_only_function = {
 	.cleanup	= charge_only_function_cleanup,
 	.bind_config	= charge_only_function_bind_config,
 };
-#endif /* CONFIG_USB_G_LGE_ANDROID_AUTORUN */
+#endif /*                                  */
 
 static int accessory_function_init(struct android_usb_function *f,
 					struct usb_composite_dev *cdev)
@@ -2503,7 +2503,7 @@ static struct android_usb_function *supported_functions[] = {
 	&ptp_function,
 #ifdef CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
     &lg_mtp_function,
-#endif //CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
+#endif //                                       
 	&rndis_function,
 #ifndef CONFIG_USB_G_LGE_ANDROID_NCM
 	&rndis_qc_function,
@@ -3160,7 +3160,7 @@ field ## _store(struct device *dev, struct device_attribute *attr,	\
 }									\
 static DEVICE_ATTR(field, S_IRUGO | S_IWUSR, field ## _show, field ## _store);
 
-#endif /* CONFIG_USB_G_LGE_ANDROID */
+#endif /*                          */
 
 DESCRIPTOR_ATTR(idVendor, "%04x\n")
 DESCRIPTOR_ATTR(idProduct, "%04x\n")
@@ -3325,7 +3325,7 @@ static void android_lge_factory_bind(struct usb_composite_dev *cdev)
 	dev->enabled = true;
 #endif
 }
-#endif /* CONFIG_USB_G_LGE_ANDROID && CONFIG_LGE_PM */
+#endif /*                                           */
 
 static int android_bind_config(struct usb_configuration *c)
 {
@@ -3395,7 +3395,7 @@ static int android_bind(struct usb_composite_dev *cdev)
 	device_desc.iProduct = id;
 
 #ifdef CONFIG_USB_G_LGE_ANDROID
-	/* Default string as LGE products */
+	/*                                */
 	ret = lgeusb_get_manufacturer_name(lge_manufacturer);
 	if (!ret)
 		strlcpy(manufacturer_string, lge_manufacturer,

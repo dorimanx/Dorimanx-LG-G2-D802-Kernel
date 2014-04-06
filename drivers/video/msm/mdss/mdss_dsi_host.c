@@ -862,9 +862,9 @@ int mdss_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 }
 
 #ifdef CONFIG_LGE_ESD_CHECK
-/* LGE_CHANGE_S
-* change code for ESD check
-* 2013-04-08, seojin.lee@lge.com
+/*             
+                           
+                                
 */
 void mdss_dsi_cmds_mode1(struct mdss_panel_data *pdata)
 {

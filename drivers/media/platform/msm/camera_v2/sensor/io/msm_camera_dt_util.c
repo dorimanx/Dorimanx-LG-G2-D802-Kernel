@@ -23,7 +23,7 @@
 #define CDBG(fmt, args...) do { } while (0)
 #endif
 
-#ifdef QULCOMM_ORIGINAL // original (do not use it in LGE)
+#ifdef QULCOMM_ORIGINAL //                                
 int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 	struct camera_vreg_t *cam_vreg, int num_vreg,
 	struct msm_sensor_power_setting **power_setting,
@@ -51,7 +51,7 @@ int32_t msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 	if (count <= 0)
 		return 0;
 
-#ifdef QULCOMM_ORIGINAL // original (do not use it in LGE)
+#ifdef QULCOMM_ORIGINAL //                                
 	ps = kzalloc(sizeof(*ps) * count, GFP_KERNEL);
 #else
 	ps = kzalloc(sizeof(struct msm_sensor_power_setting) * count,
@@ -89,7 +89,7 @@ int32_t msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 			ps[i].seq_type = SENSOR_I2C_MUX;
 			CDBG("%s:%d seq_type[%d] %d\n", __func__, __LINE__,
 				i, ps[i].seq_type);
-#ifdef QULCOMM_ORIGINAL // original (do not use it in LGE)
+#ifdef QULCOMM_ORIGINAL //                                
 		} else {
 			CDBG("%s: unrecognized seq-type\n", __func__);
 			rc = -EILSEQ;
@@ -109,7 +109,7 @@ int32_t msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 			pr_err("%s failed %d\n", __func__, __LINE__);
 			goto ERROR1;
 		}
-#ifdef QULCOMM_ORIGINAL // original (do not use it in LGE)
+#ifdef QULCOMM_ORIGINAL //                                
 		switch (ps[i].seq_type) {
 		case SENSOR_VREG:
 			for (j = 0; j < num_vreg; j++) {
@@ -129,9 +129,9 @@ int32_t msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 			else if (!strcmp(seq_name, "sensor_gpio_vdig"))
 				ps[i].seq_val = SENSOR_GPIO_VDIG;
 #if defined(CONFIG_MACH_LGE)
-/* LGE_CHANGE
- * Change EEPROM power setting
- * 2013-10-02, jinw.kim@lge.com
+/*           
+                              
+                               
  */
 			else if (!strcmp(seq_name, "sensor_gpio_vio"))
 				ps[i].seq_val = SENSOR_GPIO_VIO;
@@ -348,9 +348,9 @@ int32_t msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 	}
 
 #if defined(CONFIG_MACH_LGE)
-/* LGE_CHANGE
- * Change EEPROM power setting
- * 2013-10-02, jinw.kim@lge.com
+/*           
+                              
+                               
  */
 	if (of_property_read_bool(of_node, "qcom,gpio-vio") == true) {
 		rc = of_property_read_u32(of_node, "qcom,gpio-vio", &val);

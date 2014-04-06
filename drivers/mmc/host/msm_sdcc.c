@@ -201,7 +201,7 @@ static void msmsdcc_pm_qos_update_latency(struct msmsdcc_host *host, int vote)
 	else
 		pm_qos_update_request(&host->pm_qos_req_dma,
 					PM_QOS_DEFAULT_VALUE);
-	/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-06-12, dma qos control */
+	/*                                                                      */
 	#if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
 	{
 		extern void bcm_wifi_req_dma_qos(int vote);
@@ -210,7 +210,7 @@ static void msmsdcc_pm_qos_update_latency(struct msmsdcc_host *host, int vote)
 		}
 	}
 	#endif
-	/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-06-12, dma qos control */
+	/*                                                                      */
 }
 
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
@@ -1714,13 +1714,13 @@ msmsdcc_pio_irq(int irq, void *dev_id)
 			break;
 
 #ifdef CONFIG_MACH_LGE
-		/*LGE_CHANGE
-		* Exception handling : Kernel Panic issue by Null Pointer
-		* for some reasons, host->pio.sg_miter gets wrong data when it gets into the msmsdcc_pio_irq func()
-		* and it gets kernel crash when wifi is on.
-		* to prevent this, we inserted LG W/A code.
-		* 2013-04-22, G2-FS@lge.com
-		*/
+		/*          
+                                                           
+                                                                                                     
+                                             
+                                             
+                             
+  */
 		if (!host->curr.data)
 			break;
 #endif
@@ -2312,9 +2312,9 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		host->curr.req_tout_ms = 20000;
 	else
 		#ifdef CONFIG_MACH_LGE
-		/* LGE_CHANGE, 2013-04-29, G2-FS@lge.com
-		* Increase Request-Timeout from 10sec to 15sec (because of 'CMD25: Request timeout')
-		*/
+		/*                                      
+                                                                                      
+  */
 		host->curr.req_tout_ms = 15000;
 		#else
 		host->curr.req_tout_ms = MSM_MMC_REQ_TIMEOUT;
@@ -3818,9 +3818,9 @@ static int msmsdcc_switch_io_voltage(struct mmc_host *mmc,
 	default:
 		/* invalid selection. don't do anything */
 		#ifdef CONFIG_MACH_LGE
-		/* LGE_CHANGE, 2013-04-19, G2-FS@lge.com
-		* Adding Print, Requested by QMC-CASE-01158823
-		*/
+		/*                                      
+                                                
+  */
 		pr_err("%s: %s: ios->signal_voltage = 0x%x\n", mmc_hostname(mmc), __func__, ios->signal_voltage);
 		#endif
 
@@ -4355,7 +4355,7 @@ retry:
 		msmsdcc_dump_sdcc_state(host);
 		rc = -EAGAIN;
 
-		/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-03-12, testcode for sd error debugging */
+		/*                                                                                      */
 		#if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
 		{
 			extern int lge_get_board_revno(void);
@@ -4375,11 +4375,11 @@ retry:
 			#endif
 			if (host->pdev->id == bcmdhd_id) {
 			    rc = 0;
-			    /* panic("Failed to tune.\n"); */ /* please contact hayun.kim@lge.com */
+			    /* panic("Failed to tune.\n"); */ /*                                  */
 			}
 		}
 		#endif
-		/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-03-12, testcode for sd error debugging */
+		/*                                                                                      */
 	}
 
 kfree:
@@ -4552,10 +4552,10 @@ msmsdcc_check_status(unsigned long data)
 			status = msmsdcc_slot_status(host);
 
 #ifdef CONFIG_MACH_LGE
-		/* LGE_CHANGE
-		* Adding Print
-		* 2013-03-09, G2-FS@lge.com
-		*/
+		/*           
+                
+                             
+  */
 		printk(KERN_INFO "[LGE][MMC][%-18s( )]  NOW==>(%d), OLD==>(host->oldstat:%d, host->eject:%d)\n", __func__, status, host->oldstat, host->eject);
 #endif
 
@@ -4592,10 +4592,10 @@ msmsdcc_platform_status_irq(int irq, void *dev_id)
 {
 	struct msmsdcc_host *host = dev_id;
 #ifdef CONFIG_MACH_LGE
-	/* LGE_CHANGE
-	* Adding Print
-	* 2013-03-09, G2-FS@lge.com
-	*/
+	/*           
+               
+                            
+ */
 	printk(KERN_INFO "[LGE][MMC][%-18s( )] irq:%d\n", __func__, irq);
 #endif
 
@@ -5942,12 +5942,12 @@ err:
 	return NULL;
 }
 
-/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 #if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE) /* joon For device tree. */
 extern int sdc2_status_register(void (*cb)(int card_present, void *dev), void *dev);
 extern unsigned int sdc2_status(struct device *);
 #endif
-/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 static int
 msmsdcc_probe(struct platform_device *pdev)
 {
@@ -6241,9 +6241,9 @@ msmsdcc_probe(struct platform_device *pdev)
 	mmc->caps2 |= MMC_CAP2_STOP_REQUEST;
 	mmc->caps2 |= MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE;
 	/*
-	2013-05-22, g2-fs@lge.com
-	enable BKOPS feature since it has been disabled by default
-	*/
+                          
+                                                           
+ */
 	#ifdef CONFIG_MACH_LGE
 	mmc->caps2 |= MMC_CAP2_INIT_BKOPS;
 	#endif
@@ -6329,7 +6329,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	 * Setup card detect change
 	 */
 
-/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 #if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE) /* joon For device tree. */
 {
 	extern int lge_get_board_revno(void);
@@ -6356,7 +6356,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	}
 }
 #endif
-/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 
 	if (!plat->status_gpio)
 		plat->status_gpio = -ENOENT;

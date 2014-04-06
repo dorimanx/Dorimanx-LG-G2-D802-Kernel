@@ -1655,7 +1655,7 @@ static int venus_hfi_is_cmd_pending(struct venus_hfi_device *dev)
 	return rc;
 }
 
-/*LGE_CHANGE_S :  sunjae.jung@lge.com, 2014-01-09, QCT patch for venus time out issue*/
+/*                                                                                   */
 static int venus_hfi_is_msg_pending(struct venus_hfi_device *dev)
 {
 	struct hfi_queue_header *queue;
@@ -1675,7 +1675,7 @@ static int venus_hfi_is_msg_pending(struct venus_hfi_device *dev)
 	rc = read_ptr - write_ptr;
 	return rc;
 }
-/*LGE_CHANGE_E :  sunjae.jung@lge.com, 2014-01-09, QCT patch for venus time out issue*/
+/*                                                                                   */
 
 static inline void venus_hfi_clk_gating_on(struct venus_hfi_device *device)
 {
@@ -1690,13 +1690,13 @@ static inline void venus_hfi_clk_gating_on(struct venus_hfi_device *device)
 	/*SYS Idle should be last message so mask any further interrupts
 	 * until clocks are enabled again.*/
 
-/*LGE_CHANGE_S :  sunjae.jung@lge.com, 2014-01-09, QCT patch for venus time out issue*/
+/*                                                                                   */
 	if(!venus_hfi_is_msg_pending(device)) {
 		venus_hfi_write_register(device,
 			VIDC_WRAPPER_INTR_MASK,
 			VIDC_WRAPPER_INTR_MASK_A2HVCODEC_BMSK | VIDC_WRAPPER_INTR_MASK_A2HCPU_BMSK, 0);
 	}
-/*LGE_CHANGE_E :  sunjae.jung@lge.com, 2014-01-09, QCT patch for venus time out issue*/
+/*                                                                                   */
 	venus_hfi_clk_disable(device);
 	if (!queue_delayed_work(device->venus_pm_workq, &venus_hfi_pm_work,
 			msecs_to_jiffies(msm_vidc_pwr_collapse_delay)))

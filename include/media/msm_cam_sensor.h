@@ -93,13 +93,13 @@ enum msm_sensor_power_seq_gpio_t {
 	SENSOR_GPIO_VANA,
 	SENSOR_GPIO_VDIG,
 	SENSOR_GPIO_VAF,
-/* LGE_CHANGE_S
- * Camera bring-up : Add gpio to control LDO
- * 2013-02-05, jinw.kim@lge.com : must check gpio_num[] array in board.h
+/*             
+                                            
+                                                                        
  */
 	SENSOR_GPIO_OIS_LDO_EN,
 	SENSOR_GPIO_OIS_RESET,
-/* LGE_CHANGE_E,  Camera bring-up : Add gpio to control LDO*/
+/*                                                         */
 	SENSOR_GPIO_MAX,
 };
 
@@ -120,7 +120,7 @@ enum msm_sensor_resolution_t {
 	MSM_SENSOR_RES_5,
 	MSM_SENSOR_RES_6,
 	MSM_SENSOR_RES_7,
-	MSM_SENSOR_RES_8,	 // LGE_CHANGE, add res table new feature, 2013-11-22, youngil.yun@lge.com
+	MSM_SENSOR_RES_8,	 //                                                                       
 	MSM_SENSOR_INVALID_RES,
 };
 
@@ -331,7 +331,7 @@ struct msm_sensor_info_t {
 	int32_t     subdev_id[SUB_MODULE_MAX];
 };
 
-/* LGE_CHANGE_S, OIS interface, 2013-05-29, kh.kang@lge.com */
+/*                                                          */
 struct msm_sensor_ois_info_t{
 	char ois_provider[MAX_SENSOR_NAME];
 	int16_t gyro[2];
@@ -354,7 +354,7 @@ enum ois_ver_t {
 	OIS_VER_DEBUG
 };
 
-/* LGE_CHANGE_E, OIS interface, 2013-05-29, kh.kang@lge.com */
+/*                                                          */
 struct camera_vreg_t {
 	const char *reg_name;
 	enum camera_vreg_type type;
@@ -381,7 +381,7 @@ struct msm_sensor_init_params {
 	enum camb_position_t position;
 	/* sensor mount angle */
 	uint32_t            sensor_mount_angle;
-	int					ois_supported; /* LGE_CHANGE, OIS validity, 2013-06-26, kh.kang@lge.com */
+	int					ois_supported; /*                                                       */
 };
 
 struct sensorb_cfg_data {
@@ -389,7 +389,7 @@ struct sensorb_cfg_data {
 	union {
 		struct msm_sensor_info_t      sensor_info;
 		struct msm_sensor_init_params sensor_init_params;
-		struct msm_sensor_ois_info_t	ois_info;	/* LGE_CHANGE, OIS stats, 2013-04-09, sungmin.woo@lge.com */
+		struct msm_sensor_ois_info_t	ois_info;	/*                                                        */
 		void                         *setting;
 	} cfg;
 };
@@ -468,11 +468,11 @@ enum msm_sensor_cfg_type_t {
 	CFG_SET_WHITE_BALANCE,
 	CFG_SET_AUTOFOCUS,
 	CFG_CANCEL_AUTOFOCUS,
-	CFG_OIS_ON,					/* LGE_CHANGE, OIS, 2013-03-11, sungmin.woo@lge.com */
-	CFG_OIS_OFF,				/* LGE_CHANGE, OIS, 2013-03-11, sungmin.woo@lge.com */
-	CFG_GET_OIS_INFO,			/* LGE_CHANGE, OIS stats, 2013-04-09, sungmin.woo@lge.com */
-	CFG_SET_OIS_MODE,   		/* LGE_CHANGE, OIS interface, 2013-05-29, kh.kang@lge.com */
-	CFG_OIS_MOVE_LENS			/* LGE_CHANGE, OIS interface, 2013-06-20, kh.kang@lge.com */
+	CFG_OIS_ON,					/*                                                  */
+	CFG_OIS_OFF,				/*                                                  */
+	CFG_GET_OIS_INFO,			/*                                                        */
+	CFG_SET_OIS_MODE,   		/*                                                        */
+	CFG_OIS_MOVE_LENS			/*                                                        */
 };
 
 enum msm_actuator_cfg_type_t {
@@ -606,17 +606,17 @@ enum msm_camera_led_config_t {
 	MSM_CAMERA_LED_HIGH,
 	MSM_CAMERA_LED_INIT,
 	MSM_CAMERA_LED_RELEASE,
-/*LGE_CHANGE S, Use AIS algo., 2013-10-25, jungpyo.hong@lge.com */
+/*                                                              */
 	MSM_CAMERA_LED_HIGH_20P,
 	MSM_CAMERA_LED_HIGH_40P,
 	MSM_CAMERA_LED_HIGH_60P,	
 	MSM_CAMERA_LED_HIGH_80P,	
-/*LGE_CHANGE E, Use AIS algo., 2013-10-25, jungpyo.hong@lge.com */
+/*                                                              */
 
-#if 1 //"defined(CONFIG_MACH_LGE)" cannot be used here
-/* LGE_CHANGE
- * Separate pre-flash and torch mode
- *  2013-10-02, jinw.kim@lge.com
+#if 1 //                                              
+/*           
+                                    
+                                
  */
 	MSM_CAMERA_LED_TORCH,	//For torch, Video recording
 #endif

@@ -24,9 +24,9 @@
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/power_supply.h>
 #include <linux/bitops.h>
-/* LGE_CHANGE_S [jongbum.kim@lge.com] 2012-11-12 */
+/*                                               */
 #include "../../arch/arm/mach-msm/smd_private.h"
-/* LGE_CHANGE_E [jongbum.kim@lge.com] 2012-11-12 */
+/*                                               */
 #ifdef CONFIG_LGE_PM
 #include <mach/board_lge.h>
 #include <linux/max17048_battery.h>
@@ -244,36 +244,36 @@ struct qpnp_chg_chip {
 	struct power_supply		*bms_psy;
 	struct power_supply		batt_psy;
 	uint32_t			flags;
-/* BEGIN : janghyun.baek@lge.com 2012-12-26 For cable detection*/
+/*                                                             */
 #ifdef CONFIG_LGE_PM
 	unsigned int                    ac_online;
 	unsigned int                    current_max;
 #endif
-/* END : janghyun.baek@lge.com 2012-12-26 */
+/*                                        */
 	struct qpnp_vadc_chip       *vadc_dev;
 };
 
-/* [LGE_CHANGE_S] kinam119.kim@lge.com, user space parameter to set iusb max current */
+/*                                                                                   */
 #ifdef CONFIG_LGE_PM
 static unsigned int cur_max_user;
 module_param(cur_max_user, uint, S_IRUGO | S_IWUSR);
 #endif
-/* [LGE_CHANGE_E] kinam119.kim@lge.com */
+/*                                     */
 
-/* BEGIN : janghyun.baek@lge.com 2013-01-25 For factory cable detection */
+/*                                                                      */
 #ifdef CONFIG_LGE_PM
 #define LT_CABLE_56K                6
 #define LT_CABLE_130K               7
 #define LT_CABLE_910K		    	11
 #endif
-/* END : janghyun.baek@lge.com 2013-01-25 */
+/*                                        */
 
 static struct of_device_id qpnp_charger_match_table[] = {
 	{ .compatible = QPNP_CHARGER_DEV_NAME, },
 	{}
 };
 
-/* BEGIN : janghyun.baek@lge.com 2013-01-25 For factory cable detection */
+/*                                                                      */
 #ifdef CONFIG_LGE_PM
 static struct qpnp_chg_chip *qpnp_chg;
 static unsigned int cable_type;
@@ -292,7 +292,7 @@ static bool is_factory_cable(void)
 	else
 		return 0;
 }
-/* END : janghyun.baek@lge.com 2013-01-25 */
+/*                                        */
 
 int32_t qpnp_charger_is_ready(void)
 {
@@ -799,7 +799,7 @@ qpnp_power_set_property_mains(struct power_supply *psy,
 		chip->ac_online = val->intval;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		/* [LGE_CHANGE] kinam119.kim@lge.com, user space parameter to set iusb max current */
+		/*                                                                                 */
 		if (cur_max_user > 0)
 			chip->current_max = cur_max_user * 1000;
 		else
@@ -1151,7 +1151,7 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 		}
 	}
 
-/* BEGIN : janghyun.baek@lge.com 2013-01-25 Draw max current when factory cable inserted */
+/*                                                                                       */
 #ifdef CONFIG_LGE_PM
 	if(is_factory_cable()){
 		qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MAX_MA);
@@ -1160,7 +1160,7 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 		return;
 	}
 #endif
-/* END : janghyun.baek@lge.com 2013-01-25 */
+/*                                        */
 
 	chip->usb_psy->get_property(chip->usb_psy,
 			  POWER_SUPPLY_PROP_ONLINE, &ret);
@@ -1173,7 +1173,7 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 			qpnp_chg_usb_suspend_enable(chip, 1);
 		else
 			qpnp_chg_usb_suspend_enable(chip, 0);
-/* BEGIN : janghyun.baek@lge.com 2012-12-26 To check AC connection */
+/*                                                                 */
 #ifdef CONFIG_LGE_PM
 	} else if (chip->ac_online && qpnp_chg_is_usb_chg_plugged_in(chip)) {
 		qpnp_chg_iusbmax_set(chip, chip->current_max / 1000);
@@ -1182,7 +1182,7 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 		else
 			qpnp_chg_usb_suspend_enable(chip, 0);
 #endif
-/* END : janghyun.baek@lge.com 2012-12-26 */
+/*                                        */
 	} else {
 		qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MIN_100);
 		qpnp_chg_usb_suspend_enable(chip, 0);
@@ -1654,14 +1654,14 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 }
 
 #ifdef CONFIG_LGE_PM
-/* LGE_CHANGE_S [jongbum.kim@lge.com] 2012-11-12 */
+/*                                               */
 static unsigned int cable_smem_size;
 unsigned int lge_chg_cable_type(void)
 {
 	return cable_type;
 }
 EXPORT_SYMBOL(lge_chg_cable_type);
-/* LGE_CHANGE_E [jongbum.kim@lge.com] 2012-11-12 */
+/*                                               */
 #endif
 
 static int __devinit
@@ -1673,7 +1673,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	struct spmi_resource *spmi_resource;
 	int rc = 0;
 #ifdef CONFIG_LGE_PM
-	/* LGE_CHANGE_S [jongbum.kim@lge.com] 2012-11-12 */
+	/*                                               */
 	unsigned int *p_cable_type = (unsigned int *)
 		(smem_get_entry(SMEM_ID_VENDOR1, &cable_smem_size));
 
@@ -1683,7 +1683,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		cable_type = 0;
 
 	printk(KERN_INFO "cable_type is = %d\n", cable_type);
-	/* LGE_CHANGE_E [jongbum.kim@lge.com] 2012-11-12 */
+	/*                                               */
 #endif
 
 	chip = kzalloc(sizeof *chip, GFP_KERNEL);
@@ -1701,11 +1701,11 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		rc = -EPROBE_DEFER;
 		goto fail_chg_enable;
 	}
-/* BEGIN : janghyun.baek@lge.com 2012-12-26 get cable info from DeviceTree */
+/*                                                                         */
 #ifdef CONFIG_LGE_PM
 	get_cable_data_from_dt(spmi->dev.of_node);
 #endif
-/* END : janghyun.baek@lge.com 2012-12-26 */
+/*                                        */
 
 	/* Get the vddmax property */
 	rc = of_property_read_u32(spmi->dev.of_node, "qcom,vddmax-mv",
@@ -1929,17 +1929,17 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	}
 	dev_set_drvdata(&spmi->dev, chip);
 	device_init_wakeup(&spmi->dev, 1);
-/* BEGIN : janghyun.baek@lge.com 2013-01-25 Draw max current when factory cable inserted */
+/*                                                                                       */
 #ifdef CONFIG_LGE_PM
 	if(is_factory_cable()){
 		pr_info("Factory cable is detected, set IUSB to MAX.\n");
 		qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MAX_MA);
 	}
-/* END : janghyun.baek@lge.com 2013-01-25 */
+/*                                        */
 
 #ifdef CONFIG_LGE_PM
-/* BEGIN : yeonhwa.so@lge.com 2013-02-12 Initialize BATT PSY Get prop func
-*If MAX17048 is removed, we modify and use it*/
+/*                                                                        
+                                             */
 	if ( HW_REV_A <= lge_get_board_revno()) {
 		get_prop_capacity
 			= gauge_ic_func_array[MAX17048_TYPE].get_prop_cap_func;
@@ -1952,7 +1952,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		get_prop_battery_voltage_now
 			= gauge_ic_func_array[BMS_TYPE].get_prop_battery_vol_func;
 	}
-/* END :  yeonhwa.so@lge.com 2013-02-12 */
+/*                                      */
 #endif
 #endif
 
@@ -1985,7 +1985,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	}
 
 	if (chip->dc_chgpth_base) {
-		/* 120131 mansu.lee@lge.com Use QCT DC PSY to LGE AC(TA) PSY for code Optimization */
+		/*                                                                                 */
 #ifdef CONFIG_LGE_PM
 		chip->dc_psy.name = "ac";
 #else

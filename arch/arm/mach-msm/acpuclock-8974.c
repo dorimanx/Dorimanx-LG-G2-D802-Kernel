@@ -96,7 +96,7 @@ static struct scalable scalable[] __initdata = {
 	},
 };
 
-/* LGE_CHANGE_S support factory process without battery */
+/*                                                      */
 #ifdef CONFIG_MACH_MSM8974_VU3_KR
 #include "lge/acpuclock-vu3-factory.h"
 #else 
@@ -878,7 +878,7 @@ static struct pvs_table pvs_v2_lge_factory[NUM_PVS_REVS][NUM_SPEED_BINS][NUM_PVS
 	[0][2][7] = { acpu_freq_tbl_2p2g_pvs6_lge_factory, sizeof(acpu_freq_tbl_2p2g_pvs6_lge_factory) },
 
 };
-/* LGE_CHANGE_S support factory process without battery */
+/*                                                      */
 
 static struct msm_bus_paths bw_level_tbl[] __initdata = {
 	[0] =  BW_MBPS(600), /* At least  75 MHz on bus. */
@@ -3190,7 +3190,7 @@ static struct msm_bus_scale_pdata bus_scale_data __initdata = {
 	.name = "acpuclk-8974",
 };
 
-/* LGE_CHANGE_S support factory process without battery */
+/*                                                      */
 static struct acpuclk_krait_params acpuclk_8974_params_lge_factory __initdata = {
 	.scalable = scalable,
 	.scalable_size = sizeof(scalable),
@@ -3203,7 +3203,7 @@ static struct acpuclk_krait_params acpuclk_8974_params_lge_factory __initdata = 
 	.get_bin_info = get_krait_bin_format_b,
 	.stby_khz = 300000,
 };
-/* LGE_CHANGE_S support factory process without battery */
+/*                                                      */
 
 static struct acpuclk_krait_params acpuclk_8974_params __initdata = {
 	.scalable = scalable,

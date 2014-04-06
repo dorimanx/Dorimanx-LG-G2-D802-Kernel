@@ -1,12 +1,12 @@
-/*****************************************************************************
- File name : tdmb_tunerbbdrv_fc8080def.h
+/*                                                                            
+                                        
 
- Description : FC8080 Driver Header File
+                                        
 
- History :
- ----------------------------------------------------------------------
- Mar. 10,  2009 :   FCI release for LGE MC
-*******************************************************************************/
+          
+                                                                       
+                                          
+                                                                              */
 #ifndef	__TUNERBB_DRV_FC8080_H__
 #define	__TUNERBB_DRV_FC8080_H__
 /*
@@ -92,7 +92,7 @@ typedef enum	fc8080_service_type
 	FC8080_DMB = 2,
 	FC8080_VISUAL =3,
 	FC8080_DATA,
-	FC8080_ENSQUERY = 6,	/* LGE Added */
+	FC8080_ENSQUERY = 6,	/*           */
 	FC8080_BLT_TEST = 9,
 	FC8080_SERVICE_MAX
 } fc8080_service_type;

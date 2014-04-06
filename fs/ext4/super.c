@@ -663,9 +663,9 @@ void __ext4_abort(struct super_block *sb, const char *function,
 		save_error_info(sb, function, line);
 	#ifdef CONFIG_MACH_LGE
 	/*
-	2013-07-06, G2-FS@lge.com
-	put panic when FS is re-mounted as Read Only
-	*/
+                          
+                                             
+ */
 	panic("EXT4-fs panic from previous error. remounted as RO \n");
 	#endif
 
@@ -1829,9 +1829,9 @@ static int ext4_setup_super(struct super_block *sb, struct ext4_super_block *es,
 	if (le32_to_cpu(es->s_rev_level) > EXT4_MAX_SUPP_REV) {
 		ext4_msg(sb, KERN_ERR, "revision level too high, "
 			 "forcing read-only mode");
-		/*LGE_CHANGE G2-FS@lge.com */
+		/*                         */
 		res = MS_RDONLY;
-		/*LGE_CHANGE G2-FS@lge.com */
+		/*                         */
 	}
 	if (read_only)
 		goto done;
@@ -3698,8 +3698,8 @@ cantfind_ext4:
 		ext4_msg(sb, KERN_ERR, "VFS: Can't find ext4 filesystem");
 #ifdef CONFIG_MACH_LGE
 /*
-2013-06-14, G2-FS@lge.com
-add return code if ext4 superblock is damaged
+                         
+                                             
 */
 	ret = -ESUPER;
 #endif
@@ -4280,9 +4280,9 @@ static int ext4_remount(struct super_block *sb, int *flags, char *data)
 	char *orig_data = kstrdup(data, GFP_KERNEL);
 
 #ifdef CONFIG_MACH_LGE
-	/* LGE_UPDATE, 2013/05/07, G2-FS@lge.com
-	 * For more information
-	 */
+	/*                                      
+                        
+  */
 	if (*flags & MS_RDONLY)
 		ext4_msg(sb, KERN_INFO, "re-mount start. with ro");
 	else

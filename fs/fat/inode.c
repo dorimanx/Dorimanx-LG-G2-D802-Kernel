@@ -242,7 +242,7 @@ static const struct address_space_operations fat_aops = {
 	.bmap		= _fat_bmap
 };
 
-/*2013-05-02 Hyoungtaek-Lim[hyoungtaek.lim@lge.com)[g2/vmware/vzw,att]VMware Switch [START]*/
+/*                                                                                         */
 #ifdef CONFIG_LGE_B2B_VMWARE
 int _fat_fallocate(struct inode *inode, loff_t len)
 {
@@ -309,7 +309,7 @@ int _fat_fallocate(struct inode *inode, loff_t len)
 	return err;
 }
 #endif
-/*2013-05-02 Hyoungtaek-Lim[hyoungtaek.lim@lge.com)[g2/vmware/vzw,att]VMware Switch [END]*/
+/*                                                                                       */
 
 /*
  * New FAT inode stuff. We do the following:

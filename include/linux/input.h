@@ -472,7 +472,7 @@ struct input_keymap_entry {
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
 #if defined CONFIG_MACH_MSM8974_VU3_KR
-#define KEY_QUICK_CLIP	250 /*LGE Quick clip button*/
+#define KEY_QUICK_CLIP	250 /*                     */
 #endif
 /* Code 255 is reserved for special needs of AT keyboard driver */
 

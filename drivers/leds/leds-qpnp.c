@@ -1252,7 +1252,7 @@ static int qpnp_mpp_set(struct qpnp_led_data *led)
 
 	return 0;
 }
-/* LGE_CHANGE_S, Re-define the function to use workaround code 2013-06-27, jinw.kim@lge.com */
+/*                                                                                          */
 #if defined(CONFIG_MACH_MSM8974_G2_KDDI) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_B1_KR) /* QMC original */
 static int qpnp_flash_regulator_operate(struct qpnp_led_data *led, bool on)
 {
@@ -1428,7 +1428,7 @@ regulator_turn_off:
 	return rc;
 }
 #endif
-/* LGE_CHANGE_E, Re-define the function to use workaround code 2013-06-27, jinw.kim@lge.com */
+/*                                                                                          */
 
 static int qpnp_torch_regulator_operate(struct qpnp_led_data *led, bool on)
 {
@@ -1480,12 +1480,12 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 		led->flash_cfg->current_prgm =
 			(val * FLASH_MAX_LEVEL / led->max_current);
 
-/* LGE_CHANGE_S, Workaround code to set flash current as 1.2A, 2013-05-09, jinw.kim@lge.com */
+/*                                                                                          */
 #if 0
 	led->flash_cfg->current_prgm =
 		led->flash_cfg->current_prgm >> FLASH_CURRENT_PRGM_SHIFT;
 #endif
-/* LGE_CHANGE_E, Workaround code to set flash current as 1.2A, 2013-05-09, jinw.kim@lge.com */
+/*                                                                                          */
 
 	if (!led->flash_cfg->current_prgm)
 		led->flash_cfg->current_prgm = FLASH_CURRENT_PRGM_MIN;
@@ -1531,10 +1531,10 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 				goto error_reg_write;
 			}
 
-			/* LGE_CHANGE_S, To set lowest flash current for DCM, 2013-07-08, jinw.kim@lge.com */
+			/*                                                                                 */
 			if (val == 1)
 				led->flash_cfg->current_prgm = 0;
-			/* LGE_CHANGE_E, To set lowest flash current for DCM, 2013-07-08, jinw.kim@lge.com */
+			/*                                                                                 */
 
 			rc = qpnp_led_masked_write(led,
 				led->flash_cfg->current_addr,
@@ -1851,7 +1851,7 @@ static int qpnp_kpdbl_set(struct qpnp_led_data *led)
 			dev_err(&led->spmi_dev->dev, "pwm enable failed\n");
 			return rc;
 		}
-		/* workaround for KPDBL_LUT_RAMP_CONTROL, wonjong.shin@lge.com */
+		/*                                                             */
 		if (led->kpdbl_cfg->pwm_cfg->mode == LPG_MODE) {
 			rc = qpnp_led_masked_write(led, 0xE3C8, 0xFF, 0x03);
 			if (rc) {
@@ -2950,7 +2950,7 @@ static int __devinit qpnp_flash_init(struct qpnp_led_data *led)
 		return rc;
 	}
 
-/* LGE_CHANGE_S, Set threshold for flash when battery is low, 2013-06-28, jinw.kim@lge.com */
+/*                                                                                         */
 	/* Set FLASH_VPH_PWR_DROOP
 	 * 7  	: 	0 = do not us this feature, 1 = enable this feature
 	 * 6:4	:	000 = 2.5V       011 = 2.8V           110 = 3.1V
@@ -2964,7 +2964,7 @@ static int __devinit qpnp_flash_init(struct qpnp_led_data *led)
 			"FLASH_VPH_PWR_DROOP reg write failed(%d)\n", rc);
 		return rc;
 	}
-/* LGE_CHANGE_E, Set threshold for flash when battery is low, 2013-06-28, jinw.kim@lge.com */
+/*                                                                                         */
 
 	led->flash_cfg->strobe_type = 0;
 
@@ -3471,7 +3471,7 @@ static int __devinit qpnp_get_config_pwm(struct pwm_config_data *pwm_cfg,
 	else
 		return rc;
 
-/* for led mode change. wonjong.shin@lge.com*/
+/*                                          */
 #if 0
 	if (pwm_cfg->mode == PWM_MODE) {
 #endif

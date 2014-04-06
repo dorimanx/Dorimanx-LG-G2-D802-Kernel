@@ -147,18 +147,18 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_BAT_REMOVED,
 #endif
 #if defined(CONFIG_LGE_CURRENTNOW)
-	/* kwangdo.yi@lge.com [jointlab] Wed 27 Mar 2013 S
-	   added for current now virtual driver
+	/*                                                
+                                        
 */
 	POWER_SUPPLY_PROP_VIRT_CURRENT_NOW,
 	POWER_SUPPLY_PROP_VIRT_ENABLE_BMS,
-	/* kwangdo.yi@lge.com [jointlab] Wed 27 Mar 2013 E */
+	/*                                                 */
 #endif
 #ifdef CONFIG_FTT_CHARGER_V3
 	POWER_SUPPLY_PROP_FTT_ANNTENA_LEVEL,
 #endif
 #ifdef CONFIG_MAX17050_FUELGAUGE
-/*junnyoung.jang@lge.com 20130326 Add battery condition */
+/*                                                      */
 	POWER_SUPPLY_PROP_BATTERY_CONDITION,
 	POWER_SUPPLY_PROP_BATTERY_AGE,
 #endif

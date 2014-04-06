@@ -1,10 +1,10 @@
 
-/* LGE_CHANGE_S
- *
- * do read/mmap profiling during booting
- * in order to use the data as readahead args
- *
- * matia.kim@lge.com 20130403
+/*             
+  
+                                        
+                                             
+  
+                             
  */
 #include "mount.h"
 #include "ext4/ext4.h"
@@ -185,7 +185,7 @@ static int get_absolute_path(unsigned char *buf, int buflen, struct file *filp)
 		tmpoldmnt = tmpmnt;
 		while (!IS_ROOT(tmpdentry)) {
 			strcpy(tmpstr, buf);
-			/* byungchul.park@lge.com */
+			/*                        */
 			/* make codes robust */
 			strncpy(buf, tmpdentry->d_name.name, buflen - 1);
 			buf[buflen - 1] = '\0';
@@ -206,7 +206,7 @@ static int get_absolute_path(unsigned char *buf, int buflen, struct file *filp)
 	} while (tmpmnt != tmpoldmnt);
 	strcpy(tmpstr, buf);
 	strcpy(buf, "/");
-	/* byungchul.park@lge.com */
+	/*                        */
 	/* make codes robust */
 	if (strlen(buf) + strlen(tmpstr) > buflen - 1)
 		return -1;
@@ -305,4 +305,4 @@ int sreadahead_prof(struct file *filp, size_t len, loff_t pos)
 	}
 	return 0;
 }
-/* LGE_CHANGE_E */
+/*              */

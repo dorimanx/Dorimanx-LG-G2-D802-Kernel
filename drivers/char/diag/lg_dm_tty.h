@@ -22,4 +22,4 @@ struct dm_tty {
 extern struct dm_tty *lge_dm_tty;
 
 #endif
-#endif /*TTY_LGE_DM_H_ */
+#endif /*              */

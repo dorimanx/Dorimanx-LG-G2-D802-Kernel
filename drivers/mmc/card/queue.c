@@ -200,9 +200,9 @@ static struct scatterlist *mmc_alloc_sg(int sg_len, int *err)
 	struct scatterlist *sg;
 
 	#ifdef CONFIG_MACH_LGE
-		/* LGE_CHANGE, 2013-07-09, G2-FS@lge.com
-		* In case of alloc-fail, we add '__GFP_NOFAIL'.
-		*/
+		/*                                      
+                                                 
+  */
 		sg = kmalloc(sizeof(struct scatterlist)*sg_len, GFP_KERNEL|__GFP_NOFAIL);
 	#else
 	sg = kmalloc(sizeof(struct scatterlist)*sg_len, GFP_KERNEL);

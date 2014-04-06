@@ -741,7 +741,7 @@ long isdbt_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			{
 				struct broadcast_dmb_set_ch_info udata;
 				u32 f_rf;
-				//PRINTF(0, "LGE_BROADCAST_DMB_IOCTL_SET_CH \n");
+				//                                               
 
 				if(copy_from_user(&udata, argp, sizeof(struct broadcast_dmb_set_ch_info)))
 				{
@@ -786,7 +786,7 @@ long isdbt_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 		case LGE_BROADCAST_DMB_IOCTL_GET_SIG_INFO:
 			{
 				struct broadcast_dmb_sig_info udata;
-				//PRINTF(0, "LGE_BROADCAST_DMB_IOCTL_GET_SIG_INFO \n");
+				//                                                     
 
 				isdbt_get_signal_info(hInit, &isdbt_signal_info.lock, &isdbt_signal_info.ber, &isdbt_signal_info.per, &isdbt_signal_info.rssi, &isdbt_signal_info.cn);
 
@@ -825,7 +825,7 @@ long isdbt_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 
 		case LGE_BROADCAST_DMB_IOCTL_GET_DMB_DATA:
-			//PRINTF(0, "LGE_BROADCAST_DMB_IOCTL_GET_DMB_DATA \n");
+			//                                                     
 			res = ioctl_isdbt_read(hOpen,argp);
 			break;
 		case LGE_BROADCAST_DMB_IOCTL_OPEN:

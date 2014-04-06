@@ -309,7 +309,7 @@ static struct delayed_work check_usb_configuration_work;
 #define USB_REDRIVER_VOL_MAX		3300000 /* uV */
 #endif
 
-/* LGE_CHANGE, Need to check */
+/*                           */
 #ifdef CONFIG_LGE_PM
 static struct dwc3_msm *context;
 #endif
@@ -2013,7 +2013,7 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 			mdwc->chg_state = USB_CHG_STATE_DETECTED;
 			delay = 0;
 		}
-/* BEGIN : janghyun.baek@lge.com 2012-12-26 For cable detection*/
+/*                                                             */
 #ifdef CONFIG_LGE_PM
 		lge_pm_read_cable_info();
 #ifdef CONFIG_BU52031NVX_CARKIT
@@ -2022,7 +2022,7 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 			carkit_set_deskdock(1);
 #endif /* CONFIG_BU52031NVX_CARKIT */
 #endif
-/* END : janghyun.baek@lge.com 2012-12-26 */
+/*                                        */
 		break;
 	case USB_CHG_STATE_PRIMARY_DONE:
 		vout = dwc3_chg_det_check_output(mdwc);
@@ -3198,7 +3198,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, mdwc);
 
-/* LGE_CHANGE, Need to check */
+/*                           */
 #ifdef CONFIG_LGE_PM
 	context = mdwc;
 #endif

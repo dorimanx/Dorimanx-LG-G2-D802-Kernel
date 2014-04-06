@@ -248,7 +248,7 @@ EXPORT_SYMBOL_GPL(device_bind_driver);
 static atomic_t probe_count = ATOMIC_INIT(0);
 static DECLARE_WAIT_QUEUE_HEAD(probe_waitqueue);
 
-//#define CONFIG_LGE_PROBE_TIME_PROFILING    1
+//                                            
 static int really_probe(struct device *dev, struct device_driver *drv)
 {
 	int ret = 0;

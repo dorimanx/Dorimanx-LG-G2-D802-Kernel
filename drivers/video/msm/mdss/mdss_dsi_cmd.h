@@ -31,9 +31,9 @@ struct mdss_dsi_ctrl_pdata;
 #define MDSS_DSI_MRPS	0x04  /* Maximum Return Packet Size */
 
 #ifdef CONFIG_LGE_ESD_CHECK
-/* LGE_CHANGE_S
-* change code for ESD check
-* 2013-04-08, seojin.lee@lge.com
+/*             
+                           
+                                
 */
 #define MDSS_DSI_LEN 44
 #else

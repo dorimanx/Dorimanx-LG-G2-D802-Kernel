@@ -1485,9 +1485,9 @@ static int bq24192_get_prop_batt_current_now(struct bq24192_chip *chip)
 #else /* CONFIG_ADC_READY_CHECK_JB */
 	return DEFAULT_CURRENT;
 #endif /* CONFIG_ADC_READY_CHECK_JB */
-#else /* CONFIG_LGE_CURRENTNOW */
+#else /*                       */
 	return DEFAULT_CURRENT;
-#endif /* CONFIG_LGE_CURRENTNOW */
+#endif /*                       */
 }
 
 #define DEFAULT_FULL_DESIGN	2500
@@ -1608,11 +1608,11 @@ static int bq24192_batt_power_get_property(struct power_supply *psy,
 #endif
 		break;
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
-		/* it makes ibat max set following themral mitigation.
-		 * But, SMB349 cannot control ibat current like PMIC.
-		 * if LGE charging scenario make charging thermal control,
-		 * it is good interface to use LG mitigation level.
-		 */
+		/*                                                    
+                                                       
+                                                            
+                                                     
+   */
 		val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_PSEUDO_BATT:
@@ -1714,11 +1714,11 @@ static int bq24192_batt_power_set_property(struct power_supply *psy,
 		bq24192_enable_charging(chip, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
-		/* it makes ibat max set following themral mitigation.
-		 * But, SMB349 cannot control ibat current like PMIC.
-		 * if LGE charging scenario make charging thermal control,
-		 * it is good interface to use LG mitigation level.
-		 */
+		/*                                                    
+                                                       
+                                                            
+                                                     
+   */
 		break;
 	default:
 		return -EINVAL;

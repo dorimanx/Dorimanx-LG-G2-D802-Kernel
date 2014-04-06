@@ -130,11 +130,11 @@ int msm_isp_update_bandwidth(enum msm_isp_hw_client client,
 	mutex_lock(&bandwidth_mgr_mutex);
 	if (!isp_bandwidth_mgr.use_count ||
 		!isp_bandwidth_mgr.bus_client) {
-/*QCT_PATCH S, fix lockup when start camera with 13M resolution, 2013-10-31, yt.kim@lge.com */
+/*                                                                                          */
 		pr_err("%s:error bandwidth manager inactive use_cnt:%d bus_clnt:%d\n",
 			__func__, isp_bandwidth_mgr.use_count,
 			isp_bandwidth_mgr.bus_client);
-/*QCT_PATCH E, fix lockup when start camera with 13M resolution, 2013-10-31, yt.kim@lge.com */
+/*                                                                                          */
 		return -EINVAL;
 	}
 
@@ -171,10 +171,10 @@ void msm_isp_deinit_bandwidth_mgr(enum msm_isp_hw_client client)
 	}
 
 	if (!isp_bandwidth_mgr.bus_client) {
-/*QCT_PATCH S, fix lockup when start camera with 13M resolution, 2013-10-31, yt.kim@lge.com */		
+/*                                                                                          */		
 		pr_err("%s:%d error: bus client invalid\n", __func__, __LINE__);
 		mutex_unlock(&bandwidth_mgr_mutex);
-/*QCT_PATCH E, fix lockup when start camera with 13M resolution, 2013-10-31, yt.kim@lge.com */		
+/*                                                                                          */		
 		return;
 	}
 
@@ -516,7 +516,7 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 			reg_cfg_cmd->u.mask_info.reg_offset);
 		break;
 	}
-/* LGE_CHANGE_S, jaehan.jeong, 2013.11.8, Applied QCT patch CN#01252253 - page fault in case of 64BIT_DMI, [STARTS HERE] */
+/*                                                                                                                       */
 #if 0 //QCT Original
 	case VFE_WRITE_DMI_16BIT:
 	case VFE_WRITE_DMI_32BIT:
@@ -631,7 +631,7 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 		break;
 	}
 #endif
-/* LGE_CHANGE_E, jaehan.jeong, 2013.11.8, Applied QCT patch CN#01252253 - page fault in case of 64BIT_DMI,  [ENDS HERE] */
+/*                                                                                                                      */
 	case VFE_READ_DMI_16BIT:
 	case VFE_READ_DMI_32BIT:
 	case VFE_READ_DMI_64BIT: {

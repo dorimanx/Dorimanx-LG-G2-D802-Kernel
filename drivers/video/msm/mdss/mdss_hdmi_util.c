@@ -104,7 +104,7 @@ void hdmi_setup_video_mode_lut(void)
 	MSM_HDMI_MODES_SET_SUPP_TIMINGS(
 		hdmi_supported_video_mode_lut, MSM_HDMI_MODES_CEA);
 
-/*LGE_CHANGE : Disable Not-Supported Timing by anx7808*/
+/*                                                    */
 	/* Add all supported extended hdmi modes to the lut */
 	/*MSM_HDMI_MODES_SET_SUPP_TIMINGS(
 		hdmi_supported_video_mode_lut, MSM_HDMI_MODES_XTND);*/

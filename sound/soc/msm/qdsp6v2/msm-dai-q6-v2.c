@@ -100,13 +100,13 @@ static const struct soc_enum mi2s_config_enum[] = {
 	SOC_ENUM_SINGLE_EXT(4, mi2s_format),
 };
 
-/* LGE_CHANGE_S - QCT patch (case #01013176)
-*  add "aux_tx, aux_rx" to prevent unexpected close of AUX-AFE and clock disable
-*  2012-11-10, donggyun.kim@lge.com
+/*                                          
+                                                                                
+                                   
 */
 static int aux_tx;
 static int aux_rx;
-/* LGE_CHANGE_E */
+/*              */
 
 static int msm_dai_q6_auxpcm_hw_params(
 				struct snd_pcm_substream *substream,
@@ -202,10 +202,10 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 		dev_get_drvdata(dai->dev);
 
 	mutex_lock(&aux_dai_data->rlock);
-	/* LGE_CHANGE_S - QCT patch (case #01013176)
-	*  add "aux_tx, aux_rx" to prevent unexpected close of AUX-AFE and clock disable
-	*  2012-11-10, donggyun.kim@lge.com
-	*/
+	/*                                          
+                                                                                 
+                                    
+ */
 	if (dai->id == AFE_PORT_ID_SECONDARY_PCM_RX)
 		aux_rx--;
 	else if (dai->id == AFE_PORT_ID_SECONDARY_PCM_TX)
@@ -218,7 +218,7 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 		aux_tx = 0;
 		goto exit;	
 	}
-	/* LGE_CHANGE_E */
+	/*              */
 
 	if (!(test_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status) ||
 	      test_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status))) {
@@ -270,13 +270,13 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 	afe_set_lpass_clock(aux_dai_data->rx_pid, lpass_pcm_src_clk);
 	afe_set_lpass_clock(aux_dai_data->tx_pid, lpass_pcm_src_clk);
 
-	/* LGE_CHANGE_S - QCT patch (case #01013176)
-	*  add "aux_tx, aux_rx" to prevent unexpected close of AUX-AFE and clock disable
-	*  2012-11-10, donggyun.kim@lge.com
-	*/
+	/*                                          
+                                                                                 
+                                    
+ */
 	aux_rx = 0;
 	aux_tx = 0;
-	/* LGE_CHANGE_E */
+	/*              */
 
 exit:
 	mutex_unlock(&aux_dai_data->rlock);
@@ -298,15 +298,15 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 	lpass_pcm_src_clk = (struct afe_clk_cfg *) &aux_dai_data->clk_cfg;
 
 	mutex_lock(&aux_dai_data->rlock);
-	/* LGE_CHANGE_S - QCT patch (case #01013176)
-	*  add "aux_tx, aux_rx" to prevent unexpected close of AUX-AFE and clock disable
-	*  2012-11-10, donggyun.kim@lge.com
-	*/
+	/*                                          
+                                                                                 
+                                    
+ */
 	if (dai->id == AFE_PORT_ID_SECONDARY_PCM_RX)
 		aux_rx++;
 	else if (dai->id == AFE_PORT_ID_SECONDARY_PCM_TX)
 		aux_tx++;
-	/* LGE_CHANGE_E */
+	/*              */
 
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		if (test_bit(STATUS_TX_PORT,

@@ -18,7 +18,7 @@
 #include <mach/lge_charging_scenario.h>
 #include <linux/string.h>
 
-/* For LGE charging scenario debug */
+/*                                 */
 #ifdef DEBUG_LCS
 /* For fake battery temp' debug */
 #ifdef DEBUG_LCS_DUMMY_TEMP

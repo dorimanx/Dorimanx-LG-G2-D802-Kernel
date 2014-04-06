@@ -271,9 +271,9 @@ struct msm_mctl_post_proc_cmd {
 #define MSM_CAMERA_LED_RELEASE 4
 
 #if defined(CONFIG_MACH_LGE)
-/* LGE_CHANGE
- * Separate pre-flash and torch mode
- *  2013-10-02, jinw.kim@lge.com
+/*           
+                                    
+                                
  */
 #define MSM_CAMERA_LED_TORCH 5
 #endif
@@ -1313,7 +1313,7 @@ enum msm_sensor_resolution_t {
 	MSM_SENSOR_RES_5,
 	MSM_SENSOR_RES_6,
 	MSM_SENSOR_RES_7,
-	MSM_SENSOR_RES_8,	 // LGE_CHANGE, add res table new feature, 2013-11-22, youngil.yun@lge.com
+	MSM_SENSOR_RES_8,	 //                                                                       
 	MSM_SENSOR_INVALID_RES,
 };
 

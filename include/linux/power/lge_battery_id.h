@@ -30,5 +30,5 @@ struct lge_battery_id_platform_data {
 	uint pullup;
 	uint batt_info;
 };
-#endif  /* __LGE_BATTERY_ID_H__ */
+#endif  /*                      */
 

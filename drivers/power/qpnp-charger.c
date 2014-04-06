@@ -473,7 +473,7 @@ static struct of_device_id qpnp_charger_match_table[] = {
 	{}
 };
 
-/* BEGIN : janghyun.baek@lge.com 2013-01-25 For factory cable detection */
+/*                                                                      */
 #ifdef CONFIG_LGE_PM
 static struct qpnp_chg_chip *qpnp_chg;
 static unsigned int cable_type;
@@ -486,7 +486,7 @@ static bool is_factory_cable(void)
 	else
 		return 0;
 }
-/* END : janghyun.baek@lge.com 2013-01-25 */
+/*                                        */
 int pseudo_batt_set(struct pseudo_batt_info_type *info)
 {
 	struct qpnp_chg_chip *chip = qpnp_chg;
@@ -2271,7 +2271,7 @@ power_set_property_mains(struct power_supply *psy,
 		chip->ac_online = val->intval;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		/* [LGE_CHANGE] kinam119.kim@lge.com, user space parameter to set iusb max current */
+		/*                                                                                 */
 		if (cur_max_user > 0)
 			chip->current_max = cur_max_user * 1000;
 		else

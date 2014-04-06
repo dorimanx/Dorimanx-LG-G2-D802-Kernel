@@ -21,9 +21,9 @@
 #define DEV_DBG(fmt, args...)   pr_info(fmt, ##args)
 #endif
 
-/* LGE_CHANGE,
- * add bridge function which can offer edid info from slimport device
- * 2012-12-06, jihyun.seong@lge.com
+/*            
+                                                                     
+                                   
  */
 #ifdef CONFIG_SLIMPORT_ANX7808
 extern int slimport_read_edid_block(int block, uint8_t *edid_buf);
@@ -423,9 +423,9 @@ static int hdmi_edid_read_block(struct hdmi_edid_ctrl *edid_ctrl, int block,
 {
 	const u8 *b = NULL;
 	u32 ndx, check_sum, print_len;
-/* LGE_CHANGE,
- * add bridge function which can offer edid info from slimport device
- * 2012-12-06, jihyun.seong@lge.com
+/*            
+                                                                     
+                                   
  */
 #ifdef CONFIG_SLIMPORT_ANX7808
 	int status;
@@ -442,9 +442,9 @@ static int hdmi_edid_read_block(struct hdmi_edid_ctrl *edid_ctrl, int block,
 		return -EINVAL;
 	}
 
-/* LGE_CHANGE,
- * add bridge function which can offer edid info from slimport device
- * 2012-12-06, jihyun.seong@lge.com
+/*            
+                                                                     
+                                   
  */
 #ifdef CONFIG_SLIMPORT_ANX7808
 		status = slimport_read_edid_block(block, edid_buf);
