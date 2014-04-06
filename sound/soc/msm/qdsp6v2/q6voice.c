@@ -116,7 +116,7 @@ static int set_start_call(const char *buf, struct kernel_param *kp)
 static int get_start_call(char *buf, struct kernel_param *kp)
 {
 	    int ret = 0;
-		
+
 		ret = sprintf(buf, "%d\n", audio_start);
 		pr_info("%s:LG audio bsp: get  %d \n", __func__, audio_start);
 	    return ret;
@@ -5158,7 +5158,7 @@ int voc_set_lch(uint32_t session_id, enum voice_lch_mode lch_mode)
 
 	/* Mute and topology_none will be set as part of voc_enable_cvp() */
 	ret = voc_enable_cvp(session_id);
-	
+
 	if (ret < 0) {
 		pr_err("%s: voc_enable_cvp failed ret=%d\n", __func__, ret);
 
@@ -5214,7 +5214,7 @@ int voc_start_voice_call(uint32_t session_id)
 			goto fail;
 		}
 		ret = voice_create_mvm_cvs_session(v);
-		
+
 		if (ret < 0) {
 			pr_err("create mvm and cvs failed\n");
 			goto fail;
