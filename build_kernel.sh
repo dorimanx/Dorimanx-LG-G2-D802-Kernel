@@ -203,8 +203,8 @@ if [ -e "$KERNELDIR"/arch/arm/boot/zImage ]; then
 	mv ramdisk.gz READY-KERNEL/boot
 
 	# create the dt.img from the compiled device files, necessary for msm8974 boot images
-	echo "Create dt.img................"
-	./scripts/dtbTool -v -s 2048 -o READY-KERNEL/boot/dt.img arch/arm/boot/
+#	echo "Create dt.img................"
+#	./scripts/dtbTool -v -s 2048 -o READY-KERNEL/boot/dt.img arch/arm/boot/
 
 	if [ -e /usr/bin/python3 ]; then
 		rm /usr/bin/python
@@ -222,7 +222,8 @@ if [ -e "$KERNELDIR"/arch/arm/boot/zImage ]; then
 	offset=0x05000000
 	tags_addr=0x04800000
 	cmd_line="console=ttyHSL0,115200,n8 androidboot.hardware=g2 user_debug=31 msm_rtb.filter=0x0"
-	./mkbootimg --kernel zImage --ramdisk ramdisk.gz --cmdline "$cmd_line" --base $base --offset $offset --tags-addr $tags_addr --pagesize 2048 --dt dt.img -o newboot.img
+#	./mkbootimg --kernel zImage --ramdisk ramdisk.gz --cmdline "$cmd_line" --base $base --offset $offset --tags-addr $tags_addr --pagesize 2048 --dt dt.img -o newboot.img
+	./mkbootimg --kernel zImage --ramdisk ramdisk.gz --cmdline "$cmd_line" --base $base --offset $offset --tags-addr $tags_addr --pagesize 2048 -o newboot.img
 	mv newboot.img ../boot.img
 
 	# cleanup all temporary working files
