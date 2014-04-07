@@ -2114,6 +2114,9 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
                 mutex_lock(&dbs_mutex);
 
                 dbs_enable++;
+
+		mutex_init(&this_dbs_info->timer_mutex);
+
                 for_each_cpu(j, policy->cpus) {
                         struct cpu_dbs_info_s *j_dbs_info;
                         j_dbs_info = &per_cpu(od_cpu_dbs_info, j);
@@ -2175,7 +2178,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
                         rc = input_register_handler(&dbs_input_handler);
                 mutex_unlock(&dbs_mutex);
 
-
                 if (!intellidemand_powersave_bias_setspeed(
                                         this_dbs_info->cur_policy,
                                         NULL,
@@ -2187,7 +2189,10 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
                 dbs_timer_exit(this_dbs_info);
 
                 mutex_lock(&dbs_mutex);
+
                 dbs_enable--;
+
+		mutex_destroy(&this_dbs_info->timer_mutex);
 
                 for_each_cpu(j, policy->cpus) {
                         struct cpu_dbs_info_s *j_dbs_info;
@@ -2198,8 +2203,10 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
                 /* If device is being removed, policy is no longer
                  * valid. */
                 this_dbs_info->cur_policy = NULL;
+
                 if (!cpu)
                         input_unregister_handler(&dbs_input_handler);
+
                 if (!dbs_enable) {
                         sysfs_remove_group(cpufreq_global_kobject,
                                            &dbs_attr_group);

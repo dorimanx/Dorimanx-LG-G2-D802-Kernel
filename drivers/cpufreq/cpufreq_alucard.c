@@ -508,9 +508,9 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 		this_alucard_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
 		this_alucard_cpuinfo->cpu = cpu;
 
-		mutex_init(&this_alucard_cpuinfo->timer_mutex);
-
 		alucard_enable++;
+
+		mutex_init(&this_alucard_cpuinfo->timer_mutex);
 		/*
 		 * Start the timerschedule work, when this governor
 		 * is used for first time
@@ -545,7 +545,9 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 		cancel_delayed_work_sync(&this_alucard_cpuinfo->work);
 
 		mutex_lock(&alucard_mutex);
+
 		alucard_enable--;
+
 		mutex_destroy(&this_alucard_cpuinfo->timer_mutex);
 
 		if (!alucard_enable) {
