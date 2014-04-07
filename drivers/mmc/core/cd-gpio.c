@@ -19,8 +19,8 @@
 
 struct mmc_cd_gpio {
 	unsigned int gpio;
-	char label[0];
 	bool status;
+	char label[0];
 };
 
 #ifdef CONFIG_MACH_LGE
