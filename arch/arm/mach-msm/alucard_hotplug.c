@@ -191,8 +191,9 @@ static void init_cpus_load(int io_busy)
 	unsigned int cpu;
 
 	for_each_possible_cpu(cpu) {
-		struct hotplug_cpuinfo *this_hotplug_cpuinfo =
-				&per_cpu(od_hotplug_cpuinfo, cpu);
+		struct hotplug_cpuinfo *this_hotplug_cpuinfo;
+
+		this_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
 
 		this_hotplug_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu,
 				&this_hotplug_cpuinfo->prev_cpu_wall, io_busy);
@@ -205,11 +206,12 @@ static void init_cpus_load(int io_busy)
 
 static inline int get_cpu_load(unsigned int cpu, int io_busy)
 {
-	struct hotplug_cpuinfo *this_hotplug_cpuinfo =
-			&per_cpu(od_hotplug_cpuinfo, cpu);
+	struct hotplug_cpuinfo *this_hotplug_cpuinfo;
 	cputime64_t cur_wall_time, cur_idle_time;
 	unsigned int wall_time, idle_time;
 	int cur_load = -1;
+
+	this_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
 
 	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, io_busy);
 
@@ -340,8 +342,9 @@ static void hotplug_work_fn(struct work_struct *work)
 				cpu, rq_avg);
 #endif
 	for_each_cpu_not(cpu, cpu_online_mask) {
-		struct hotplug_cpuinfo *this_hotplug_cpuinfo =
-				&per_cpu(od_hotplug_cpuinfo, cpu);
+		struct hotplug_cpuinfo *this_hotplug_cpuinfo;
+
+		this_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
 
 		cpus_off[idx_off] = cpu;
 		++idx_off;
@@ -354,7 +357,7 @@ static void hotplug_work_fn(struct work_struct *work)
 	}
 
 	for_each_online_cpu(cpu) {
-		struct hotplug_cpuinfo *this_hotplug_cpuinfo = NULL;
+		struct hotplug_cpuinfo *this_hotplug_cpuinfo;
 		int up_load;
 		int down_load;
 		unsigned int up_freq;
