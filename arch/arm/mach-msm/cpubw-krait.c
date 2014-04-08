@@ -85,6 +85,7 @@ static unsigned int bw_step = 200;
 module_param(bw_step, uint, 0644);
 
 static struct kernel_param_ops enable_ops;
+static struct delayed_work bw_sample;
 static bool enable;
 module_param_cb(enable, &enable_ops, &enable, S_IRUGO | S_IWUSR);
 
