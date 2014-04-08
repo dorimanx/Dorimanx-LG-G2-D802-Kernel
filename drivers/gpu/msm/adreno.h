@@ -440,6 +440,13 @@ struct log_field {
 	{ BIT(KGSL_FT_SKIPCMD), "skipcmd" }
 
 extern struct adreno_gpudev adreno_a2xx_gpudev;
+
+#define ADRENO_CMDBATCH_FLAGS \
+	{ KGSL_CMDBATCH_CTX_SWITCH, "CTX_SWITCH" }, \
+	{ KGSL_CMDBATCH_SYNC, "SYNC" }, \
+	{ KGSL_CMDBATCH_END_OF_FRAME, "EOF" }, \
+	{ KGSL_CMDBATCH_PWR_CONSTRAINT, "PWR_CONSTRAINT" }
+
 extern struct adreno_gpudev adreno_a3xx_gpudev;
 
 /* A2XX register sets defined in adreno_a2xx.c */
