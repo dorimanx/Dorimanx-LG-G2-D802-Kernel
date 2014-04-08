@@ -4635,9 +4635,6 @@ static int touch_probe(struct i2c_client *client, const struct i2c_device_id *id
 		input_set_abs_params(ts->input_dev, ABS_MT_WIDTH_MINOR, 0, ts->pdata->caps->max_width, 0, 0);
 		input_set_abs_params(ts->input_dev, ABS_MT_ORIENTATION, 0, 1, 0, 0);
 	}
-#ifdef CUST_G2_TOUCH
-	input_set_abs_params(ts->input_dev, ABS_MT_TOOL_TYPE,0, MT_TOOL_MAX, 0, 0);
-#endif
 
 #if defined(MT_PROTOCOL_A)
 	if (ts->pdata->caps->is_id_supported)
