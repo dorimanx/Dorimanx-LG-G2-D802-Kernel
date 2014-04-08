@@ -221,7 +221,7 @@ if [ -e "$KERNELDIR"/arch/arm/boot/zImage ]; then
 	base=0x00000000
 	offset=0x05000000
 	tags_addr=0x04800000
-	cmd_line="console=ttyHSL0,115200,n8 androidboot.hardware=g2 user_debug=31 msm_rtb.filter=0x0"
+	cmd_line="console=ttyHSL0,115200,n8 androidboot.hardware=g2 user_debug=31 msm_rtb.filter=0x0 mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_lgd_cmd"
 	./mkbootimg --kernel zImage --ramdisk ramdisk.gz --cmdline "$cmd_line" --base $base --offset $offset --tags-addr $tags_addr --pagesize 2048 --dt dt.img -o newboot.img
 	mv newboot.img ../boot.img
 
