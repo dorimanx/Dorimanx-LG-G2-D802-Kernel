@@ -29,8 +29,8 @@
 #define POWER_SUSPEND_INACTIVE        0
 #define POWER_SUSPEND_ACTIVE        1
 
-#define POWER_SUSPEND_KERNEL        0
-#define POWER_SUSPEND_USERSPACE        1
+#define POWER_SUSPEND_KERNEL        1
+#define POWER_SUSPEND_USERSPACE        0
 
 struct power_suspend {
         struct list_head link;
