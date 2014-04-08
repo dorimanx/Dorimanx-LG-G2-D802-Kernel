@@ -288,7 +288,7 @@ static int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend)
 		if (virt_dev->eps[i].ring && virt_dev->eps[i].ring->dequeue)
 			xhci_queue_stop_endpoint(xhci, slot_id, i, suspend);
 	}
-	cmd->command_trb = xhci_find_next_enqueue(xhci->cmd_ring);
+	cmd->command_trb = xhci->cmd_ring->enqueue;
 	list_add_tail(&cmd->cmd_list, &virt_dev->cmd_list);
 	xhci_queue_stop_endpoint(xhci, slot_id, 0, suspend);
 	xhci_ring_cmd_db(xhci);
@@ -616,31 +616,6 @@ cleanup:
 	return retval;
 }
 
-/*
- * Function for Compliance Mode Quirk.
- *
- * This Function verifies if all xhc USB3 ports have entered U0, if so,
- * the compliance mode timer is deleted. A port won't enter
- * compliance mode if it has previously entered U0.
- */
-void xhci_del_comp_mod_timer(struct xhci_hcd *xhci, u32 status, u16 wIndex)
-{
-	u32 all_ports_seen_u0 = ((1 << xhci->num_usb3_ports)-1);
-	bool port_in_u0 = ((status & PORT_PLS_MASK) == XDEV_U0);
-
-	if (!(xhci->quirks & XHCI_COMP_MODE_QUIRK))
-		return;
-
-	if ((xhci->port_status_u0 != all_ports_seen_u0) && port_in_u0) {
-		xhci->port_status_u0 |= 1 << wIndex;
-		if (xhci->port_status_u0 == all_ports_seen_u0) {
-			del_timer_sync(&xhci->comp_mode_recovery_timer);
-			xhci_dbg(xhci, "All USB3 ports have entered U0 already!\n");
-			xhci_dbg(xhci, "Compliance Mode Recovery Timer Deleted.\n");
-		}
-	}
-}
-
 int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 		u16 wIndex, char *buf, u16 wLength)
 {
@@ -784,14 +759,13 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			else
 				status |= USB_PORT_STAT_POWER;
 		}
-		/* Update Port Link State for super speed ports*/
+		/* Port Link State */
 		if (hcd->speed == HCD_USB3) {
-			xhci_hub_report_link_state(&status, temp);
-			/*
-			 * Verify if all USB3 Ports Have entered U0 already.
-			 * Delete Compliance Mode Timer if so.
+			/* resume state is a xHCI internal state.
+			 * Do not report it to usb core.
 			 */
-			xhci_del_comp_mod_timer(xhci, temp, wIndex);
+			if ((temp & PORT_PLS_MASK) != XDEV_RESUME)
+				status |= (temp & PORT_PLS_MASK);
 		}
 		if (bus_state->port_c_suspend & (1 << wIndex))
 			status |= 1 << USB_PORT_FEAT_C_SUSPEND;
@@ -829,7 +803,7 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			}
 			/* In spec software should not attempt to suspend
 			 * a port unless the port reports that it is in the
-			 * enabled (PED = ‘1’,PLS < ‘3’) state.
+			 * enabled (PED = .1.,PLS < .3.) state.
 			 */
 			temp = xhci_readl(xhci, port_array[wIndex]);
 			if ((temp & PORT_PE) == 0 || (temp & PORT_RESET)
@@ -861,39 +835,12 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			break;
 		case USB_PORT_FEAT_LINK_STATE:
 			temp = xhci_readl(xhci, port_array[wIndex]);
-
-			/* Disable port */
-			if (link_state == USB_SS_PORT_LS_SS_DISABLED) {
-				xhci_dbg(xhci, "Disable port %d\n", wIndex);
-				temp = xhci_port_state_to_neutral(temp);
-				/*
-				 * Clear all change bits, so that we get a new
-				 * connection event.
-				 */
-				temp |= PORT_CSC | PORT_PEC | PORT_WRC |
-					PORT_OCC | PORT_RC | PORT_PLC |
-					PORT_CEC;
-				xhci_writel(xhci, temp | PORT_PE,
-					port_array[wIndex]);
-				temp = xhci_readl(xhci, port_array[wIndex]);
-				break;
-			}
-
-			/* Put link in RxDetect (enable port) */
-			if (link_state == USB_SS_PORT_LS_RX_DETECT) {
-				xhci_dbg(xhci, "Enable port %d\n", wIndex);
-				xhci_set_link_state(xhci, port_array, wIndex,
-						link_state);
-				temp = xhci_readl(xhci, port_array[wIndex]);
-				break;
-			}
-
 			/* Software should not attempt to set
-			 * port link state above '3' (U3) and the port
+			 * port link state above '5' (Rx.Detect) and the port
 			 * must be enabled.
 			 */
 			if ((temp & PORT_PE) == 0 ||
-				(link_state > USB_SS_PORT_LS_U3)) {
+				(link_state > USB_SS_PORT_LS_RX_DETECT)) {
 				xhci_warn(xhci, "Cannot set link state.\n");
 				goto error;
 			}
@@ -1076,7 +1023,6 @@ int xhci_hub_status_data(struct usb_hcd *hcd, char *buf)
 	int max_ports;
 	__le32 __iomem **port_array;
 	struct xhci_bus_state *bus_state;
-	bool reset_change = false;
 
 	max_ports = xhci_get_ports(hcd, &port_array);
 	bus_state = &xhci->bus_state[hcd_index(hcd)];
@@ -1103,12 +1049,6 @@ int xhci_hub_status_data(struct usb_hcd *hcd, char *buf)
 			buf[(i + 1) / 8] |= 1 << (i + 1) % 8;
 			status = 1;
 		}
-		if ((temp & PORT_RC))
-			reset_change = true;
-	}
-	if (!status && !reset_change) {
-		xhci_dbg(xhci, "%s: stopping port polling.\n", __func__);
-		clear_bit(HCD_FLAG_POLL_RH, &hcd->flags);
 	}
 	spin_unlock_irqrestore(&xhci->lock, flags);
 	return status ? retval : 0;
