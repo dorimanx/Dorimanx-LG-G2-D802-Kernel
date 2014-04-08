@@ -1946,6 +1946,12 @@ config MSM_AVS_HW
 	  fine tune the voltages based on the feedback from the ring
 	  oscillators.
 
+config CPU_OVERCLOCK
+	bool "Enable CPU Overclocking option"
+	default n
+	help
+	  Krait overclocking up to 2.5 GHz
+
 config MSM_HW3D
 	tristate "MSM Hardware 3D Register Driver"
 	help
