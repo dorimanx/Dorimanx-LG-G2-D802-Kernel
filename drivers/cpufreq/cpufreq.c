@@ -34,6 +34,10 @@
 
 #include <trace/events/power.h>
 
+#ifdef CONFIG_CPU_FREQ_GOV_ONDEMANDPLUS
+extern unsigned int io_is_busy;
+#endif
+
 /**
  * The "cpufreq driver" - the arch- or hardware-dependent low
  * level driver of CPUFreq support, and its spinlock. This lock
@@ -166,12 +170,16 @@ static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
         return cputime_to_usecs(idle_time);
 }
 
-u64 get_cpu_idle_time(unsigned int cpu, u64 *wall, int io_busy)
+cputime64_t get_cpu_idle_time(unsigned int cpu, cputime64_t *wall, int io_busy)
 {
         u64 idle_time = get_cpu_idle_time_us(cpu, io_busy ? wall : NULL);
 
         if (idle_time == -1ULL)
                 return get_cpu_idle_time_jiffy(cpu, wall);
+#ifdef CONFIG_CPU_FREQ_GOV_ONDEMANDPLUS
+	else if (io_is_busy == 2)
+		idle_time += (get_cpu_iowait_time_us(cpu, wall) / 2);
+#endif
         else if (!io_busy)
                 idle_time += get_cpu_iowait_time_us(cpu, wall);
 
@@ -541,10 +549,14 @@ static ssize_t store_scaling_governor(struct cpufreq_policy *policy,
 	ret = __cpufreq_set_policy(policy, &new_policy);
 
 #ifdef CONFIG_ARCH_MSM8974
-#ifdef CONFIG_CPU_OVERCLOCK
-	if (policy->max > 2496000) policy->max = 2496000;
+#if defined(CONFIG_CPU_OVERCLOCK) && defined(CONFIG_OC_ULTIMATE)
+	if (policy->max > 2803200) policy->max = 2803200;
+#else
+#if defined(CONFIG_CPU_OVERCLOCK) && !defined(CONFIG_OC_ULTIMATE)
+	if (policy->max > 2572800) policy->max = 2572800;
 #else
 	if (policy->max > 2265600) policy->max = 2265600;
+#endif
 #endif
 #endif
 
