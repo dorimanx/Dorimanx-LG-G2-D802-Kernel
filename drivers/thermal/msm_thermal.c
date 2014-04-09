@@ -37,7 +37,7 @@
 #define MAX_RAILS 5
 
 static struct msm_thermal_data msm_thermal_info;
-static uint32_t limited_max_freq = MSM_CPUFREQ_NO_LIMIT;
+static uint32_t thermal_limited_max_freq = MSM_CPUFREQ_NO_LIMIT;
 static struct delayed_work check_temp_work;
 static bool core_control_enabled;
 static uint32_t cpus_offlined;
@@ -174,7 +174,7 @@ static int update_cpu_min_freq_all(uint32_t min)
 		min = table[limit_idx_high].frequency;
 
 	for_each_possible_cpu(cpu) {
-		ret = msm_cpufreq_set_freq_limits(cpu, min, limited_max_freq);
+		ret = msm_cpufreq_set_freq_limits(cpu, min, thermal_limited_max_freq);
 		if (ret) {
 			pr_err("%s:Fail to set limits for cpu%d\n",
 					__func__, cpu);
@@ -588,7 +588,7 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 	if (ret)
 		return ret;
 
-	limited_max_freq = max_freq;
+	thermal_limited_max_freq = max_freq;
 	if (max_freq != MSM_CPUFREQ_NO_LIMIT)
 		pr_info("%s: Limiting cpu%d max frequency to %d\n",
 				KBUILD_MODNAME, cpu, max_freq);
@@ -766,7 +766,7 @@ static void __ref do_freq_control(long temp)
 {
 	int ret = 0;
 	int cpu = 0;
-	uint32_t max_freq = limited_max_freq;
+	uint32_t max_freq = thermal_limited_max_freq;
 
 	if (temp >= msm_thermal_info.limit_temp_degC) {
 		if (limit_idx == limit_idx_low)
@@ -789,7 +789,7 @@ static void __ref do_freq_control(long temp)
 			max_freq = table[limit_idx].frequency;
 	}
 
-	if (max_freq == limited_max_freq)
+	if (max_freq == thermal_limited_max_freq)
 		return;
 
 	/* Update new limits */
@@ -909,7 +909,7 @@ static void __ref disable_msm_thermal(void)
 	cancel_delayed_work(&check_temp_work);
 	flush_scheduled_work();
 
-	if (limited_max_freq == MSM_CPUFREQ_NO_LIMIT)
+	if (thermal_limited_max_freq == MSM_CPUFREQ_NO_LIMIT)
 		return;
 
 	for_each_possible_cpu(cpu) {
