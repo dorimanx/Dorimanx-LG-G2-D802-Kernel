@@ -955,57 +955,66 @@ static void __init bus_init(const struct l2_level *l2_level)
 		dev_err(drv.dev, "initial bandwidth req failed (%d)\n", ret);
 }
 
+#ifdef CONFIG_CPU_VOLTAGE_TABLE
+
 #define MAX_VDD 1450
 #define MIN_VDD 600
 
 ssize_t acpuclk_get_vdd_levels_str(char *buf)
 {
-    
 	int i, len = 0;
-    
+
 	if (buf) {
+		mutex_lock(&driver_lock);
+
 		for (i = 0; drv.acpu_freq_tbl[i].speed.khz; i++) {
-            if (drv.acpu_freq_tbl[i].use_for_scaling) {
-                len += sprintf(buf + len, "%lumhz: %i mV\n",
-                           drv.acpu_freq_tbl[i].speed.khz/1000,
-                           drv.acpu_freq_tbl[i].vdd_core/1000 );
-            }
+			if (drv.acpu_freq_tbl[i].use_for_scaling)
+				len += sprintf(buf + len, "%lumhz: %i mV\n",
+					drv.acpu_freq_tbl[i].speed.khz/1000,
+					drv.acpu_freq_tbl[i].vdd_core/1000);
 		}
+
+		mutex_unlock(&driver_lock);
 	}
 	return len;
 }
 
-ssize_t acpuclk_set_vdd(char *buf)
+ssize_t acpuclk_set_vdd_msm(char *buf)
 {
 	unsigned int cur_volt;
 	char count[10];
-	int i;
-    int ret = 0;
+	int i, ret = 0;
     
 	if (!buf)
 		return -EINVAL;
     
+	mutex_lock(&driver_lock);
+
 	for (i = 0; i < drv.acpu_freq_tbl[i].speed.khz; i++) {
-        if (drv.acpu_freq_tbl[i].use_for_scaling) {
-            ret = sscanf(buf, "%d", &cur_volt);
+		if (drv.acpu_freq_tbl[i].use_for_scaling) {
+			ret = sscanf(buf, "%d", &cur_volt);
+			if (ret != 1)
+				return -EINVAL;
         
-            if (ret != 1)
-                return -EINVAL;
+			if (cur_volt > MAX_VDD) {
+				cur_volt = MAX_VDD;
+			} else if (cur_volt < MIN_VDD) {
+				cur_volt = MIN_VDD;
+			}
         
-            if (cur_volt > MAX_VDD) {
-                cur_volt = MAX_VDD;
-            } else if (cur_volt < MIN_VDD) {
-                cur_volt = MIN_VDD;
-            }
-        
-            drv.acpu_freq_tbl[i].vdd_core = cur_volt*1000;
+			drv.acpu_freq_tbl[i].vdd_core = cur_volt*1000;
                 
-            ret = sscanf(buf, "%s", count);
-            buf += (strlen(count)+1);
-        }
+			ret = sscanf(buf, "%s", count);
+			buf += (strlen(count)+1);
+		}
 	}
+	pr_warn("user voltage table modified!\n");
+	mutex_unlock(&driver_lock);
+
 	return ret;
 }
+
+#endif
 
 #ifdef CONFIG_CPU_FREQ_MSM
 static struct cpufreq_frequency_table freq_table[NR_CPUS][35];

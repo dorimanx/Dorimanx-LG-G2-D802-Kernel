@@ -153,40 +153,40 @@ static DEFINE_MUTEX(cpufreq_governor_mutex);
 
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
 {
-        u64 idle_time;
-        u64 cur_wall_time;
-        u64 busy_time;
+	u64 idle_time;
+	u64 cur_wall_time;
+	u64 busy_time;
 
-        cur_wall_time = jiffies64_to_cputime64(get_jiffies_64());
+	cur_wall_time = jiffies64_to_cputime64(get_jiffies_64());
 
-        busy_time = kcpustat_cpu(cpu).cpustat[CPUTIME_USER];
-        busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_SYSTEM];
-        busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_IRQ];
-        busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_SOFTIRQ];
-        busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_STEAL];
-        busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_NICE];
+	busy_time = kcpustat_cpu(cpu).cpustat[CPUTIME_USER];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_SYSTEM];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_IRQ];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_SOFTIRQ];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_STEAL];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_NICE];
 
-        idle_time = cur_wall_time - busy_time;
-        if (wall)
-                *wall = cputime_to_usecs(cur_wall_time);
+	idle_time = cur_wall_time - busy_time;
+	if (wall)
+		*wall = cputime_to_usecs(cur_wall_time);
 
-        return cputime_to_usecs(idle_time);
+	return cputime_to_usecs(idle_time);
 }
 
 cputime64_t get_cpu_idle_time(unsigned int cpu, cputime64_t *wall, int io_busy)
 {
-        u64 idle_time = get_cpu_idle_time_us(cpu, io_busy ? wall : NULL);
+	u64 idle_time = get_cpu_idle_time_us(cpu, io_busy ? wall : NULL);
 
-        if (idle_time == -1ULL)
-                return get_cpu_idle_time_jiffy(cpu, wall);
+	if (idle_time == -1ULL)
+		return get_cpu_idle_time_jiffy(cpu, wall);
 #ifdef CONFIG_CPU_FREQ_GOV_ONDEMANDPLUS
 	else if (io_is_busy == 2)
 		idle_time += (get_cpu_iowait_time_us(cpu, wall) / 2);
 #endif
-        else if (!io_busy)
-                idle_time += get_cpu_iowait_time_us(cpu, wall);
+	else if (!io_busy)
+		idle_time += get_cpu_iowait_time_us(cpu, wall);
 
-        return idle_time;
+	return idle_time;
 }
 EXPORT_SYMBOL_GPL(get_cpu_idle_time);
 
@@ -685,17 +685,21 @@ static ssize_t show_bios_limit(struct cpufreq_policy *policy, char *buf)
 	return sprintf(buf, "%u\n", policy->cpuinfo.max_freq);
 }
 
+#ifdef CONFIG_CPU_VOLTAGE_TABLE
+
 extern ssize_t acpuclk_get_vdd_levels_str(char *buf);
-extern void acpuclk_set_vdd(const char *buf);
+extern void acpuclk_set_vdd_msm(const char *buf);
 
 static ssize_t show_UV_mV_table(struct cpufreq_policy *policy, char *buf) {
 	return acpuclk_get_vdd_levels_str(buf);
 }
 
 static ssize_t store_UV_mV_table(struct cpufreq_policy *policy, const char *buf, size_t count) {
-	acpuclk_set_vdd(buf);
+	acpuclk_set_vdd_msm(buf);
 	return count;
 }
+
+#endif
 
 cpufreq_freq_attr_ro_perm(cpuinfo_cur_freq, 0400);
 cpufreq_freq_attr_ro(cpuinfo_min_freq);
@@ -712,7 +716,9 @@ cpufreq_freq_attr_rw(scaling_min_freq);
 cpufreq_freq_attr_rw(scaling_max_freq);
 cpufreq_freq_attr_rw(scaling_governor);
 cpufreq_freq_attr_rw(scaling_setspeed);
+#ifdef CONFIG_CPU_VOLTAGE_TABLE
 cpufreq_freq_attr_rw(UV_mV_table);
+#endif
 
 static struct attribute *default_attrs[] = {
 	&cpuinfo_min_freq.attr,
@@ -727,7 +733,9 @@ static struct attribute *default_attrs[] = {
 	&scaling_driver.attr,
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
+#ifdef CONFIG_CPU_VOLTAGE_TABLE
 	&UV_mV_table.attr,
+#endif
 	NULL
 };
 
