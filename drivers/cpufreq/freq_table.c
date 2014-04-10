@@ -80,7 +80,6 @@ int cpufreq_frequency_table_verify(struct cpufreq_policy *policy,
 
 	if (!found) {
 		policy->max = next_larger;
-
 		cpufreq_verify_within_limits(policy, policy->cpuinfo.min_freq,
 				policy->cpuinfo.max_freq);
 	}
