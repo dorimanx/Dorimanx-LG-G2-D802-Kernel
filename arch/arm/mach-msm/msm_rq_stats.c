@@ -42,9 +42,9 @@ struct notifier_block cpu_hotplug;
 struct notifier_block freq_policy;
 
 struct cpu_load_data {
-	cputime64_t prev_cpu_idle;
-	cputime64_t prev_cpu_wall;
-	cputime64_t prev_cpu_iowait;
+	u64 prev_cpu_idle;
+	u64 prev_cpu_wall;
+	u64 prev_cpu_iowait;
 	unsigned int avg_load_maxfreq;
 	unsigned int samples;
 	unsigned int window_size;
@@ -56,8 +56,8 @@ struct cpu_load_data {
 
 static DEFINE_PER_CPU(struct cpu_load_data, cpuload);
 
-static inline cputime64_t get_cpu_iowait_time(unsigned int cpu,
-							cputime64_t *wall)
+static inline u64 get_cpu_iowait_time(unsigned int cpu,
+							u64 *wall)
 {
 	u64 iowait_time = get_cpu_iowait_time_us(cpu, wall);
 
@@ -71,7 +71,7 @@ static int update_average_load(unsigned int freq, unsigned int cpu)
 {
 
 	struct cpu_load_data *pcpu = &per_cpu(cpuload, cpu);
-	cputime64_t cur_wall_time, cur_idle_time, cur_iowait_time;
+	u64 cur_wall_time, cur_idle_time, cur_iowait_time;
 	unsigned int idle_time, wall_time, iowait_time;
 	unsigned int cur_load, load_at_max_freq;
 

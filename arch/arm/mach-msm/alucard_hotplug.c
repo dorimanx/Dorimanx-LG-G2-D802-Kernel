@@ -43,8 +43,8 @@ static struct work_struct down_work;
 static ktime_t time_stamp;
 #endif
 static struct hotplug_cpuinfo {
-	cputime64_t prev_cpu_wall;
-	cputime64_t prev_cpu_idle;
+	u64 prev_cpu_wall;
+	u64 prev_cpu_idle;
 	int online;
 	int up_cpu;
 	int up_by_cpu;
@@ -207,7 +207,7 @@ static void init_cpus_load(int io_busy)
 static inline int get_cpu_load(unsigned int cpu, int io_busy)
 {
 	struct hotplug_cpuinfo *this_hotplug_cpuinfo;
-	cputime64_t cur_wall_time, cur_idle_time;
+	u64 cur_wall_time, cur_idle_time;
 	unsigned int wall_time, idle_time;
 	int cur_load = -1;
 
