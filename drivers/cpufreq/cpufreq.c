@@ -173,7 +173,7 @@ static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
 	return cputime_to_usecs(idle_time);
 }
 
-cputime64_t get_cpu_idle_time(unsigned int cpu, cputime64_t *wall, int io_busy)
+u64 get_cpu_idle_time(unsigned int cpu, u64 *wall, int io_busy)
 {
 	u64 idle_time = get_cpu_idle_time_us(cpu, io_busy ? wall : NULL);
 
