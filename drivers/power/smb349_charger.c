@@ -64,6 +64,10 @@
 
 #define SMB349_MASK(BITS, POS)  ((unsigned char)(((1 << BITS) - 1) << POS))
 
+#ifdef CONFIG_FORCE_FAST_CHARGE
+#include <linux/fastchg.h>
+#endif
+
 /* Register definitions */
 #define CHG_CURRENT_REG                         0x00
 #define CHG_OTHER_CURRENT_REG                   0x01
@@ -3183,6 +3187,9 @@ static int smb349_input_current_limit_set(struct smb349_struct *smb349_chg, int 
 {
 	int i;
 	u8 temp;
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	int custom_ma = icl_ma;
+#endif
 
 	if ((icl_ma < SMB349_INPUT_CURRENT_LIMIT_MIN_MA) ||
 		(icl_ma >  SMB349_INPUT_CURRENT_LIMIT_MAX_MA)) {
@@ -3200,7 +3207,46 @@ static int smb349_input_current_limit_set(struct smb349_struct *smb349_chg, int 
 		i = 0;
 	}
 
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	if (force_fast_charge == 1) {
+		i = 4;
+		custom_ma = FAST_CHARGE_1200;
+		icl_ma = custom_ma;
+	} else if (force_fast_charge == 2) {
+		switch (fast_charge_level) {
+			case FAST_CHARGE_500:
+				i = 0;
+				custom_ma = FAST_CHARGE_500;
+				break;
+			case FAST_CHARGE_900:
+				i = 1;
+				custom_ma = FAST_CHARGE_900;
+				break;
+			case FAST_CHARGE_1200:
+				i = 4;
+				custom_ma = FAST_CHARGE_1200;
+				break;
+			case FAST_CHARGE_1500:
+				i = 6;
+				custom_ma = FAST_CHARGE_1500;
+				break;
+			case FAST_CHARGE_1800:
+				i = 9;
+				custom_ma = FAST_CHARGE_1800;
+				break;
+			case FAST_CHARGE_2000:
+				i = 0xA;
+				custom_ma = FAST_CHARGE_2000;
+				break;
+			default:
+				break;
+		}
+		icl_ma = custom_ma;
+	}
 	temp = icl_ma_table[i].value;
+#else
+	temp = icl_ma_table[i].value;
+#endif
 
 	pr_info("input current limit=%d setting %02x\n", icl_ma, temp);
 	return smb349_masked_write(smb349_chg->client, CHG_CURRENT_REG,

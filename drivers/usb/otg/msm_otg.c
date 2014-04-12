@@ -49,6 +49,10 @@
 #include <mach/msm_bus.h>
 #include <mach/rpm-regulator.h>
 
+#ifdef CONFIG_FORCE_FAST_CHARGE
+#include <linux/fastchg.h>
+#endif
+
 #define MSM_USB_BASE	(motg->regs)
 #define DRIVER_NAME	"msm_otg"
 
@@ -1379,6 +1383,9 @@ psy_error:
 static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 {
 	struct usb_gadget *g = motg->phy.otg->gadget;
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	int custom_ma = mA;
+#endif
 
 	if (g && g->is_a_peripheral)
 		return;
@@ -1398,6 +1405,45 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 	if (motg->cur_power == mA)
 		return;
 
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	if (force_fast_charge == 1) {
+		custom_ma = FAST_CHARGE_1200;
+		pr_info("USB fast charging is ON - 1200mA.\n");
+		mA = custom_ma;
+	} else if (force_fast_charge == 2) {
+		switch (fast_charge_level) {
+			case FAST_CHARGE_500:
+				custom_ma = FAST_CHARGE_500;
+				pr_info("USB fast charging is ON - 500mA.\n");
+				break;
+			case FAST_CHARGE_900:
+				custom_ma = FAST_CHARGE_900;
+				pr_info("USB fast charging is ON - 900mA.\n");
+				break;
+			case FAST_CHARGE_1200:
+				custom_ma = FAST_CHARGE_1200;
+				pr_info("USB fast charging is ON - 1200mA.\n");
+				break;
+			case FAST_CHARGE_1500:
+				custom_ma = FAST_CHARGE_1500;
+				pr_info("USB fast charging is ON - 1500mA.\n");
+				break;
+			case FAST_CHARGE_1800:
+				custom_ma = FAST_CHARGE_1800;
+				pr_info("USB fast charging is ON - 1800mA.\n");
+				break;
+			case FAST_CHARGE_2000:
+				custom_ma = FAST_CHARGE_2000;
+				pr_info("USB fast charging is ON - 2000mA.\n");
+				break;
+			default:
+				break;
+		}
+		mA = custom_ma;
+	} else {
+		pr_info("USB fast charging is OFF.\n");
+	}
+#endif
 	dev_info(motg->phy.dev, "Avail curr from USB = %u\n", mA);
 
 	/*
