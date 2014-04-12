@@ -25,42 +25,82 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+/************************************************************************/
+/*                                                                      */
+/*  PROJECT : exFAT & FAT12/16/32 File System                           */
+/*  FILE    : exfat_oal.c                                               */
+/*  PURPOSE : exFAT OS Adaptation Layer                                 */
+/*            (Semaphore Functions & Real-Time Clock Functions)         */
+/*                                                                      */
+/*----------------------------------------------------------------------*/
+/*  NOTES                                                               */
+/*                                                                      */
+/*----------------------------------------------------------------------*/
+/*  REVISION HISTORY (Ver 0.9)                                          */
+/*                                                                      */
+/*  - 2010.11.15 [Joosun Hahn] : first writing                          */
+/*                                                                      */
+/************************************************************************/
+
 #include <linux/semaphore.h>
 #include <linux/time.h>
 
 #include "exfat_config.h"
-#include "exfat_global.h"
 #include "exfat_api.h"
 #include "exfat_oal.h"
 
-DECLARE_MUTEX(z_sem);
+/*======================================================================*/
+/*                                                                      */
+/*            SEMAPHORE FUNCTIONS                                       */
+/*                                                                      */
+/*======================================================================*/
 
-INT32 sm_init(struct semaphore *sm)
+DEFINE_SEMAPHORE(z_sem);
+
+s32 sm_init(struct semaphore *sm)
 {
 	sema_init(sm, 1);
-	return(0);
-}
+	return 0;
+} /* end of sm_init */
 
-INT32 sm_P(struct semaphore *sm)
+s32 sm_P(struct semaphore *sm)
 {
 	down(sm);
 	return 0;
-}
+} /* end of sm_P */
 
 void sm_V(struct semaphore *sm)
 {
 	up(sm);
-}
+} /* end of sm_V */
+
+
+/*======================================================================*/
+/*                                                                      */
+/*            REAL-TIME CLOCK FUNCTIONS                                 */
+/*                                                                      */
+/*======================================================================*/
 
 extern struct timezone sys_tz;
 
+/*
+ * The epoch of FAT timestamp is 1980.
+ *     :  bits  : value
+ * date:  0 -  4: day    (1 -  31)
+ * date:  5 -  8: month  (1 -  12)
+ * date:  9 - 15: year   (0 - 127) from 1980
+ * time:  0 -  4: sec    (0 -  29) 2sec counts
+ * time:  5 - 10: min    (0 -  59)
+ * time: 11 - 15: hour   (0 -  23)
+ */
 #define UNIX_SECS_1980   315532800L
 
 #if BITS_PER_LONG == 64
 #define UNIX_SECS_2108   4354819200L
 #endif
-
+/* days between 1.1.70 and 1.1.80 (2 leap days) */
 #define DAYS_DELTA_DECADE	(365 * 10 + 2)
+/* 120 (2100 - 1980) isn't leap year */
 #define NO_LEAP_YEAR_2100    (120)
 #define IS_LEAP_YEAR(y)  (!((y) & 3) && (y) != NO_LEAP_YEAR_2100)
 
@@ -74,14 +114,13 @@ extern struct timezone sys_tz;
 			leap_year = ((year + 3) / 4) - 1;       \
 		else                                            \
 			leap_year = ((year + 3) / 4);           \
-	} while(0)
+	} while (0)
 
-
-
+/* Linear day numbers of the respective 1sts in non-leap years. */
 static time_t accum_days_in_year[] = {
-        0,   0, 31, 59, 90,120,151,181,212,243,273,304,334, 0, 0, 0,
+	/* Jan  Feb  Mar  Apr  May  Jun  Jul  Aug  Sep  Oct  Nov  Dec */
+	0,   0,  31,  59,  90, 120, 151, 181, 212, 243, 273, 304, 334, 0, 0, 0,
 };
-
 
 TIMESTAMP_T *tm_current(TIMESTAMP_T *tp)
 {
@@ -91,6 +130,7 @@ TIMESTAMP_T *tm_current(TIMESTAMP_T *tp)
 
 	second -= sys_tz.tz_minuteswest * SECS_PER_MIN;
 
+	/* Jan 1 GMT 00:00:00 1980. But what about another time zone? */
 	if (second < UNIX_SECS_1980) {
 		tp->sec  = 0;
 		tp->min  = 0;
@@ -98,7 +138,7 @@ TIMESTAMP_T *tm_current(TIMESTAMP_T *tp)
 		tp->day  = 1;
 		tp->mon  = 1;
 		tp->year = 0;
-		return(tp);
+		return tp;
 	}
 #if BITS_PER_LONG == 64
 	if (second >= UNIX_SECS_2108) {
@@ -108,7 +148,7 @@ TIMESTAMP_T *tm_current(TIMESTAMP_T *tp)
 		tp->day  = 31;
 		tp->mon  = 12;
 		tp->year = 127;
-		return(tp);
+		return tp;
 	}
 #endif
 
@@ -142,5 +182,7 @@ TIMESTAMP_T *tm_current(TIMESTAMP_T *tp)
 	tp->mon  = month;
 	tp->year = year;
 
-	return(tp);
-}
+	return tp;
+} /* end of tm_current */
+
+/* end of exfat_oal.c */
