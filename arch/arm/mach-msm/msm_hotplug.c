@@ -129,9 +129,9 @@ struct load_thresh_tbl {
 
 static struct load_thresh_tbl load[] = {
 	LOAD_SCALE(400, 0),
-	LOAD_SCALE(40, 0),
-	LOAD_SCALE(80, 20),
-	LOAD_SCALE(140, 60),
+	LOAD_SCALE(50, 0),
+	LOAD_SCALE(100, 40),
+	LOAD_SCALE(150, 80),
 	LOAD_SCALE(410, 140),
 };
 
@@ -650,7 +650,7 @@ static int __devinit msm_hotplug_probe(struct platform_device *pdev)
 	if (!st->load_hist) {
 		pr_err("%s: Failed to allocated memory\n", MSM_HOTPLUG);
 		ret = -ENOMEM;
-		goto err_out;
+		goto err_dev;
 	}
 
 	setup_timer(&hp->lock_timer, handle_lock_timer, 0);
