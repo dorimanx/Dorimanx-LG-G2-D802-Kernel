@@ -1918,6 +1918,12 @@ config MSM_DALRPC_TEST
 
 if CPU_FREQ_MSM
 
+config ALUCARD_HOTPLUG
+	bool "Enable alucard-hotplug cpu hotplug driver"
+	default y
+	help
+	  Generic Alucard-hotplug cpu hotplug driver for ARM SOCs
+
 config MSM_CPU_FREQ_SET_MIN_MAX
 	bool "Set Min/Max CPU frequencies."
 	default n
