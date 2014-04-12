@@ -3019,17 +3019,11 @@ EXPORT_SYMBOL(find_inode_number);
 
 static void cpressure_early_suspend(struct power_suspend *handler)
 {
-	if (sysctl_vfs_cache_pressure != resume_cache_pressure)
-		resume_cache_pressure = sysctl_vfs_cache_pressure;
-
 	sysctl_vfs_cache_pressure = suspend_cache_pressure;
 }
 
 static void cpressure_late_resume(struct power_suspend *handler)
 {
-	if (sysctl_vfs_cache_pressure != suspend_cache_pressure)
-		suspend_cache_pressure = sysctl_vfs_cache_pressure;
-
 	sysctl_vfs_cache_pressure = resume_cache_pressure;
 }
 
