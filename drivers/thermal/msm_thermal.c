@@ -41,7 +41,7 @@
 
 #define MAX_RAILS 5
 #define DEFAULT_POLLING_MS	500
-/* last 3 minutes based on 250ms polling cycle */
+/* last 3 minutes based on $DEFAULT_POLLING_MS polling cycle */
 #define MAX_HISTORY_SZ		((3*60*1000) / DEFAULT_POLLING_MS)
 
 struct msm_thermal_stat_data {
@@ -57,12 +57,12 @@ static struct msm_thermal_data msm_thermal_info;
 static struct msm_thermal_data msm_thermal_info_local = {
 	.sensor_id = 0,
 	.poll_ms = DEFAULT_POLLING_MS,
-	.limit_temp_degC = 70,
+	.limit_temp_degC = 75,
 	.temp_hysteresis_degC = 10,
 	.freq_step = 2,
 	.freq_control_mask = 0xf,
 	.core_limit_temp_degC = 70,
-	.core_temp_hysteresis_degC = 5,
+	.core_temp_hysteresis_degC = 10,
 	.core_control_mask = 0xe,
 	.vdd_rstr_temp_degC = 5,
 	.vdd_rstr_temp_hyst_degC = 10,
@@ -1351,7 +1351,7 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 
 	if (create_sensor_id_map())
 		return -EINVAL;
-	if (check_sensor_id(msm_thermal_info.sensor_id))
+	if (check_sensor_id(msm_thermal_info_local.sensor_id))
 		return -EINVAL;
 
 	enabled = 1;
@@ -1779,42 +1779,23 @@ static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
 
 	memset(&data, 0, sizeof(struct msm_thermal_data));
 
-	key = "qcom,sensor-id";
-	ret = of_property_read_u32(node, key, &data.sensor_id);
-	if (ret)
-		goto fail;
+	ret = msm_thermal_info_local.sensor_id;
 
-	key = "qcom,poll-ms";
-	ret = of_property_read_u32(node, key, &data.poll_ms);
-	if (ret)
-		goto fail;
+	ret = msm_thermal_info_local.poll_ms;
 
-	key = "qcom,limit-temp";
-	ret = of_property_read_u32(node, key, &data.limit_temp_degC);
-	if (ret)
-		goto fail;
+	ret = msm_thermal_info_local.limit_temp_degC;
 
-	key = "qcom,temp-hysteresis";
-	ret = of_property_read_u32(node, key, &data.temp_hysteresis_degC);
-	if (ret)
-		goto fail;
+	ret = msm_thermal_info_local.temp_hysteresis_degC;
 
-	key = "qcom,freq-step";
-	ret = of_property_read_u32(node, key, &data.freq_step);
-	if (ret)
-		goto fail;
+	ret = msm_thermal_info_local.freq_step;
 
-	key = "qcom,freq-control-mask";
-	ret = of_property_read_u32(node, key, &data.freq_control_mask);
+	ret = msm_thermal_info_local.freq_control_mask;
 
-	key = "qcom,core-limit-temp";
-	ret = of_property_read_u32(node, key, &data.core_limit_temp_degC);
+	ret = msm_thermal_info_local.core_limit_temp_degC;
 
-	key = "qcom,core-temp-hysteresis";
-	ret = of_property_read_u32(node, key, &data.core_temp_hysteresis_degC);
+	ret = msm_thermal_info_local.core_temp_hysteresis_degC;
 
-	key = "qcom,core-control-mask";
-	ret = of_property_read_u32(node, key, &data.core_control_mask);
+	ret = msm_thermal_info_local.core_control_mask;
 
 	/*
 	 * Probe optional properties below. Call probe_psm before
@@ -1850,7 +1831,6 @@ fail:
 
 	return ret;
 }
-
 
 static struct of_device_id msm_thermal_match_table[] = {
 	{.compatible = "qcom,msm-thermal"},
