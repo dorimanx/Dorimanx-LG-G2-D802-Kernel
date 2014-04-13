@@ -1045,7 +1045,7 @@ static int __init alucard_hotplug_init(void)
 	/* Initiate timer time stamp */
 	time_stamp = ktime_get();
 #endif
-	INIT_DELAYED_WORK(&alucard_hotplug_work, hotplug_work_fn);
+	INIT_DEFERRABLE_WORK(&alucard_hotplug_work, hotplug_work_fn);
 	INIT_WORK(&up_work, cpu_up_work);
 	INIT_WORK(&down_work, cpu_down_work);
 
