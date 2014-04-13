@@ -57,9 +57,9 @@ TRACE_EVENT(sched_kthread_stop_ret,
  */
 TRACE_EVENT(sched_enq_deq_task,
 
-	TP_PROTO(struct task_struct *p, int enqueue),
+	TP_PROTO(struct task_struct *p, int enqueue, unsigned int cpus_allowed),
 
-	TP_ARGS(p, enqueue),
+	TP_ARGS(p, enqueue, cpus_allowed),
 
 	TP_STRUCT__entry(
 		__array(	char,	comm,	TASK_COMM_LEN	)
@@ -70,6 +70,7 @@ TRACE_EVENT(sched_enq_deq_task,
 		__field(unsigned int,	nr_running		)
 		__field(unsigned long,	cpu_load		)
 		__field(unsigned int,	rt_nr_running		)
+		__field(unsigned int, cpus_allowed		)
 	),
 
 	TP_fast_assign(
@@ -81,6 +82,7 @@ TRACE_EVENT(sched_enq_deq_task,
 		__entry->nr_running	= task_rq(p)->nr_running;
 		__entry->cpu_load	= task_rq(p)->cpu_load[0];
 		__entry->rt_nr_running	= task_rq(p)->rt.rt_nr_running;
+		__entry->cpus_allowed = cpus_allowed;
 	),
 
 	TP_printk("cpu=%d %s comm=%s pid=%d prio=%d nr_running=%u cpu_load=%lu rt_nr_running=%u",
@@ -272,14 +274,16 @@ TRACE_EVENT(sched_switch,
  */
 TRACE_EVENT(sched_migrate_task,
 
-	TP_PROTO(struct task_struct *p, int dest_cpu),
+	TP_PROTO(struct task_struct *p, int dest_cpu,
+		 unsigned int load),
 
-	TP_ARGS(p, dest_cpu),
+	TP_ARGS(p, dest_cpu, load),
 
 	TP_STRUCT__entry(
 		__array(	char,	comm,	TASK_COMM_LEN	)
 		__field(	pid_t,	pid			)
 		__field(	int,	prio			)
+		__field(unsigned int,	load			)
 		__field(	int,	orig_cpu		)
 		__field(	int,	dest_cpu		)
 	),
@@ -288,12 +292,13 @@ TRACE_EVENT(sched_migrate_task,
 		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
 		__entry->pid		= p->pid;
 		__entry->prio		= p->prio;
+		__entry->load		= load;
 		__entry->orig_cpu	= task_cpu(p);
 		__entry->dest_cpu	= dest_cpu;
 	),
 
-	TP_printk("comm=%s pid=%d prio=%d orig_cpu=%d dest_cpu=%d",
-		  __entry->comm, __entry->pid, __entry->prio,
+	TP_printk("comm=%s pid=%d prio=%d load=%d orig_cpu=%d dest_cpu=%d",
+		  __entry->comm, __entry->pid, __entry->prio,  __entry->load,
 		  __entry->orig_cpu, __entry->dest_cpu)
 );
 
