@@ -1820,7 +1820,9 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 				struct cpufreq_policy *policy)
 {
 	int ret = 0;
+#ifdef CONFIG_UNI_CPU_POLICY_LIMIT
 	struct cpufreq_policy *cpu0_policy = NULL;
+#endif
 
 	pr_debug("setting new policy for CPU %u: %u - %u kHz\n", policy->cpu,
 		policy->min, policy->max);
@@ -1857,6 +1859,7 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
 			CPUFREQ_NOTIFY, policy);
 
+#ifdef CONFIG_UNI_CPU_POLICY_LIMIT
 	if (policy->cpu) {
 		cpu0_policy = __cpufreq_cpu_get(0,0);
 		data->min = cpu0_policy->min;
@@ -1865,6 +1868,10 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 		data->min = policy->min;
 		data->max = policy->max;
 	}
+#else
+	data->min = policy->min;
+	data->max = policy->max;
+#endif
 
 	pr_debug("new min and max freqs are %u - %u kHz\n",
 					data->min, data->max);
@@ -1885,11 +1892,15 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 				__cpufreq_governor(data, CPUFREQ_GOV_STOP);
 
 			/* start new governor */
+#ifdef CONFIG_UNI_CPU_POLICY_LIMIT
 			if (policy->cpu && cpu0_policy) {
 				data->governor = cpu0_policy->governor;
 			} else {
 				data->governor = policy->governor;
 			}
+#else
+			data->governor = policy->governor;
+#endif
 
 			if (__cpufreq_governor(data, CPUFREQ_GOV_START)) {
 				/* new governor failed, so re-start old one */

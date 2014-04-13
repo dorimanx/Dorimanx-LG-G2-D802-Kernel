@@ -977,8 +977,8 @@ static int __init alucard_hotplug_init(void)
 				WQ_HIGHPRI | WQ_UNBOUND, 1);
 #else
 	alucardhp_wq = alloc_workqueue("alucardhp_wq",
-				WQ_HIGHPRI | WQ_FREEZABLE, 1);
-/*				WQ_HIGHPRI | WQ_UNBOUND, 0); */
+				WQ_HIGHPRI | WQ_UNBOUND, 0);
+//				WQ_HIGHPRI | WQ_FREEZABLE, 1);
 #endif
 
 	if (!alucardhp_wq) {
