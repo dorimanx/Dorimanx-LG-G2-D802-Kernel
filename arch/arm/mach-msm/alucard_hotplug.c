@@ -33,8 +33,6 @@
 #endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
-static struct mutex timer_mutex;
-
 static struct delayed_work alucard_hotplug_work;
 static struct workqueue_struct *alucardhp_wq;
 static struct work_struct up_work;
@@ -246,8 +244,8 @@ static void __cpuinit cpu_up_work(struct work_struct *work)
 	int cpu;
 
 	for_each_cpu_not(cpu, cpu_online_mask) {
-		struct hotplug_cpuinfo *this_hotplug_cpuinfo = NULL;
-		struct hotplug_cpuinfo *ref_hotplug_cpuinfo = NULL;
+		struct hotplug_cpuinfo *this_hotplug_cpuinfo;
+		struct hotplug_cpuinfo *ref_hotplug_cpuinfo;
 		int ret = 0;
 		int refcpu = -1;
 		this_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
@@ -274,7 +272,7 @@ static void __ref cpu_down_work(struct work_struct *work)
 	int cpu;
 
 	for_each_online_cpu(cpu) {
-		struct hotplug_cpuinfo *this_hotplug_cpuinfo = NULL;
+		struct hotplug_cpuinfo *this_hotplug_cpuinfo;
 		int ret = 0;
 		int refcpu = -1;
 		this_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
@@ -324,7 +322,7 @@ static inline int do_core_control(int online, int num_cores_limit)
 
 static void hotplug_work_fn(struct work_struct *work)
 {
-	struct hotplug_cpuinfo *ref_hotplug_cpuinfo = NULL;
+	struct hotplug_cpuinfo *ref_hotplug_cpuinfo;
 	int upmaxcoreslimit = 0;
 	int up_rate = hotplug_tuners_ins.cpu_up_rate;
 	int down_rate = hotplug_tuners_ins.cpu_down_rate;
@@ -342,8 +340,6 @@ static void hotplug_work_fn(struct work_struct *work)
 	int delay;
 	int cpus_off[4] = {-1, -1, -1, -1};
 	int idx_off = 0;
-
-	mutex_lock(&timer_mutex);
 
 	delay = msecs_to_jiffies(sampling_rate);
 	/* set hotplugging_rate used */
@@ -367,8 +363,6 @@ static void hotplug_work_fn(struct work_struct *work)
 #endif
 	for_each_cpu_not(cpu, cpu_online_mask) {
 		struct hotplug_cpuinfo *this_hotplug_cpuinfo;
-
-		get_cpu_load(cpu, 0);
 
 		this_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
 
@@ -503,8 +497,6 @@ static void hotplug_work_fn(struct work_struct *work)
 		ref_hotplug_cpuinfo->up_cpu = 1;
 	}
 	queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work, delay);
-
-	mutex_unlock(&timer_mutex);
 }
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
@@ -525,8 +517,8 @@ static void __ref alucard_hotplug_early_suspend(struct early_suspend *handler)
 		/* put rest of the cores to sleep! */
 		for (i = num_possible_cpus() - 1; i >=
 				maxcoreslimit_sleep; i--) {
-			struct hotplug_cpuinfo *this_hotplug_cpuinfo = NULL;
-			struct hotplug_cpuinfo *ref_hotplug_cpuinfo = NULL;
+			struct hotplug_cpuinfo *this_hotplug_cpuinfo;
+			struct hotplug_cpuinfo *ref_hotplug_cpuinfo;
 			int ret = 0;
 			if (cpu_online(i)) {
 				ret = cpu_down(i);
@@ -560,8 +552,8 @@ static void __cpuinit alucard_hotplug_late_resume(
 		maxcoreslimit = atomic_read(&hotplug_tuners_ins.maxcoreslimit);
 
 		for (i = 1; i < maxcoreslimit; i++) {
-			struct hotplug_cpuinfo *this_hotplug_cpuinfo = NULL;
-			struct hotplug_cpuinfo *ref_hotplug_cpuinfo = NULL;
+			struct hotplug_cpuinfo *this_hotplug_cpuinfo;
+			struct hotplug_cpuinfo *ref_hotplug_cpuinfo;
 			int ret = 0;
 			if (!cpu_online(i)) {
 				ret = cpu_up(i);
@@ -729,7 +721,9 @@ static void cpus_hotplugging(bool state) {
 
 	atomic_set(&hotplug_tuners_ins.hotplug_enable, state);
 
-	mutex_lock(&timer_mutex);
+	cancel_delayed_work_sync(&alucard_hotplug_work);
+	cancel_work_sync(&up_work);
+	cancel_work_sync(&down_work);
 
 	if (state) {
 		init_cpus_load(0);
@@ -748,15 +742,7 @@ static void cpus_hotplugging(bool state) {
 
 		queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
 				delay);
-	} else {
-		mutex_unlock(&timer_mutex);
-		cancel_delayed_work_sync(&alucard_hotplug_work);
-		cancel_work_sync(&up_work);
-		cancel_work_sync(&down_work);
-		mutex_lock(&timer_mutex);
 	}
-
-	mutex_unlock(&timer_mutex);
 }
 
 /**
@@ -778,14 +764,11 @@ static void update_sampling_rate(unsigned int new_rate)
 {
 	unsigned long next_sampling, appointed_at;
 
-	mutex_lock(&timer_mutex);
-
 	hotplug_tuners_ins.hotplug_sampling_rate = new_rate;
 
 	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0) {
 
 		if (!delayed_work_pending(&alucard_hotplug_work)) {
-			mutex_unlock(&timer_mutex);
 			return;
 		}
 
@@ -794,16 +777,13 @@ static void update_sampling_rate(unsigned int new_rate)
 
 		if (time_before(next_sampling, appointed_at)) {
 
-			mutex_unlock(&timer_mutex);
 			cancel_delayed_work_sync(&alucard_hotplug_work);
-			mutex_lock(&timer_mutex);
 
 			queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
 					msecs_to_jiffies(new_rate));
 		}
 	}
 
-	mutex_unlock(&timer_mutex);
 }
 
 /* hotplug_sampling_rate */
@@ -1040,7 +1020,6 @@ static int __init alucard_hotplug_init(void)
 	init_cpus_load(0);
 
 	hotplugging_rate = 0;
-	mutex_init(&timer_mutex);
 #if 0
 	/* Initiate timer time stamp */
 	time_stamp = ktime_get();
@@ -1084,8 +1063,6 @@ static void __exit alucard_hotplug_exit(void)
 	cancel_work_sync(&up_work);
 	cancel_work_sync(&down_work);
 	exit_rq_avg;
-
-	mutex_destroy(&timer_mutex);
 
 	destroy_workqueue(alucardhp_wq);
 
