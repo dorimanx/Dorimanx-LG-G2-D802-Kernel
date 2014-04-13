@@ -55,7 +55,7 @@
 /* PATCH : SMART_UP */
 #define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
 
-#define SMART_UP_PLUS (0)
+#define SMART_UP_PLUS (1)
 #define SMART_UP_SLOW_UP_AT_HIGH_FREQ (1)
 #define SUP_MAX_STEP (3)
 #define SUP_CORE_NUM (4)
@@ -1422,11 +1422,30 @@ bail_acq_sema_failed:
 	atomic_set(&this_dbs_info->src_sync_cpu, -1);
 }
 
+static void dbs_sync_set_prio(unsigned int policy, unsigned int prio)
+{
+	struct sched_param param = { .sched_priority = prio };
+
+	sched_setscheduler(current, policy, &param);
+}
+
+static void dbs_sync_park(unsigned int cpu)
+{
+	dbs_sync_set_prio(SCHED_NORMAL, 0);
+}
+
+static void dbs_sync_unpark(unsigned int cpu)
+{
+	dbs_sync_set_prio(SCHED_FIFO, MAX_RT_PRIO - 1);
+}
+
 static struct smp_hotplug_thread dbs_sync_threads = {
 	.store		= &sync_thread,
 	.thread_should_run = dbs_sync_should_run,
 	.thread_fn	= run_dbs_sync,
 	.thread_comm	= "dbs_sync/%u",
+	.park		= dbs_sync_park,
+	.unpark		= dbs_sync_unpark,
 };
 
 static void dbs_input_event(struct input_handle *handle, unsigned int type,
@@ -1534,8 +1553,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 		dbs_enable++;
 
-		mutex_init(&this_dbs_info->timer_mutex);
-
 		for_each_cpu(j, policy->cpus) {
 			struct cpu_dbs_info_s *j_dbs_info;
 			j_dbs_info = &per_cpu(od_cpu_dbs_info, j);
@@ -1562,6 +1579,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			rc = sysfs_create_group(cpufreq_global_kobject,
 						&dbs_attr_group);
 			if (rc) {
+				dbs_enable--;
 				mutex_unlock(&dbs_mutex);
 				return rc;
 			}
@@ -1586,6 +1604,8 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			atomic_notifier_chain_register(&migration_notifier_head,
 					&dbs_migration_nb);
 		}
+		mutex_init(&this_dbs_info->timer_mutex);
+
 		if (!cpu)
 			rc = input_register_handler(&dbs_input_handler);
 		mutex_unlock(&dbs_mutex);
@@ -1601,10 +1621,9 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		dbs_timer_exit(this_dbs_info);
 
 		mutex_lock(&dbs_mutex);
+		mutex_destroy(&this_dbs_info->timer_mutex);
 
 		dbs_enable--;
-
-		mutex_destroy(&this_dbs_info->timer_mutex);
 
 		for_each_cpu(j, policy->cpus) {
 			struct cpu_dbs_info_s *j_dbs_info;

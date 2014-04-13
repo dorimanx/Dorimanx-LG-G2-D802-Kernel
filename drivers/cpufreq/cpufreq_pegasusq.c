@@ -576,8 +576,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 		dbs_enable++;
 
-		mutex_init(&this_dbs_info->timer_mutex);
-
 		for_each_cpu(j, policy->cpus) {
 			struct cpu_dbs_info_s *j_dbs_info;
 			j_dbs_info = &per_cpu(od_cpu_dbs_info, j);
@@ -599,6 +597,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			rc = sysfs_create_group(cpufreq_global_kobject,
 						&dbs_attr_group);
 			if (rc) {
+				dbs_enable--;
 				mutex_unlock(&dbs_mutex);
 				return rc;
 			}
@@ -607,6 +606,8 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			dbs_tuners_ins.sampling_rate = DEF_SAMPLING_RATE;
 			dbs_tuners_ins.io_is_busy = 0;
 		}
+		mutex_init(&this_dbs_info->timer_mutex);
+
 		mutex_unlock(&dbs_mutex);
 
 		dbs_timer_init(this_dbs_info);
@@ -617,10 +618,9 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		dbs_timer_exit(this_dbs_info);
 
 		mutex_lock(&dbs_mutex);
+		mutex_destroy(&this_dbs_info->timer_mutex);
 
 		dbs_enable--;
-
-		mutex_destroy(&this_dbs_info->timer_mutex);
 
 		if (!dbs_enable) {
 			sysfs_remove_group(cpufreq_global_kobject,

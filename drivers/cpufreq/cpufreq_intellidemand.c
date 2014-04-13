@@ -2115,8 +2115,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
                 dbs_enable++;
 
-		mutex_init(&this_dbs_info->timer_mutex);
-
                 for_each_cpu(j, policy->cpus) {
                         struct cpu_dbs_info_s *j_dbs_info;
                         j_dbs_info = &per_cpu(od_cpu_dbs_info, j);
@@ -2146,6 +2144,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
                         rc = sysfs_create_group(cpufreq_global_kobject,
                                                 &dbs_attr_group);
                         if (rc) {
+				dbs_enable--;
                                 mutex_unlock(&dbs_mutex);
                                 return rc;
                         }
@@ -2174,6 +2173,8 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
                         atomic_notifier_chain_register(&migration_notifier_head,
                                         &dbs_migration_nb);
                 }
+		mutex_init(&this_dbs_info->timer_mutex);
+
                 if (!cpu)
                         rc = input_register_handler(&dbs_input_handler);
                 mutex_unlock(&dbs_mutex);
@@ -2189,10 +2190,9 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
                 dbs_timer_exit(this_dbs_info);
 
                 mutex_lock(&dbs_mutex);
-
-                dbs_enable--;
-
 		mutex_destroy(&this_dbs_info->timer_mutex);
+
+		dbs_enable--;
 
                 for_each_cpu(j, policy->cpus) {
                         struct cpu_dbs_info_s *j_dbs_info;
