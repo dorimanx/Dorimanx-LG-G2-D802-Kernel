@@ -614,8 +614,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		this_nightmare_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
 		this_nightmare_cpuinfo->cpu = cpu;
 
-		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
-
 		nightmare_enable++;
 		/*
 		 * Start the timerschedule work, when this governor
@@ -625,10 +623,12 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			rc = sysfs_create_group(cpufreq_global_kobject,
 						&nightmare_attr_group);
 			if (rc) {
+				nightmare_enable--;
 				mutex_unlock(&nightmare_mutex);
 				return rc;
 			}
 		}
+		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
 
 		mutex_unlock(&nightmare_mutex);
 
@@ -651,9 +651,9 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		cancel_delayed_work_sync(&this_nightmare_cpuinfo->work);
 
 		mutex_lock(&nightmare_mutex);
-		nightmare_enable--;
 		mutex_destroy(&this_nightmare_cpuinfo->timer_mutex);
 
+		nightmare_enable--;
 		if (!nightmare_enable) {
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &nightmare_attr_group);			
