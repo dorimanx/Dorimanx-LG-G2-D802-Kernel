@@ -509,8 +509,6 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 		this_alucard_cpuinfo->cpu = cpu;
 
 		alucard_enable++;
-
-		mutex_init(&this_alucard_cpuinfo->timer_mutex);
 		/*
 		 * Start the timerschedule work, when this governor
 		 * is used for first time
