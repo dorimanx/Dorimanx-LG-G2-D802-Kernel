@@ -609,14 +609,13 @@ static struct attribute_group attr_group = {
 static int __devinit msm_hotplug_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	struct cpu_stats *st = &stats;
-	struct cpu_hotplug *hp = &hotplug;
 	struct kobject *module_kobj;
 
 	hotplug_wq =
 	    alloc_workqueue("msm_hotplug_wq", WQ_HIGHPRI | WQ_FREEZABLE, 0);
 	if (!hotplug_wq) {
-		pr_err("%s: Creation of hotplug work failed\n", MSM_HOTPLUG);
+		pr_err("%s: Failed to allocate hotplug workqueue\n",
+		       MSM_HOTPLUG);
 		ret = -ENOMEM;
 		goto err_out;
 	}
@@ -629,13 +628,13 @@ static int __devinit msm_hotplug_probe(struct platform_device *pdev)
 
 	ret = sysfs_create_group(module_kobj, &attr_group);
 	if (ret) {
-		pr_err("%s: Creation of sysfs failed: %d\n", MSM_HOTPLUG, ret);
+		pr_err("%s: Failed to create sysfs: %d\n", MSM_HOTPLUG, ret);
 		goto err_dev;
 	}
 
 	hotplug.notif.notifier_call = lcd_notifier_callback;
         if (lcd_register_client(&hotplug.notif) != 0) {
-                pr_err("%s: Register LCD notifier callback failed\n",
+                pr_err("%s: Failed to register LCD notifier callback\n",
                        MSM_HOTPLUG);
 		goto err_dev;
 	}
@@ -647,20 +646,20 @@ static int __devinit msm_hotplug_probe(struct platform_device *pdev)
 		goto err_dev;
 	}
 
-	st->load_hist = kmalloc(sizeof(st->hist_size), GFP_KERNEL);
-	if (!st->load_hist) {
+	stats.load_hist = kmalloc(sizeof(stats.hist_size), GFP_KERNEL);
+	if (!stats.load_hist) {
 		pr_err("%s: Failed to allocated memory\n", MSM_HOTPLUG);
 		ret = -ENOMEM;
 		goto err_dev;
 	}
 
-	setup_timer(&hp->lock_timer, handle_lock_timer, 0);
+	setup_timer(&hotplug.lock_timer, handle_lock_timer, 0);
 	mutex_init(&stats.lock);
 
 	INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
-	INIT_WORK(&hp->up_work, cpu_up_work);
-	INIT_WORK(&hp->down_work, cpu_down_work);
-	INIT_WORK(&hp->resume_work, msm_hotplug_resume_work);
+	INIT_WORK(&hotplug.up_work, cpu_up_work);
+	INIT_WORK(&hotplug.down_work, cpu_down_work);
+	INIT_WORK(&hotplug.resume_work, msm_hotplug_resume_work);
 
 	queue_delayed_work_on(0, hotplug_wq, &hotplug_work, START_DELAY);
 
