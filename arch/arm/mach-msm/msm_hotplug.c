@@ -1,7 +1,7 @@
 /*
  * MSM Hotplug Driver
  *
- * Copyright (C) 2013 Fluxi <linflux@arcor.de>
+ * Copyright (C) 2013-2014 Fluxi <linflux@arcor.de>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -732,4 +732,4 @@ module_exit(msm_hotplug_exit);
 
 MODULE_AUTHOR("Fluxi <linflux@arcor.de>");
 MODULE_DESCRIPTION("MSM Hotplug Driver");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPLv2");
