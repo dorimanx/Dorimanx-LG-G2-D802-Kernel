@@ -1017,26 +1017,29 @@ static int __init alucard_hotplug_init(void)
 		return ret;
 	}
 
-	init_cpus_load(0);
-
-	hotplugging_rate = 0;
 #if 0
 	/* Initiate timer time stamp */
 	time_stamp = ktime_get();
 #endif
+
+	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0) {
+		hotplugging_rate = 0;
+
+		init_cpus_load(0);
+
+		init_rq_avg_stats();
+
+		delay = msecs_to_jiffies(
+				hotplug_tuners_ins.hotplug_sampling_rate);
+	}
+
 	INIT_DEFERRABLE_WORK(&alucard_hotplug_work, hotplug_work_fn);
 	INIT_WORK(&up_work, cpu_up_work);
 	INIT_WORK(&down_work, cpu_down_work);
 
 	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0) {
-		init_rq_avg_stats();
-
-		delay = msecs_to_jiffies(
-				hotplug_tuners_ins.hotplug_sampling_rate);
-
 		queue_delayed_work_on(0, alucardhp_wq,
 			&alucard_hotplug_work, delay);
-
 	}
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
