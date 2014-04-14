@@ -82,6 +82,7 @@ static struct cpu_stats {
 	unsigned int total_cpus;
 	unsigned int online_cpus;
 	unsigned int current_load;
+	struct mutex lock;
 } stats = {
 	.update_rate = DEFAULT_UPDATE_RATE,
 	.hist_size = DEFAULT_HISTORY_SIZE,
@@ -92,30 +93,29 @@ static struct cpu_stats {
 extern unsigned int report_load_at_max_freq(void);
 extern unsigned int report_avg_load_cpu(unsigned int cpu);
 
-static struct cpu_stats *get_load_stats(void)
+static void update_load_stats(void)
 {
 	unsigned int i, j;
 	unsigned int load = 0;
-	struct cpu_stats *st = &stats;
 
-	st->online_cpus = num_online_cpus();
-	st->load_hist[st->hist_cnt] = report_load_at_max_freq();
+	mutex_lock(&stats.lock);
+	stats.online_cpus = num_online_cpus();
+	stats.load_hist[stats.hist_cnt] = report_load_at_max_freq();
 
-	for (i = 0, j = st->hist_cnt; i < st->hist_size; i++, j--) {
-		load += st->load_hist[j];
+	for (i = 0, j = stats.hist_cnt; i < stats.hist_size; i++, j--) {
+		load += stats.load_hist[j];
 
 		if (j == 0)
-			j = st->hist_size;
+			j = stats.hist_size;
 	}
 
-	if (++st->hist_cnt == st->hist_size)
-		st->hist_cnt = 0;
+	if (++stats.hist_cnt == stats.hist_size)
+		stats.hist_cnt = 0;
 
-	st->current_load = load / st->hist_size;
-
-	return st;
+	stats.current_load = load / stats.hist_size;
+	mutex_unlock(&stats.lock);
 }
-EXPORT_SYMBOL_GPL(get_load_stats);
+EXPORT_SYMBOL_GPL(update_load_stats);
 
 struct load_thresh_tbl {
 	unsigned int up_threshold;
@@ -241,24 +241,24 @@ static void msm_hotplug_work(struct work_struct *work)
 {
 	unsigned int cur_load, online_cpus, target = 0;
 	unsigned int i;
-	struct cpu_stats *st = get_load_stats();
-	struct cpu_hotplug *hp = &hotplug;
 
-	cur_load = st->current_load;
-	online_cpus = st->online_cpus;
+	update_load_stats();
 
-	/* If nr of cpus locked, break out early */
-	if (hp->min_cpus_online == num_possible_cpus()) {
-		if (online_cpus != hp->min_cpus_online)
-			online_cpu(hp->min_cpus_online);
+	cur_load = stats.current_load;
+	online_cpus = stats.online_cpus;
+
+	/* If number of cpus locked, break out early */
+	if (hotplug.min_cpus_online == num_possible_cpus()) {
+		if (online_cpus != hotplug.min_cpus_online)
+			online_cpu(hotplug.min_cpus_online);
 		goto reschedule;
-	} else if (hp->max_cpus_online == st->min_cpus) {
-		if (online_cpus != hp->max_cpus_online)
-			offline_cpu(hp->max_cpus_online);
+	} else if (hotplug.max_cpus_online == stats.min_cpus) {
+		if (online_cpus != hotplug.max_cpus_online)
+			offline_cpu(hotplug.max_cpus_online);
 		goto reschedule;
 	}
 
-	for (i = st->min_cpus; i < NUM_LOAD_LEVELS; i++) {
+	for (i = stats.min_cpus; i < NUM_LOAD_LEVELS; i++) {
 		if (cur_load <= load[i].up_threshold
 		    && cur_load > load[i].down_threshold) {
 			target = i;
@@ -266,10 +266,10 @@ static void msm_hotplug_work(struct work_struct *work)
 		}
 	}
 
-	if (target > hp->max_cpus_online)
-		target = hp->max_cpus_online;
-	else if (target < hp->min_cpus_online)
-		target = hp->min_cpus_online;
+	if (target > hotplug.max_cpus_online)
+		target = hotplug.max_cpus_online;
+	else if (target < hotplug.min_cpus_online)
+		target = hotplug.min_cpus_online;
 
 	if (online_cpus != target) {
 		if (target > online_cpus)
@@ -655,6 +655,7 @@ static int __devinit msm_hotplug_probe(struct platform_device *pdev)
 	}
 
 	setup_timer(&hp->lock_timer, handle_lock_timer, 0);
+	mutex_init(&stats.lock);
 
 	INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
 	INIT_WORK(&hp->up_work, cpu_up_work);
