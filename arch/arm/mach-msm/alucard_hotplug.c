@@ -59,8 +59,8 @@ static struct hotplug_tuners {
 } hotplug_tuners_ins = {
 	.hotplug_sampling_rate = 60,
 	.hotplug_enable = ATOMIC_INIT(0),
-	.cpu_up_rate = 2,
-	.cpu_down_rate = 15,
+	.cpu_up_rate = 1,
+	.cpu_down_rate = 10,
 	.maxcoreslimit = ATOMIC_INIT(NR_CPUS),
 	.maxcoreslimit_sleep = ATOMIC_INIT(1),
 	.core_thermal_enable = ATOMIC_INIT(0),
