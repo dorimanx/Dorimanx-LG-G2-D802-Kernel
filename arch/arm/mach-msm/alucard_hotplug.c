@@ -434,7 +434,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 						this_hotplug_cpuinfo->online = false;
 						this_hotplug_cpuinfo->up_by_cpu = -1;
 					}
-				
+
 				}
 			}
 		}
