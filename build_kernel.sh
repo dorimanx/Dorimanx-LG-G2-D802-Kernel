@@ -179,6 +179,24 @@ time make modules -j ${NR_CPUS} || exit 1
 # move the compiled zImage and modules into the READY-KERNEL working directory
 echo "Move compiled objects........"
 
+# Check that RAMDISK is for this Branch. and check if need to push changes before switch to needed branch.
+
+RAMDISK_BRANCH=$(git -C ../LG-G2-D802-Ramdisk/ commit | grep "origin/kitkat-ramdisk" | wc -l);
+RAMDISK_NOT_SAVED=$(git -C ../LG-G2-D802-Ramdisk/ commit | grep "Changes not staged for commit" | wc -l);
+
+if [ "$RAMDISK_BRANCH" == "1" ]; then
+	echo "Ram Disk is in the right branch!";
+else
+	if [ "$RAMDISK_NOT_SAVED" != "1" ]; then
+		git -C ../LG-G2-D802-Ramdisk/ checkout kitkat-ramdisk;
+		echo -e "\e[1;31mRamDisk Switched to kitkat-ramdisk Branch!\e[m"
+	else
+		echo -e "\e[1;31mRamDisk has to be SAVED (commited) before switching to kitkat-ramdisk Branch\e[m";
+		echo -e "\e[1;31mKernel Build Script exit! please (commit/Reset changes) and build again.\e[m";
+		exit 1;
+	fi;
+fi;
+
 cp -a ../LG-G2-D802-Ramdisk/* ../ramdisk-tmp/
 rm -rf ../ramdisk-tmp/.git
 
