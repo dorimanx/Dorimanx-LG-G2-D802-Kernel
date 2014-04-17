@@ -34,7 +34,9 @@
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 static struct delayed_work alucard_hotplug_work;
+#ifdef CONFIG_MACH_LGE
 static struct workqueue_struct *alucardhp_wq;
+#endif
 #if 0
 static ktime_t time_stamp;
 #endif
@@ -183,24 +185,6 @@ static int hotplug_rq[4][2] = {
 	{300, 300},
 	{300, 0}
 };
-
-static void init_cpus_load(int io_busy)
-{
-	unsigned int cpu;
-
-	get_online_cpus();
-	for_each_possible_cpu(cpu) {
-		struct hotplug_cpuinfo *this_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
-
-		this_hotplug_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu,
-				&this_hotplug_cpuinfo->prev_cpu_wall, io_busy);
-
-		this_hotplug_cpuinfo->online = cpu_online(cpu);
-		this_hotplug_cpuinfo->up_cpu = -1;
-		this_hotplug_cpuinfo->up_by_cpu = -1;
-	}
-	put_online_cpus();
-}
 
 static inline int get_cpu_load(unsigned int cpu, int io_busy)
 {
@@ -472,7 +456,11 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 		ref_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, 0);
 		ref_hotplug_cpuinfo->up_cpu = -1;
 	}
+#ifdef CONFIG_MACH_LGE
 	queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work, delay);
+#else
+	queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
+#endif
 }
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
@@ -482,33 +470,9 @@ static void __ref alucard_hotplug_suspend(struct power_suspend *handler)
 static void __ref alucard_hotplug_early_suspend(struct early_suspend *handler)
 #endif
 {
-	int i = 0;
-	int maxcoreslimit_sleep = 0;
 
 	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0) {
-		maxcoreslimit_sleep =
-			atomic_read(&hotplug_tuners_ins.maxcoreslimit_sleep);
-
-		flush_workqueue(alucardhp_wq);
-
 		atomic_set(&suspended, 1);
-
-		/* put rest of the cores to sleep! */
-		for (i = num_possible_cpus() - 1; i >=
-				maxcoreslimit_sleep; i--) {
-			struct hotplug_cpuinfo *this_hotplug_cpuinfo;
-			struct hotplug_cpuinfo *ref_hotplug_cpuinfo;
-			int ret = 0;
-			ret = cpu_down(i);
-			if (!ret) {
-				this_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, i);
-				ref_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, i - 1);
-				this_hotplug_cpuinfo->online = false;
-				this_hotplug_cpuinfo->up_cpu = -1;
-				this_hotplug_cpuinfo->up_by_cpu = -1;
-				ref_hotplug_cpuinfo->up_cpu = -1;
-			}
-		}
 	}
 }
 
@@ -527,8 +491,11 @@ static void __cpuinit alucard_hotplug_late_resume(
 			atomic_read(&core_thermal_lock) == 0) {
 		/* wake up everyone */
 		maxcoreslimit = atomic_read(&hotplug_tuners_ins.maxcoreslimit);
-
+#ifdef CONFIG_MACH_LGE
 		flush_workqueue(alucardhp_wq);
+#else
+		flush_delayed_work(&alucard_hotplug_work);
+#endif
 
 		atomic_set(&suspended, 0);
 
@@ -567,6 +534,71 @@ static struct early_suspend alucard_hotplug_early_suspend_driver = {
 };
 #endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
+
+static void hotplug_start(void)
+{
+	unsigned int cpu;
+	int delay = msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate);
+
+	get_online_cpus();
+	for_each_possible_cpu(cpu) {
+		struct hotplug_cpuinfo *this_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
+
+		this_hotplug_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu,
+				&this_hotplug_cpuinfo->prev_cpu_wall, 0);
+
+		this_hotplug_cpuinfo->online = cpu_online(cpu);
+
+		this_hotplug_cpuinfo->up_cpu = -1;
+		this_hotplug_cpuinfo->up_by_cpu = -1;
+
+		hotplugging_rate = 0;
+
+		/* Initial thermal core control */
+		atomic_set(&core_thermal_lock, 0);
+		core_thermal_info.num_cores = num_possible_cpus();
+
+		atomic_set(&suspended,0);
+
+	}
+	put_online_cpus();
+
+#if 0
+	/* Initiate timer time stamp */
+	time_stamp = ktime_get();
+#endif
+
+	init_rq_avg_stats;
+	INIT_DELAYED_WORK(&alucard_hotplug_work, hotplug_work_fn);
+#ifdef CONFIG_MACH_LGE
+	queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
+						delay);
+#else
+	queue_delayed_work_on(0, system_wq, &alucard_hotplug_work,
+						delay);
+#endif
+
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#ifdef CONFIG_POWERSUSPEND
+	register_power_suspend(&alucard_hotplug_power_suspend_driver);
+#else
+	register_early_suspend(&alucard_hotplug_early_suspend_driver);
+#endif
+#endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
+}
+
+static void hotplug_stop(void)
+{
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#ifdef CONFIG_POWERSUSPEND
+	unregister_power_suspend(&alucard_hotplug_power_suspend_driver);
+#else
+	unregister_early_suspend(&alucard_hotplug_early_suspend_driver);
+#endif
+#endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
+
+	cancel_delayed_work_sync(&alucard_hotplug_work);
+}
 
 #define show_atomic(file_name, object)					\
 static ssize_t show_##file_name						\
@@ -706,28 +738,10 @@ static void cpus_hotplugging(bool state) {
 
 	atomic_set(&hotplug_tuners_ins.hotplug_enable, state);
 
-	cancel_delayed_work_sync(&alucard_hotplug_work);
-
-	if (state) {
-		init_cpus_load(0);
-		hotplugging_rate = 0;
-		/* Initial thermal core control */
-		atomic_set(&core_thermal_lock, 0);
-		core_thermal_info.num_cores = NR_CPUS;
-#if 0
-		/* Initiate timer time stamp */
-		time_stamp = ktime_get();
-#endif
-		init_rq_avg_stats;
-
-		atomic_set(&suspended, 0);
-
-		delay = msecs_to_jiffies(
-			hotplug_tuners_ins.hotplug_sampling_rate);
-
-		queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
-				delay);
-	}
+	if (state)
+		hotplug_start();
+	else
+		hotplug_stop();
 }
 
 /**
@@ -763,9 +777,13 @@ static void update_sampling_rate(unsigned int new_rate)
 		if (time_before(next_sampling, appointed_at)) {
 
 			cancel_delayed_work_sync(&alucard_hotplug_work);
-
+#ifdef CONFIG_MACH_LGE
 			queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
 					msecs_to_jiffies(new_rate));
+#else
+			queue_delayed_work_on(0, system_wq, &alucard_hotplug_work,
+					msecs_to_jiffies(new_rate));
+#endif
 		}
 
 	}
@@ -973,8 +991,6 @@ static struct attribute_group alucard_hotplug_attr_group = {
 
 static int __init alucard_hotplug_init(void)
 {
-	/* We want all CPUs to do sampling nearly on same jiffy */
-	int delay;
 	int ret;
 
 	ret = sysfs_create_group(kernel_kobj, &alucard_hotplug_attr_group);
@@ -986,70 +1002,36 @@ static int __init alucard_hotplug_init(void)
 #ifdef CONFIG_MACH_LGE
 	alucardhp_wq = alloc_workqueue("alucardhp_wq",
 				WQ_HIGHPRI | WQ_UNBOUND, 1);
-#else
-	alucardhp_wq = alloc_workqueue("alucardhp_wq",
-				WQ_HIGHPRI | WQ_UNBOUND, 0);
-//				WQ_HIGHPRI | WQ_FREEZABLE, 1);
-#endif
 
 	if (!alucardhp_wq) {
 		printk(KERN_ERR "Failed to create \
 				alucardhp workqueue\n");
 		return -EFAULT;
 	}
-
+#endif
 	ret = init_rq_avg();
 	if (ret) {
 		return ret;
 	}
 
-#if 0
-	/* Initiate timer time stamp */
-	time_stamp = ktime_get();
-#endif
-
 	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0) {
-		init_cpus_load(0);
-		hotplugging_rate = 0;
-
-		init_rq_avg_stats();
-
-		delay = msecs_to_jiffies(
-				hotplug_tuners_ins.hotplug_sampling_rate);
+		hotplug_start();
 	}
-
-	INIT_DEFERRABLE_WORK(&alucard_hotplug_work, hotplug_work_fn);
-
-	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0) {
-		queue_delayed_work_on(0, alucardhp_wq,
-			&alucard_hotplug_work, delay);
-	}
-
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
-#ifdef CONFIG_POWERSUSPEND
-	register_power_suspend(&alucard_hotplug_power_suspend_driver);
-#else
-	register_early_suspend(&alucard_hotplug_early_suspend_driver);
-#endif
-#endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 	return ret;
 }
 
 static void __exit alucard_hotplug_exit(void)
 {
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
-#ifdef CONFIG_POWERSUSPEND
-	unregister_power_suspend(&alucard_hotplug_power_suspend_driver);
-#else
-	unregister_early_suspend(&alucard_hotplug_early_suspend_driver);
-#endif
-#endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
-	cancel_delayed_work_sync(&alucard_hotplug_work);
+	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0) {
+		hotplug_stop();
+	}
+
 	exit_rq_avg;
 
+#ifdef CONFIG_MACH_LGE
 	destroy_workqueue(alucardhp_wq);
-
+#endif
 	sysfs_remove_group(kernel_kobj, &alucard_hotplug_attr_group);
 }
 MODULE_AUTHOR("Alucard_24@XDA");
