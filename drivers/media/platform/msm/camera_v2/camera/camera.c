@@ -376,25 +376,20 @@ static int camera_v4l2_s_fmt_vid_cap_mplane(struct file *filep, void *fh,
 			MSM_CAMERA_PRIV_S_FMT, -1, &event);
 
 		rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
-/*                                                                                        */
 		if (rc < 0){
 			pr_err("%s:%d camera_v4l2_s_fmt_vid_cap_mplane failed\n", __func__, __LINE__);
-			goto set_fmt_fail;
+			return rc;
 		}
-/*                                                                                        */
 
 		rc = camera_check_event_status(&event);
 		if (rc < 0)
-			goto set_fmt_fail;
+			return rc;
+
 		sp->is_vb2_valid = 1;
 	}
 
 	return rc;
 
-set_fmt_fail:
-	kzfree(sp->vb2_q.drv_priv);
-	sp->vb2_q.drv_priv = NULL;
-	return rc;
 }
 
 static int camera_v4l2_try_fmt_vid_cap_mplane(struct file *filep, void *fh,
