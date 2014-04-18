@@ -373,13 +373,7 @@ static struct early_suspend intelli_plug_early_suspend_struct_driver = {
 
 static int intelli_plug_start(void)
 {
-#ifdef CONFIG_MACH_LGE
-	intelliplug_wq = alloc_workqueue("intelliplug",
-				WQ_HIGHPRI | WQ_UNBOUND, 1);
-#else
-	intelliplug_wq = alloc_workqueue("intelliplug",
-				WQ_HIGHPRI | WQ_UNBOUND, 0);
-#endif
+	intelliplug_wq = create_singlethread_workqueue("intelliplug");
 
 	if (!intelliplug_wq) {
 		printk(KERN_ERR "Failed to create intelliplug \
