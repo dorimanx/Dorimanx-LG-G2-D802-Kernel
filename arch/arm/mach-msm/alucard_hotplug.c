@@ -252,7 +252,7 @@ static inline int do_core_control(int online, int num_cores_limit)
 	return core_thermal_info.num_cores;
 }
 
-static void __cpuinit hotplug_work_fn(struct work_struct *work)
+static void __ref hotplug_work_fn(struct work_struct *work)
 {
 	struct hotplug_cpuinfo *ref_hotplug_cpuinfo;
 	int upmaxcoreslimit = 0;
@@ -477,9 +477,9 @@ static void __ref alucard_hotplug_early_suspend(struct early_suspend *handler)
 }
 
 #ifdef CONFIG_POWERSUSPEND
-static void __cpuinit alucard_hotplug_resume(struct power_suspend *handler)
+static void __ref alucard_hotplug_resume(struct power_suspend *handler)
 #else
-static void __cpuinit alucard_hotplug_late_resume(
+static void __ref alucard_hotplug_late_resume(
 				struct early_suspend *handler)
 #endif
 {
@@ -535,7 +535,7 @@ static struct early_suspend alucard_hotplug_early_suspend_driver = {
 #endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
-static int hotplug_start(void)
+static int __ref hotplug_start(void)
 {
 	unsigned int cpu;
 	int delay = msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate);
