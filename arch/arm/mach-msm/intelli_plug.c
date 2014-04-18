@@ -93,173 +93,6 @@ static unsigned int nr_run_last;
 static unsigned int NwNs_Threshold[] = { 19, 30,  19,  11,  19,  11, 0,  11};
 static unsigned int TwTs_Threshold[] = {140,  0, 140, 190, 140, 190, 0, 190};
 
-#define show_one(file_name, object)				\
-static ssize_t show_##file_name					\
-(struct kobject *kobj, struct attribute *attr, char *buf)	\
-{								\
-	return sprintf(buf, "%u\n", object);			\
-}
-
-static ssize_t show_intelli_plug_active(struct kobject *kobj,
-			struct attribute *attr, char *buf)
-{
-	return sprintf(buf, "%d\n",
-			atomic_read(&intelli_plug_active));
-}
-
-show_one(eco_mode_active, eco_mode_active);
-show_one(strict_mode_active, strict_mode_active);
-show_one(def_sampling_ms, def_sampling_ms);
-show_one(busy_sampling_ms, busy_sampling_ms);
-show_one(dual_core_persistence, dual_core_persistence);
-show_one(tri_core_persistence, tri_core_persistence);
-show_one(quad_core_persistence, quad_core_persistence);
-show_one(busy_persistence, busy_persistence);
-show_one(cpu_down_factor, cpu_down_factor);
-show_one(debug_intelli_plug, debug_intelli_plug);
-show_one(nr_fshift, nr_fshift);
-show_one(nr_run_hysteresis, nr_run_hysteresis);
-
-#define store_one(file_name, object)		\
-static ssize_t store_##file_name		\
-(struct kobject *kobj, struct attribute *attr,	\
-	const char *buf, size_t count)		\
-{						\
-	unsigned int input;			\
-	int ret;				\
-	ret = sscanf(buf, "%u", &input);	\
-	if (ret != 1 || input > 100)		\
-		return -EINVAL;			\
-	if (input == object) {			\
-		return count;			\
-	}					\
-	object = input;				\
-	return count;				\
-}
-
-store_one(eco_mode_active, eco_mode_active);
-store_one(strict_mode_active, strict_mode_active);
-store_one(def_sampling_ms, def_sampling_ms);
-store_one(busy_sampling_ms, busy_sampling_ms);
-store_one(dual_core_persistence, dual_core_persistence);
-store_one(tri_core_persistence, tri_core_persistence);
-store_one(quad_core_persistence, quad_core_persistence);
-store_one(busy_persistence, busy_persistence);
-store_one(cpu_down_factor, cpu_down_factor);
-store_one(debug_intelli_plug, debug_intelli_plug);
-store_one(nr_fshift, nr_fshift);
-store_one(nr_run_hysteresis, nr_run_hysteresis);
-
-static void intelli_plug_active_eval_fn(unsigned int status)
-{
-	atomic_set(&intelli_plug_active, status);
-
-	if (status == 1) {
-		sampling_time_on = 10;
-		sampling_time = 10;
-		if (!delayed_work_pending(&intelli_plug_work))
-			queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
-					msecs_to_jiffies(sampling_time_on));
-	} else {
-		cancel_delayed_work_sync(&intelli_plug_work);
-	}
-}
-
-static ssize_t store_intelli_plug_active(struct kobject *kobj,
-				struct attribute *attr,
-				const char *buf, size_t count)
-{
-	int ret;
-	unsigned int input;
-
-	ret = sscanf(buf, "%d", &input);
-	if (ret < 0)
-		return ret;
-
-	input = min(max(input, 0), 1);
-
-	if (input == atomic_read(&intelli_plug_active))
-		return count;
-
-	intelli_plug_active_eval_fn(input);
-
-	return count;
-}
-
-static struct kobj_attribute intelli_plug_active_attr =
-	__ATTR(intelli_plug_active, 0664, show_intelli_plug_active,
-			store_intelli_plug_active);
-
-static struct kobj_attribute eco_mode_active_attr =
-	__ATTR(eco_mode_active, 0664, show_eco_mode_active,
-			store_eco_mode_active);
-
-static struct kobj_attribute strict_mode_active_attr =
-	__ATTR(strict_mode_active, 0664, show_strict_mode_active,
-			store_strict_mode_active);
-
-static struct kobj_attribute def_sampling_ms_attr =
-	__ATTR(def_sampling_ms, 0664, show_def_sampling_ms,
-			store_def_sampling_ms);
-
-static struct kobj_attribute busy_sampling_ms_attr =
-	__ATTR(busy_sampling_ms, 0664, show_busy_sampling_ms,
-			store_busy_sampling_ms);
-
-static struct kobj_attribute dual_core_persistence_attr =
-	__ATTR(dual_core_persistence, 0664, show_dual_core_persistence,
-			store_dual_core_persistence);
-
-static struct kobj_attribute tri_core_persistence_attr =
-	__ATTR(tri_core_persistence, 0664, show_tri_core_persistence,
-			store_tri_core_persistence);
-
-static struct kobj_attribute quad_core_persistence_attr =
-	__ATTR(quad_core_persistence, 0664, show_quad_core_persistence,
-			store_quad_core_persistence);
-
-static struct kobj_attribute busy_persistence_attr =
-	__ATTR(busy_persistence, 0664, show_busy_persistence,
-			store_busy_persistence);
-
-static struct kobj_attribute cpu_down_factor_attr =
-	__ATTR(cpu_down_factor, 0664, show_cpu_down_factor,
-			store_cpu_down_factor);
-
-static struct kobj_attribute debug_intelli_plug_attr =
-	__ATTR(debug_intelli_plug, 0664, show_debug_intelli_plug,
-			store_debug_intelli_plug);
-
-static struct kobj_attribute nr_fshift_attr =
-	__ATTR(nr_fshift, 0664, show_nr_fshift,
-			store_nr_fshift);
-
-static struct kobj_attribute nr_run_hysteresis_attr =
-	__ATTR(nr_run_hysteresis, 0664, show_nr_run_hysteresis,
-			store_nr_run_hysteresis);
-
-static struct attribute *intelli_plug_attrs[] = {
-	&intelli_plug_active_attr.attr,
-	&eco_mode_active_attr.attr,
-	&strict_mode_active_attr.attr,
-	&def_sampling_ms_attr.attr,
-	&busy_sampling_ms_attr.attr,
-	&dual_core_persistence_attr.attr,
-	&tri_core_persistence_attr.attr,
-	&quad_core_persistence_attr.attr,
-	&busy_persistence_attr.attr,
-	&cpu_down_factor_attr.attr,
-	&debug_intelli_plug_attr.attr,
-	&nr_fshift_attr.attr,
-	&nr_run_hysteresis_attr.attr,
-	NULL,
-};
-
-static struct attribute_group intelli_plug_attr_group = {
-	.attrs = intelli_plug_attrs,
-	.name = "intelli_plug",
-};
-
 static int mp_decision(void)
 {
 	static bool first_call = true;
@@ -538,24 +371,8 @@ static struct early_suspend intelli_plug_early_suspend_struct_driver = {
 #endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
-static int __init intelli_plug_init(void)
+static void intelli_plug_start(void)
 {
-	int rc;
-
-	rc = sysfs_create_group(kernel_kobj, &intelli_plug_attr_group);
-
-	pr_info("intelli_plug: version %d.%d by faux123\n",
-		 INTELLI_PLUG_MAJOR_VERSION,
-		 INTELLI_PLUG_MINOR_VERSION);
-
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
-#ifdef CONFIG_POWERSUSPEND
-	register_power_suspend(&intelli_plug_power_suspend_driver);
-#else
-	register_early_suspend(&intelli_plug_early_suspend_struct_driver);
-#endif
-#endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
-
 #ifdef CONFIG_MACH_LGE
 	intelliplug_wq = alloc_workqueue("intelliplug",
 				WQ_HIGHPRI | WQ_UNBOUND, 1);
@@ -569,19 +386,28 @@ static int __init intelli_plug_init(void)
 				workqueue\n");
 		return -EFAULT;
 	}
-	INIT_DELAYED_WORK(&intelli_plug_work, intelli_plug_work_fn);
-	if (atomic_read(&intelli_plug_active) == 1)
-		queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
-			msecs_to_jiffies(10));
 
-	return 0;
+	sampling_time_on = 10;
+	sampling_time = 10;
+	hotplug_suspended = false;
+
+	INIT_DELAYED_WORK(&intelli_plug_work, intelli_plug_work_fn);
+
+	if (!delayed_work_pending(&intelli_plug_work))
+		queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
+				msecs_to_jiffies(sampling_time_on));
+
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#ifdef CONFIG_POWERSUSPEND
+	register_power_suspend(&intelli_plug_power_suspend_driver);
+#else
+	register_early_suspend(&intelli_plug_early_suspend_struct_driver);
+#endif
+#endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 }
 
-static int __exit intelli_plug_exit(void)
+static void intelli_plug_stop(void)
 {
-	cancel_delayed_work_sync(&intelli_plug_work);
-	destroy_workqueue(intelliplug_wq);
-
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 #ifdef CONFIG_POWERSUSPEND
 	unregister_power_suspend(&intelli_plug_power_suspend_driver);
@@ -589,6 +415,195 @@ static int __exit intelli_plug_exit(void)
 	unregister_early_suspend(&intelli_plug_early_suspend_struct_driver);
 #endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
+
+	cancel_delayed_work_sync(&intelli_plug_work);
+
+	destroy_workqueue(intelliplug_wq);
+}
+
+#define show_one(file_name, object)				\
+static ssize_t show_##file_name					\
+(struct kobject *kobj, struct attribute *attr, char *buf)	\
+{								\
+	return sprintf(buf, "%u\n", object);			\
+}
+
+static ssize_t show_intelli_plug_active(struct kobject *kobj,
+			struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n",
+			atomic_read(&intelli_plug_active));
+}
+
+show_one(eco_mode_active, eco_mode_active);
+show_one(strict_mode_active, strict_mode_active);
+show_one(def_sampling_ms, def_sampling_ms);
+show_one(busy_sampling_ms, busy_sampling_ms);
+show_one(dual_core_persistence, dual_core_persistence);
+show_one(tri_core_persistence, tri_core_persistence);
+show_one(quad_core_persistence, quad_core_persistence);
+show_one(busy_persistence, busy_persistence);
+show_one(cpu_down_factor, cpu_down_factor);
+show_one(debug_intelli_plug, debug_intelli_plug);
+show_one(nr_fshift, nr_fshift);
+show_one(nr_run_hysteresis, nr_run_hysteresis);
+
+#define store_one(file_name, object)		\
+static ssize_t store_##file_name		\
+(struct kobject *kobj, struct attribute *attr,	\
+	const char *buf, size_t count)		\
+{						\
+	unsigned int input;			\
+	int ret;				\
+	ret = sscanf(buf, "%u", &input);	\
+	if (ret != 1 || input > 100)		\
+		return -EINVAL;			\
+	if (input == object) {			\
+		return count;			\
+	}					\
+	object = input;				\
+	return count;				\
+}
+
+store_one(eco_mode_active, eco_mode_active);
+store_one(strict_mode_active, strict_mode_active);
+store_one(def_sampling_ms, def_sampling_ms);
+store_one(busy_sampling_ms, busy_sampling_ms);
+store_one(dual_core_persistence, dual_core_persistence);
+store_one(tri_core_persistence, tri_core_persistence);
+store_one(quad_core_persistence, quad_core_persistence);
+store_one(busy_persistence, busy_persistence);
+store_one(cpu_down_factor, cpu_down_factor);
+store_one(debug_intelli_plug, debug_intelli_plug);
+store_one(nr_fshift, nr_fshift);
+store_one(nr_run_hysteresis, nr_run_hysteresis);
+
+static void intelli_plug_active_eval_fn(unsigned int status)
+{
+	atomic_set(&intelli_plug_active, status);
+
+	if (status == 1) {
+		intelli_plug_start();
+	} else {
+		intelli_plug_stop();
+	}
+}
+
+static ssize_t store_intelli_plug_active(struct kobject *kobj,
+				struct attribute *attr,
+				const char *buf, size_t count)
+{
+	int ret;
+	unsigned int input;
+
+	ret = sscanf(buf, "%d", &input);
+	if (ret < 0)
+		return ret;
+
+	input = min(max(input, 0), 1);
+
+	if (input == atomic_read(&intelli_plug_active))
+		return count;
+
+	intelli_plug_active_eval_fn(input);
+
+	return count;
+}
+
+static struct kobj_attribute intelli_plug_active_attr =
+	__ATTR(intelli_plug_active, 0664, show_intelli_plug_active,
+			store_intelli_plug_active);
+
+static struct kobj_attribute eco_mode_active_attr =
+	__ATTR(eco_mode_active, 0664, show_eco_mode_active,
+			store_eco_mode_active);
+
+static struct kobj_attribute strict_mode_active_attr =
+	__ATTR(strict_mode_active, 0664, show_strict_mode_active,
+			store_strict_mode_active);
+
+static struct kobj_attribute def_sampling_ms_attr =
+	__ATTR(def_sampling_ms, 0664, show_def_sampling_ms,
+			store_def_sampling_ms);
+
+static struct kobj_attribute busy_sampling_ms_attr =
+	__ATTR(busy_sampling_ms, 0664, show_busy_sampling_ms,
+			store_busy_sampling_ms);
+
+static struct kobj_attribute dual_core_persistence_attr =
+	__ATTR(dual_core_persistence, 0664, show_dual_core_persistence,
+			store_dual_core_persistence);
+
+static struct kobj_attribute tri_core_persistence_attr =
+	__ATTR(tri_core_persistence, 0664, show_tri_core_persistence,
+			store_tri_core_persistence);
+
+static struct kobj_attribute quad_core_persistence_attr =
+	__ATTR(quad_core_persistence, 0664, show_quad_core_persistence,
+			store_quad_core_persistence);
+
+static struct kobj_attribute busy_persistence_attr =
+	__ATTR(busy_persistence, 0664, show_busy_persistence,
+			store_busy_persistence);
+
+static struct kobj_attribute cpu_down_factor_attr =
+	__ATTR(cpu_down_factor, 0664, show_cpu_down_factor,
+			store_cpu_down_factor);
+
+static struct kobj_attribute debug_intelli_plug_attr =
+	__ATTR(debug_intelli_plug, 0664, show_debug_intelli_plug,
+			store_debug_intelli_plug);
+
+static struct kobj_attribute nr_fshift_attr =
+	__ATTR(nr_fshift, 0664, show_nr_fshift,
+			store_nr_fshift);
+
+static struct kobj_attribute nr_run_hysteresis_attr =
+	__ATTR(nr_run_hysteresis, 0664, show_nr_run_hysteresis,
+			store_nr_run_hysteresis);
+
+static struct attribute *intelli_plug_attrs[] = {
+	&intelli_plug_active_attr.attr,
+	&eco_mode_active_attr.attr,
+	&strict_mode_active_attr.attr,
+	&def_sampling_ms_attr.attr,
+	&busy_sampling_ms_attr.attr,
+	&dual_core_persistence_attr.attr,
+	&tri_core_persistence_attr.attr,
+	&quad_core_persistence_attr.attr,
+	&busy_persistence_attr.attr,
+	&cpu_down_factor_attr.attr,
+	&debug_intelli_plug_attr.attr,
+	&nr_fshift_attr.attr,
+	&nr_run_hysteresis_attr.attr,
+	NULL,
+};
+
+static struct attribute_group intelli_plug_attr_group = {
+	.attrs = intelli_plug_attrs,
+	.name = "intelli_plug",
+};
+
+static int __init intelli_plug_init(void)
+{
+	int rc;
+
+	rc = sysfs_create_group(kernel_kobj, &intelli_plug_attr_group);
+
+	pr_info("intelli_plug: version %d.%d by faux123\n",
+		 INTELLI_PLUG_MAJOR_VERSION,
+		 INTELLI_PLUG_MINOR_VERSION);
+
+	if (atomic_read(&intelli_plug_active) == 1)
+		intelli_plug_start();
+
+	return 0;
+}
+
+static int __exit intelli_plug_exit(void)
+{
+	if (atomic_read(&intelli_plug_active) == 1)
+		intelli_plug_stop();
 
 	sysfs_remove_group(kernel_kobj, &intelli_plug_attr_group);
 
