@@ -34,9 +34,8 @@
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 static struct delayed_work alucard_hotplug_work;
-#ifdef CONFIG_MACH_LGE
 static struct workqueue_struct *alucardhp_wq;
-#endif
+
 #if 0
 static ktime_t time_stamp;
 #endif
@@ -456,11 +455,7 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 		ref_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, 0);
 		ref_hotplug_cpuinfo->up_cpu = -1;
 	}
-#ifdef CONFIG_MACH_LGE
 	queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work, delay);
-#else
-	queue_delayed_work_on(0, system_wq, &alucard_hotplug_work, delay);
-#endif
 }
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
@@ -491,11 +486,7 @@ static void __ref alucard_hotplug_late_resume(
 			atomic_read(&core_thermal_lock) == 0) {
 		/* wake up everyone */
 		maxcoreslimit = atomic_read(&hotplug_tuners_ins.maxcoreslimit);
-#ifdef CONFIG_MACH_LGE
 		flush_workqueue(alucardhp_wq);
-#else
-		flush_delayed_work(&alucard_hotplug_work);
-#endif
 
 		atomic_set(&suspended, 0);
 
@@ -541,22 +532,17 @@ static int __ref hotplug_start(void)
 	int delay = msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate);
 	int ret = 0;
 
-#ifdef CONFIG_MACH_LGE
-	alucardhp_wq = alloc_workqueue("alucardhp_wq",
-				WQ_HIGHPRI | WQ_UNBOUND, 1);
+	alucardhp_wq = create_singlethread_workqueue("alucardplug");
 
 	if (!alucardhp_wq) {
 		printk(KERN_ERR "Failed to create \
 				alucardhp workqueue\n");
 		return -EFAULT;
 	}
-#endif
 
 	ret = init_rq_avg();
 	if (ret) {
-#ifdef CONFIG_MACH_LGE
 		destroy_workqueue(alucardhp_wq);
-#endif
 		return ret;
 	}
 
@@ -590,13 +576,8 @@ static int __ref hotplug_start(void)
 
 	init_rq_avg_stats;
 	INIT_DELAYED_WORK(&alucard_hotplug_work, hotplug_work_fn);
-#ifdef CONFIG_MACH_LGE
 	queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
 						delay);
-#else
-	queue_delayed_work_on(0, system_wq, &alucard_hotplug_work,
-						delay);
-#endif
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 #ifdef CONFIG_POWERSUSPEND
@@ -623,9 +604,7 @@ static void hotplug_stop(void)
 
 	exit_rq_avg;
 
-#ifdef CONFIG_MACH_LGE
 	destroy_workqueue(alucardhp_wq);
-#endif
 }
 
 #define show_atomic(file_name, object)					\
@@ -807,13 +786,9 @@ static void update_sampling_rate(unsigned int new_rate)
 		if (time_before(next_sampling, appointed_at)) {
 
 			cancel_delayed_work_sync(&alucard_hotplug_work);
-#ifdef CONFIG_MACH_LGE
+
 			queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
 					msecs_to_jiffies(new_rate));
-#else
-			queue_delayed_work_on(0, system_wq, &alucard_hotplug_work,
-					msecs_to_jiffies(new_rate));
-#endif
 		}
 
 	}
