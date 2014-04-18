@@ -403,6 +403,8 @@ static int intelli_plug_start(void)
 	register_early_suspend(&intelli_plug_early_suspend_struct_driver);
 #endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
+
+	return 0;
 }
 
 static void intelli_plug_stop(void)
@@ -482,7 +484,7 @@ static void intelli_plug_active_eval_fn(unsigned int status)
 	int ret = 0;
 
 	if (status == 1) {
-		intelli_plug_start();
+		ret = intelli_plug_start();
 		if (ret)
 			status = 0;
 	} else {

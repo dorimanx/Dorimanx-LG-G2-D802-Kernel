@@ -535,10 +535,30 @@ static struct early_suspend alucard_hotplug_early_suspend_driver = {
 #endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
-static void hotplug_start(void)
+static int hotplug_start(void)
 {
 	unsigned int cpu;
 	int delay = msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate);
+	int ret = 0;
+
+#ifdef CONFIG_MACH_LGE
+	alucardhp_wq = alloc_workqueue("alucardhp_wq",
+				WQ_HIGHPRI | WQ_UNBOUND, 1);
+
+	if (!alucardhp_wq) {
+		printk(KERN_ERR "Failed to create \
+				alucardhp workqueue\n");
+		return -EFAULT;
+	}
+#endif
+
+	ret = init_rq_avg();
+	if (ret) {
+#ifdef CONFIG_MACH_LGE
+		destroy_workqueue(alucardhp_wq);
+#endif
+		return ret;
+	}
 
 	get_online_cpus();
 	for_each_possible_cpu(cpu) {
@@ -585,6 +605,8 @@ static void hotplug_start(void)
 	register_early_suspend(&alucard_hotplug_early_suspend_driver);
 #endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
+
+	return 0;
 }
 
 static void hotplug_stop(void)
@@ -598,6 +620,12 @@ static void hotplug_stop(void)
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 	cancel_delayed_work_sync(&alucard_hotplug_work);
+
+	exit_rq_avg;
+
+#ifdef CONFIG_MACH_LGE
+	destroy_workqueue(alucardhp_wq);
+#endif
 }
 
 #define show_atomic(file_name, object)					\
@@ -732,16 +760,18 @@ define_one_global_rw(hotplug_rq_3_1);
 define_one_global_rw(hotplug_rq_4_0);
 #endif
 
-static void cpus_hotplugging(bool state) {
-	unsigned int cpu = 0;
-	int delay = 0;
+static void cpus_hotplugging(int status) {
+	int ret = 0;
 
-	atomic_set(&hotplug_tuners_ins.hotplug_enable, state);
-
-	if (state)
-		hotplug_start();
-	else
+	if (status) {
+		ret = hotplug_start();
+		if (ret)
+			status = 0;
+	} else {
 		hotplug_stop();
+	}
+
+	atomic_set(&hotplug_tuners_ins.hotplug_enable, status);
 }
 
 /**
@@ -829,9 +859,9 @@ static ssize_t store_hotplug_enable(struct kobject *a, struct attribute *b,
 		return count;
 
 	if (input > 0)
-		cpus_hotplugging(true);
+		cpus_hotplugging(1);
 	else
-		cpus_hotplugging(false);
+		cpus_hotplugging(0);
 
 	return count;
 }
@@ -999,21 +1029,6 @@ static int __init alucard_hotplug_init(void)
 		return ret;
 	}
 
-#ifdef CONFIG_MACH_LGE
-	alucardhp_wq = alloc_workqueue("alucardhp_wq",
-				WQ_HIGHPRI | WQ_UNBOUND, 1);
-
-	if (!alucardhp_wq) {
-		printk(KERN_ERR "Failed to create \
-				alucardhp workqueue\n");
-		return -EFAULT;
-	}
-#endif
-	ret = init_rq_avg();
-	if (ret) {
-		return ret;
-	}
-
 	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) > 0) {
 		hotplug_start();
 	}
@@ -1027,11 +1042,6 @@ static void __exit alucard_hotplug_exit(void)
 		hotplug_stop();
 	}
 
-	exit_rq_avg;
-
-#ifdef CONFIG_MACH_LGE
-	destroy_workqueue(alucardhp_wq);
-#endif
 	sysfs_remove_group(kernel_kobj, &alucard_hotplug_attr_group);
 }
 MODULE_AUTHOR("Alucard_24@XDA");
