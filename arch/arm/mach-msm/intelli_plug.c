@@ -371,7 +371,7 @@ static struct early_suspend intelli_plug_early_suspend_struct_driver = {
 #endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
-static void intelli_plug_start(void)
+static int intelli_plug_start(void)
 {
 #ifdef CONFIG_MACH_LGE
 	intelliplug_wq = alloc_workqueue("intelliplug",
@@ -393,9 +393,8 @@ static void intelli_plug_start(void)
 
 	INIT_DELAYED_WORK(&intelli_plug_work, intelli_plug_work_fn);
 
-	if (!delayed_work_pending(&intelli_plug_work))
-		queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
-				msecs_to_jiffies(sampling_time_on));
+	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
+			msecs_to_jiffies(sampling_time_on));
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 #ifdef CONFIG_POWERSUSPEND
@@ -480,13 +479,17 @@ store_one(nr_run_hysteresis, nr_run_hysteresis);
 
 static void intelli_plug_active_eval_fn(unsigned int status)
 {
-	atomic_set(&intelli_plug_active, status);
+	int ret = 0;
 
 	if (status == 1) {
 		intelli_plug_start();
+		if (ret)
+			status = 0;
 	} else {
 		intelli_plug_stop();
 	}
+
+	atomic_set(&intelli_plug_active, status);
 }
 
 static ssize_t store_intelli_plug_active(struct kobject *kobj,
