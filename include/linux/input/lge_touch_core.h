@@ -584,7 +584,7 @@ enum{
 /* Debug Mask setting */
 //#define TOUCH_DEBUG_PRINT   (0)
 #define TOUCH_ERROR_PRINT   (1)
-#define TOUCH_INFO_PRINT	(0)
+//#define TOUCH_INFO_PRINT	(0)
 
 #if defined(TOUCH_INFO_PRINT)
 #define TOUCH_INFO_MSG(fmt, args...) \
