@@ -43,6 +43,7 @@
 #include <linux/fcntl.h>
 #include <linux/fs.h>
 #include <linux/ip.h>
+#include <linux/powersuspend.h>
 #include <net/addrconf.h>
 #ifdef ENABLE_ADAPTIVE_SCHED
 #include <linux/cpufreq.h>
@@ -425,7 +426,7 @@ typedef struct dhd_info {
 	dhd_attach_states_t dhd_state;
 
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(DHD_USE_EARLYSUSPEND)
-	struct early_suspend early_suspend;
+	struct power_suspend early_suspend;
 #endif /* CONFIG_HAS_EARLYSUSPEND && DHD_USE_EARLYSUSPEND */
 
 #ifdef ARP_OFFLOAD_SUPPORT
@@ -3964,10 +3965,10 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 #endif /* (LINUX_VERSION >= 2.6.27 && LINUX_VERSION <= 2.6.39 && CONFIG_PM_SLEEP */
 
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(DHD_USE_EARLYSUSPEND)
-	dhd->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 20;
+/*	dhd->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 20; */
 	dhd->early_suspend.suspend = dhd_early_suspend;
 	dhd->early_suspend.resume = dhd_late_resume;
-	register_early_suspend(&dhd->early_suspend);
+	register_power_suspend(&dhd->early_suspend);
 	dhd_state |= DHD_ATTACH_STATE_EARLYSUSPEND_DONE;
 #endif /* CONFIG_HAS_EARLYSUSPEND && DHD_USE_EARLYSUSPEND */
 
@@ -5423,7 +5424,7 @@ void dhd_detach(dhd_pub_t *dhdp)
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(DHD_USE_EARLYSUSPEND)
 	if (dhd->dhd_state & DHD_ATTACH_STATE_EARLYSUSPEND_DONE) {
 		if (dhd->early_suspend.suspend)
-			unregister_early_suspend(&dhd->early_suspend);
+			unregister_power_suspend(&dhd->early_suspend);
 	}
 #endif /* CONFIG_HAS_EARLYSUSPEND && DHD_USE_EARLYSUSPEND */
 
