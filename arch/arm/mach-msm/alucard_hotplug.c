@@ -26,7 +26,7 @@
 #include "acpuclock.h"
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
-#if CONFIG_POWERSUSPEND
+#ifdef CONFIG_POWERSUSPEND
 #include <linux/powersuspend.h>
 #else
 #include <linux/earlysuspend.h>
