@@ -54,9 +54,6 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/ext4.h>
 
-#ifdef CONFIG_EXT4_LGE_JOURNAL_RECOVERY
-#include <mach/board_lge.h>
-#endif
 static struct proc_dir_entry *ext4_proc_root;
 static struct kset *ext4_kset;
 static struct ext4_lazy_init *ext4_li_info;
@@ -3745,7 +3742,8 @@ no_journal:
 		ret = -ENOMEM;
 		goto failed_mount4;
 	}
-	ext4_setup_super(sb, es, sb->s_flags & MS_RDONLY);
+	if (ext4_setup_super(sb, es, sb->s_flags & MS_RDONLY))
+		sb->s_flags |= MS_RDONLY;
 
 	/* determine the minimum size of new large inodes, if present */
 	if (sbi->s_inode_size > EXT4_GOOD_OLD_INODE_SIZE) {
