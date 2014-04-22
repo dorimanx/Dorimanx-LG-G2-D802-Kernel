@@ -1959,6 +1959,13 @@ config MSM_CPUFREQ_LIMITER
 
 	  If in doubt, say Y.
 
+config ALUCARD_HOTPLUG_THERMAL
+	bool "Enable alucard-hotplug thermal control"
+	depends on ALUCARD_HOTPLUG
+	default n
+	help
+	  Alucard-hotplug thermal control
+
 config MSM_AVS_HW
 	bool "Enable Adaptive Voltage Scaling (AVS)"
 	default n
