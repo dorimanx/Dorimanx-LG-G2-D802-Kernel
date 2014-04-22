@@ -25,12 +25,10 @@
 #include <linux/msm_tsens.h>
 #include "acpuclock.h"
 
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
-#ifdef CONFIG_POWERSUSPEND
+#if defined(CONFIG_POWERSUSPEND)
 #include <linux/powersuspend.h>
-#else
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
-#endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 static struct delayed_work alucard_hotplug_work;
@@ -579,12 +577,10 @@ static int __ref hotplug_start(void)
 	queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
 						delay);
 
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
-#ifdef CONFIG_POWERSUSPEND
+#if defined(CONFIG_POWERSUSPEND)
 	register_power_suspend(&alucard_hotplug_power_suspend_driver);
-#else
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 	register_early_suspend(&alucard_hotplug_early_suspend_driver);
-#endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 	return 0;
@@ -592,12 +588,10 @@ static int __ref hotplug_start(void)
 
 static void hotplug_stop(void)
 {
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
-#ifdef CONFIG_POWERSUSPEND
+#if defined(CONFIG_POWERSUSPEND)
 	unregister_power_suspend(&alucard_hotplug_power_suspend_driver);
-#else
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&alucard_hotplug_early_suspend_driver);
-#endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 	cancel_delayed_work_sync(&alucard_hotplug_work);

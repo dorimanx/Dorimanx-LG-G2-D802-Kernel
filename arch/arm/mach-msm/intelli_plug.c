@@ -23,12 +23,10 @@
 #include <linux/input.h>
 #include <linux/kobject.h>
 
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
-#if CONFIG_POWERSUSPEND
+#if defined(CONFIG_POWERSUSPEND)
 #include <linux/powersuspend.h>
-#else
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
-#endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 #define INTELLI_PLUG_MAJOR_VERSION	3
@@ -390,12 +388,10 @@ static int __ref intelli_plug_start(void)
 	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
 			msecs_to_jiffies(sampling_time_on));
 
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
-#ifdef CONFIG_POWERSUSPEND
+#if defined(CONFIG_POWERSUSPEND)
 	register_power_suspend(&intelli_plug_power_suspend_driver);
-#else
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 	register_early_suspend(&intelli_plug_early_suspend_struct_driver);
-#endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 	return 0;
@@ -403,12 +399,10 @@ static int __ref intelli_plug_start(void)
 
 static void intelli_plug_stop(void)
 {
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
-#ifdef CONFIG_POWERSUSPEND
+#if defined(CONFIG_POWERSUSPEND)
 	unregister_power_suspend(&intelli_plug_power_suspend_driver);
-#else
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&intelli_plug_early_suspend_struct_driver);
-#endif
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 	cancel_delayed_work_sync(&intelli_plug_work);
