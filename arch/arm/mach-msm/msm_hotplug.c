@@ -24,8 +24,6 @@
 #include <linux/input.h>
 #include <linux/math64.h>
 
-#include "acpuclock.h"
-
 #define MSM_HOTPLUG		"msm_hotplug"
 #define HOTPLUG_ENABLED		1
 #define DEFAULT_UPDATE_RATE	HZ / 10
