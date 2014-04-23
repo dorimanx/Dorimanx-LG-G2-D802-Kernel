@@ -150,8 +150,8 @@ static void apply_down_lock(unsigned int cpu)
 	struct down_lock *dl = &per_cpu(lock_info, cpu);
 
 	dl->enabled = 1;
-	queue_delayed_work(hotplug_wq, &dl->lock_rem,
-			   msecs_to_jiffies(hotplug.down_lock_dur));
+	queue_delayed_work_on(0, hotplug_wq, &dl->lock_rem,
+			      msecs_to_jiffies(hotplug.down_lock_dur));
 }
 EXPORT_SYMBOL_GPL(apply_down_lock);
 
@@ -420,7 +420,6 @@ static ssize_t store_enable_hotplug(struct device *dev,
 {
 	int ret, cpu;
 	unsigned int val;
-	struct down_lock *dl;
 
 	ret = sscanf(buf, "%u", &val);
 	if (ret != 1 || val < 0 || val > 1)
@@ -431,13 +430,13 @@ static ssize_t store_enable_hotplug(struct device *dev,
 	if (hotplug.enabled) {
 		reschedule_hotplug_work();
 	} else {
-		for_each_possible_cpu(cpu) {
-			dl = &per_cpu(lock_info, cpu);
-			dl->enabled = 0;
-		}
-		offline_cpu(DEFAULT_MIN_CPUS_ONLINE);
 		flush_workqueue(hotplug_wq);
 		cancel_delayed_work_sync(&hotplug_work);
+		for_each_online_cpu(cpu) {
+			if (cpu == 0)
+				continue;
+			cpu_down(cpu);
+		}
 	}
 
 	return count;
@@ -593,9 +592,8 @@ static ssize_t store_min_cpus_online(struct device *dev,
 				     struct device_attribute *msm_hotplug_attrs,
 				     const char *buf, size_t count)
 {
-	int ret, cpu;
+	int ret;
 	unsigned int val;
-	struct down_lock *dl;
 
 	ret = sscanf(buf, "%u", &val);
 	if (ret != 1 || val == 0)
@@ -605,11 +603,6 @@ static ssize_t store_min_cpus_online(struct device *dev,
 		hotplug.max_cpus_online = val;
 
 	hotplug.min_cpus_online = val;
-	for_each_possible_cpu(cpu) {
-		dl = &per_cpu(lock_info, cpu);
-		dl->enabled = 0;
-	}
-	offline_cpu(hotplug.min_cpus_online);
 
 	return count;
 }
@@ -634,6 +627,7 @@ static ssize_t store_max_cpus_online(struct device *dev,
 
 	if (hotplug.min_cpus_online > val)
 		hotplug.min_cpus_online = val;
+
 	hotplug.max_cpus_online = val;
 
 	return count;
@@ -764,7 +758,9 @@ static int __devinit msm_hotplug_probe(struct platform_device *pdev)
 		INIT_DELAYED_WORK(&dl->lock_rem, remove_down_lock);
 	}
 
-	queue_delayed_work_on(0, hotplug_wq, &hotplug_work, START_DELAY);
+	if (hotplug.enabled)
+		queue_delayed_work_on(0, hotplug_wq, &hotplug_work,
+				      START_DELAY);
 
 	return ret;
 err_dev:
