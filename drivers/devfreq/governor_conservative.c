@@ -211,11 +211,12 @@ static struct attribute_group attr_group = {
 
 static int devfreq_conservative_start(struct devfreq *devfreq)
 {
-	if (devfreq->data == NULL) {
-		pr_err("data is required for this governor\n");
-		return -EINVAL;
-	}
+	struct msm_adreno_extended_profile *ext_profile = container_of(
+					(devfreq->profile),
+					struct msm_adreno_extended_profile,
+					profile);
 
+	devfreq->data = ext_profile->private_data;
 	devfreq_monitor_start(devfreq);
 
 	return devfreq_policy_add_files(devfreq, attr_group);
@@ -226,6 +227,7 @@ static int devfreq_conservative_stop(struct devfreq *devfreq)
 {
 	devfreq_policy_remove_files(devfreq, attr_group);
 	devfreq_monitor_stop(devfreq);
+	devfreq->data = NULL;
 
 	return 0;
 }
