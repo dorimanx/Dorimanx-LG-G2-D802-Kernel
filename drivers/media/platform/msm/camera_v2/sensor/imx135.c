@@ -108,7 +108,7 @@ static struct msm_sensor_power_setting imx135_power_setting_rev_a[] = {
 #endif
 
 static struct msm_sensor_power_setting imx135_power_setting_rev_b[] = {
-#if (defined(CONFIG_MACH_MSM8974_Z_KR) && defined(CONFIG_MACH_MSM8974_VU3_KR) && defined(CONFIG_MACH_MSM8974_G2_KDDI) && defined(CONFIG_MACH_MSM8974_Z_KDDI))
+#if (defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_G2_KDDI) || defined(CONFIG_MACH_MSM8974_Z_KDDI))
 	{  /* Set GPIO_RESET to low to disable power on reset*/
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
