@@ -83,9 +83,3 @@ config EXT4_DEBUG
 
 	  If you select Y here, then you will be able to turn on debugging
 	  with a command such as "echo 1 > /sys/kernel/debug/ext4/mballoc-debug"
-
-config EXT4_LGE_JOURNAL_RECOVERY
-	bool "lge journal recovery support"
-	default n
-	help
-		say yes to enable journal recovery for ext4 filesystem

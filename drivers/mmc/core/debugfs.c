@@ -337,6 +337,11 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 	u8 ext_csd_rev;
 	int err;
 	const char *str;
+	char *buf_for_health_report;
+	char *buf_for_firmwware_version;
+	ssize_t output = 0;
+	int cnt;
+
 #else
 	int err, i;
 
@@ -381,6 +386,9 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
   */
 
 	switch (ext_csd_rev) {
+	case 7:
+		str = "5.0";
+		break;
 	case 6:
 		str = "4.5";
 		break;
@@ -411,7 +419,13 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 	 * Reserved bit should be read as "0" in case of spec older
 	 * than A441.
 	 */
+	/* B50: reserved [511:506] */
 	/* B45: reserved [511:505] */
+
+	if (ext_csd_rev >= 7) {
+		seq_printf(s, "[505] Extended Security Commands Error, ext_security_err: 0x%02x\n", ext_csd[505]);
+	}
+
 	seq_printf(s, "[504] Supported Command Sets, s_cmd_set: 0x%02x\n", ext_csd[504]);
 	seq_printf(s, "[503] HPI features, hpi_features: 0x%02x\n", ext_csd[503]);
 	seq_printf(s, "[502] Background operations support, bkops_support: 0x%02x\n", ext_csd[502]);
@@ -425,16 +439,54 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 		seq_printf(s, "[496] Context management capabilities, context_capabilities: 0x%02x\n", ext_csd[496]);
 		seq_printf(s, "[495] Large Unit size, large_unit_size_m1: 0x%02x\n", ext_csd[495]);
 		seq_printf(s, "[494] Extended partitions attribute support, ext_support: 0x%02x\n", ext_csd[494]);
+		if (ext_csd_rev >= 7) {
+			buf_for_health_report = kmalloc(66, GFP_KERNEL);
+			if (!buf_for_health_report)
+			return -ENOMEM;
+
+			buf_for_firmwware_version = kmalloc(18, GFP_KERNEL);
+			if (!buf_for_firmwware_version)
+			return -ENOMEM;
+
+			seq_printf(s, "[493] Supported modes, supported_modes: 0x%02x\n", ext_csd[493]);
+			seq_printf(s, "[492] Ffu features, ffu_features: 0x%02x\n", ext_csd[492]);
+			seq_printf(s, "[491] Operation codes timeout, operation_code_timeout: 0x%02x\n", ext_csd[491]);
+			seq_printf(s, "[490:487] Ffu features, ffu_features: 0x%08x\n", (ext_csd[487] << 0) | (ext_csd[488] << 8) | (ext_csd[489] << 16) | (ext_csd[490] << 24));
+			/* B50: reserved [486:306] */
+			seq_printf(s, "[305:302] Number of FW sectors correctly programmed, number_of_fw_sectors_correctly_programmed: 0x%08x\n", (ext_csd[302] << 0) | (ext_csd[303] << 8) | (ext_csd[304] << 16) | (ext_csd[305] << 24));
+
+			output = 0;
+			for (cnt = 301 ; cnt >= 270 ; cnt--)
+				output += sprintf(buf_for_health_report + output, "%02x", ext_csd[cnt]);
+			output += sprintf(buf_for_health_report + output, "\n");
+			seq_printf(s, "[301:270] Vendor proprietary health report, vendor_proprietary_health_report(raw data): %s", buf_for_health_report); //mina.park;
+			kfree(buf_for_health_report);
+
+			seq_printf(s, "[269] Device life time estimation type B, device_life_time_est_typ_b: 0x%02x\n", ext_csd[269]);
+			seq_printf(s, "[268] Device life time estimation type A, device_life_time_est_typ_a: 0x%02x\n", ext_csd[268]);
+			seq_printf(s, "[267] Pre EOL information, pre_eol_info: 0x%02x\n", ext_csd[267]);
+			seq_printf(s, "[266] Optimal read size, optimal_read_size: 0x%02x\n", ext_csd[266]);
+			seq_printf(s, "[265] Optimal write size, optimal_write_size: 0x%02x\n", ext_csd[265]);
+			seq_printf(s, "[264] Optimal trim unit size, optimal_trim_unit_size: 0x%02x\n", ext_csd[264]);
+			seq_printf(s, "[263:262] Device version, device_version: 0x%02x\n", (ext_csd[262] << 0) | (ext_csd[263] << 8));
+
+			output=0;
+			for (cnt = 261 ; cnt >= 254 ; cnt--)
+				output += sprintf(buf_for_firmwware_version + output, "%02x", ext_csd[cnt]);
+			output += sprintf(buf_for_firmwware_version + output, "\n");
+			seq_printf(s, "[261:254] Firmware version, firmwware_version(raw data): %s", buf_for_firmwware_version); //mina.park;
+			kfree(buf_for_firmwware_version);
+
+			seq_printf(s, "[253] Power class for 200MHz, DDR at VCC=3.6V, pwr_cl_ddr_200_360: 0x%02x\n", ext_csd[253]);
+		}
 		/* B45: reserved [493:253] */
-		seq_printf(s, "[252:249] Cache size, cache_size %d KiB\n", ext_csd[249] << 0 |
+		seq_printf(s, "[252:249] Cache size, cache_size %d KiB\n", (ext_csd[249] << 0) |
 				(ext_csd[250] << 8) | (ext_csd[251] << 16) |
 				(ext_csd[252] << 24));
 		seq_printf(s, "[248] Generic CMD6 timeout, generic_cmd6_time: 0x%02x\n", ext_csd[248]);
 		seq_printf(s, "[247] Power off notification timeout, power_off_long_time: 0x%02x\n", ext_csd[247]);
 		seq_printf(s, "[246] Background operations status, bkops_status: 0x%02x\n", ext_csd[246]);
-		seq_printf(s, "[245:242] Number of correctly programmed sectors, correctly_prg_sectors_num %d KiB\n", ext_csd[242] << 0 |
-				(ext_csd[243] << 8) | (ext_csd[244] << 16) |
-				(ext_csd[245] << 24));
+		seq_printf(s, "[245:242] Number of correctly programmed sectors, correctly_prg_sectors_num %d KiB\n", (ext_csd[242] << 0) | (ext_csd[243] << 8) | (ext_csd[244] << 16) | (ext_csd[245] << 24));
 
 	}
 	/* B45: Reserved [493:253]
@@ -442,8 +494,7 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 	 * A43: reserved [246:229] */
 	if (ext_csd_rev >= 5) {
 		seq_printf(s, "[241] 1st initialization time after partitioning, ini_timeout_ap: 0x%02x\n", ext_csd[241]);
-		/* B45: reserved [240] */
-		/* A441: reserved [240] */
+		/* B50, B45, A441: reserved [240] */
 		seq_printf(s, "[239] Power class for 52MHz, DDR at 3.6V, pwr_cl_ddr_52_360: 0x%02x\n", ext_csd[239]);
 		seq_printf(s, "[238] POwer class for 52MHz, DDR at 1.95V, pwr_cl_ddr_52_195: 0x%02x\n", ext_csd[238]);
 
@@ -456,18 +507,16 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 
 		seq_printf(s, "[235] Minimun Write Performance for 8bit at 52MHz in DDR mode, min_perf_ddr_w_8_52: 0x%02x\n", ext_csd[235]);
 		seq_printf(s, "[234] Minimun Read Performance for 8bit at 52MHz in DDR modemin_perf_ddr_r_8_52: 0x%02x\n", ext_csd[234]);
-		/* B45: reserved [233] */
-		/* A441: reserved [233] */
+		/* B50, B45, A441: reserved [233] */
 		seq_printf(s, "[232] TRIM Multiplier, trim_mult: 0x%02x\n", ext_csd[232]);
 		seq_printf(s, "[231] Secure Feature support, sec_feature_support: 0x%02x\n", ext_csd[231]);
 	}
-	if (ext_csd_rev == 5) { /* Obsolete in 4.5 */
+	if (ext_csd_rev == 5 || ext_csd_rev == 7) { /* Obsolete in 4.5 */  /*---->revived in 5.0*/
 		seq_printf(s, "[230] Secure Erase Multiplier, sec_erase_mult: 0x%02x\n", ext_csd[230]);
 		seq_printf(s, "[229] Secure TRIM Multiplier, sec_trim_mult:  0x%02x\n", ext_csd[229]);
 	}
 	seq_printf(s, "[228] Boot information, boot_info: 0x%02x\n", ext_csd[228]);
-	/* B45: reserved [227] */
-	/* A441/A43: reserved [227] */
+	/* B50, B45, A441/A43: reserved [227] */
 	seq_printf(s, "[226] Boot partition size, boot_size_mult : 0x%02x\n", ext_csd[226]);
 	seq_printf(s, "[225] Access size, acc_size: 0x%02x\n", ext_csd[225]);
 	seq_printf(s, "[224] High-capacity erase unit size, hc_erase_grp_size: 0x%02x\n", ext_csd[224]);
@@ -476,14 +525,17 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 	seq_printf(s, "[221] High-capacity write protect group size, hc_wp_grp_size: 0x%02x\n", ext_csd[221]);
 	seq_printf(s, "[220] Sleep current(VCC), s_c_vcc: 0x%02x\n", ext_csd[220]);
 	seq_printf(s, "[219] Sleep current(VCCQ), s_c_vccq: 0x%02x\n", ext_csd[219]);
-	/* B45: reserved [218] */
-	/* A441/A43: reserved [218] */
+	if (ext_csd_rev == 7) {
+		seq_printf(s, "[218] Production state awareness timeout, production_state_awareness_timeout: 0x%02x\n", ext_csd[218]);
+	}
+	/* B45, A441/A43: reserved [218] */
 	seq_printf(s, "[217] Sleep/awake timeout, s_a_timeout: 0x%02x\n", ext_csd[217]);
-	/* B45: reserved [216] */
-	/* A441/A43: reserved [216] */
+		if (ext_csd_rev == 7) {
+		seq_printf(s, "[216] Sleep notification timeout, sleep_notification_time: 0x%02x\n", ext_csd[216]);
+	}
+	/* B45, A441/A43: reserved [216] */
 	seq_printf(s, "[215:212] Sector Count, sec_count: 0x%08x\n", (ext_csd[215] << 24) | (ext_csd[214] << 16) | (ext_csd[213] << 8)  | ext_csd[212]);
-	/* B45: reserved [211] */
-	/* A441/A43: reserved [211] */
+	/* B50, B45, A441/A43: reserved [211] */
 	seq_printf(s, "[210] Minimum Write Performance for 8bit at 52MHz, min_perf_w_8_52: 0x%02x\n", ext_csd[210]);
 	seq_printf(s, "[209] Minimum Read Performance for 8bit at 52MHz, min_perf_r_8_52: 0x%02x\n", ext_csd[209]);
 	seq_printf(s, "[208] Minimum Write Performance for 8bit at 26MHz, for 4bit at 52MHz, min_perf_w_8_26_4_52: 0x%02x\n", ext_csd[208]);
@@ -503,7 +555,7 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 		seq_printf(s, "[198] Out-of-interrupt busy timing, out_of_interrupt_time: 0x%02x\n", ext_csd[198]);
 	}
 
-	/* B45: reserved [195] [193] [190] [188] [186] [184] [182] [180] [176] */
+	/* B50, B45: reserved [195] [193] [190] [188] [186] [184] [182] [180] [176] */
 	/* A441/A43: reserved   [197] [195] [193] [190] [188]
 	 * [186] [184] [182] [180] [176] */
 
