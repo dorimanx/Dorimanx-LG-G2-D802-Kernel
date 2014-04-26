@@ -154,5 +154,3 @@ obj-$(CONFIG_LGE_FELICA) 	+= felica/
 
 obj-$(CONFIG_BIF)		+= bif/
 obj-$(CONFIG_SENSORS)		+= sensors/
-
-obj-y   += exfat/
