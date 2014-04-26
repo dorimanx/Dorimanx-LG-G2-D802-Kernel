@@ -137,6 +137,9 @@ enum {
 #if defined(CONFIG_TOUCHSCREEN_ATMEL_S540) || defined(CONFIG_SMB349_CHARGER)
 bool i2c_suspended = false;		/* Use atme touch IC for checking i2c suspend */
 #endif
+#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_3404S)
+bool atmel_touch_i2c_suspended = false;		/* Use atme touch IC for checking i2c suspend */
+#endif
 static char const * const i2c_rsrcs[] = {"i2c_clk", "i2c_sda"};
 
 static struct gpiomux_setting recovery_config = {
@@ -1768,6 +1771,14 @@ static int qup_i2c_suspend(struct device *device)
 #if defined(CONFIG_TOUCHSCREEN_ATMEL_S540) || defined(CONFIG_SMB349_CHARGER)
 		i2c_suspended = true;
 #endif
+
+#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_3404S)
+	if (!strncmp(dev_name(device), "f9924000.i2c", 12)){
+		atmel_touch_i2c_suspended = true;
+		dev_dbg(device, "lge_touch I2C Suspend!\n");
+	}
+#endif
+
 		i2c_qup_pm_suspend_runtime(device);
 		/*
 		 * set the device's runtime PM status to 'suspended'
@@ -1776,6 +1787,9 @@ static int qup_i2c_suspend(struct device *device)
 		pm_runtime_set_suspended(device);
 		pm_runtime_enable(device);
 	}
+#if defined(CONFIG_TOUCHSCREEN_ATMEL_S540)
+	i2c_suspended = true;
+#endif
 	return 0;
 }
 
@@ -1789,6 +1803,25 @@ static int qup_i2c_resume(struct device *device)
 	dev_dbg(device, "system resume");
 #if defined(CONFIG_TOUCHSCREEN_ATMEL_S540) || defined(CONFIG_SMB349_CHARGER)
 	i2c_suspended = false;
+#endif
+#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_3404S)
+	if(pm_runtime_suspended(device))
+		dev_info(device, "i2c is runtime suspended status !!! try to runtime resume !!!\n");
+
+	if (!pm_runtime_enabled(device)) {
+		dev_info(device, "Runtime PM is disabled\n");
+		i2c_qup_pm_resume_runtime(device);
+	} else {
+		pm_runtime_get_sync(device);
+	}
+
+	if(pm_runtime_suspended(device))
+		dev_info(device, "i2c can't wake up !!! pm_runtime_get_sync() doesn't work !!!\n");
+
+	if (!strncmp(dev_name(device), "f9924000.i2c", 12)){
+		atmel_touch_i2c_suspended = false;
+		dev_dbg(device, "lge_touch I2C Resume!\n");
+	}
 #endif
 	return 0;
 }

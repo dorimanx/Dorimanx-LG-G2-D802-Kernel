@@ -22,6 +22,7 @@
 /*                              */
 #include <linux/earlysuspend.h>
 
+#define I2C_SUSPEND_WORKAROUND 1
 #define MAX_FINGER	10
 #define MAX_BUTTON	4
 
@@ -51,7 +52,7 @@
 lcd_maker_id get_panel_maker_id(void);
 #define MINIMUM_PEAK_AMPLITUDE_REG    0x15
 #endif
-#if defined(A1_only)
+#if defined(A1_only)&& !defined(CONFIG_MACH_MSM8974_G2_KDDI)
 #define DRUMMING_THRESH_N_DISTANCE_REG  0x15
 #endif
 
@@ -62,6 +63,17 @@ lcd_maker_id get_panel_maker_id(void);
 #if defined(CONFIG_LGE_Z_TOUCHSCREEN)
 #define SMALL_FINGER_AMPLITUDE_THRESHOLD_REG    0x17
 #endif
+
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+#define MAX_POINT_SIZE_FOR_LPWG 12
+
+struct point
+{
+    int x;
+    int y;
+};
+#endif
+
 struct touch_device_caps {
 	u8		button_support;
 	u16		y_button_boundary;
@@ -301,8 +313,25 @@ struct ghost_detect_ctrl {
 	struct ghost_detect_init_data init_data;
 };
 
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+struct state_info
+{
+	atomic_t power_state;
+	atomic_t interrupt_state;
+	atomic_t upgrade_state;
+	atomic_t ta_state;
+	atomic_t temperature_state;
+	atomic_t proximity_state;
+	atomic_t hallic_state;
+	atomic_t uevent_state;
+};
+#endif
+
 struct lge_touch_data {
 	void *h_touch;
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+	struct state_info       state;
+#endif
 	atomic_t		next_work;
 	atomic_t		device_init;
 	u8				work_sync_err_cnt;
@@ -321,6 +350,9 @@ struct lge_touch_data {
 	struct delayed_work			work_f54;
 	struct delayed_work			work_gesture_wakeup;
 	struct delayed_work			work_thermal;
+#endif
+#ifdef I2C_SUSPEND_WORKAROUND
+	struct delayed_work check_suspended_work;
 #endif
 #if defined(A1_only) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
 	struct delayed_work			work_ime_drumming;
@@ -341,17 +373,49 @@ struct lge_touch_data {
 	struct accuracy_filter_info	accuracy_filter;
 };
 
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+enum{
+    TA_DISCONNECTED = 0,
+    TA_CONNECTED,
+};
+
+enum{
+    PROXIMITY_FAR = 0,
+    PROXIMITY_NEAR,
+};
+
+enum{
+    HALL_NONE = 0,
+    HALL_COVERED,
+};
+
+enum{
+    UEVENT_IDLE = 0,
+    UEVENT_BUSY,
+};
+
+
+typedef enum error_type {
+    NO_ERROR = 0,
+    ERROR,
+    IGNORE_EVENT,
+    IGNORE_EVENT_BUT_SAVE_IT,
+} err_t;
+#endif
+
 struct touch_device_driver {
 	int		(*probe)		(struct lge_touch_data *lge_touch_ts);
-#if defined(CONFIG_LGE_Z_TOUCHSCREEN)
-	int		(*resolution)	(struct i2c_client *client);
-#endif
 	void	(*remove)		(struct i2c_client *client);
 	int		(*init)			(struct i2c_client *client, struct touch_fw_info *info);
 	int		(*data)			(struct i2c_client *client, struct touch_data *data);
 	int		(*power)		(struct i2c_client *client, int power_ctrl);
 	int		(*ic_ctrl)		(struct i2c_client *client, u8 code, u16 value);
 	int	(*fw_upgrade)	(struct i2c_client *client, struct touch_fw_info *info);
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+	err_t	 	(*suspend) (struct i2c_client *client);
+	err_t	 	(*resume) (struct i2c_client *client);
+	err_t	 	(*lpwg) (struct i2c_client *client, u32 code, u32 value, struct point *data);
+#endif
 };
 
 #ifdef CUST_G2_TOUCH
@@ -457,7 +521,7 @@ enum{
 	INCOMIMG_CALL_TOUCH,
 };
 
-#if defined(A1_only) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
+#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI)) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
 enum{
 	IME_OFF,
 	IME_ON,
@@ -504,6 +568,62 @@ enum{
 	IC_CTRL_DOUBLE_TAP_WAKEUP_MODE,
 #endif
 };
+
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+
+#define DO_IF(do_work, goto_error)                              \
+do {                                                \
+    if(do_work){                                        \
+        printk(KERN_INFO "[Touch E] Action Failed [%s %d] \n", __FUNCTION__, __LINE__); \
+        goto goto_error;                                \
+    }                                           \
+} while(0)
+
+#define DO_SAFE(do_work, goto_error)                                \
+    DO_IF(unlikely((do_work) < 0), goto_error)
+
+#define ASSIGN(do_assign, goto_error)                               \
+do {                                                \
+    if((do_assign) == NULL){                                \
+        printk(KERN_INFO "[Touch E] Assign Failed [%s %d] \n", __FUNCTION__, __LINE__); \
+        goto goto_error;                                \
+    }                                           \
+} while(0)
+
+#define ERROR_IF(cond, string, goto_error)  \
+do {                        \
+    if(cond){               \
+        TOUCH_ERR_MSG(string);      \
+        goto goto_error;        \
+    }                   \
+} while(0)
+
+enum{
+    NOTIFY_TA_CONNECTION = 1,
+    NOTIFY_TEMPERATURE_CHANGE,
+    NOTIFY_PROXIMITY,
+    NOTIFY_HALL_IC,
+};
+
+enum{
+    LPWG_NONE = 0,
+    LPWG_DOUBLE_TAP,
+    LPWG_PASSWORD,
+};
+
+enum{
+    LPWG_READ = 1,
+    LPWG_ENABLE,
+    LPWG_LCD_X,
+    LPWG_LCD_Y,
+    LPWG_ACTIVE_AREA_X1,
+    LPWG_ACTIVE_AREA_X2,
+    LPWG_ACTIVE_AREA_Y1,
+    LPWG_ACTIVE_AREA_Y2,
+    LPWG_TAP_COUNT,
+    LPWG_REPLY,
+};
+#endif
 
 enum{
 	DEBUG_NONE				= 0,
@@ -618,7 +738,7 @@ enum{
 		do {} while(0)
 #endif
 
-#if defined(CONFIG_MACH_MSM8974_G2_VZW) || defined(CONFIG_MACH_MSM8974_G2_TMO_US) || defined(CONFIG_MACH_MSM8974_G2_ATT)
+#if defined(CONFIG_MACH_MSM8974_G2_VZW) || defined(CONFIG_MACH_MSM8974_G2_TMO_US) || defined(CONFIG_MACH_MSM8974_G2_ATT)|| defined(CONFIG_MACH_MSM8974_Z_TMO_US) || defined(CONFIG_MACH_MSM8974_Z_ATT_US)
 #define ISIS_L2 /* block the exposure of privacy information */
 #endif
 
@@ -627,6 +747,24 @@ void touch_driver_unregister(void);
 
 void set_touch_handle(struct i2c_client *client, void *h_touch);
 void *get_touch_handle(struct i2c_client *client);
+
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+void send_uevent(char* string[2]);
+#endif
+
+#ifdef I2C_SUSPEND_WORKAROUND
+	extern bool atmel_touch_i2c_suspended;
+#endif
+
+#if defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
+enum {
+	TOUCH_PANEL_UNKNOWN = 0,
+	TOUCH_PANEL_G1F_LGIT,
+	TOUCH_PANEL_G1F_SSUNTEL,
+	TOUCH_PANEL_G2_LGIT,
+};
+#endif
+
 int touch_i2c_read(struct i2c_client *client, u8 reg, int len, u8 *buf);
 int touch_i2c_write(struct i2c_client *client, u8 reg, int len, u8 *buf);
 int touch_i2c_write_byte(struct i2c_client *client, u8 reg, u8 data);
