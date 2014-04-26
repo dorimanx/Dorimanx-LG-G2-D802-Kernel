@@ -284,9 +284,6 @@ struct dwc3_msm {
 	struct regulator    *redriver_3p3;
 	unsigned int   usb3_rx_eq;
 	unsigned int usb3_tx_deemph;
-
-
-	
 #endif
 };
 #ifdef CONFIG_SMB349_VZW_FAST_CHG
@@ -1482,7 +1479,10 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 static void dwc3_msm_ss_phy_reg_init(struct dwc3_msm *mdwc)
 {
 	u32 data = 0;
+
+	#ifdef CONFIG_USB_LGE_USB3_REDRIVER
 	u32 val;
+	#endif
 	/*
 	 * WORKAROUND: There is SSPHY suspend bug due to which USB enumerates
 	 * in HS mode instead of SS mode. Workaround it by asserting
@@ -1542,16 +1542,19 @@ static void dwc3_msm_ss_phy_reg_init(struct dwc3_msm *mdwc)
 	 * LOS_BIAS [2:0] to 0x5
 	 */
 
+#ifdef CONFIG_USB_LGE_USB3_REDRIVER
 	/* 2013-11-11, changed by kwangjin1.lee
 	* In order to apply to Tx_De-emphasis about redriver set to 28 in B1_KR.
-	* tx_deemph value is changed for b1(22 -> 28) 
+	* tx_deemph value is changed for b1(22 -> 13)
 	*/
 		mdwc->usb3_tx_deemph &= 0x3f;
 		val = 0x7f00005 | (mdwc->usb3_tx_deemph << 8 );
 		dwc3_msm_write_readback(mdwc->base, SS_PHY_PARAM_CTRL_1,
 					0x07f03f07, val); // kwangjin1.lee change 0x07f01605 as val
-
-	
+#else
+	dwc3_msm_write_readback(mdwc->base, SS_PHY_PARAM_CTRL_1,
+				0x07f03f07, 0x07f01605);
+#endif
 }
 
 /* Initialize QSCRATCH registers for HSPHY and SSPHY operation */

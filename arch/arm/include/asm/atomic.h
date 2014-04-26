@@ -243,9 +243,9 @@ typedef struct {
 
 #define ATOMIC64_INIT(i) { (i) }
 
-// LGE_DATA_CHANGE_S, [120815_COM_0013], http://dev.lge.com/wiki/datacop/patch_0013
+//                                                                                 
 static inline u64 atomic64_read(const atomic64_t *v)
-// LGE_DATA_CHANGE_E, [120815_COM_0013], http://dev.lge.com/wiki/datacop/patch_0013
+//                                                                                 
 {
 	u64 result;
 
