@@ -42,7 +42,7 @@
 #define DEF_FREQUENCY_UP_THRESHOLD_MULTI_CORE	(80)
 #define MICRO_FREQUENCY_UP_THRESHOLD		(85)
 
-#define DEF_SAMPLING_DOWN_FACTOR		(2)
+#define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define DEF_SAMPLING_RATE			(60000)
 
 /* Kernel tunabble controls */
@@ -69,8 +69,8 @@ static unsigned int min_range = 108000;
 #endif
 
 #if defined(SMART_UP_SLOW_UP_AT_HIGH_FREQ)
-#define SUP_SLOW_UP_FREQUENCY			(1958400)
-#define SUP_SLOW_UP_LOAD			(80)
+#define SUP_SLOW_UP_FREQUENCY			(2265600)
+#define SUP_SLOW_UP_LOAD			(75)
 
 typedef struct {
 	unsigned int hist_max_load[SUP_SLOW_UP_DUR];
@@ -1652,7 +1652,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 	case CPUFREQ_GOV_LIMITS:
 		/* If device is being removed, skip set limits */
-		if (this_dbs_info->cur_policy == NULL)
+		if (!this_dbs_info->cur_policy)
 			break;
 		mutex_lock(&this_dbs_info->timer_mutex);
 		if (policy->max < this_dbs_info->cur_policy->cur)
