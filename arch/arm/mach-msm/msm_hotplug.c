@@ -239,13 +239,6 @@ static void msm_hotplug_fn(struct work_struct *work)
 		goto reschedule;
 	}
 
-	if (online_cpus < hp->cpus_boosted && hammerhead_boosted) {
-		dprintk("%s: cur_load: %3u online_cpus: %u boosted\n",
-			MSM_HOTPLUG, cur_load, online_cpus);
-		online_cpu(hp->cpus_boosted);
-		goto reschedule;
-	}
-
 	for (i = st->min_cpus; i < NUM_LOAD_LEVELS; i++) {
 		if (cur_load <= load[i].up_threshold
 		    && cur_load > load[i].down_threshold) {
