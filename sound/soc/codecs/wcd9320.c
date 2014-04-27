@@ -4349,6 +4349,38 @@ extern void snd_hax_cache_write(unsigned int, unsigned int);
 #ifndef CONFIG_SOUND_CONTROL_HAX_3_GPL
 static
 #endif
+unsigned int taiko_read(struct snd_soc_codec *codec,
+				unsigned int reg)
+{
+	unsigned int val;
+	int ret;
+	struct wcd9xxx *wcd9xxx = codec->control_data;
+
+	if (reg == SND_SOC_NOPM)
+		return 0;
+
+	BUG_ON(reg > TAIKO_MAX_REGISTER);
+
+	if (!taiko_volatile(codec, reg) && taiko_readable(codec, reg) &&
+		reg < codec->driver->reg_cache_size) {
+		ret = snd_soc_cache_read(codec, reg, &val);
+		if (ret >= 0) {
+			return val;
+		} else
+			dev_err(codec->dev, "Cache read from %x failed: %d\n",
+				reg, ret);
+	}
+
+	val = wcd9xxx_reg_read(&wcd9xxx->core_res, reg);
+	return val;
+}
+#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
+EXPORT_SYMBOL(taiko_read);
+#endif
+
+#ifndef CONFIG_SOUND_CONTROL_HAX_3_GPL
+static
+#endif
 int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
 	unsigned int value)
 {
@@ -4356,6 +4388,7 @@ int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
 #ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
 	int val;
 #endif
+
 	struct wcd9xxx *wcd9xxx = codec->control_data;
 
 	if (reg == SND_SOC_NOPM)
@@ -4386,39 +4419,6 @@ int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
 }
 #ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
 EXPORT_SYMBOL(taiko_write);
-#endif
-
-#ifndef CONFIG_SOUND_CONTROL_HAX_3_GPL
-static
-#endif
-unsigned int taiko_read(struct snd_soc_codec *codec,
-				unsigned int reg)
-{
-	unsigned int val;
-	int ret;
-
-	struct wcd9xxx *wcd9xxx = codec->control_data;
-
-	if (reg == SND_SOC_NOPM)
-		return 0;
-
-	BUG_ON(reg > TAIKO_MAX_REGISTER);
-
-	if (!taiko_volatile(codec, reg) && taiko_readable(codec, reg) &&
-		reg < codec->driver->reg_cache_size) {
-		ret = snd_soc_cache_read(codec, reg, &val);
-		if (ret >= 0) {
-			return val;
-		} else
-			dev_err(codec->dev, "Cache read from %x failed: %d\n",
-				reg, ret);
-	}
-
-	val = wcd9xxx_reg_read(&wcd9xxx->core_res, reg);
-	return val;
-}
-#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
-EXPORT_SYMBOL(taiko_read);
 #endif
 
 static int taiko_startup(struct snd_pcm_substream *substream,
