@@ -1919,7 +1919,7 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 
 #ifdef CONFIG_UNI_CPU_POLICY_LIMIT
 	if (policy->cpu) {
-		cpu0_policy = __cpufreq_cpu_get(0,0);
+		cpu0_policy = __cpufreq_cpu_get(0, 0);
 		data->min = cpu0_policy->min;
 		data->max = cpu0_policy->max;
 	} else {
@@ -1979,6 +1979,11 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 	}
 
 error_out:
+#ifdef CONFIG_UNI_CPU_POLICY_LIMIT
+	if (cpu0_policy) {
+		__cpufreq_cpu_put(cpu0_policy, 0);
+	}
+#endif
 	return ret;
 }
 
