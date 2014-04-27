@@ -68,6 +68,13 @@ config UNI_CPU_POLICY_LIMIT
 	help
 	  Policy limits changed on CPU0 reflects modifications on all other cpus
 
+config MULTI_CPU_POLICY_LIMIT
+	bool "Enable functions extended by all_cpus declaration for reflecting policy limits on all cpus"
+	depends on (!UNI_CPU_POLICY_LIMIT)
+	default n
+	help
+	  Functions extended by all_cpus declaration to reflect policy limits on all cpus
+
 choice
 	prompt "Default CPUFreq governor"
 	default CPU_FREQ_DEFAULT_GOV_USERSPACE if CPU_FREQ_SA1100 || CPU_FREQ_SA1110

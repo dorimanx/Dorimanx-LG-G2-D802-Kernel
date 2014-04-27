@@ -454,6 +454,10 @@ show_one(cpuinfo_max_freq, cpuinfo.max_freq);
 show_one(cpuinfo_transition_latency, cpuinfo.transition_latency);
 show_one(scaling_min_freq, min);
 show_one(scaling_max_freq, max);
+#ifdef CONFIG_MULTI_CPU_POLICY_LIMIT
+show_one(scaling_min_freq_all_cpus, min);
+show_one(scaling_max_freq_all_cpus, max);
+#endif
 show_one(scaling_cur_freq, cur);
 show_one(cpu_utilization, util);
 show_one(policy_min_freq, user_policy.min);
@@ -498,6 +502,84 @@ static ssize_t store_##file_name					\
 
 store_one(scaling_min_freq, min);
 store_one(scaling_max_freq, max);
+
+#ifdef CONFIG_MULTI_CPU_POLICY_LIMIT
+/**
+ * store_scaling_min_freq_all_cpus - store policy governor for the all CPUs
+ */
+static ssize_t store_scaling_min_freq_all_cpus(struct cpufreq_policy *policy, const char *buf, size_t count)
+{
+	unsigned int cpu;
+	ssize_t ret;
+		
+	ret = store_scaling_min_freq(policy, buf, count);
+	if (!policy)
+		return -EINVAL;
+
+	get_online_cpus();
+	for_each_possible_cpu(cpu) {
+		struct cpufreq_policy *cpu_policy;
+
+		if (cpu == policy->cpu)
+			continue;
+
+#ifdef CONFIG_HOTPLUG_CPU
+		if (!cpu_online(cpu)) {
+			per_cpu(cpufreq_policy_save, cpu).min =  policy->min;
+			continue;
+		}
+#endif
+		cpu_policy = __cpufreq_cpu_get(cpu, 0);
+		if (!cpu_policy)
+			continue;
+
+		ret = store_scaling_min_freq(cpu_policy, buf, count);
+
+		__cpufreq_cpu_put(cpu_policy, 0);
+	}
+	put_online_cpus();
+
+	return count;
+}
+
+/**
+ * store_scaling_max_freq_all_cpus - store policy governor for the all CPUs
+ */
+static ssize_t store_scaling_max_freq_all_cpus(struct cpufreq_policy *policy, const char *buf, size_t count)
+{
+	unsigned int cpu;
+	ssize_t ret;
+		
+	ret = store_scaling_max_freq(policy, buf, count);
+	if (!policy)
+		return -EINVAL;
+
+	get_online_cpus();
+	for_each_possible_cpu(cpu) {
+		struct cpufreq_policy *cpu_policy;
+
+		if (cpu == policy->cpu)
+			continue;
+
+#ifdef CONFIG_HOTPLUG_CPU
+		if (!cpu_online(cpu)) {
+			per_cpu(cpufreq_policy_save, cpu).max =  policy->max;
+			continue;
+		}
+#endif
+		cpu_policy = __cpufreq_cpu_get(cpu, 0);
+		if (!cpu_policy)
+			continue;
+
+		ret = store_scaling_max_freq(cpu_policy, buf, count);
+
+		__cpufreq_cpu_put(cpu_policy, 0);
+	}
+	put_online_cpus();
+
+	return count;
+}
+#endif
 
 /**
  * show_cpuinfo_cur_freq - current CPU frequency as detected by hardware
@@ -576,6 +658,60 @@ static ssize_t store_scaling_governor(struct cpufreq_policy *policy,
 	else
 		return count;
 }
+
+#ifdef CONFIG_MULTI_CPU_POLICY_LIMIT
+/**
+ * show_scaling_governor_all_cpus - show the current policy for the specified CPU
+ */
+static ssize_t show_scaling_governor_all_cpus(struct cpufreq_policy *policy, char *buf)
+{
+	if (policy->policy == CPUFREQ_POLICY_POWERSAVE)
+		return sprintf(buf, "powersave\n");
+	else if (policy->policy == CPUFREQ_POLICY_PERFORMANCE)
+		return sprintf(buf, "performance\n");
+	else if (policy->governor)
+		return scnprintf(buf, CPUFREQ_NAME_LEN, "%s\n",
+				policy->governor->name);
+	return -EINVAL;
+}
+
+/**
+ * store_scaling_governor_all_cpus - store policy governor for the all CPUs
+ */
+static ssize_t store_scaling_governor_all_cpus(struct cpufreq_policy *policy, const char *buf, size_t count)
+{
+	unsigned int cpu;
+	ssize_t ret;
+		
+	ret = store_scaling_governor(policy, buf, count);
+	if (!policy)
+		return -EINVAL;
+
+	get_online_cpus();
+	for_each_possible_cpu(cpu) {
+		struct cpufreq_policy *cpu_policy;
+
+		if (cpu == policy->cpu)
+			continue;
+
+#ifdef CONFIG_HOTPLUG_CPU
+		if (!cpu_online(cpu)) {
+			strncpy(per_cpu(cpufreq_policy_save, cpu).gov, policy->governor->name,
+				CPUFREQ_NAME_LEN);
+			continue;
+		}
+#endif
+		cpu_policy = __cpufreq_cpu_get(cpu, 0);
+		if (!cpu_policy)
+			continue;
+
+		ret = store_scaling_governor(cpu_policy, buf, count);
+
+		__cpufreq_cpu_put(cpu_policy, 0);
+	}
+	put_online_cpus();
+}
+#endif
 
 /**
  * show_scaling_driver - show the cpufreq driver currently loaded
@@ -761,7 +897,14 @@ cpufreq_freq_attr_ro(affected_cpus);
 cpufreq_freq_attr_ro(cpu_utilization);
 cpufreq_freq_attr_rw(scaling_min_freq);
 cpufreq_freq_attr_rw(scaling_max_freq);
+#ifdef CONFIG_MULTI_CPU_POLICY_LIMIT
+cpufreq_freq_attr_rw(scaling_min_freq_all_cpus);
+cpufreq_freq_attr_rw(scaling_max_freq_all_cpus);
+#endif
 cpufreq_freq_attr_rw(scaling_governor);
+#ifdef CONFIG_MULTI_CPU_POLICY_LIMIT
+cpufreq_freq_attr_rw(scaling_governor_all_cpus);
+#endif
 cpufreq_freq_attr_rw(scaling_setspeed);
 #ifdef CONFIG_CPU_VOLTAGE_TABLE
 define_one_global_rw(vdd_levels);
@@ -775,10 +918,17 @@ static struct attribute *default_attrs[] = {
 	&cpuinfo_transition_latency.attr,
 	&scaling_min_freq.attr,
 	&scaling_max_freq.attr,
+#ifdef CONFIG_MULTI_CPU_POLICY_LIMIT
+	&scaling_min_freq_all_cpus.attr,
+	&scaling_max_freq_all_cpus.attr,
+#endif
 	&affected_cpus.attr,
 	&cpu_utilization.attr,
 	&related_cpus.attr,
 	&scaling_governor.attr,
+#ifdef CONFIG_MULTI_CPU_POLICY_LIMIT
+	&scaling_governor_all_cpus.attr,
+#endif
 	&scaling_driver.attr,
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
