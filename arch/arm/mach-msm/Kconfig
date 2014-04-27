@@ -1948,6 +1948,13 @@ config ALUCARD_HOTPLUG_THERMAL
 	help
 	  Alucard-hotplug thermal control
 
+config ALUCARD_HOTPLUG_USE_RQ_STATS
+	bool "Enable alucard-hotplug msm rq statistics using"
+	depends on ALUCARD_HOTPLUG && MSM_RUN_QUEUE_STATS
+	default n
+	help
+	  Alucard-hotplug msm rq statics using
+
 config MSM_AVS_HW
 	bool "Enable Adaptive Voltage Scaling (AVS)"
 	default n
