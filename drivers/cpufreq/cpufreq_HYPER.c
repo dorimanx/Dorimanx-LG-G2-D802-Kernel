@@ -675,6 +675,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	unsigned int max_load_freq;
 	/* Current load across this CPU */
 	unsigned int cur_load = 0;
+	unsigned int max_load = 0;
 
 	struct cpufreq_policy *policy;
 	struct cpu_dbs_info_s *j_dbs_info;
@@ -806,6 +807,9 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 		cur_load = 100 * (wall_time - idle_time) / wall_time;
 
+		if (cur_load > max_load)
+			max_load = cur_load;
+
 		freq_avg = __cpufreq_driver_getavg(policy, j);
 		if (freq_avg <= 0)
 			freq_avg = policy->cur;
@@ -824,10 +828,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		j_dbs_info->load_at_prev_sample = load_at_max_freq;
 	}
 
-	if (dbs_tuners_ins.sampling_rate < DEFAULT_SAMPLING_RATE)
-		cpufreq_notify_utilization(policy, avg_load_at_max_freq);
-	else
-		cpufreq_notify_utilization(policy, load_at_max_freq);
+	cpufreq_notify_utilization(policy, max_load);
 
 	/* Check for frequency increase */
 	if (policy->cur < dbs_tuners_ins.freq_responsiveness)

@@ -40,7 +40,7 @@ static struct workqueue_struct *alucardhp_wq;
 static ktime_t time_stamp;
 #endif
 static struct hotplug_cpuinfo {
-#ifndef ALUCARD_HOTPLUG_USE_RQ_STATS
+#ifndef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
 	u64 prev_cpu_wall;
 	u64 prev_cpu_idle;
 #endif
@@ -52,10 +52,6 @@ static struct hotplug_cpuinfo {
 static DEFINE_PER_CPU(struct hotplug_cpuinfo, od_hotplug_cpuinfo);
 
 static atomic_t suspended = ATOMIC_INIT(0);
-
-#ifdef ALUCARD_HOTPLUG_USE_RQ_STATS
-extern unsigned int report_cpu_load(unsigned int cpu);
-#endif
 
 static struct hotplug_tuners {
 	int hotplug_sampling_rate;
@@ -197,7 +193,7 @@ static int hotplug_rq[4][2] = {
 	{300, 0}
 };
 
-#ifndef ALUCARD_HOTPLUG_USE_RQ_STATS
+#ifndef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
 static inline int get_cpu_load(unsigned int cpu, int io_busy)
 {
 	struct hotplug_cpuinfo *pcpu_info = &per_cpu(od_hotplug_cpuinfo, cpu);
@@ -345,8 +341,8 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 		int cur_load = -1;
 		unsigned int cur_freq = 0;
 
-#ifdef ALUCARD_HOTPLUG_USE_RQ_STATS
-		cur_load = report_cpu_load(cpu);
+#ifdef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
+		cur_load = cpufreq_quick_get_util(cpu);
 #else
 		cur_load = get_cpu_load(cpu, 0);
 #endif
@@ -579,7 +575,7 @@ static int __ref hotplug_start(void)
 	for_each_possible_cpu(cpu) {
 		struct hotplug_cpuinfo *pcpu_info = &per_cpu(od_hotplug_cpuinfo, cpu);
 
-#ifndef ALUCARD_HOTPLUG_USE_RQ_STATS
+#ifndef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
 		pcpu_info->prev_cpu_idle = get_cpu_idle_time(cpu,
 				&pcpu_info->prev_cpu_wall, 0);
 #endif

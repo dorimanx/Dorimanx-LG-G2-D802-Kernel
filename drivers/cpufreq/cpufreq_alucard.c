@@ -425,7 +425,9 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 	/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",cpu, wall_time, idle_time);*/
 	if (wall_time >= idle_time) { /*if wall_time < idle_time, evaluate cpu load next time*/
 		cur_load = wall_time > idle_time ? (100 * (wall_time - idle_time)) / wall_time : 1;/*if wall_time is equal to idle_time cpu_load is equal to 1*/
-		
+
+		cpufreq_notify_utilization(cpu_policy, cur_load);
+
 		/* Checking Frequency Limit */
 		min_freq = cpu_policy->min;
 		/* Maximum increasing frequency possible */
