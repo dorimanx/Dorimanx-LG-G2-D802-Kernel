@@ -24,7 +24,6 @@
 #include <media/msmb_isp.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
-
 #include "msm_buf_mgr.h"
 
 #define MAX_IOMMU_CTX 2
@@ -397,6 +396,24 @@ struct msm_vfe_error_info {
 	uint32_t error_count;
 };
 
+struct msm_isp_statistics {
+	int32_t imagemaster0_overflow;
+	int32_t imagemaster1_overflow;
+	int32_t imagemaster2_overflow;
+	int32_t imagemaster3_overflow;
+	int32_t imagemaster4_overflow;
+	int32_t imagemaster5_overflow;
+	int32_t imagemaster6_overflow;
+	int32_t be_overflow;
+	int32_t bg_overflow;
+	int32_t bf_overflow;
+	int32_t awb_overflow;
+	int32_t rs_overflow;
+	int32_t cs_overflow;
+	int32_t ihist_overflow;
+	int32_t skinbhist_overflow;
+};
+
 struct vfe_device {
 	struct platform_device *pdev;
 	struct msm_sd_subdev subdev;
@@ -446,6 +463,7 @@ struct vfe_device {
 	uint8_t vt_enable;
 	void __iomem *p_avtimer_msw;
 	void __iomem *p_avtimer_lsw;
+	struct msm_isp_statistics *stats;
 };
 
 #endif
