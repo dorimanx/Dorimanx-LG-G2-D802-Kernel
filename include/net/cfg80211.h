@@ -2233,6 +2233,15 @@ struct wiphy_vendor_command {
  * @country_ie_pref: country IE processing preferences specified
  *	by enum nl80211_country_ie_pref
  *
+ * @extended_capabilities: extended capabilities supported by the driver,
+ *	additional capabilities might be supported by userspace; these are
+ *	the 802.11 extended capabilities ("Extended Capabilities element")
+ *	and are in the same format as in the information element. See
+ *	802.11-2012 8.4.2.29 for the defined fields.
+ * @extended_capabilities_mask: mask of the valid values
+ * @extended_capabilities_len: length of the extended capabilities
+ * @coalesce: packet coalescing support information
+ *
  * @vendor_commands: array of vendor commands supported by the hardware
  * @n_vendor_commands: number of vendor commands
  * @vendor_events: array of vendor events supported by the hardware
@@ -2308,6 +2317,9 @@ struct wiphy {
 
 	u8 country_ie_pref;
 
+	const u8 *extended_capabilities, *extended_capabilities_mask;
+	u8 extended_capabilities_len;
+
 	/* If multiple wiphys are registered and you're handed e.g.
 	 * a regular netdev with assigned ieee80211_ptr, you won't
 	 * know whether it points to a wiphy your driver has registered
@@ -2323,7 +2335,7 @@ struct wiphy {
 
 	/* fields below are read-only, assigned by cfg80211 */
 
-	const struct ieee80211_regdomain *regd;
+	const struct ieee80211_regdomain __rcu *regd;
 
 	/* the item in /sys/class/ieee80211/ points to this,
 	 * you need use set_wiphy_dev() (see below) */
@@ -2336,6 +2348,7 @@ struct wiphy {
 	struct dentry *debugfsdir;
 
 	const struct ieee80211_ht_cap *ht_capa_mod_mask;
+	const struct ieee80211_vht_cap *vht_capa_mod_mask;
 
 #ifdef CONFIG_NET_NS
 	/* the network namespace this phy lives in currently */
@@ -2352,7 +2365,8 @@ struct wiphy {
 
 	u16 max_ap_assoc_sta;
 
-	char priv[0] __attribute__((__aligned__(NETDEV_ALIGN)));
+	const struct wiphy_coalesce_support *coalesce;
+	char priv[0] __aligned(NETDEV_ALIGN);
 };
 
 static inline struct net *wiphy_net(struct wiphy *wiphy)
@@ -2475,7 +2489,7 @@ struct cfg80211_cached_keys;
  * @wiphy: pointer to hardware description
  * @iftype: interface type
  * @list: (private) Used to collect the interfaces
- * @netdev: (private) Used to reference back to the netdev
+ *	wireless device if it has no netdev
  * @current_bss: (private) Used by the internal configuration code
  * @channel: (private) Used by the internal configuration code to track
  *	user-set AP, monitor and WDS channels for wireless extensions
@@ -3424,14 +3438,16 @@ static inline int cfg80211_testmode_reply(struct sk_buff *skb)
  * This function allocates and pre-fills an skb for an event on the
  * testmode multicast group.
  *
- * The returned skb (or %NULL if any errors happen) is set up in the
- * same way as with cfg80211_testmode_alloc_reply_skb() but prepared
- * for an event. As there, you should simply add data to it that will
- * then end up in the %NL80211_ATTR_TESTDATA attribute. Again, you must
- * not modify the skb in any other way.
+ * The returned skb is set up in the same way as with
+ * cfg80211_testmode_alloc_reply_skb() but prepared for an event. As
+ * there, you should simply add data to it that will then end up in the
+ * %NL80211_ATTR_TESTDATA attribute. Again, you must not modify the skb
+ * in any other way.
  *
  * When done filling the skb, call cfg80211_testmode_event() with the
  * skb to send the event.
+ *
+ * Return: An allocated and pre-filled skb. %NULL if any errors happen.
  */
 static inline struct sk_buff *
 cfg80211_testmode_alloc_event_skb(struct wiphy *wiphy, int approxlen, gfp_t gfp)
