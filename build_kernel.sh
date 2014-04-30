@@ -200,6 +200,11 @@ fi;
 cp -a ../LG-G2-D802-Ramdisk/* ../ramdisk-tmp/
 rm -rf ../ramdisk-tmp/.git
 
+if [ "$BUILD_VS_980" == "1" ]; then
+	mv ../ramdisk-tmp/res/init-boot/vs980/* ../ramdisk-tmp/;
+	rm -rf ../ramdisk-tmp/res/init-boot/
+fi;
+
 for i in $(find "$KERNELDIR" -name '*.ko'); do
         cp -av "$i" ../ramdisk-tmp/lib/modules/;
 done;
