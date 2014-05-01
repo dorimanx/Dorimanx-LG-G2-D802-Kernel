@@ -28,7 +28,6 @@
 #define HOTPLUG_ENABLED		0
 #define DEFAULT_UPDATE_RATE	HZ / 10
 #define START_DELAY		HZ * 20
-#define NUM_LOAD_LEVELS		5
 #define MIN_INPUT_INTERVAL	150 * 1000L
 #define DEFAULT_HISTORY_SIZE	10
 #define DEFAULT_DOWN_LOCK_DUR	1000
@@ -143,6 +142,7 @@ static struct load_thresh_tbl load[] = {
 	LOAD_SCALE(100, 40),
 	LOAD_SCALE(150, 80),
 	LOAD_SCALE(410, 140),
+	LOAD_SCALE(0, 0),
 };
 
 static void apply_down_lock(unsigned int cpu)
@@ -287,7 +287,7 @@ static void msm_hotplug_work(struct work_struct *work)
 		goto reschedule;
 	}
 
-	for (i = stats.min_cpus; i < NUM_LOAD_LEVELS; i++) {
+	for (i = stats.min_cpus; load[i].up_threshold; i++) {
 		if (cur_load <= load[i].up_threshold
 		    && cur_load > load[i].down_threshold) {
 			target = i;
@@ -337,11 +337,10 @@ static void hotplug_input_event(struct input_handle *handle, unsigned int type,
 	u64 now = ktime_to_us(ktime_get());
 
 	hotplug.last_input = now;
-
-	if (num_online_cpus() >= hotplug.cpus_boosted)
+	if (now - last_boost_time < MIN_INPUT_INTERVAL)
 		return;
 
-	if (now - last_boost_time < MIN_INPUT_INTERVAL)
+	if (num_online_cpus() >= hotplug.cpus_boosted)
 		return;
 
 	dprintk("%s: online_cpus: %u boosted\n", MSM_HOTPLUG,
@@ -522,7 +521,7 @@ static ssize_t show_load_levels(struct device *dev,
 	if (!buf)
 		return -EINVAL;
 
-	for (i = 0; i < NUM_LOAD_LEVELS; i++) {
+	for (i = 0; load[i].up_threshold; i++) {
 		len += sprintf(buf + len, "%u ", i);
 		len += sprintf(buf + len, "%u ", load[i].up_threshold);
 		len += sprintf(buf + len, "%u\n", load[i].down_threshold);
