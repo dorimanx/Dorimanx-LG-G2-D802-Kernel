@@ -122,6 +122,7 @@ static int msm_watchdog_suspend(struct device *dev)
 	__raw_writel(1, wdog_dd->base + WDT0_RST);
 	__raw_writel(0, wdog_dd->base + WDT0_EN);
 	mb();
+	wdog_dd->last_pet = sched_clock();
 	return 0;
 }
 
@@ -134,6 +135,7 @@ static int msm_watchdog_resume(struct device *dev)
 	__raw_writel(1, wdog_dd->base + WDT0_EN);
 	__raw_writel(1, wdog_dd->base + WDT0_RST);
 	mb();
+	wdog_dd->last_pet = sched_clock();
 	return 0;
 }
 
