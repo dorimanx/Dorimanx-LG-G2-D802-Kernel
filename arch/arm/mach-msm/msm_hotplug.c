@@ -26,8 +26,8 @@
 
 #define MSM_HOTPLUG		"msm_hotplug"
 #define HOTPLUG_ENABLED		0
-#define DEFAULT_UPDATE_RATE	HZ / 10
-#define START_DELAY		HZ * 20
+#define DEFAULT_UPDATE_RATE	100 / 10
+#define START_DELAY		100 * 20
 #define MIN_INPUT_INTERVAL	150 * 1000L
 #define DEFAULT_HISTORY_SIZE	10
 #define DEFAULT_DOWN_LOCK_DUR	1000
@@ -139,9 +139,9 @@ struct load_thresh_tbl {
 static struct load_thresh_tbl load[] = {
 	LOAD_SCALE(400, 0),
 	LOAD_SCALE(50, 0),
-	LOAD_SCALE(100, 40),
-	LOAD_SCALE(150, 80),
-	LOAD_SCALE(410, 140),
+	LOAD_SCALE(80, 40),
+	LOAD_SCALE(120, 70),
+	LOAD_SCALE(410, 110),
 	LOAD_SCALE(0, 0),
 };
 
