@@ -10,6 +10,8 @@
  *
  *  v1.2 - make kernel / userspace mode switchable
  *
+ *  v1.3 - add a hook in display pannel driver as alternative kernel trigger
+ *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.
@@ -26,10 +28,11 @@
 #include <linux/mutex.h>
 #include <linux/workqueue.h>
 
-#define MAJOR_VERSION        1
-#define MINOR_VERSION        2
+#define MAJOR_VERSION	1
+#define MINOR_VERSION	3
 
-//#define POWER_SUSPEND_DEBUG
+/* Add debugging prints in dmesg */
+/* #define POWER_SUSPEND_DEBUG */
 
 struct workqueue_struct *suspend_work_queue;
 
@@ -44,175 +47,199 @@ static DEFINE_SPINLOCK(state_lock);
 /* Yank555.lu : Current powersave state (screen on / off) */
 static int state;
 /* Yank555.lu : Current powersave more  (kernel / userspace) */
-static int mode = POWER_SUSPEND_KERNEL;
+static int mode;
 
 void register_power_suspend(struct power_suspend *handler)
 {
-        struct list_head *pos;
+	struct list_head *pos;
 
-        mutex_lock(&power_suspend_lock);
-        list_for_each(pos, &power_suspend_handlers) {
-                struct power_suspend *p;
-                p = list_entry(pos, struct power_suspend, link);
-        }
-        list_add_tail(&handler->link, pos);
-        mutex_unlock(&power_suspend_lock);
+	mutex_lock(&power_suspend_lock);
+	list_for_each(pos, &power_suspend_handlers) {
+		struct power_suspend *p;
+		p = list_entry(pos, struct power_suspend, link);
+	}
+	list_add_tail(&handler->link, pos);
+	mutex_unlock(&power_suspend_lock);
 }
 EXPORT_SYMBOL(register_power_suspend);
 
 void unregister_power_suspend(struct power_suspend *handler)
 {
-        mutex_lock(&power_suspend_lock);
-        list_del(&handler->link);
-        mutex_unlock(&power_suspend_lock);
+	mutex_lock(&power_suspend_lock);
+	list_del(&handler->link);
+	mutex_unlock(&power_suspend_lock);
 }
 EXPORT_SYMBOL(unregister_power_suspend);
 
 static void power_suspend(struct work_struct *work)
 {
-        struct power_suspend *pos;
-        unsigned long irqflags;
-        int abort = 0;
+	struct power_suspend *pos;
+	unsigned long irqflags;
+	int abort = 0;
 
 #ifdef POWER_SUSPEND_DEBUG
-        pr_warn("power_suspend: entering suspend...\n");
+	pr_warn("power_suspend: entering suspend...\n");
 #endif
-        mutex_lock(&power_suspend_lock);
-        spin_lock_irqsave(&state_lock, irqflags);
-        if (state == POWER_SUSPEND_INACTIVE)
-                abort = 1;
-        spin_unlock_irqrestore(&state_lock, irqflags);
+	mutex_lock(&power_suspend_lock);
+	spin_lock_irqsave(&state_lock, irqflags);
+	if (state == POWER_SUSPEND_INACTIVE)
+		abort = 1;
+	spin_unlock_irqrestore(&state_lock, irqflags);
 
-        if (abort)
-                goto abort_suspend;
+	if (abort)
+		goto abort_suspend;
 
 #ifdef POWER_SUSPEND_DEBUG
-        pr_warn("power_suspend: suspending...\n");
+	pr_warn("power_suspend: suspending...\n");
 #endif
-        list_for_each_entry(pos, &power_suspend_handlers, link) {
-                if (pos->suspend != NULL) {
-                        pos->suspend(pos);
-                }
-        }
+	list_for_each_entry(pos, &power_suspend_handlers, link) {
+		if (pos->suspend != NULL) {
+			pos->suspend(pos);
+		}
+	}
 #ifdef POWER_SUSPEND_DEBUG
-        pr_warn("power_suspend: suspended.\n");
+	pr_warn("power_suspend: suspended.\n");
 #endif
 abort_suspend:
-        mutex_unlock(&power_suspend_lock);
+	mutex_unlock(&power_suspend_lock);
 }
 
 static void power_resume(struct work_struct *work)
 {
-        struct power_suspend *pos;
-        unsigned long irqflags;
-        int abort = 0;
+	struct power_suspend *pos;
+	unsigned long irqflags;
+	int abort = 0;
 
 #ifdef POWER_SUSPEND_DEBUG
-        pr_warn("powersuspend: entering resume...\n");
+	pr_warn("powersuspend: entering resume...\n");
 #endif
-        mutex_lock(&power_suspend_lock);
-        spin_lock_irqsave(&state_lock, irqflags);
-        if (state == POWER_SUSPEND_ACTIVE)
-                abort = 1;
-        spin_unlock_irqrestore(&state_lock, irqflags);
+	mutex_lock(&power_suspend_lock);
+	spin_lock_irqsave(&state_lock, irqflags);
+	if (state == POWER_SUSPEND_ACTIVE)
+		abort = 1;
+	spin_unlock_irqrestore(&state_lock, irqflags);
 
-        if (abort)
-                goto abort_resume;
+	if (abort)
+		goto abort_resume;
 
 #ifdef POWER_SUSPEND_DEBUG
-        pr_warn("powersuspend: resuming...\n");
+	pr_warn("powersuspend: resuming...\n");
 #endif
-        list_for_each_entry_reverse(pos, &power_suspend_handlers, link) {
-                if (pos->resume != NULL) {
-                        pos->resume(pos);
-                }
-        }
+	list_for_each_entry_reverse(pos, &power_suspend_handlers, link) {
+		if (pos->resume != NULL) {
+			pos->resume(pos);
+		}
+	}
 #ifdef POWER_SUSPEND_DEBUG
-        pr_warn("power_suspend: resumed.\n");
+	pr_warn("power_suspend: resumed.\n");
 #endif
 abort_resume:
-        mutex_unlock(&power_suspend_lock);
+	mutex_unlock(&power_suspend_lock);
 }
 
 void set_power_suspend_state(int new_state)
 {
-        unsigned long irqflags;
-        int old_sleep;
+	unsigned long irqflags;
+	int old_sleep;
 
-        spin_lock_irqsave(&state_lock, irqflags);
-        old_sleep = state;
-        if (old_sleep == POWER_SUSPEND_INACTIVE && new_state == POWER_SUSPEND_ACTIVE) {
+	spin_lock_irqsave(&state_lock, irqflags);
+	old_sleep = state;
+	if (old_sleep == POWER_SUSPEND_INACTIVE &&
+		new_state == POWER_SUSPEND_ACTIVE) {
 #ifdef POWER_SUSPEND_DEBUG
-                pr_warn("power_suspend: activated.\n");
+		pr_warn("power_suspend: activated.\n");
 #endif
-                state = new_state;
-                queue_work(suspend_work_queue, &power_suspend_work);
-        } else if (old_sleep == POWER_SUSPEND_INACTIVE || new_state == POWER_SUSPEND_INACTIVE) {
+		state = new_state;
+		queue_work(suspend_work_queue, &power_suspend_work);
+	} else if (old_sleep == POWER_SUSPEND_INACTIVE ||
+			new_state == POWER_SUSPEND_INACTIVE) {
 #ifdef POWER_SUSPEND_DEBUG
-                pr_warn("power_suspend: deactivated.\n");
+		pr_warn("power_suspend: deactivated.\n");
 #endif
-                state = new_state;
-                queue_work(suspend_work_queue, &power_resume_work);
-        }
-        spin_unlock_irqrestore(&state_lock, irqflags);
+		state = new_state;
+		queue_work(suspend_work_queue, &power_resume_work);
+	}
+	spin_unlock_irqrestore(&state_lock, irqflags);
 }
 
-void set_power_suspend_state_hook(int new_state)
+void set_power_suspend_state_autosleep_hook(int new_state)
 {
-	/* Yank555.lu : Only allow kernel hook changes in kernel mode */
-        if (mode == POWER_SUSPEND_KERNEL)
-                set_power_suspend_state(new_state);
+#ifdef POWER_SUSPEND_DEBUG
+	pr_warn("power_suspend: autosleep resquests %s.\n",
+		new_state == POWER_SUSPEND_ACTIVE ? "sleep" : "wakeup");
+#endif
+	if (mode == POWER_SUSPEND_AUTOSLEEP)
+		/* Yank555.lu: Only allow autosleep hook changes in kernel mode */
+		set_power_suspend_state(new_state);
 }
 
-EXPORT_SYMBOL(set_power_suspend_state_hook);
+EXPORT_SYMBOL(set_power_suspend_state_autosleep_hook);
 
-// ------------------------------------------ sysfs interface ------------------------------------------
+void set_power_suspend_state_pannel_hook(int new_state)
+{
+#ifdef POWER_SUSPEND_DEBUG
+	pr_warn("power_suspend: pannel resquests %s.\n",
+		new_state == POWER_SUSPEND_ACTIVE ? "sleep" : "wakeup");
+#endif
+	if (mode == POWER_SUSPEND_PANNEL)
+		/* Yank555.lu : Only allow pannel hook changes in kernel mode */
+		set_power_suspend_state(new_state);
+}
+
+EXPORT_SYMBOL(set_power_suspend_state_pannel_hook);
+
+/* ------------------------------------------ sysfs interface ------------------------------------------ */
 
 static ssize_t power_suspend_state_show(struct kobject *kobj,
-                struct kobj_attribute *attr, char *buf)
+		struct kobj_attribute *attr, char *buf)
 {
         return sprintf(buf, "%u\n", state);
 }
 
 static ssize_t power_suspend_state_store(struct kobject *kobj,
-                struct kobj_attribute *attr, const char *buf, size_t count)
+		struct kobj_attribute *attr, const char *buf, size_t count)
 {
-        int data = 0;
+	int new_state = 0;
 
-	/* Yank555.lu : Only allow sysfs changes in userspace mode */
-        if (mode != POWER_SUSPEND_USERSPACE)
-                return -EINVAL;
+	/* Yank555.lu : Only allow sysfs changes from userspace mode */
+	if (mode != POWER_SUSPEND_USERSPACE)
+		return -EINVAL;
 
-        sscanf(buf, "%d\n", &data);
+	sscanf(buf, "%d\n", &new_state);
 
-        if (data == 1 || data == 0) {
-                set_power_suspend_state(data);
-                pr_info("power suspend state requested => %d\n", data);
-        }
-        return count;
+#ifdef POWER_SUSPEND_DEBUG
+	pr_warn("power_suspend: userspace resquests %s.\n",
+		new_state == POWER_SUSPEND_ACTIVE ? "sleep" : "wakeup");
+#endif
+	if(new_state == POWER_SUSPEND_ACTIVE ||
+		new_state == POWER_SUSPEND_INACTIVE)
+		set_power_suspend_state(new_state);
+
+	return count;
 }
 
 static struct kobj_attribute power_suspend_state_attribute =
-        __ATTR(power_suspend_state, 0666,
-                power_suspend_state_show,
-                power_suspend_state_store);
+	__ATTR(power_suspend_state, 0666,
+		power_suspend_state_show,
+		power_suspend_state_store);
 
 static ssize_t power_suspend_mode_show(struct kobject *kobj,
-                struct kobj_attribute *attr, char *buf)
+		struct kobj_attribute *attr, char *buf)
 {
         return sprintf(buf, "%u\n", mode);
 }
 
 static ssize_t power_suspend_mode_store(struct kobject *kobj,
-                struct kobj_attribute *attr, const char *buf, size_t count)
+		struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	int data = 0;
 
 	sscanf(buf, "%d\n", &data);
 
 	switch (data) {
-		case POWER_SUSPEND_KERNEL:
-                case POWER_SUSPEND_USERSPACE:
+		case POWER_SUSPEND_AUTOSLEEP:
+		case POWER_SUSPEND_PANNEL:
+		case POWER_SUSPEND_USERSPACE:
 			mode = data;
 			return count;
 		default:
@@ -221,51 +248,51 @@ static ssize_t power_suspend_mode_store(struct kobject *kobj,
 }
 
 static struct kobj_attribute power_suspend_mode_attribute =
-		__ATTR(power_suspend_mode, 0666,
+	__ATTR(power_suspend_mode, 0666,
 		power_suspend_mode_show,
 		power_suspend_mode_store);
 
 static ssize_t power_suspend_version_show(struct kobject *kobj,
-                struct kobj_attribute *attr, char *buf)
+		struct kobj_attribute *attr, char *buf)
 {
-        return sprintf(buf, "version: %d.%d\n", MAJOR_VERSION, MINOR_VERSION);
+	return sprintf(buf, "version: %d.%d\n", MAJOR_VERSION, MINOR_VERSION);
 }
 
 static struct kobj_attribute power_suspend_version_attribute =
-		__ATTR(power_suspend_version, 0444,
+	__ATTR(power_suspend_version, 0444,
 		power_suspend_version_show,
 		NULL);
 
 static struct attribute *power_suspend_attrs[] =
 {
-        &power_suspend_state_attribute.attr,
-        &power_suspend_mode_attribute.attr,
-        &power_suspend_version_attribute.attr,
-        NULL,
+	&power_suspend_state_attribute.attr,
+	&power_suspend_mode_attribute.attr,
+	&power_suspend_version_attribute.attr,
+	NULL,
 };
 
 static struct attribute_group power_suspend_attr_group =
 {
-        .attrs = power_suspend_attrs,
+	.attrs = power_suspend_attrs,
 };
 
 static struct kobject *power_suspend_kobj;
 
-// ------------------ sysfs interface -----------------------
+/* ------------------ sysfs interface ----------------------- */
 static int __init power_suspend_init(void)
 {
 
-        int sysfs_result;
+	int sysfs_result;
 
         power_suspend_kobj = kobject_create_and_add("power_suspend",
-                                kernel_kobj);
+				kernel_kobj);
         if (!power_suspend_kobj) {
                 pr_err("%s kobject create failed!\n", __FUNCTION__);
                 return -ENOMEM;
         }
 
         sysfs_result = sysfs_create_group(power_suspend_kobj,
-                        &power_suspend_attr_group);
+			&power_suspend_attr_group);
 
         if (sysfs_result) {
                 pr_info("%s group create failed!\n", __FUNCTION__);
@@ -273,24 +300,25 @@ static int __init power_suspend_init(void)
                 return -ENOMEM;
         }
 
-        suspend_work_queue = create_singlethread_workqueue("p-suspend");
+	suspend_work_queue = create_singlethread_workqueue("p-suspend");
 
-        if (suspend_work_queue == NULL) {
-                return -ENOMEM;
-        }
+	if (suspend_work_queue == NULL) {
+		return -ENOMEM;
+	}
 
-        mode = POWER_SUSPEND_KERNEL;
+	/* Yank555.lu : Default to autosleep mode; */
+	mode = POWER_SUSPEND_AUTOSLEEP;
 
-        return 0;
+	return 0;
 }
 
 static void __exit power_suspend_exit(void)
 {
-        if (power_suspend_kobj != NULL)
-                kobject_put(power_suspend_kobj);
+	if (power_suspend_kobj != NULL)
+		kobject_put(power_suspend_kobj);
 
-        destroy_workqueue(suspend_work_queue);
-}
+	destroy_workqueue(suspend_work_queue);
+} 
 
 core_initcall(power_suspend_init);
 module_exit(power_suspend_exit);
