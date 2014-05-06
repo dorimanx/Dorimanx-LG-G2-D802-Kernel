@@ -104,6 +104,19 @@ config CPU_FREQ_DEFAULT_GOV_ONDEMAND
 	  governor. If unsure have a look at the help section of the
 	  driver. Fallback governor will be the performance governor.
 
+config CPU_FREQ_DEFAULT_GOV_STOCKDEMAND
+	bool "stockdemand"
+	select CPU_FREQ_GOV_STOCKDEMAND
+	select CPU_FREQ_GOV_PERFORMANCE
+	help
+	  Use the CPUFreq governor 'stockdemand' as default. This allows
+	  you to get a full dynamic frequency capable system by simply
+	  loading your cpufreq low-level hardware driver.
+	  Be aware that not all cpufreq drivers support the ondemand
+	  governor. If unsure have a look at the help section of the
+	  driver. Fallback governor will be the performance governor.
+	  This is default LG ondemand cpu gov.
+
 config CPU_FREQ_DEFAULT_GOV_ONDEMANDPLUS
 	bool "ondemandplus"
 	select CPU_FREQ_GOV_ONDEMANDPLUS
@@ -236,6 +249,13 @@ config CPU_FREQ_GOV_ONDEMAND
 	  For details, take a look at linux/Documentation/cpu-freq.
 
 	  If in doubt, say N.
+
+config CPU_FREQ_GOV_STOCKDEMAND
+	tristate "'stockdemand' cpufreq policy governor"
+	select CPU_FREQ_TABLE
+	help
+	  this is stock LG ondemand GOV. for users that like STOCK.
+
 
 config CPUFREQ_ID_PERFLOCK
 	bool "Intellidemand Performance Lock"
