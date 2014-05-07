@@ -477,13 +477,11 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 		}
 	}
 
-	get_online_cpus();
 	if (num_online_cpus() == 1) {
 		struct hotplug_cpuinfo *pcpu_info;
 		pcpu_info = &per_cpu(od_hotplug_cpuinfo, 0);
 		pcpu_info->up_cpu = -1;
 	}
-	put_online_cpus();
 
 	if (hotplugging_rate >= max(up_rate, down_rate) || hotplugged == true) {
 		hotplugging_rate = 0;
@@ -587,6 +585,8 @@ static int __ref hotplug_start(void)
 		return ret;
 	}
 
+	atomic_set(&suspended,0);
+
 	get_online_cpus();
 	for_each_possible_cpu(cpu) {
 		struct hotplug_cpuinfo *pcpu_info;
@@ -610,8 +610,6 @@ static int __ref hotplug_start(void)
 		atomic_set(&core_thermal_lock, 0);
 		core_thermal_info.num_cores = num_possible_cpus();
 #endif
-		atomic_set(&suspended,0);
-
 	}
 	put_online_cpus();
 
