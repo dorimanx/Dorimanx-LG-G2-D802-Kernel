@@ -76,7 +76,7 @@ static struct workqueue_struct *nightmare_wq;
 
 /* nightmare tuners */
 static struct nightmare_tuners {
-	atomic_t sampling_rate;
+	unsigned int sampling_rate;
 	int inc_cpu_load_at_min_freq;
 	int inc_cpu_load;
 	int dec_cpu_load;
@@ -89,7 +89,7 @@ static struct nightmare_tuners {
 	int freq_step_dec;
 	int freq_step_dec_at_max_freq;
 } nightmare_tuners_ins = {
-	.sampling_rate = ATOMIC_INIT(60000),
+	.sampling_rate = 60000,
 	.inc_cpu_load_at_min_freq = 40,
 	.inc_cpu_load = 70,
 	.dec_cpu_load = 50,
@@ -106,20 +106,13 @@ static struct nightmare_tuners {
 /************************** sysfs interface ************************/
 
 /* cpufreq_nightmare Governor Tunables */
-#define show_atomic(file_name, object)					\
-static ssize_t show_##file_name						\
-(struct kobject *kobj, struct attribute *attr, char *buf)		\
-{									\
-	return sprintf(buf, "%d\n", atomic_read(&nightmare_tuners_ins.object));		\
-}
-show_atomic(sampling_rate, sampling_rate);
-
 #define show_one(file_name, object)					\
 static ssize_t show_##file_name						\
 (struct kobject *kobj, struct attribute *attr, char *buf)		\
 {									\
 	return sprintf(buf, "%d\n", nightmare_tuners_ins.object);		\
 }
+show_one(sampling_rate, sampling_rate);
 show_one(inc_cpu_load_at_min_freq, inc_cpu_load_at_min_freq);
 show_one(inc_cpu_load, inc_cpu_load);
 show_one(dec_cpu_load, dec_cpu_load);
@@ -132,61 +125,6 @@ show_one(freq_up_brake, freq_up_brake);
 show_one(freq_step_dec, freq_step_dec);
 show_one(freq_step_dec_at_max_freq, freq_step_dec_at_max_freq);
 
-/**
- * update_sampling_rate - update sampling rate effective immediately if needed.
- * @new_rate: new sampling rate
- *
- * If new rate is smaller than the old, simply updaing
- * nightmare_tuners_ins.sampling_rate might not be appropriate. For example,
- * if the original sampling_rate was 1 second and the requested new sampling
- * rate is 10 ms because the user needs immediate reaction from ondemand
- * governor, but not sure if higher frequency will be required or not,
- * then, the governor may change the sampling rate too late; up to 1 second
- * later. Thus, if we are reducing the sampling rate, we need to make the
- * new value effective immediately.
- */
-static void update_sampling_rate(unsigned int new_rate)
-{
-	int cpu;
-
-	atomic_set(&nightmare_tuners_ins.sampling_rate,new_rate);
-
-	get_online_cpus();
-	for_each_online_cpu(cpu) {
-		struct cpufreq_policy *policy;
-		struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo;
-		unsigned long next_sampling, appointed_at;
-
-		policy = cpufreq_cpu_get(cpu);
-		if (!policy)
-			continue;
-		nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, policy->cpu);
-		cpufreq_cpu_put(policy);
-
-		mutex_lock(&nightmare_cpuinfo->timer_mutex);
-
-		if (!delayed_work_pending(&nightmare_cpuinfo->work)) {
-			mutex_unlock(&nightmare_cpuinfo->timer_mutex);
-			continue;
-		}
-
-		next_sampling  = jiffies + usecs_to_jiffies(new_rate);
-		appointed_at = nightmare_cpuinfo->work.timer.expires;
-
-
-		if (time_before(next_sampling, appointed_at)) {
-
-			mutex_unlock(&nightmare_cpuinfo->timer_mutex);
-			cancel_delayed_work_sync(&nightmare_cpuinfo->work);
-			mutex_lock(&nightmare_cpuinfo->timer_mutex);
-
-			queue_delayed_work_on(nightmare_cpuinfo->cpu, nightmare_wq, &nightmare_cpuinfo->work, usecs_to_jiffies(new_rate));
-		}
-		mutex_unlock(&nightmare_cpuinfo->timer_mutex);
-	}
-	put_online_cpus();
-}
-
 /* sampling_rate */
 static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
@@ -194,16 +132,16 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	int input;
 	int ret;
 
-	ret = sscanf(buf, "%d", &input);
+	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
 
 	input = max(input,10000);
 	
-	if (input == atomic_read(&nightmare_tuners_ins.sampling_rate))
+	if (input == nightmare_tuners_ins.sampling_rate)
 		return count;
 
-	update_sampling_rate(input);
+	nightmare_tuners_ins.sampling_rate = input;
 
 	return count;
 }
@@ -577,7 +515,7 @@ static void do_nightmare_timer(struct work_struct *work)
 
 	mutex_lock(&nightmare_cpuinfo->timer_mutex);
 
-	sampling_rate = atomic_read(&nightmare_tuners_ins.sampling_rate);
+	sampling_rate = nightmare_tuners_ins.sampling_rate;
 	delay = usecs_to_jiffies(sampling_rate);
 	/* We want all CPUs to do sampling nearly on
 	 * same jiffy
@@ -631,14 +569,14 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 				return rc;
 			}
 		}
-		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
-
 		mutex_unlock(&nightmare_mutex);
+
+		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
 
 		/* Initiate timer time stamp */
 		this_nightmare_cpuinfo->time_stamp = ktime_get();
 
-		delay=usecs_to_jiffies(atomic_read(&nightmare_tuners_ins.sampling_rate));
+		delay=usecs_to_jiffies(nightmare_tuners_ins.sampling_rate);
 		if (num_online_cpus() > 1) {
 			delay -= jiffies % delay;
 		}
@@ -650,11 +588,12 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_STOP:
-		this_nightmare_cpuinfo->enable = 0;
 		cancel_delayed_work_sync(&this_nightmare_cpuinfo->work);
 
 		mutex_lock(&nightmare_mutex);
 		mutex_destroy(&this_nightmare_cpuinfo->timer_mutex);
+
+		this_nightmare_cpuinfo->enable = 0;
 
 		nightmare_enable--;
 		if (!nightmare_enable) {

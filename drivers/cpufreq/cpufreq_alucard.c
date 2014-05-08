@@ -76,7 +76,7 @@ static struct workqueue_struct *alucard_wq;
 
 /* alucard tuners */
 static struct alucard_tuners {
-	atomic_t sampling_rate;
+	unsigned int sampling_rate;
 	int inc_cpu_load_at_min_freq;
 	int inc_cpu_load;
 	int dec_cpu_load_at_min_freq;
@@ -85,7 +85,7 @@ static struct alucard_tuners {
 	int pump_inc_step;
 	int pump_dec_step;
 } alucard_tuners_ins = {
-	.sampling_rate = ATOMIC_INIT(60000),
+	.sampling_rate = 60000,
 	.inc_cpu_load_at_min_freq = 60,
 	.inc_cpu_load = 80,
 	.dec_cpu_load_at_min_freq = 40,
@@ -99,20 +99,13 @@ static struct alucard_tuners {
 /************************** sysfs interface ************************/
 
 /* cpufreq_alucard Governor Tunables */
-#define show_atomic(file_name, object)					\
-static ssize_t show_##file_name						\
-(struct kobject *kobj, struct attribute *attr, char *buf)		\
-{									\
-	return sprintf(buf, "%d\n", atomic_read(&alucard_tuners_ins.object));		\
-}
-show_atomic(sampling_rate, sampling_rate);
-
 #define show_one(file_name, object)					\
 static ssize_t show_##file_name						\
 (struct kobject *kobj, struct attribute *attr, char *buf)		\
 {									\
 	return sprintf(buf, "%d\n", alucard_tuners_ins.object);		\
 }
+show_one(sampling_rate, sampling_rate);
 show_one(inc_cpu_load_at_min_freq, inc_cpu_load_at_min_freq);
 show_one(inc_cpu_load, inc_cpu_load);
 show_one(dec_cpu_load_at_min_freq, dec_cpu_load_at_min_freq);
@@ -121,61 +114,6 @@ show_one(freq_responsiveness, freq_responsiveness);
 show_one(pump_inc_step, pump_inc_step);
 show_one(pump_dec_step, pump_dec_step);
 
-/**
- * update_sampling_rate - update sampling rate effective immediately if needed.
- * @new_rate: new sampling rate
- *
- * If new rate is smaller than the old, simply updaing
- * alucard_tuners_ins.sampling_rate might not be appropriate. For example,
- * if the original sampling_rate was 1 second and the requested new sampling
- * rate is 10 ms because the user needs immediate reaction from ondemand
- * governor, but not sure if higher frequency will be required or not,
- * then, the governor may change the sampling rate too late; up to 1 second
- * later. Thus, if we are reducing the sampling rate, we need to make the
- * new value effective immediately.
- */
-static void update_sampling_rate(unsigned int new_rate)
-{
-	int cpu;
-
-	atomic_set(&alucard_tuners_ins.sampling_rate,new_rate);
-
-	get_online_cpus();
-	for_each_online_cpu(cpu) {
-		struct cpufreq_policy *policy;
-		struct cpufreq_alucard_cpuinfo *alucard_cpuinfo;
-		unsigned long next_sampling, appointed_at;
-
-		policy = cpufreq_cpu_get(cpu);
-		if (!policy)
-			continue;
-		alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, policy->cpu);
-		cpufreq_cpu_put(policy);
-
-		mutex_lock(&alucard_cpuinfo->timer_mutex);
-
-		if (!delayed_work_pending(&alucard_cpuinfo->work)) {
-			mutex_unlock(&alucard_cpuinfo->timer_mutex);
-			continue;
-		}
-
-		next_sampling  = jiffies + usecs_to_jiffies(new_rate);
-		appointed_at = alucard_cpuinfo->work.timer.expires;
-
-
-		if (time_before(next_sampling, appointed_at)) {
-
-			mutex_unlock(&alucard_cpuinfo->timer_mutex);
-			cancel_delayed_work_sync(&alucard_cpuinfo->work);
-			mutex_lock(&alucard_cpuinfo->timer_mutex);
-
-			queue_delayed_work_on(alucard_cpuinfo->cpu, alucard_wq, &alucard_cpuinfo->work, usecs_to_jiffies(new_rate));
-		}
-		mutex_unlock(&alucard_cpuinfo->timer_mutex);
-	}
-	put_online_cpus();
-}
-
 /* sampling_rate */
 static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
@@ -183,16 +121,16 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	int input;
 	int ret;
 
-	ret = sscanf(buf, "%d", &input);
+	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
 
 	input = max(input,10000);
 	
-	if (input == atomic_read(&alucard_tuners_ins.sampling_rate))
+	if (input == alucard_tuners_ins.sampling_rate)
 		return count;
 
-	update_sampling_rate(input);
+	alucard_tuners_ins.sampling_rate = input;
 
 	return count;
 }
@@ -470,7 +408,7 @@ static void do_alucard_timer(struct work_struct *work)
 
 	mutex_lock(&alucard_cpuinfo->timer_mutex);
 
-	sampling_rate = atomic_read(&alucard_tuners_ins.sampling_rate);
+	sampling_rate = alucard_tuners_ins.sampling_rate;
 	delay = usecs_to_jiffies(sampling_rate);
 	/* We want all CPUs to do sampling nearly on
 	 * same jiffy
@@ -524,14 +462,14 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 				return rc;
 			}
 		}
-		mutex_init(&this_alucard_cpuinfo->timer_mutex);
-
 		mutex_unlock(&alucard_mutex);
+
+		mutex_init(&this_alucard_cpuinfo->timer_mutex);
 
 		/* Initiate timer time stamp */
 		this_alucard_cpuinfo->time_stamp = ktime_get();
 
-		delay=usecs_to_jiffies(atomic_read(&alucard_tuners_ins.sampling_rate));
+		delay=usecs_to_jiffies(alucard_tuners_ins.sampling_rate);
 		if (num_online_cpus() > 1) {
 			delay -= jiffies % delay;
 		}
@@ -543,11 +481,12 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_STOP:
-		this_alucard_cpuinfo->enable = 0;
 		cancel_delayed_work_sync(&this_alucard_cpuinfo->work);
 
 		mutex_lock(&alucard_mutex);
 		mutex_destroy(&this_alucard_cpuinfo->timer_mutex);
+
+		this_alucard_cpuinfo->enable = 0;
 
 		alucard_enable--;
 		if (!alucard_enable) {
@@ -581,6 +520,7 @@ static int __init cpufreq_gov_alucard_init(void)
 {
 	alucard_wq = alloc_workqueue("alucard_wq",
 						WQ_HIGHPRI | WQ_UNBOUND, 0);
+
 	if (!alucard_wq) {
 		printk(KERN_ERR "Failed to create alucard workqueue\n");
 		return -EFAULT;
