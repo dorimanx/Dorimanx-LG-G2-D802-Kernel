@@ -165,6 +165,11 @@ else
         echo "not dorimanx system detected, setting $NR_CPUS build threads"
 fi;
 
+# Copy needed dtc binary to system to finish the build.
+if [ ! -e /bin/dtc ]; then
+	cp -a tools/dtc-binary/dtc /bin/;
+fi;
+
 # build zImage
 time make -j ${NR_CPUS}
 
