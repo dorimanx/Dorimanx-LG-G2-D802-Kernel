@@ -2192,14 +2192,9 @@ switch(ts->fw_info.fw_setting.ic_chip_rev) {
 		}
 	}
 #else
-	/* AOSP HACK */
-	input_report_key(ts->input_dev, KEY_POWER, BUTTON_PRESSED);
-	input_report_key(ts->input_dev, KEY_POWER, BUTTON_RELEASED);
-	input_sync(ts->input_dev);
-
 	if( buf & 0x04 ){
 		kobject_uevent_env(&lge_touch_sys_device.kobj, KOBJ_CHANGE, touch_wakeup_gesture);
-	} else {
+	}else{
 		wake_unlock(&touch_wake_lock);
 	}
 #endif
@@ -5490,10 +5485,6 @@ static int touch_probe(struct i2c_client *client, const struct i2c_device_id *id
 			set_bit(ts->pdata->caps->button_name[ret], ts->input_dev->keybit);
 		}
 	}
-
-	/* AOSP HACK */
-	set_bit(EV_KEY, ts->input_dev->evbit);
-	set_bit(KEY_POWER, ts->input_dev->keybit);
 
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0, ts->pdata->caps->x_max, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0,
