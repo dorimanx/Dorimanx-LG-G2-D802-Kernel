@@ -1959,13 +1959,6 @@ config MSM_CPUFREQ_LIMITER
 
 	  If in doubt, say Y.
 
-config ALUCARD_HOTPLUG_THERMAL
-	bool "Enable alucard-hotplug thermal control"
-	depends on ALUCARD_HOTPLUG
-	default n
-	help
-	  Alucard-hotplug thermal control
-
 config ALUCARD_HOTPLUG_USE_CPU_UTIL
 	bool "Enable alucard-hotplug cpu statistics utilization"
 	depends on (ALUCARD_HOTPLUG)
