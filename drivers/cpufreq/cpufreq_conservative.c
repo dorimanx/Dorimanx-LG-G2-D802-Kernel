@@ -95,6 +95,7 @@ static struct dbs_tuners {
 	.sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR,
 	.ignore_nice = 0,
 	.freq_step = 5,
+	.sampling_rate = 60000,
 };
 
 /* keep track of frequency transitions */
@@ -507,7 +508,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			min_sampling_rate = max(min_sampling_rate,
 					MIN_LATENCY_MULTIPLIER * latency);
 			dbs_tuners_ins.sampling_rate =
-				max(min_sampling_rate,
+				max(dbs_tuners_ins.sampling_rate,
 				    latency * LATENCY_MULTIPLIER);
 
 			cpufreq_register_notifier(

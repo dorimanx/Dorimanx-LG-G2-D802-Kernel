@@ -173,7 +173,8 @@ static struct dbs_tuners {
 	.optimal_freq = 0,
 	.input_boost = 0,
 	.optimal_max_freq = DEF_OPTIMAL_FREQ,
-	.debug_mask=0,
+	.debug_mask = 0,
+	.sampling_rate = 60000,
 };
 
 #ifdef CONFIG_MACH_MSM8974_B1_KR
@@ -1488,7 +1489,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			min_sampling_rate = max(min_sampling_rate,
 					MIN_LATENCY_MULTIPLIER * latency);
 			dbs_tuners_ins.sampling_rate =
-				max(min_sampling_rate,
+				max(dbs_tuners_ins.sampling_rate,
 				    latency * LATENCY_MULTIPLIER);
 			dbs_tuners_ins.io_is_busy = should_io_be_busy();
 

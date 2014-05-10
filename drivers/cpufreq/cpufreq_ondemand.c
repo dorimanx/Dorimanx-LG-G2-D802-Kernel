@@ -1502,7 +1502,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			min_sampling_rate = max(min_sampling_rate,
 					MIN_LATENCY_MULTIPLIER * latency);
 			dbs_tuners_ins.sampling_rate =
-				max(min_sampling_rate,
+				max(dbs_tuners_ins.sampling_rate,
 					latency * LATENCY_MULTIPLIER);
 			dbs_tuners_ins.io_is_busy = 0;
 
