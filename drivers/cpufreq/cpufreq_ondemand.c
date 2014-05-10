@@ -100,7 +100,6 @@ static unsigned int min_sampling_rate;
 
 #define POWERSAVE_BIAS_MAXLEVEL			(1000)
 #define POWERSAVE_BIAS_MINLEVEL			(-1000)
-unsigned int ondemand_current_sampling_rate = DEF_SAMPLING_RATE;
 
 static void do_dbs_timer(struct work_struct *work);
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
@@ -352,94 +351,6 @@ static ssize_t show_powersave_bias
 	return snprintf(buf, PAGE_SIZE, "%d\n", dbs_tuners_ins.powersave_bias);
 }
 
-/**
- * update_sampling_rate - update sampling rate effective immediately if needed.
- * @new_rate: new sampling rate
- *
- * If new rate is smaller than the old, simply updaing
- * dbs_tuners_int.sampling_rate might not be appropriate. For example,
- * if the original sampling_rate was 1 second and the requested new sampling
- * rate is 10 ms because the user needs immediate reaction from ondemand
- * governor, but not sure if higher frequency will be required or not,
- * then, the governor may change the sampling rate too late; up to 1 second
- * later. Thus, if we are reducing the sampling rate, we need to make the
- * new value effective immediately.
- */
-static void update_sampling_rate(unsigned int new_rate)
-{
-	int cpu;
-	unsigned int effective;
-
-	if (new_rate)
-		dbs_tuners_ins.sampling_rate = max(new_rate, min_sampling_rate);
-
-	effective = dbs_tuners_ins.sampling_rate;
-
-	get_online_cpus();
-	for_each_online_cpu(cpu) {
-		struct cpufreq_policy *policy;
-		struct cpu_dbs_info_s *dbs_info;
-		unsigned long next_sampling, appointed_at;
-
-		/*
-		 * mutex_destory(&dbs_info->timer_mutex) should not happen
-		 * in this context. dbs_mutex is locked/unlocked at GOV_START
-		 * and GOV_STOP context only other than here.
-		 */
-		mutex_lock(&dbs_mutex);
-
-		policy = cpufreq_cpu_get(cpu);
-		if (!policy) {
-			mutex_unlock(&dbs_mutex);
-			continue;
-		}
-		dbs_info = &per_cpu(od_cpu_dbs_info, policy->cpu);
-		cpufreq_cpu_put(policy);
-
-		/* timer_mutex is destroyed or will be destroyed soon */
-		if (!dbs_info->activated) {
-			mutex_unlock(&dbs_mutex);
-			continue;
-		}
-
-		mutex_lock(&dbs_info->timer_mutex);
-
-		if (!delayed_work_pending(&dbs_info->work)) {
-			mutex_unlock(&dbs_info->timer_mutex);
-			mutex_unlock(&dbs_mutex);
-			continue;
-		}
-
-		next_sampling = jiffies + usecs_to_jiffies(new_rate);
-		appointed_at = dbs_info->work.timer.expires;
-
-		if (time_before(next_sampling, appointed_at)) {
-			mutex_unlock(&dbs_info->timer_mutex);
-			cancel_delayed_work_sync(&dbs_info->work);
-			mutex_lock(&dbs_info->timer_mutex);
-
-			queue_delayed_work_on(dbs_info->cpu, dbs_wq,
-					&dbs_info->work, usecs_to_jiffies(effective));
-		}
-		mutex_unlock(&dbs_info->timer_mutex);
-
-		/*
-		 * For the little possiblity that dbs_timer_exit() has been
-		 * called after checking dbs_info->activated above.
-		 * If cancel_delayed_work_syn() has been calld by
-		 * dbs_timer_exit() before schedule_delayed_work_on() of this
-		 * function, it should be revoked by calling cancel again
-		 * before releasing dbs_mutex, which will trigger mutex_destroy
-		 * to be called.
-		 */
-		if (!dbs_info->activated)
-			cancel_delayed_work_sync(&dbs_info->work);
-
-		mutex_unlock(&dbs_mutex);
-	}
-	put_online_cpus();
-}
-
 static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
 {
@@ -450,8 +361,7 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	update_sampling_rate(input);
-	ondemand_current_sampling_rate = dbs_tuners_ins.sampling_rate;
+	dbs_tuners_ins.sampling_rate - input;
 	return count;
 }
 
@@ -1592,7 +1502,8 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			min_sampling_rate = max(min_sampling_rate,
 					MIN_LATENCY_MULTIPLIER * latency);
 			dbs_tuners_ins.sampling_rate =
-				ondemand_current_sampling_rate;
+				max(min_sampling_rate,
+					latency * LATENCY_MULTIPLIER);
 			dbs_tuners_ins.io_is_busy = 0;
 
 			if (dbs_tuners_ins.optimal_freq == 0)
@@ -1604,11 +1515,11 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			atomic_notifier_chain_register(&migration_notifier_head,
 					&dbs_migration_nb);
 		}
-		mutex_init(&this_dbs_info->timer_mutex);
-
 		if (!cpu)
 			rc = input_register_handler(&dbs_input_handler);
 		mutex_unlock(&dbs_mutex);
+
+		mutex_init(&this_dbs_info->timer_mutex);
 
 		if (!ondemand_powersave_bias_setspeed(
 					this_dbs_info->cur_policy,
