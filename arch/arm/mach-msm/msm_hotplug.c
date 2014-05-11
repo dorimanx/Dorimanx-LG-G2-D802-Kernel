@@ -23,6 +23,7 @@
 #include <linux/lcd_notify.h>
 #include <linux/input.h>
 #include <linux/math64.h>
+#include <linux/rq_stats.h>
 
 #define MSM_HOTPLUG		"msm_hotplug"
 #define HOTPLUG_ENABLED		0
@@ -35,6 +36,7 @@
 #define DEFAULT_NR_CPUS_BOOSTED	2
 #define DEFAULT_MIN_CPUS_ONLINE	1
 #define DEFAULT_MAX_CPUS_ONLINE	NR_CPUS
+#define DEFAULT_FAST_LANE_LOAD	72
 
 static unsigned int debug = 0;
 module_param_named(debug_mask, debug, uint, 0644);
@@ -55,6 +57,7 @@ static struct cpu_hotplug {
 	unsigned int down_lock_dur;
 	u64 boost_lock_dur;
 	u64 last_input;
+	unsigned int fast_lane_load;
 	struct work_struct up_work;
 	struct work_struct down_work;
 	struct work_struct suspend_work;
@@ -66,7 +69,8 @@ static struct cpu_hotplug {
 	.max_cpus_online = DEFAULT_MAX_CPUS_ONLINE,
 	.cpus_boosted = DEFAULT_NR_CPUS_BOOSTED,
 	.down_lock_dur = DEFAULT_DOWN_LOCK_DUR,
-	.boost_lock_dur = DEFAULT_BOOST_LOCK_DUR
+	.boost_lock_dur = DEFAULT_BOOST_LOCK_DUR,
+	.fast_lane_load = DEFAULT_FAST_LANE_LOAD
 };
 
 static struct workqueue_struct *hotplug_wq;
@@ -97,9 +101,6 @@ struct down_lock {
 };
 
 static DEFINE_PER_CPU(struct down_lock, lock_info);
-
-extern unsigned int report_load_at_max_freq(void);
-extern unsigned int report_avg_load_cpu(unsigned int cpu);
 
 static void update_load_stats(void)
 {
@@ -211,8 +212,8 @@ static void __ref cpu_up_work(struct work_struct *work)
 			break;
 		if (cpu == 0)
 			continue;
-		apply_down_lock(cpu);
 		cpu_up(cpu);
+		apply_down_lock(cpu);
 	}
 }
 EXPORT_SYMBOL_GPL(cpu_up_work);
@@ -280,6 +281,12 @@ static void msm_hotplug_work(struct work_struct *work)
 	unsigned int i;
 
 	update_load_stats();
+
+	if (report_max_load_max_freq() > hotplug.fast_lane_load) {
+		/* Enter the fast lane */
+		online_cpu(hotplug.max_cpus_online);
+		goto reschedule;
+	}
 
 	cur_load = stats.current_load;
 	online_cpus = stats.online_cpus;
@@ -686,6 +693,29 @@ static ssize_t store_offline_load(struct device *dev,
 	return count;
 }
 
+static ssize_t show_fast_lane_load(struct device *dev,
+				 struct device_attribute *msm_hotplug_attrs,
+				 char *buf)
+{
+	return sprintf(buf, "%u\n", hotplug.fast_lane_load);
+}
+
+static ssize_t store_fast_lane_load(struct device *dev,
+				  struct device_attribute *msm_hotplug_attrs,
+				  const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+
+	ret = sscanf(buf, "%u", &val);
+	if (ret != 1)
+		return -EINVAL;
+
+	hotplug.fast_lane_load = val;
+
+	return count;
+}
+
 static ssize_t show_current_load(struct device *dev,
 				 struct device_attribute *msm_hotplug_attrs,
 				 char *buf)
@@ -707,6 +737,8 @@ static DEVICE_ATTR(max_cpus_online, 644, show_max_cpus_online,
 		   store_max_cpus_online);
 static DEVICE_ATTR(cpus_boosted, 644, show_cpus_boosted, store_cpus_boosted);
 static DEVICE_ATTR(offline_load, 644, show_offline_load, store_offline_load);
+static DEVICE_ATTR(fast_lane_load, 644, show_fast_lane_load,
+		   store_fast_lane_load);
 static DEVICE_ATTR(current_load, 444, show_current_load, NULL);
 
 static struct attribute *msm_hotplug_attrs[] = {
@@ -720,6 +752,7 @@ static struct attribute *msm_hotplug_attrs[] = {
 	&dev_attr_max_cpus_online.attr,
 	&dev_attr_cpus_boosted.attr,
 	&dev_attr_offline_load.attr,
+	&dev_attr_fast_lane_load.attr,
 	&dev_attr_current_load.attr,
 	NULL,
 };
