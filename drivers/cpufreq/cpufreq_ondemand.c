@@ -188,7 +188,6 @@ static struct dbs_tuners {
 	unsigned int smart_slow_up_freq;
 	unsigned int smart_slow_up_dur;
 	unsigned int smart_each_off;
-	unsigned int input_boost;
 } dbs_tuners_ins = {
 	.up_threshold_multi_core = DEF_FREQUENCY_UP_THRESHOLD_MULTI_CORE,
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
@@ -206,7 +205,6 @@ static struct dbs_tuners {
 	.smart_slow_up_freq = SUP_SLOW_UP_FREQUENCY,
 	.smart_slow_up_dur = SUP_SLOW_UP_DUR_DEFAULT,
 	.smart_each_off = 0,
-	.input_boost = 0,
 	.io_is_busy = 0,
 	.sampling_rate = DEF_SAMPLING_RATE,
 };
@@ -343,7 +341,6 @@ show_one(smart_slow_up_dur, smart_slow_up_dur);
 show_one(smart_each_off, smart_each_off);
 show_one(down_differential_multi_core, down_differential_multi_core);
 show_one(micro_freq_up_threshold, micro_freq_up_threshold);
-show_one(input_boost, input_boost);
 
 static ssize_t show_powersave_bias
 (struct kobject *kobj, struct attribute *attr, char *buf)
@@ -362,18 +359,6 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 		return -EINVAL;
 
 	dbs_tuners_ins.sampling_rate - input;
-	return count;
-}
-
-static ssize_t store_input_boost(struct kobject *a, struct attribute *b,
-				const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-	ret = sscanf(buf, "%u", &input);
-	if (ret != 1)
-		return -EINVAL;
-	dbs_tuners_ins.input_boost = input;
 	return count;
 }
 
@@ -784,7 +769,6 @@ define_one_global_rw(smart_slow_up_load);
 define_one_global_rw(smart_slow_up_freq);
 define_one_global_rw(smart_slow_up_dur);
 define_one_global_rw(smart_each_off);
-define_one_global_rw(input_boost);
 
 static struct attribute *dbs_attributes[] = {
 	&sampling_rate_min.attr,
@@ -803,7 +787,6 @@ static struct attribute *dbs_attributes[] = {
 	&smart_slow_up_dur.attr,
 	&smart_each_off.attr,
 	&micro_freq_up_threshold.attr,
-	&input_boost.attr,
 	NULL
 };
 
@@ -1205,10 +1188,7 @@ static void dbs_refresh_callback(struct work_struct *work)
 		goto bail_incorrect_governor;
 	}
 
-	if (dbs_tuners_ins.input_boost)
-		target_freq = dbs_tuners_ins.input_boost;
-	else
-		target_freq = policy->max;
+	target_freq = policy->max;
 
 	if (policy->cur < target_freq) {
 		/*
