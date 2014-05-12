@@ -56,8 +56,14 @@ module_param(input_boost_freq, uint, 0644);
 static unsigned int input_boost_ms = 40;
 module_param(input_boost_ms, uint, 0644);
 
-u64 last_input_time;
 #define MIN_INPUT_INTERVAL (150 * USEC_PER_MSEC)
+
+/*
+ * Use this variable in your governor of choice to calculate when the cpufreq
+ * core is allowed to ramp the cpu down after an input event. That logic is done
+ * by you, this var only outputs the last time in us an event was captured
+ */
+u64 last_input_time;
 
 /*
  * The CPUFREQ_ADJUST notifier is used to override the current policy min to
