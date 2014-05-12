@@ -183,6 +183,8 @@ static struct dbs_tuners {
 	unsigned int sampling_down_factor;
 	int          powersave_bias;
 	unsigned int io_is_busy;
+	unsigned int input_boost_freq;
+	unsigned int boostpulse_duration;
 	unsigned int smart_up;
 	unsigned int smart_slow_up_load;
 	unsigned int smart_slow_up_freq;
@@ -206,8 +208,12 @@ static struct dbs_tuners {
 	.smart_slow_up_dur = SUP_SLOW_UP_DUR_DEFAULT,
 	.smart_each_off = 0,
 	.io_is_busy = 0,
+	.input_boost_freq = 1574400,
+	.boostpulse_duration = 900000,
 	.sampling_rate = DEF_SAMPLING_RATE,
 };
+
+extern u64 last_input_time;
 
 static inline u64 get_cpu_iowait_time(unsigned int cpu, u64 *wall)
 {
@@ -341,6 +347,8 @@ show_one(smart_slow_up_dur, smart_slow_up_dur);
 show_one(smart_each_off, smart_each_off);
 show_one(down_differential_multi_core, down_differential_multi_core);
 show_one(micro_freq_up_threshold, micro_freq_up_threshold);
+show_one(input_boost_freq, input_boost_freq);
+show_one(boostpulse_duration, boostpulse_duration);
 
 static ssize_t show_powersave_bias
 (struct kobject *kobj, struct attribute *attr, char *buf)
@@ -624,6 +632,32 @@ skip_this_cpu_bypass:
 	return count;
 }
 
+static ssize_t store_input_boost_freq(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.input_boost_freq = input;
+	return count;
+}
+
+static ssize_t store_boostpulse_duration(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.boostpulse_duration = input;
+	return count;
+}
+
 /* PATCH : SMART_UP */
 #if defined(SMART_UP_SLOW_UP_AT_HIGH_FREQ)
 static void reset_hist(history_load *hist_load)
@@ -764,6 +798,8 @@ define_one_global_rw(ignore_nice_load);
 define_one_global_rw(powersave_bias);
 define_one_global_rw(down_differential_multi_core);
 define_one_global_rw(micro_freq_up_threshold);
+define_one_global_rw(input_boost_freq);
+define_one_global_rw(boostpulse_duration);
 define_one_global_rw(smart_up);
 define_one_global_rw(smart_slow_up_load);
 define_one_global_rw(smart_slow_up_freq);
@@ -781,12 +817,14 @@ static struct attribute *dbs_attributes[] = {
 	&ignore_nice_load.attr,
 	&powersave_bias.attr,
 	&down_differential_multi_core.attr,
+	&micro_freq_up_threshold.attr,
+	&input_boost_freq.attr,
+	&boostpulse_duration.attr,
 	&smart_up.attr,
 	&smart_slow_up_load.attr,
 	&smart_slow_up_freq.attr,
 	&smart_slow_up_dur.attr,
 	&smart_each_off.attr,
-	&micro_freq_up_threshold.attr,
 	NULL
 };
 
@@ -825,6 +863,8 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	unsigned int max_load_other_cpu = 0;
 	struct cpufreq_policy *policy;
 	unsigned int j;
+	bool boosted = ktime_to_us(ktime_get()) <
+		(last_input_time + dbs_tuners_ins.boostpulse_duration);
 
 	this_dbs_info->freq_lo = 0;
 	policy = this_dbs_info->cur_policy;
@@ -1025,6 +1065,16 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 				this_dbs_info->rate_mult =
 					dbs_tuners_ins.sampling_down_factor;
 			dbs_freq_increase(policy, policy->max);
+			return;
+		}
+
+		/*
+		 * Input boost
+		 */
+		if (boosted) {
+			if (policy->cur < dbs_tuners_ins.input_boost_freq)
+				dbs_freq_increase(policy, dbs_tuners_ins.input_boost_freq);
+
 			return;
 		}
 	}
