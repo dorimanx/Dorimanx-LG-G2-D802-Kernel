@@ -60,8 +60,6 @@ struct cpu_load_data {
 
 static DEFINE_PER_CPU(struct cpu_load_data, cpuload);
 
-static unsigned int max_load_maxfreq;
-
 static inline u64 get_cpu_iowait_time(unsigned int cpu,
 							u64 *wall)
 {
@@ -138,11 +136,11 @@ static int update_average_load(unsigned int freq, unsigned int cpu)
 	return 0;
 }
 
-unsigned int report_load_at_max_freq(void)
+static unsigned int report_load_at_max_freq(void)
 {
 	int cpu;
 	struct cpu_load_data *pcpu;
-	unsigned int total_load = 0, max_load = 0;
+	unsigned int total_load = 0;
 
 	for_each_online_cpu(cpu) {
 		pcpu = &per_cpu(cpuload, cpu);
@@ -150,25 +148,10 @@ unsigned int report_load_at_max_freq(void)
 		update_average_load(pcpu->cur_freq, cpu);
 		total_load += pcpu->avg_load_maxfreq;
 		pcpu->cur_load_maxfreq = pcpu->avg_load_maxfreq;
-		max_load = max(max_load, pcpu->avg_load_maxfreq);
 		pcpu->avg_load_maxfreq = 0;
 		mutex_unlock(&pcpu->cpu_load_mutex);
 	}
-	max_load_maxfreq = max_load;
-
 	return total_load;
-}
-
-unsigned int report_avg_load_cpu(unsigned int cpu)
-{
-	struct cpu_load_data *pcpu= &per_cpu(cpuload, cpu);
-
-	return pcpu->cur_load_maxfreq;
-}
-
-unsigned int report_max_load_max_freq(void)
-{
-	return max_load_maxfreq;
 }
 
 static int cpufreq_transition_handler(struct notifier_block *nb,

@@ -30,7 +30,3 @@ struct rq_data {
 extern spinlock_t rq_lock;
 extern struct rq_data rq_info;
 extern struct workqueue_struct *rq_wq;
-
-extern unsigned int report_load_at_max_freq(void);
-extern unsigned int report_avg_load_cpu(unsigned int cpu);
-extern unsigned int report_max_load_max_freq(void);
