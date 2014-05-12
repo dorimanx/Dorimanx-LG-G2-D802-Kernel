@@ -36,10 +36,10 @@
 #define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
 #define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
 
-#define DEF_FREQUENCY_UP_THRESHOLD		(75)
-#define DEF_FREQUENCY_UP_THRESHOLD_ANY_CPU	(75)
+#define DEF_FREQUENCY_UP_THRESHOLD		(80)
+#define DEF_FREQUENCY_UP_THRESHOLD_ANY_CPU	(80)
 #define DEF_FREQUENCY_UP_THRESHOLD_MULTI_CORE	(80)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(85)
+#define MICRO_FREQUENCY_UP_THRESHOLD		(95)
 
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define DEF_SAMPLING_RATE			(60000)
@@ -68,7 +68,7 @@ static unsigned int min_range = 108000;
 #endif
 
 #if defined(SMART_UP_SLOW_UP_AT_HIGH_FREQ)
-#define SUP_SLOW_UP_FREQUENCY			(2265600)
+#define SUP_SLOW_UP_FREQUENCY			(1574400)
 #define SUP_SLOW_UP_LOAD			(75)
 
 typedef struct {
@@ -345,7 +345,9 @@ show_one(smart_slow_up_freq, smart_slow_up_freq);
 show_one(smart_slow_up_dur, smart_slow_up_dur);
 show_one(smart_each_off, smart_each_off);
 show_one(down_differential_multi_core, down_differential_multi_core);
+show_one(optimal_freq, optimal_freq);
 show_one(micro_freq_up_threshold, micro_freq_up_threshold);
+show_one(sync_freq, sync_freq);
 show_one(input_boost_freq, input_boost_freq);
 show_one(boostpulse_duration, boostpulse_duration);
 
@@ -369,6 +371,19 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+static ssize_t store_sync_freq(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.sync_freq = input;
+	return count;
+}
+
 static ssize_t store_down_differential_multi_core(struct kobject *a,
 			struct attribute *b, const char *buf, size_t count)
 {
@@ -379,6 +394,19 @@ static ssize_t store_down_differential_multi_core(struct kobject *a,
 	if (ret != 1)
 		return -EINVAL;
 	dbs_tuners_ins.down_differential_multi_core = input;
+	return count;
+}
+
+static ssize_t store_optimal_freq(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.optimal_freq = input;
 	return count;
 }
 
@@ -796,7 +824,9 @@ define_one_global_rw(sampling_down_factor);
 define_one_global_rw(ignore_nice_load);
 define_one_global_rw(powersave_bias);
 define_one_global_rw(down_differential_multi_core);
+define_one_global_rw(optimal_freq);
 define_one_global_rw(micro_freq_up_threshold);
+define_one_global_rw(sync_freq);
 define_one_global_rw(input_boost_freq);
 define_one_global_rw(boostpulse_duration);
 define_one_global_rw(smart_up);
@@ -816,7 +846,9 @@ static struct attribute *dbs_attributes[] = {
 	&ignore_nice_load.attr,
 	&powersave_bias.attr,
 	&down_differential_multi_core.attr,
+	&optimal_freq.attr,
 	&micro_freq_up_threshold.attr,
+	&sync_freq.attr,
 	&input_boost_freq.attr,
 	&boostpulse_duration.attr,
 	&smart_up.attr,
@@ -1053,6 +1085,16 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 					dbs_tuners_ins.sampling_down_factor;
 
 			dbs_freq_increase(policy, freq_next);
+
+			return;
+		}
+
+		/*
+		 * Input boost
+		 */
+		if (boosted) {
+			if (policy->cur < dbs_tuners_ins.input_boost_freq)
+				dbs_freq_increase(policy, dbs_tuners_ins.input_boost_freq);
 
 			return;
 		}
@@ -1304,7 +1346,8 @@ static void run_dbs_sync(unsigned int dest_cpu)
 
 	src_cpu = atomic_read(&this_dbs_info->src_sync_cpu);
 	src_dbs_info = &per_cpu(od_cpu_dbs_info, src_cpu);
-	if (src_dbs_info != NULL && src_dbs_info->cur_policy != NULL) {
+	if (src_dbs_info != NULL &&
+		src_dbs_info->cur_policy != NULL) {
 		src_freq = src_dbs_info->cur_policy->cur;
 		src_max_load = src_dbs_info->max_load;
 	} else {
