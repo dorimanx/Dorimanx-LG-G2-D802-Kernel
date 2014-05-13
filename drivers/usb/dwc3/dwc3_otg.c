@@ -617,7 +617,8 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 
 /*                                                             */
 #ifdef CONFIG_LGE_PM
-	if (dotg->charger->chg_type == DWC3_DCP_CHARGER) {
+	if (dotg->charger->chg_type == DWC3_DCP_CHARGER ||
+			dotg->charger->chg_type == DWC3_PROPRIETARY_CHARGER) {
 		pr_info("msm_otg_notify_power_supply: "
 				"power_supply_get_by_name(ac)\n");
 		dotg->psy = power_supply_get_by_name("ac");
