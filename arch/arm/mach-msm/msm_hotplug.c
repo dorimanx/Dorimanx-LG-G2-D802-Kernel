@@ -245,7 +245,14 @@ static void update_load_stats(void)
 
 	mutex_lock(&stats.stats_mutex);
 	stats.online_cpus = num_online_cpus();
-	stats.load_hist[stats.hist_cnt] = load_at_max_freq();
+
+	if (stats.hist_size > 1) {
+		stats.load_hist[stats.hist_cnt] = load_at_max_freq();
+	} else {
+		stats.cur_avg_load = load_at_max_freq();
+		mutex_unlock(&stats.stats_mutex);
+		return;
+	}
 
 	for (i = 0, j = stats.hist_cnt; i < stats.hist_size; i++, j--) {
 		load += stats.load_hist[j];
@@ -699,18 +706,24 @@ static ssize_t store_history_size(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val == 0)
+	if (ret != 1 || val <= 0)
 		return -EINVAL;
 
 	flush_workqueue(hotplug_wq);
 	cancel_delayed_work_sync(&hotplug_work);
 
-	kfree(stats.load_hist);
+	mutex_lock(&stats.stats_mutex);
+	if (stats.hist_size > 1)
+		kfree(stats.load_hist);
+
 	stats.hist_size = val;
 
-	stats.load_hist = kmalloc(sizeof(stats.hist_size), GFP_KERNEL);
-	if (!stats.load_hist)
-		return -ENOMEM;
+	if (stats.hist_size > 1) {
+		stats.load_hist = kmalloc(sizeof(stats.hist_size), GFP_KERNEL);
+		if (!stats.load_hist)
+			return -ENOMEM;
+	}
+	mutex_unlock(&stats.stats_mutex);
 
 	reschedule_hotplug_work();
 
@@ -732,7 +745,7 @@ static ssize_t store_min_cpus_online(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val == 0)
+	if (ret != 1 || val <= 0)
 		return -EINVAL;
 
 	if (hotplug.max_cpus_online < val)
@@ -758,7 +771,7 @@ static ssize_t store_max_cpus_online(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val == 0)
+	if (ret != 1 || val <= 1)
 		return -EINVAL;
 
 	if (hotplug.min_cpus_online > val)
@@ -784,7 +797,7 @@ static ssize_t store_cpus_boosted(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val == 0)
+	if (ret != 1 || val <= 1)
 		return -EINVAL;
 
 	hotplug.cpus_boosted = val;
@@ -816,15 +829,15 @@ static ssize_t store_offline_load(struct device *dev,
 }
 
 static ssize_t show_fast_lane_load(struct device *dev,
-				 struct device_attribute *msm_hotplug_attrs,
-				 char *buf)
+				   struct device_attribute *msm_hotplug_attrs,
+				   char *buf)
 {
 	return sprintf(buf, "%u\n", hotplug.fast_lane_load);
 }
 
 static ssize_t store_fast_lane_load(struct device *dev,
-				  struct device_attribute *msm_hotplug_attrs,
-				  const char *buf, size_t count)
+				    struct device_attribute *msm_hotplug_attrs,
+				    const char *buf, size_t count)
 {
 	int ret;
 	unsigned int val;
