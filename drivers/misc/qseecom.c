@@ -805,6 +805,12 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 			pr_err("Listener Svc %d does not exist\n", lstnr);
 			return -EINVAL;
 		}
+
+		if (!ptr_svc->ihandle) {
+			pr_err("Client handle is not initialized\n");
+			return -EINVAL;
+		}
+
 		if (ptr_svc->svc.listener_id != lstnr) {
 			pr_warning("Service requested for does on exist\n");
 			return -ERESTARTSYS;
@@ -1315,6 +1321,11 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 		return -EINVAL;
 	}
 
+	if (!data || !data->client.ihandle) {
+		pr_err("Client or client handle is not initialized\n");
+		return -EINVAL;
+	}
+
 	data->type = QSEECOM_SECURE_SERVICE;
 
 	switch (req.cmd_id) {
@@ -1466,6 +1477,11 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 	if (!found_app) {
 		pr_err("app_id %d (%s) is not found\n", data->client.app_id,
 			(char *)data->client.app_name);
+		return -EINVAL;
+	}
+
+	if (!data || !data->client.ihandle) {
+		pr_err("Client or client handle is not initialized\n");
 		return -EINVAL;
 	}
 
