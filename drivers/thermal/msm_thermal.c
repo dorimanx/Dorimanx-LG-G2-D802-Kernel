@@ -988,7 +988,7 @@ static void __ref disable_msm_thermal(void)
 	int cpu = 0;
 
 	/* make sure check_temp is no longer running */
-	cancel_delayed_work(&check_temp_work);
+	cancel_delayed_work_sync(&check_temp_work);
 
 	flush_workqueue(intellithermal_wq);
 
