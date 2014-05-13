@@ -284,5 +284,5 @@ void f2fs_evict_inode(struct inode *inode)
 	f2fs_unlock_op(sbi);
 
 no_delete:
-	end_writeback(inode);
+	clear_inode(inode);
 }
