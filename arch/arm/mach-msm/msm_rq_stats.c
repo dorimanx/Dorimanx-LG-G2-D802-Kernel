@@ -73,8 +73,7 @@ static inline u64 get_cpu_iowait_time(unsigned int cpu,
 
 static int update_average_load(unsigned int freq, unsigned int cpu)
 {
-
-	struct cpu_load_data *pcpu = &per_cpu(cpuload, cpu);
+	int ret;
 #ifdef CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL
 	u64 cur_wall_time;
 	unsigned int wall_time;
@@ -83,6 +82,12 @@ static int update_average_load(unsigned int freq, unsigned int cpu)
 	unsigned int idle_time, wall_time, iowait_time;
 #endif
 	unsigned int cur_load, load_at_max_freq;
+	struct cpu_load_data *pcpu = &per_cpu(cpuload, cpu);
+	struct cpufreq_policy policy;
+
+        ret = cpufreq_get_policy(&policy, cpu);
+        if (ret)
+                return -EINVAL;
 
 #ifdef CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL
 	cur_wall_time = ktime_to_us(ktime_get());
@@ -113,7 +118,7 @@ static int update_average_load(unsigned int freq, unsigned int cpu)
 #endif
 
 	/* Calculate the scaled load across CPU */
-	load_at_max_freq = (cur_load * freq) / pcpu->policy_max;
+	load_at_max_freq = (cur_load * policy.cur) / policy.max;
 
 	if (!pcpu->avg_load_maxfreq) {
 		/* This is the first sample in this window*/
