@@ -67,7 +67,7 @@
 
 #include <asm/futex.h>
 
-#include "rtmutex_common.h"
+#include "locking/rtmutex_common.h"
 
 /*
  * READ this before attempting to hack on futexes!
