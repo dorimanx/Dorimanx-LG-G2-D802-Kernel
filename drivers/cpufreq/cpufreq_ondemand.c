@@ -1084,17 +1084,16 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 				this_dbs_info->rate_mult =
 					dbs_tuners_ins.sampling_down_factor;
 
-			dbs_freq_increase(policy, freq_next);
-
-			return;
-		}
-
-		/*
-		 * Input boost
-		 */
-		if (boosted) {
-			if (policy->cur < dbs_tuners_ins.input_boost_freq)
-				dbs_freq_increase(policy, dbs_tuners_ins.input_boost_freq);
+			/*
+			 * Input boost
+			 */
+			if (boosted) {
+				if (policy->cur < dbs_tuners_ins.input_boost_freq)
+					dbs_freq_increase(policy, dbs_tuners_ins.input_boost_freq);
+				else
+					dbs_freq_increase(policy, freq_next);
+			} else
+				dbs_freq_increase(policy, freq_next);
 
 			return;
 		}
