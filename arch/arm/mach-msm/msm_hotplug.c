@@ -117,6 +117,7 @@ struct cpu_load_data {
 
 static DEFINE_PER_CPU(struct cpu_load_data, cpuload);
 
+#if 0 /* functions moved to drivers/cpufreq/cpufreq.c */
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
 {
 	u64 idle_time;
@@ -151,6 +152,7 @@ static inline cputime64_t get_cpu_idle_time(unsigned int cpu,
 
 	return idle_time;
 }
+#endif
 
 static inline cputime64_t get_cpu_iowait_time(unsigned int cpu,
 					      cputime64_t *wall)
@@ -176,7 +178,7 @@ static int update_average_load(unsigned int cpu)
 	if (ret)
 		return -EINVAL;
 
-	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time);
+	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, 0);
 	cur_iowait_time = get_cpu_iowait_time(cpu, &cur_wall_time);
 
 	wall_time = (unsigned int) (cur_wall_time - pcpu->prev_cpu_wall);
