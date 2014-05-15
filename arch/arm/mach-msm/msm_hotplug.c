@@ -789,7 +789,7 @@ static ssize_t store_cpus_boosted(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val <= 1)
+	if (ret != 1 || val < 1)
 		return -EINVAL;
 
 	hotplug.cpus_boosted = val;
