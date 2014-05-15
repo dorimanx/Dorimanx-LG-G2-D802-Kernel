@@ -420,8 +420,11 @@ static void up_cpu_work(unsigned int cpu)
 	int by_cpu;
 
 	by_cpu = pcpu_info->up_by_cpu;
-	if (by_cpu >= 0)
+	if (by_cpu >= 0) {
 		per_cpu(od_hotplug_cpuinfo,by_cpu).up_cpu = cpu;
+		if (by_cpu == 0)
+			per_cpu(od_hotplug_cpuinfo,by_cpu).cpu_up_rate = 1;
+	}
 
 	pcpu_info->online = true;
 	pcpu_info->cpu_up_rate = 1;
