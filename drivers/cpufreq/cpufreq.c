@@ -1160,9 +1160,10 @@ static int cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
 		goto err_unlock_policy;
 	}
 
+#if 0
 	/* related cpus should atleast have policy->cpus */
 	cpumask_or(policy->related_cpus, policy->related_cpus, policy->cpus);
-
+#endif
 	/*
 	 * affected cpus must always be the one, which are online. We aren't
 	 * managing offline cpus here.
