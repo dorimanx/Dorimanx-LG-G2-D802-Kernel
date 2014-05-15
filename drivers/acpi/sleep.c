@@ -556,6 +556,22 @@ static const struct platform_suspend_ops acpi_suspend_ops_old = {
 };
 #endif /* CONFIG_SUSPEND */
 
+static int acpi_freeze_begin(void)
+{
+	acpi_scan_lock_acquire();
+	return 0;
+}
+
+static void acpi_freeze_end(void)
+{
+	acpi_scan_lock_release();
+}
+
+static const struct platform_freeze_ops acpi_freeze_ops = {
+	.begin = acpi_freeze_begin,
+	.end = acpi_freeze_end,
+};
+
 #ifdef CONFIG_HIBERNATION
 static unsigned long s4_hardware_signature;
 static struct acpi_table_facs *facs;
