@@ -660,7 +660,9 @@ static enum msm_pm_time_stats_id msm_pm_power_collapse(bool from_idle)
 #ifdef CONFIG_LGE_PM
 	if (cpu == 0 && from_idle == 0)
 	{
+#ifdef CONFIG_HW_PERF_EVENTS
 		clock_debug_print_enabled();
+#endif
 		gpio_debug_print();
 	}
 #endif

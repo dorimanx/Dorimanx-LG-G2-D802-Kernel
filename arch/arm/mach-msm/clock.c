@@ -776,7 +776,9 @@ int msm_clock_register(struct clk_lookup *table, size_t size)
 
 	clkdev_add_table(table, size);
 
+#ifdef CONFIG_HW_PERF_EVENTS
 	clock_debug_register(table, size);
+#endif
 
 	mutex_unlock(&msm_clock_init_lock);
 
