@@ -737,7 +737,7 @@ static ssize_t store_min_cpus_online(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val <= 0)
+	if (ret != 1 || val < 1)
 		return -EINVAL;
 
 	if (hotplug.max_cpus_online < val)
@@ -763,7 +763,7 @@ static ssize_t store_max_cpus_online(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val <= 1)
+	if (ret != 1 || val < 1)
 		return -EINVAL;
 
 	if (hotplug.min_cpus_online > val)
