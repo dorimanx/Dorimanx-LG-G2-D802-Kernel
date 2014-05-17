@@ -14,9 +14,11 @@
 
 	i2c@f9924000 {
 		rmi_s3404@20  {
-			status = "disable";
+		  revision = "...rev_c";
+			status = "ok";
 		};
 		synaptics_s3404@20 {
+		  revision = "rev_d...";
 			status = "ok";
 		};
 		synaptics_s7020@20 {

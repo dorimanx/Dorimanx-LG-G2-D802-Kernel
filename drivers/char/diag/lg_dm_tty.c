@@ -571,6 +571,15 @@ static int lge_dm_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 						&(driver->smd_data[i].
 							diag_read_smd_work));
 			}// end of for loop			
+
+			for (i = 0; i < NUM_SMD_CMD_CHANNELS; i++) {
+				driver->smd_cmd[i].in_busy_1 = 0;
+				driver->smd_cmd[i].in_busy_2 = 0;
+				if (driver->smd_cmd[i].ch)
+					queue_work(driver->diag_wq,
+						&(driver->smd_cmd[i].
+							diag_read_smd_work));
+			}
 		} else if (modem_number == Secondary_modem_chip) {
 
 			//TBD...
