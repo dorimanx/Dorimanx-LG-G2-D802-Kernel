@@ -39,10 +39,13 @@
 #define DEF_FREQUENCY_UP_THRESHOLD		(80)
 #define DEF_FREQUENCY_UP_THRESHOLD_ANY_CPU	(80)
 #define DEF_FREQUENCY_UP_THRESHOLD_MULTI_CORE	(80)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(95)
+#define MICRO_FREQUENCY_UP_THRESHOLD		(90)
 
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define DEF_SAMPLING_RATE			(60000)
+
+#define DEF_SYNC_FREQUENCY			(1574400)
+#define DEF_OPTIMAL_FREQUENCY			(1574400)
 
 /* Kernel tunabble controls */
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
@@ -199,8 +202,8 @@ static struct dbs_tuners {
 	.micro_freq_up_threshold = MICRO_FREQUENCY_UP_THRESHOLD,
 	.ignore_nice = 0,
 	.powersave_bias = 0,
-	.sync_freq = 0,
-	.optimal_freq = 0,
+	.sync_freq = DEF_SYNC_FREQUENCY,
+	.optimal_freq = DEF_OPTIMAL_FREQUENCY,
 	.smart_up = SMART_UP_PLUS,
 	.smart_slow_up_load = SUP_SLOW_UP_LOAD,
 	.smart_slow_up_freq = SUP_SLOW_UP_FREQUENCY,
