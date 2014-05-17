@@ -45,7 +45,7 @@
 &spi_tdmb {
 	tdmb-fc8050@0 {
 		compatible = "fci,tdmb-fc8050";
-		reg = <0>;
+		/* reg = <0>; Use default reg address*/
 		interrupt-parent = <&msmgpio>;
 		interrupts = <77 0x0>;
 		spi-max-frequency = <15000000>;
