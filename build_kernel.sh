@@ -135,25 +135,25 @@ if [ -f "$KERNELDIR"/.config ]; then
 	BRANCH_LS_980=$(grep -R "CONFIG_MACH_MSM8974_G2_SPR=y" .config | wc -l)
 	BRANCH_VS_980=$(grep -R "CONFIG_MACH_MSM8974_G2_VZW=y" .config | wc -l)
 	if [ "$BRANCH_800" -eq "0" ] && [ "$BUILD_800" -eq "1" ]; then
-		cp arch/arm/configs/dorimanx_d800_defconfig .config
+		cp arch/arm/configs/dorimanx_d800_defconfig ./.config
 	fi;
 	if [ "$BRANCH_801" -eq "0" ] && [ "$BUILD_801" -eq "1" ]; then
-		cp arch/arm/configs/dorimanx_d801_defconfig .config
+		cp arch/arm/configs/dorimanx_d801_defconfig ./.config
 	fi;
 	if [ "$BRANCH_802" -eq "0" ] && [ "$BUILD_802" -eq "1" ]; then
-		sh load_config-802.sh
+		cp arch/arm/configs/dorimanx_d802_defconfig ./.config
 	fi;
 	if [ "$BRANCH_803" -eq "0" ] && [ "$BUILD_803" -eq "1" ]; then
-		cp arch/arm/configs/dorimanx_d803_defconfig .config
+		cp arch/arm/configs/dorimanx_d803_defconfig ./.config
 	fi;
 	if [ "$BRANCH_320" -eq "0" ] && [ "$BUILD_320" -eq "1" ]; then
-		cp arch/arm/configs/dorimanx_f320_defconfig .config
+		cp arch/arm/configs/dorimanx_f320_defconfig ./.config
 	fi;
 	if [ "$BRANCH_LS_980" -eq "0" ] && [ "$BUILD_LS_980" -eq "1" ]; then
-		cp arch/arm/configs/dorimanx_ls980_defconfig .config
+		cp arch/arm/configs/dorimanx_ls980_defconfig ./.config
 	fi;
 	if [ "$BRANCH_VS_980" -eq "0" ] && [ "$BUILD_VS_980" -eq "1" ]; then
-		cp arch/arm/configs/dorimanx_vs980_defconfig .config
+		cp arch/arm/configs/dorimanx_vs980_defconfig ./.config
 	fi;
 fi;
 
