@@ -34,7 +34,7 @@
 #define DEFAULT_HISTORY_SIZE	10
 #define DEFAULT_DOWN_LOCK_DUR	1000
 #define DEFAULT_BOOST_LOCK_DUR	4000 * 1000L
-#define DEFAULT_NR_CPUS_BOOSTED	2
+#define DEFAULT_NR_CPUS_BOOSTED	1
 #define DEFAULT_MIN_CPUS_ONLINE	1
 #define DEFAULT_MAX_CPUS_ONLINE	NR_CPUS
 #define DEFAULT_FAST_LANE_LOAD	95
@@ -350,7 +350,7 @@ static void __ref cpu_up_work(struct work_struct *work)
 	target = hotplug.target_cpus;
 
 	for_each_cpu_not(cpu, cpu_online_mask) {
-		if (target == num_online_cpus())
+		if (target <= num_online_cpus())
 			break;
 		if (cpu == 0)
 			continue;
@@ -370,19 +370,24 @@ static void cpu_down_work(struct work_struct *work)
 		if (cpu == 0)
 			continue;
 		lowest_cpu = get_lowest_load_cpu();
-		if (lowest_cpu > 0) {
-			if (check_down_lock(cpu))
-				break;
-			cpu_down(lowest_cpu);
-		}
-		if (target == num_online_cpus())
+		if (check_down_lock(cpu))
+			break;
+		cpu_down(lowest_cpu);
+		if (target >= num_online_cpus())
 			break;
 	}
 }
 
 static void online_cpu(unsigned int target)
 {
-	if (stats.total_cpus == num_online_cpus())
+	unsigned int online_cpus = num_online_cpus();
+
+	/*
+	 * Do not online more CPUs if max_cpus_online reached
+	 * and cancel online task if target already achieved.
+	 */
+	if (target <= online_cpus ||
+		online_cpus >= hotplug.max_cpus_online)
 		return;
 
 	hotplug.target_cpus = target;
@@ -394,7 +399,12 @@ static void offline_cpu(unsigned int target)
 	unsigned int online_cpus = num_online_cpus();
 	u64 now;
 
-	if (online_cpus == stats.min_cpus)
+	/*
+	 * Do not offline more CPUs if min_cpus_online reached
+	 * and cancel offline task if target already achieved.
+	 */
+	if (target >= online_cpus ||
+		online_cpus <= hotplug.min_cpus_online)
 		return;
 
 	now = ktime_to_us(ktime_get());
@@ -466,9 +476,17 @@ reschedule:
 	reschedule_hotplug_work();
 }
 
-static void msm_hotplug_resume_work(struct work_struct *work)
+static void __ref msm_hotplug_resume_work(struct work_struct *work)
 {
-	online_cpu(stats.total_cpus);
+	int cpu;
+
+	/* Fire up all CPUs */
+	for_each_cpu_not(cpu, cpu_online_mask) {
+		if (cpu == 0)
+			continue;
+		cpu_up(cpu);
+		apply_down_lock(cpu);
+	}
 }
 
 static int lcd_notifier_callback(struct notifier_block *nb,
@@ -489,7 +507,8 @@ static void hotplug_input_event(struct input_handle *handle, unsigned int type,
 	if (now - last_boost_time < MIN_INPUT_INTERVAL)
 		return;
 
-	if (num_online_cpus() >= hotplug.cpus_boosted)
+	if (num_online_cpus() >= hotplug.cpus_boosted ||
+		hotplug.cpus_boosted <= hotplug.min_cpus_online)
 		return;
 
 	dprintk("%s: online_cpus: %u boosted\n", MSM_HOTPLUG,
@@ -569,6 +588,9 @@ static ssize_t store_enable_hotplug(struct device *dev,
 	ret = sscanf(buf, "%u", &val);
 	if (ret != 1 || val < 0 || val > 1)
 		return -EINVAL;
+
+	if (val == hotplug.msm_enabled)
+		return count;
 
 	hotplug.msm_enabled = val;
 
@@ -737,7 +759,7 @@ static ssize_t store_min_cpus_online(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val < 1)
+	if (ret != 1 || val < 1 || val > DEFAULT_MAX_CPUS_ONLINE)
 		return -EINVAL;
 
 	if (hotplug.max_cpus_online < val)
@@ -763,7 +785,7 @@ static ssize_t store_max_cpus_online(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val < 1)
+	if (ret != 1 || val < 1 || val > DEFAULT_MAX_CPUS_ONLINE)
 		return -EINVAL;
 
 	if (hotplug.min_cpus_online > val)
@@ -789,7 +811,7 @@ static ssize_t store_cpus_boosted(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val < 1)
+	if (ret != 1 || val < 1 || val > DEFAULT_MAX_CPUS_ONLINE)
 		return -EINVAL;
 
 	hotplug.cpus_boosted = val;
