@@ -40,6 +40,8 @@
 #include <linux/regulator/consumer.h>
 
 #define MAX_RAILS 5
+
+#ifdef CONFIG_INTELLI_THERMAL_STATS
 #define DEFAULT_POLLING_MS	500
 /* last 3 minutes based on $DEFAULT_POLLING_MS polling cycle */
 #define MAX_HISTORY_SZ		((3*60*1000) / DEFAULT_POLLING_MS)
@@ -51,12 +53,16 @@ struct msm_thermal_stat_data {
 	uint32_t normal;
 };
 static struct msm_thermal_stat_data msm_thermal_stats;
+static uint32_t hist_index = 0;
+#endif
 
 static struct msm_thermal_data msm_thermal_info;
 
 static struct msm_thermal_data msm_thermal_info_local = {
 	.sensor_id = 0,
+#ifdef CONFIG_INTELLI_THERMAL_STATS
 	.poll_ms = DEFAULT_POLLING_MS,
+#endif
 	.limit_temp_degC = 75,
 	.temp_hysteresis_degC = 10,
 	.freq_step = 2,
@@ -91,7 +97,6 @@ static int max_tsens_num;
 static bool immediately_limit_stop = false;
 static struct cpufreq_frequency_table *table;
 static uint32_t usefreq;
-static uint32_t hist_index = 0;
 static int freq_table_get;
 static bool vdd_rstr_enabled;
 static bool vdd_rstr_nodes_called;
@@ -658,19 +663,14 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 				KBUILD_MODNAME, cpu);
 
 	if (cpu_online(cpu)) {
-		struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
-		if (!policy)
-			return ret;
-		ret = cpufreq_driver_target(policy, policy->cur,
-				CPUFREQ_RELATION_H);
-		cpufreq_cpu_put(policy);
+		ret = cpufreq_update_policy(cpu);
 	}
 
 	return ret;
 }
 
 #ifdef CONFIG_SMP
-static void __ref do_core_control(long temp)
+static void __cpuinit do_core_control(long temp)
 {
 	int i = 0;
 	int ret = 0;
@@ -678,6 +678,17 @@ static void __ref do_core_control(long temp)
 	if (!core_control_enabled)
 		return;
 
+	/**
+	 *  Offline cores starting from the max MPIDR to 1, when above limit,
+	 *  The core control mask is non zero and allows the core to be turned
+	 *  off.
+	 *  The core was not previously offlined by this module
+	 *  The core is the next in sequence.
+	 *  If the core was online for some reason, even after it was offlined
+	 *  by this module, offline it again.
+	 *  Online the back on if the temp is below the hysteresis and was
+	 *  offlined by this module and not already online.
+	 */
 	mutex_lock(&core_control_mutex);
 	if (msm_thermal_info_local.core_control_mask &&
 		temp >= msm_thermal_info_local.core_limit_temp_degC) {
@@ -823,7 +834,7 @@ exit:
 	return ret;
 }
 
-static void __ref do_freq_control(long temp)
+static void __cpuinit do_freq_control(long temp)
 {
 	int ret = 0;
 	int cpu = 0;
@@ -883,7 +894,7 @@ static void __ref do_freq_control(long temp)
 	}
 }
 
-static void __ref check_temp(struct work_struct *work)
+static void __cpuinit check_temp(struct work_struct *work)
 {
 	static int limit_init;
 	struct tsens_device tsens_dev;
@@ -898,6 +909,7 @@ static void __ref check_temp(struct work_struct *work)
 		goto reschedule;
 	}
 
+#ifdef CONFIG_INTELLI_THERMAL_STATS
 	if (hist_index < MAX_HISTORY_SZ)
 		msm_thermal_stats.temp_history[hist_index] = temp;
 	else {
@@ -905,6 +917,7 @@ static void __ref check_temp(struct work_struct *work)
 		msm_thermal_stats.temp_history[hist_index] = temp;
 	}
 	hist_index++;
+#endif
 
 	if (!limit_init) {
 		ret = msm_thermal_get_freq_table();
@@ -925,7 +938,7 @@ reschedule:
 				msecs_to_jiffies(msm_thermal_info_local.poll_ms));
 }
 
-static int __ref msm_thermal_cpu_callback(struct notifier_block *nfb,
+static int __cpuinit msm_thermal_cpu_callback(struct notifier_block *nfb,
 		unsigned long action, void *hcpu)
 {
 	unsigned int cpu = (unsigned long)hcpu;
@@ -947,7 +960,7 @@ static int __ref msm_thermal_cpu_callback(struct notifier_block *nfb,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block __refdata msm_thermal_cpu_notifier = {
+static struct notifier_block __cpuinitdata msm_thermal_cpu_notifier = {
 	.notifier_call = msm_thermal_cpu_callback,
 };
 
@@ -989,7 +1002,7 @@ static void thermal_rtc_callback(struct alarm *al)
  * status will be carried over to the process stopping the msm_thermal, as
  * we dont want to online a core and bring in the thermal issues.
  */
-static void __ref disable_msm_thermal(void)
+static void __cpuinit disable_msm_thermal(void)
 {
 	int cpu = 0;
 
@@ -1004,7 +1017,7 @@ static void __ref disable_msm_thermal(void)
 	}
 }
 
-static int __ref set_enabled(const char *val, const struct kernel_param *kp)
+static int __cpuinit set_enabled(const char *val, const struct kernel_param *kp)
 {
 	int ret = 0;
 
@@ -1016,7 +1029,7 @@ static int __ref set_enabled(const char *val, const struct kernel_param *kp)
 		if (!enabled) {
 			enabled = 1;
 			queue_delayed_work(intellithermal_wq,
-					   &check_temp_work, 0);
+					   &check_temp_work, 10);
 			pr_info("msm_thermal: rescheduling...\n");
 		} else
 			pr_info("msm_thermal: already running...\n");
@@ -1035,6 +1048,7 @@ static struct kernel_param_ops module_ops = {
 module_param_cb(enabled, &module_ops, &enabled, 0664);
 MODULE_PARM_DESC(enabled, "enforce thermal limit on cpu");
 
+#ifdef CONFIG_INTELLI_THERMAL_STATS
 static ssize_t show_thermal_stats(struct kobject *kobj,
                 struct kobj_attribute *attr, char *buf)
 {
@@ -1063,15 +1077,15 @@ static ssize_t show_thermal_stats(struct kobject *kobj,
 			msm_thermal_stats.warning,
 			msm_thermal_stats.normal);
 }
-static __refdata struct kobj_attribute msm_thermal_stat_attr =
+static __cpuinitdata struct kobj_attribute msm_thermal_stat_attr =
 __ATTR(statistics, 0444, show_thermal_stats, NULL);
 
-static __refdata struct attribute *msm_thermal_stat_attrs[] = {
+static __cpuinitdata struct attribute *msm_thermal_stat_attrs[] = {
         &msm_thermal_stat_attr.attr,
         NULL,
 };
 
-static __refdata struct attribute_group msm_thermal_stat_attr_group = {
+static __cpuinitdata struct attribute_group msm_thermal_stat_attr_group = {
         .attrs = msm_thermal_stat_attrs,
 };
 
@@ -1110,10 +1124,11 @@ done_stat_nodes:
 		kobject_del(stat_kobj);
 	return ret;
 }
+#endif
 
 #ifdef CONFIG_SMP
 /* Call with core_control_mutex locked */
-static int __ref update_offline_cores(int val)
+static int __cpuinit update_offline_cores(int val)
 {
 	int cpu = 0;
 	int ret = 0;
@@ -1147,7 +1162,7 @@ static ssize_t show_cc_enabled(struct kobject *kobj,
 	return snprintf(buf, PAGE_SIZE, "%d\n", core_control_enabled);
 }
 
-static ssize_t __ref store_cc_enabled(struct kobject *kobj,
+static ssize_t __cpuinit store_cc_enabled(struct kobject *kobj,
 		struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	int ret = 0;
@@ -1184,7 +1199,7 @@ static ssize_t show_cpus_offlined(struct kobject *kobj,
 	return snprintf(buf, PAGE_SIZE, "%d\n", cpus_offlined);
 }
 
-static ssize_t __ref store_cpus_offlined(struct kobject *kobj,
+static ssize_t __cpuinit store_cpus_offlined(struct kobject *kobj,
 		struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	int ret = 0;
@@ -1212,19 +1227,19 @@ done_cc:
 	return count;
 }
 
-static __refdata struct kobj_attribute cc_enabled_attr =
+static __cpuinitdata struct kobj_attribute cc_enabled_attr =
 __ATTR(enabled, 0664, show_cc_enabled, store_cc_enabled);
 
-static __refdata struct kobj_attribute cpus_offlined_attr =
+static __cpuinitdata struct kobj_attribute cpus_offlined_attr =
 __ATTR(cpus_offlined, 0664, show_cpus_offlined, store_cpus_offlined);
 
-static __refdata struct attribute *cc_attrs[] = {
+static __cpuinitdata struct attribute *cc_attrs[] = {
 	&cc_enabled_attr.attr,
 	&cpus_offlined_attr.attr,
 	NULL,
 };
 
-static __refdata struct attribute_group cc_attr_group = {
+static __cpuinitdata struct attribute_group cc_attr_group = {
 	.attrs = cc_attrs,
 };
 
@@ -1262,15 +1277,15 @@ static ssize_t store_wakeup_ms(struct kobject *kobj,
 	return count;
 }
 
-static __refdata struct kobj_attribute timer_attr =
+static __cpuinitdata struct kobj_attribute timer_attr =
 __ATTR(wakeup_ms, 0644, show_wakeup_ms, store_wakeup_ms);
 
-static __refdata struct attribute *tt_attrs[] = {
+static __cpuinitdata struct attribute *tt_attrs[] = {
 	&timer_attr.attr,
 	NULL,
 };
 
-static __refdata struct attribute_group tt_attr_group = {
+static __cpuinitdata struct attribute_group tt_attr_group = {
 	.attrs = tt_attrs,
 };
 
@@ -1364,7 +1379,7 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 	intellithermal_wq = alloc_workqueue("intellithermal",
 				WQ_FREEZABLE | WQ_POWER_EFFICIENT, 0);
 	INIT_DELAYED_WORK(&check_temp_work, check_temp);
-	queue_delayed_work(intellithermal_wq, &check_temp_work, 0);
+	queue_delayed_work(intellithermal_wq, &check_temp_work, 10);
 
 	if (num_possible_cpus() > 1)
 		register_cpu_notifier(&msm_thermal_cpu_notifier);
@@ -1859,7 +1874,9 @@ int __init msm_thermal_late_init(void)
 {
 	if (num_possible_cpus() > 1)
 		msm_thermal_add_cc_nodes();
+#ifdef CONFIG_INTELLI_THERMAL_STATS
 	msm_thermal_add_stat_nodes();
+#endif
 	msm_thermal_add_psm_nodes();
 	msm_thermal_add_vdd_rstr_nodes();
 	alarm_init(&thermal_rtc, ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
