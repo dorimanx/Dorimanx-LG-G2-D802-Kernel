@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.4.90 Kernel Configuration
+# Linux/arm 3.4.91 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -2203,6 +2203,7 @@ CONFIG_THERMAL_HWMON=y
 # CONFIG_THERMAL_TSENS8960 is not set
 CONFIG_THERMAL_TSENS8974=y
 CONFIG_THERMAL_MONITOR=y
+# CONFIG_INTELLI_THERMAL_STATS is not set
 CONFIG_THERMAL_QPNP=y
 CONFIG_THERMAL_QPNP_ADC_TM=y
 # CONFIG_WATCHDOG is not set
