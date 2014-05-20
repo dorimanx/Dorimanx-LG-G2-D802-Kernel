@@ -88,6 +88,7 @@ static int limit_idx;
 static int limit_idx_low;
 static int limit_idx_high;
 static int max_tsens_num;
+static bool immediately_limit_stop = false;
 static struct cpufreq_frequency_table *table;
 static uint32_t usefreq;
 static uint32_t hist_index = 0;
@@ -108,6 +109,10 @@ module_param_named(limit_temp_degC, msm_thermal_info_local.limit_temp_degC,
 			int, 0664);
 module_param_named(temp_hysteresis_degC, msm_thermal_info_local.temp_hysteresis_degC,
 			int, 0664);
+module_param_named(freq_step, msm_thermal_info.freq_step,
+			int, 0664);
+module_param_named(immediately_limit_stop, immediately_limit_stop,
+			bool, 0664);
 module_param_named(core_limit_temp_degC, msm_thermal_info_local.core_limit_temp_degC,
 			int, 0664);
 module_param_named(core_temp_hysteresis_degC,
@@ -848,7 +853,8 @@ static void __ref do_freq_control(long temp)
 			return;
 
 		limit_idx += msm_thermal_info_local.freq_step;
-		if (limit_idx >= limit_idx_high) {
+		if (limit_idx >= limit_idx_high ||
+				immediately_limit_stop == true) {
 			limit_idx = limit_idx_high;
 			max_freq = MSM_CPUFREQ_NO_LIMIT;
 		} else
@@ -989,8 +995,6 @@ static void __ref disable_msm_thermal(void)
 
 	/* make sure check_temp is no longer running */
 	cancel_delayed_work_sync(&check_temp_work);
-
-	flush_workqueue(intellithermal_wq);
 
 	if (thermal_limited_max_freq == MSM_CPUFREQ_NO_LIMIT)
 		return;
@@ -1358,7 +1362,7 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 	if (num_possible_cpus() > 1)
 		core_control_enabled = 1;
 	intellithermal_wq = alloc_workqueue("intellithermal",
-				WQ_UNBOUND | WQ_MEM_RECLAIM, 0);
+				WQ_FREEZABLE | WQ_POWER_EFFICIENT, 0);
 	INIT_DELAYED_WORK(&check_temp_work, check_temp);
 	queue_delayed_work(intellithermal_wq, &check_temp_work, 0);
 
