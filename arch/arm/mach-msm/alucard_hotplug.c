@@ -198,16 +198,10 @@ static int __cpuinit hotplug_work_fn(struct work_struct *work)
 		per_cpu(od_hotplug_cpuinfo, 0).up_cpu = -1;
 
 	for_each_cpu_not(cpu, cpu_online_mask) {
-		struct hotplug_cpuinfo *pcpu_info = &per_cpu(od_hotplug_cpuinfo, cpu);
-
 		cpus_off[idx_off] = cpu;
 		++idx_off;
 		++schedule_up_cpu;
 		--schedule_down_cpu;
-
-		pcpu_info->online = false;
-		pcpu_info->up_cpu = -1;
-		pcpu_info->up_by_cpu = -1;
 	}
 
 	for_each_online_cpu(cpu) {
@@ -315,32 +309,16 @@ static int __cpuinit hotplug_work_fn(struct work_struct *work)
 
 	if (offline_cpu > 0) {
 		for (i = 0; i < offline_cpu; i++) {
-			struct hotplug_cpuinfo *pcpu_info = &per_cpu(od_hotplug_cpuinfo, cpus_off[i]);
-			int ret = 0;
-
-			if (pcpu_info->online == true) {
-				ret = cpu_up(cpus_off[i]);
-				if (ret) {
-					pr_debug("AH: Error %d online core %d\n", ret, cpus_off[i]);
-					pcpu_info->online = false;
-					pcpu_info->up_by_cpu = -1;
-				}
-
+			if (per_cpu(od_hotplug_cpuinfo, cpus_off[i]).online == true) {
+				cpu_up(cpus_off[i]);
 			}
 		}
 	}
 
 	if (online_cpu > 0) {
 		for (i = 0; i < online_cpu; i++) {
-			struct hotplug_cpuinfo *pcpu_info = &per_cpu(od_hotplug_cpuinfo, cpus_on[i]);
-			int ret = 0;
-
-			if (pcpu_info->online == false) {
-				ret = cpu_down(cpus_on[i]);
-				if (ret) {
-					pr_debug("AH: Error %d offline" "core %d\n", ret, cpus_on[i]);
-					pcpu_info->online = true;
-				}
+			if (per_cpu(od_hotplug_cpuinfo, cpus_on[i]).online == false) {
+				cpu_down(cpus_on[i]);
 			}
 		}
 	}
@@ -365,9 +343,9 @@ static void __ref alucard_hotplug_early_suspend(struct early_suspend *handler)
 }
 
 #ifdef CONFIG_POWERSUSPEND
-static void __ref alucard_hotplug_resume(struct power_suspend *handler)
+static void __cpuinit alucard_hotplug_resume(struct power_suspend *handler)
 #else
-static void __ref alucard_hotplug_late_resume(
+static void __cpuinit alucard_hotplug_late_resume(
 				struct early_suspend *handler)
 #endif
 {
@@ -400,8 +378,7 @@ static void up_cpu_work(unsigned int cpu)
 	by_cpu = pcpu_info->up_by_cpu;
 	if (by_cpu >= 0) {
 		per_cpu(od_hotplug_cpuinfo,by_cpu).up_cpu = cpu;
-		if (by_cpu == 0)
-			per_cpu(od_hotplug_cpuinfo,by_cpu).cpu_up_rate = 1;
+		per_cpu(od_hotplug_cpuinfo,by_cpu).cpu_up_rate = 1;
 	}
 
 	pcpu_info->online = true;
@@ -433,9 +410,20 @@ static int alucard_hotplug_callback(struct notifier_block *nb,
 	case CPU_ONLINE_FROZEN:
 		up_cpu_work(cpu);
 		break;
+	case CPU_UP_CANCELED:
+	case CPU_UP_CANCELED_FROZEN:
+		per_cpu(od_hotplug_cpuinfo, cpu).online = false;
+		per_cpu(od_hotplug_cpuinfo, cpu).up_by_cpu = -1;
+		pr_debug("AH: Error online core %d\n", cpu);
+		break;
 	case CPU_DEAD:
 	case CPU_DEAD_FROZEN:
 		down_cpu_work(cpu);
+		break;
+	case CPU_DOWN_FAILED:
+	case CPU_DOWN_FAILED_FROZEN:
+		per_cpu(od_hotplug_cpuinfo, cpu).online == true;
+		pr_debug("AH: Error offline" "core %d\n", cpu);
 		break;
 	}
 	return NOTIFY_OK;
@@ -450,12 +438,11 @@ static int hotplug_start(void)
 {
 	int delay = msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate);
 	unsigned int cpu;
+	unsigned int prev_online = 0;
 	int ret = 0;
 
 	alucardhp_wq = alloc_workqueue("alucardplug",
-				WQ_POWER_EFFICIENT, 0);
-//				WQ_HIGHPRI | WQ_FREEZABLE, 1);
-//				WQ_HIGHPRI | WQ_UNBOUND, 0);
+				WQ_HIGHPRI | WQ_FREEZABLE, 1);
 
 	if (!alucardhp_wq) {
 		printk(KERN_ERR "Failed to create \
@@ -485,14 +472,23 @@ static int hotplug_start(void)
 				&pcpu_info->prev_cpu_wall, 0);
 #endif
 		pcpu_info->online = cpu_online(cpu);
-		pcpu_info->up_cpu = 1;
-		pcpu_info->up_by_cpu = -1;
 		pcpu_info->cpu_up_rate = 1;
 		pcpu_info->cpu_down_rate = 1;
 
 		if (pcpu_info->online) {
+			pcpu_info->up_cpu = -1;
+			if (cpu == 0) {
+				pcpu_info->up_by_cpu = -1;
+			} else {
+				pcpu_info->up_by_cpu = prev_online;
+				per_cpu(od_hotplug_cpuinfo, prev_online).up_cpu = cpu;
+			}
+			prev_online = cpu;
 			alucard_hotplug_callback(&alucard_hotplug_nb, CPU_UP_PREPARE, cpu);
 			alucard_hotplug_callback(&alucard_hotplug_nb, CPU_ONLINE, cpu);
+		} else {
+			pcpu_info->up_cpu = -1;
+			pcpu_info->up_by_cpu = -1;
 		}
 	}
 	put_online_cpus();
