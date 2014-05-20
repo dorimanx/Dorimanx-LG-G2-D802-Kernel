@@ -52,7 +52,7 @@
 lcd_maker_id get_panel_maker_id(void);
 #define MINIMUM_PEAK_AMPLITUDE_REG    0x15
 #endif
-#if defined(A1_only)&& !defined(CONFIG_MACH_MSM8974_G2_KDDI)
+#if defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI)
 #define DRUMMING_THRESH_N_DISTANCE_REG  0x15
 #endif
 
@@ -738,7 +738,7 @@ enum{
 		do {} while(0)
 #endif
 
-#if defined(CONFIG_MACH_MSM8974_G2_VZW) || defined(CONFIG_MACH_MSM8974_G2_TMO_US) || defined(CONFIG_MACH_MSM8974_G2_ATT)|| defined(CONFIG_MACH_MSM8974_Z_TMO_US) || defined(CONFIG_MACH_MSM8974_Z_ATT_US)
+#if defined(CONFIG_MACH_MSM8974_G2_VZW) || defined(CONFIG_MACH_MSM8974_G2_TMO_US) || defined(CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_Z_TMO_US) || defined(CONFIG_MACH_MSM8974_Z_ATT_US)
 #define ISIS_L2 /* block the exposure of privacy information */
 #endif
 
