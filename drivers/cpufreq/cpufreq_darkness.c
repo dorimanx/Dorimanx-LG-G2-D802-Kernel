@@ -172,7 +172,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 			(cur_idle_time - this_darkness_cpuinfo->prev_cpu_idle);
 	this_darkness_cpuinfo->prev_cpu_idle = cur_idle_time;
 
-	if (!cpu_policy || cpu_policy == NULL)
+	if (!cpu_policy)
 		return;
 
 	/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",cpu, wall_time, idle_time);*/
@@ -199,7 +199,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		
 		next_freq = this_darkness_cpuinfo->freq_table[index].frequency;
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq);*/
-		if (next_freq != cpu_policy->cur && cpu_online(cpu)) {
+		if (next_freq != cpu_policy->cur) {
 			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 		}
 	}
@@ -308,7 +308,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
-		if (&this_darkness_cpuinfo->cur_policy == NULL) {
+		if (!this_darkness_cpuinfo->cur_policy) {
 			pr_debug("Unable to limit cpu freq due to cur_policy == NULL\n");
 			return -EPERM;
 		}
@@ -328,8 +328,8 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 static int __init cpufreq_gov_darkness_init(void)
 {
-	darkness_wq = alloc_workqueue("darkness_wq",
-						WQ_HIGHPRI | WQ_UNBOUND, 0);
+	darkness_wq = alloc_workqueue("darkness_wq", WQ_HIGHPRI, 0);
+
 	if (!darkness_wq) {
 		printk(KERN_ERR "Failed to create darkness workqueue\n");
 		return -EFAULT;
