@@ -6,6 +6,10 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/g_hid.h>
 
+struct hid_usb_data {
+	uint32_t hid_enabled;
+};
+
 int hidg_bind_config(struct usb_configuration *c,
 			    struct hidg_func_descriptor *fdesc, int index);
 
