@@ -61,17 +61,17 @@
 #define SMART_UP_SLOW_UP_AT_HIGH_FREQ (1)
 #define SUP_MAX_STEP (3)
 #define SUP_CORE_NUM (4)
-#define SUP_SLOW_UP_DUR (5)
+#define SUP_SLOW_UP_DUR (4)
 #define SUP_SLOW_UP_DUR_DEFAULT (2)
 
 #if defined(SMART_UP_PLUS)
-static unsigned int SUP_THRESHOLD_STEPS[SUP_MAX_STEP] = {75, 85, 90};
+static unsigned int SUP_THRESHOLD_STEPS[SUP_MAX_STEP] = {75, 80, 85};
 static unsigned int SUP_FREQ_STEPS[SUP_MAX_STEP] = {4, 3, 2};
 static unsigned int min_range = 108000;
 #endif
 
 #if defined(SMART_UP_SLOW_UP_AT_HIGH_FREQ)
-#define SUP_SLOW_UP_FREQUENCY			(1574400)
+#define SUP_SLOW_UP_FREQUENCY			(1958400)
 #define SUP_SLOW_UP_LOAD			(75)
 
 typedef struct {
