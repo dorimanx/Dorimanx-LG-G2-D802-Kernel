@@ -41,8 +41,9 @@
 
 #define MAX_RAILS 5
 
+#define DEFAULT_POLLING_MS	250
+
 #ifdef CONFIG_INTELLI_THERMAL_STATS
-#define DEFAULT_POLLING_MS	500
 /* last 3 minutes based on $DEFAULT_POLLING_MS polling cycle */
 #define MAX_HISTORY_SZ		((3*60*1000) / DEFAULT_POLLING_MS)
 
@@ -60,9 +61,7 @@ static struct msm_thermal_data msm_thermal_info;
 
 static struct msm_thermal_data msm_thermal_info_local = {
 	.sensor_id = 0,
-#ifdef CONFIG_INTELLI_THERMAL_STATS
 	.poll_ms = DEFAULT_POLLING_MS,
-#endif
 	.limit_temp_degC = 75,
 	.temp_hysteresis_degC = 10,
 	.freq_step = 2,

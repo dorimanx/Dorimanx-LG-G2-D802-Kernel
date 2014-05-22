@@ -27,8 +27,9 @@
 #include <linux/msm_thermal.h>
 #include <mach/cpufreq.h>
 
-#ifdef CONFIG_INTELLI_THERMAL_STATS
 #define DEFAULT_POLLING_MS	250
+
+#ifdef CONFIG_INTELLI_THERMAL_STATS
 /* last 3 minutes based on 250ms polling cycle */
 #define MAX_HISTORY_SZ		((3*60*1000) / DEFAULT_POLLING_MS)
 
@@ -45,7 +46,7 @@ static uint32_t hist_index = 0;
 static int enabled;
 static struct msm_thermal_data msm_thermal_info = {
 	.sensor_id = 0,
-	.poll_ms = 250,
+	.poll_ms = DEFAULT_POLLING_MS,
 	.limit_temp_degC = 70,
 	.temp_hysteresis_degC = 10,
 	.freq_step = 2,
