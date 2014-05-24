@@ -382,6 +382,9 @@ static void online_cpu(unsigned int target)
 {
 	unsigned int online_cpus = num_online_cpus();
 
+	if (!hotplug.enabled)
+		return;
+
 	/*
 	 * Do not online more CPUs if max_cpus_online reached
 	 * and cancel online task if target already achieved.
@@ -398,6 +401,9 @@ static void offline_cpu(unsigned int target)
 {
 	unsigned int online_cpus = num_online_cpus();
 	u64 now;
+
+	if (!hotplug.enabled)
+		return;
 
 	/*
 	 * Do not offline more CPUs if min_cpus_online reached
