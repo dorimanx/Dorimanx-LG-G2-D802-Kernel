@@ -7455,7 +7455,7 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 		cpu_rq(i)->max_freq = policy->max;
 	}
 
-	max_possible_freq = max(max_possible_freq, policy->cpuinfo.max_freq);
+	max_possible_freq = policy->max;
 
 	return 0;
 }
