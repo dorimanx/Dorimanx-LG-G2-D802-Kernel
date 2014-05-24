@@ -125,7 +125,7 @@ config MCA
 
 config STACKTRACE_SUPPORT
 	bool
-	default y
+	default n
 
 config HAVE_LATENCYTOP_SUPPORT
 	bool
