@@ -33,8 +33,10 @@
  * version 1.1 Added 1800ma limit to table by Dorimanx
  * version 1.2 Added Fake AC interface by Mankindtw@xda and Dorimanx
  * version 1.3 Misc fixes to force AC and allowed real 1800mA max.
- * version 1.4 Added fake original cable control, allow using
- * low quality usb cables for fast file transfer and full power charge.
+ * version 1.4 Added usage of custom mA value for max charging power,
+ * Now we can use Intelli Thermal and get full power charge, this was controlled by
+ * default ROM thermal engine, not any more, code will check if battery if not above 50c
+ * and allow max charge!
  */
 
 #define FAST_CHARGE_VERSION	"Version 1.4"
