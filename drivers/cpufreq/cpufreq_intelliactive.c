@@ -129,24 +129,11 @@ static bool io_is_busy = 1;
  * up_threshold_any_cpu_freq then do not let the frequency to drop below
  * sync_freq
  */
-static unsigned int up_threshold_any_cpu_load = 80;
-static unsigned int sync_freq = 960000;
+static unsigned int up_threshold_any_cpu_load = 75;
+static unsigned int sync_freq = 1574400;
 static unsigned int up_threshold_any_cpu_freq = 1574400;
 
 static int two_phase_freq_array[NR_CPUS] = {[0 ... NR_CPUS-1] = 2265600} ;
-
-static int cpufreq_governor_intelliactive(struct cpufreq_policy *policy,
-		unsigned int event);
-
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_INTELLIACTIVE
-static
-#endif
-struct cpufreq_governor cpufreq_gov_intelliactive = {
-	.name = "intelliactive",
-	.governor = cpufreq_governor_intelliactive,
-	.max_transition_latency = 10000000,
-	.owner = THIS_MODULE,
-};
 
 static void cpufreq_interactive_timer_resched(
 	struct cpufreq_interactive_cpuinfo *pcpu)
@@ -738,7 +725,7 @@ static unsigned int *get_tokenized_data(const char *buf, int *num_tokens)
 	const char *cp;
 	int i;
 	int ntokens = 1;
-	unsigned int *tokenized_data;
+	int *tokenized_data;
 	int err = -EINVAL;
 
 	cp = buf;
@@ -748,7 +735,7 @@ static unsigned int *get_tokenized_data(const char *buf, int *num_tokens)
 	if (!(ntokens & 0x1))
 		goto err;
 
-	tokenized_data = kmalloc(ntokens * sizeof(unsigned int), GFP_KERNEL);
+	tokenized_data = kmalloc(ntokens * sizeof(int), GFP_KERNEL);
 	if (!tokenized_data) {
 		err = -ENOMEM;
 		goto err;
@@ -757,7 +744,7 @@ static unsigned int *get_tokenized_data(const char *buf, int *num_tokens)
 	cp = buf;
 	i = 0;
 	while (i < ntokens) {
-		if (sscanf(cp, "%u", &tokenized_data[i++]) != 1)
+		if (sscanf(cp, "%d", &tokenized_data[i++]) != 1)
 			goto err_kfree;
 
 		cp = strpbrk(cp, " :");
@@ -830,7 +817,7 @@ static ssize_t show_target_loads(
 		ret += sprintf(buf + ret, "%u%s", target_loads[i],
 			       i & 0x1 ? ":" : " ");
 
-	ret += sprintf(buf + --ret, "\n");
+	sprintf(buf + ret - 1, "\n");
 	spin_unlock_irqrestore(&target_loads_lock, flags);
 	return ret;
 }
@@ -873,7 +860,7 @@ static ssize_t show_above_hispeed_delay(
 		ret += sprintf(buf + ret, "%u%s", above_hispeed_delay[i],
 			       i & 0x1 ? ":" : " ");
 
-	ret += sprintf(buf + --ret, "\n");
+	sprintf(buf + ret - 1, "\n");
 	spin_unlock_irqrestore(&above_hispeed_delay_lock, flags);
 	return ret;
 }
@@ -1446,6 +1433,16 @@ static int cpufreq_governor_intelliactive(struct cpufreq_policy *policy,
 	}
 	return 0;
 }
+
+#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_INTELLIACTIVE
+static
+#endif
+struct cpufreq_governor cpufreq_gov_intelliactive = {
+	.name = "intelliactive",
+	.governor = cpufreq_governor_intelliactive,
+	.max_transition_latency = 10000000,
+	.owner = THIS_MODULE,
+};
 
 static void cpufreq_interactive_nop_timer(unsigned long data)
 {
