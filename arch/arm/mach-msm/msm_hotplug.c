@@ -382,7 +382,7 @@ static void online_cpu(unsigned int target)
 {
 	unsigned int online_cpus = num_online_cpus();
 
-	if (!hotplug.enabled)
+	if (!hotplug.msm_enabled)
 		return;
 
 	/*
@@ -402,7 +402,7 @@ static void offline_cpu(unsigned int target)
 	unsigned int online_cpus = num_online_cpus();
 	u64 now;
 
-	if (!hotplug.enabled)
+	if (!hotplug.msm_enabled)
 		return;
 
 	/*
