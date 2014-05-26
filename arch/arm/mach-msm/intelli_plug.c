@@ -22,6 +22,7 @@
 #include <linux/slab.h>
 #include <linux/input.h>
 #include <linux/kobject.h>
+#include <linux/cpufreq.h>
 
 #if defined(CONFIG_POWERSUSPEND)
 #include <linux/powersuspend.h>
@@ -30,7 +31,7 @@
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 #define INTELLI_PLUG_MAJOR_VERSION	3
-#define INTELLI_PLUG_MINOR_VERSION	2
+#define INTELLI_PLUG_MINOR_VERSION	5
 
 #define DEF_SAMPLING_MS			(40)
 #define BUSY_SAMPLING_MS		(20)
@@ -54,10 +55,18 @@ static unsigned int persist_count = 0;
 static unsigned int busy_persist_count = 0;
 static bool hotplug_suspended = false;
 
+struct ip_cpu_info {
+	int cpu;
+	unsigned int curr_max;
+};
+
+static DEFINE_PER_CPU(struct ip_cpu_info, ip_info);
+
 /* HotPlug Driver controls */
 static atomic_t intelli_plug_active = ATOMIC_INIT(0);
 static unsigned int eco_mode_active = 0;
 static unsigned int strict_mode_active = 0;
+static unsigned int screen_off_max = UINT_MAX;
 
 /* HotPlug Driver Tuning */
 static unsigned int def_sampling_ms = DEF_SAMPLING_MS;
@@ -301,6 +310,35 @@ static void __ref intelli_plug_work_fn(struct work_struct *work)
 }
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+static void screen_off_limit(bool on)
+{
+	unsigned int i, ret;
+	struct cpufreq_policy policy;
+	struct ip_cpu_info *l_ip_info;
+
+	/* not active, so exit */
+	if (screen_off_max == UINT_MAX)
+		return;
+
+	for_each_online_cpu(i) {
+
+		l_ip_info = &per_cpu(ip_info, i);
+		ret = cpufreq_get_policy(&policy, i);
+		if (ret)
+			continue;
+
+		if (on) {
+			/* save current instance */
+			l_ip_info->curr_max = policy.max;
+			policy.max = screen_off_max;
+		} else {
+			/* restore */
+			policy.max = l_ip_info->curr_max;
+		}
+		cpufreq_update_policy(i);
+	}
+}
+
 #ifdef CONFIG_POWERSUSPEND
 static void intelli_plug_suspend(struct power_suspend *handler)
 #else
@@ -316,12 +354,29 @@ static void intelli_plug_early_suspend(struct early_suspend *handler)
 
 		mutex_lock(&intelli_plug_mutex);
 		hotplug_suspended = true;
+		screen_off_limit(true);
 		mutex_unlock(&intelli_plug_mutex);
 
 		/* put rest of the cores to sleep! */
 		for (i = num_of_active_cores - 1; i > 0; i--) {
 			cpu_down(i);
 		}
+	}
+}
+
+static void wakeup_boost(void)
+{
+	unsigned int i, ret;
+	struct cpufreq_policy policy;
+
+	for_each_online_cpu(i) {
+
+		ret = cpufreq_get_policy(&policy, i);
+		if (ret)
+			continue;
+
+		policy.cur = policy.max;
+		cpufreq_update_policy(i);
 	}
 }
 
@@ -352,6 +407,8 @@ static void __ref intelli_plug_late_resume(struct early_suspend *handler)
 		for (i = 1; i < num_of_active_cores; i++) {
 			cpu_up(i);
 		}
+		screen_off_limit(false);
+		wakeup_boost();
 	}
 }
 
@@ -436,6 +493,7 @@ show_one(cpu_down_factor, cpu_down_factor);
 show_one(debug_intelli_plug, debug_intelli_plug);
 show_one(nr_fshift, nr_fshift);
 show_one(nr_run_hysteresis, nr_run_hysteresis);
+show_one(screen_off_max, screen_off_max);
 
 #define store_one(file_name, object)		\
 static ssize_t store_##file_name		\
@@ -466,6 +524,7 @@ store_one(cpu_down_factor, cpu_down_factor);
 store_one(debug_intelli_plug, debug_intelli_plug);
 store_one(nr_fshift, nr_fshift);
 store_one(nr_run_hysteresis, nr_run_hysteresis);
+store_one(screen_off_max, screen_off_max);
 
 static void intelli_plug_active_eval_fn(unsigned int status)
 {
@@ -555,6 +614,10 @@ static struct kobj_attribute nr_run_hysteresis_attr =
 	__ATTR(nr_run_hysteresis, 0664, show_nr_run_hysteresis,
 			store_nr_run_hysteresis);
 
+static struct kobj_attribute screen_off_max_attr =
+	__ATTR(screen_off_max, 0664, show_screen_off_max,
+			store_screen_off_max);
+
 static struct attribute *intelli_plug_attrs[] = {
 	&intelli_plug_active_attr.attr,
 	&eco_mode_active_attr.attr,
@@ -569,6 +632,7 @@ static struct attribute *intelli_plug_attrs[] = {
 	&debug_intelli_plug_attr.attr,
 	&nr_fshift_attr.attr,
 	&nr_run_hysteresis_attr.attr,
+	&screen_off_max_attr.attr,
 	NULL,
 };
 
