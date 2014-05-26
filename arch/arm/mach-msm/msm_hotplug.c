@@ -366,7 +366,7 @@ static void online_cpu(unsigned int target)
 	if (!hotplug.msm_enabled)
 		return;
 
-	online_cpus = num_online_cpus()
+	online_cpus = num_online_cpus();
 
 	/*
 	 * Do not online more CPUs if max_cpus_online reached
@@ -388,7 +388,7 @@ static void offline_cpu(unsigned int target)
 	if (!hotplug.msm_enabled)
 		return;
 
-	online_cpus = num_online_cpus()
+	online_cpus = num_online_cpus();
 
 	/* 
 	 * Do not offline more CPUs if min_cpus_online reached
