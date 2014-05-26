@@ -361,10 +361,12 @@ static void cpu_down_work(struct work_struct *work)
 
 static void online_cpu(unsigned int target)
 {
-	unsigned int online_cpus = num_online_cpus();
+	unsigned int online_cpus;
 
 	if (!hotplug.msm_enabled)
 		return;
+
+	online_cpus = num_online_cpus()
 
 	/*
 	 * Do not online more CPUs if max_cpus_online reached
@@ -380,13 +382,15 @@ static void online_cpu(unsigned int target)
 
 static void offline_cpu(unsigned int target)
 {
-	unsigned int online_cpus = num_online_cpus();
+	unsigned int online_cpus;
 	u64 now;
 
 	if (!hotplug.msm_enabled)
 		return;
 
-	/*
+	online_cpus = num_online_cpus()
+
+	/* 
 	 * Do not offline more CPUs if min_cpus_online reached
 	 * and cancel offline task if target already achieved.
 	 */
@@ -466,6 +470,9 @@ reschedule:
 static void __ref msm_hotplug_resume_work(struct work_struct *work)
 {
 	int cpu;
+
+	if (!hotplug.msm_enabled)
+		return;
 
 	/* Fire up all CPUs */
 	for_each_cpu_not(cpu, cpu_online_mask) {
