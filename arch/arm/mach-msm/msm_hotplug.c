@@ -20,7 +20,11 @@
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/cpufreq.h>
+#ifdef CONFIG_MACH_LGE
 #include <linux/lcd_notify.h>
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+#include <linux/earlysuspend.h>
+#endif
 #include <linux/input.h>
 #include <linux/math64.h>
 #include <linux/kernel_stat.h>
@@ -390,7 +394,7 @@ static void offline_cpu(unsigned int target)
 
 	online_cpus = num_online_cpus();
 
-	/* 
+	/*
 	 * Do not offline more CPUs if min_cpus_online reached
 	 * and cancel offline task if target already achieved.
 	 */
@@ -483,6 +487,7 @@ static void __ref msm_hotplug_resume_work(struct work_struct *work)
 	}
 }
 
+#ifdef CONFIG_MACH_LGE
 static int lcd_notifier_callback(struct notifier_block *nb,
                                  unsigned long event, void *data)
 {
@@ -491,6 +496,7 @@ static int lcd_notifier_callback(struct notifier_block *nb,
 
         return 0;
 }
+#endif
 
 static void hotplug_input_event(struct input_handle *handle, unsigned int type,
 				unsigned int code, int value)
@@ -563,6 +569,25 @@ static struct input_handler hotplug_input_handler = {
 	.id_table	= hotplug_ids,
 };
 
+#if defined(CONFIG_HAS_EARLYSUSPEND) && !defined(CONFIG_MACH_LGE)
+static void __ref msm_hotplug_early_suspend(struct early_suspend *handler)
+{
+}
+
+static void __cpuinit msm_hotplug_late_resume(
+				struct early_suspend *handler)
+{
+	if (hotplug.msm_enabled > 0)
+		schedule_work(&hotplug.resume_work);
+}
+
+static struct early_suspend msm_hotplug_early_suspend_driver = {
+	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 10,
+	.suspend = msm_hotplug_early_suspend,
+	.resume = msm_hotplug_late_resume,
+};
+#endif  /* CONFIG_HAS_EARLYSUSPEND */
+
 /************************** sysfs interface ************************/
 
 static ssize_t show_enable_hotplug(struct device *dev,
@@ -590,7 +615,13 @@ static ssize_t store_enable_hotplug(struct device *dev,
 
 	if (hotplug.msm_enabled) {
 		reschedule_hotplug_work();
+#if defined(CONFIG_HAS_EARLYSUSPEND) && !defined(CONFIG_MACH_LGE)
+		register_early_suspend(&msm_hotplug_early_suspend_driver);
+#endif
 	} else {
+#if defined(CONFIG_HAS_EARLYSUSPEND) && !defined(CONFIG_MACH_LGE)
+		unregister_early_suspend(&msm_hotplug_early_suspend_driver);
+#endif
 		flush_workqueue(hotplug_wq);
 		cancel_delayed_work_sync(&hotplug_work);
 		for_each_online_cpu(cpu) {
@@ -933,12 +964,14 @@ static int __devinit msm_hotplug_probe(struct platform_device *pdev)
 		goto err_dev;
 	}
 
+#ifdef CONFIG_MACH_LGE
 	hotplug.notif.notifier_call = lcd_notifier_callback;
         if (lcd_register_client(&hotplug.notif) != 0) {
                 pr_err("%s: Failed to register LCD notifier callback\n",
                        MSM_HOTPLUG);
 		goto err_dev;
 	}
+#endif
 
 	ret = input_register_handler(&hotplug_input_handler);
 	if (ret) {
