@@ -37,6 +37,7 @@
 #include <mach/cpufreq.h>
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
+#include <mach/cpufreq.h>
 #include <linux/regulator/consumer.h>
 
 #define MAX_RAILS 5
@@ -93,6 +94,8 @@ static int limit_idx;
 static int limit_idx_low = 8;
 
 static int limit_idx_high;
+static int throttled;
+static int max_idx;
 static int max_tsens_num;
 static bool immediately_limit_stop = false;
 static struct cpufreq_frequency_table *table;
@@ -230,7 +233,7 @@ static int update_cpu_min_freq_all(uint32_t min)
 	if (!freq_table_get) {
 		ret = check_freq_table();
 		if (ret) {
-			pr_err("%s:Fail to get freq table\n", __func__);
+			pr_err("%s:Fail to get freq table\n", KBUILD_MODNAME);
 			return ret;
 		}
 	}
@@ -242,8 +245,8 @@ static int update_cpu_min_freq_all(uint32_t min)
 	for_each_possible_cpu(cpu) {
 		ret = msm_cpufreq_set_freq_limits(cpu, min, thermal_limited_max_freq);
 		if (ret) {
-			pr_err("%s:Fail to set limits for cpu%d\n",
-					__func__, cpu);
+			pr_err("%s:Fail to set limits for cpu:%d\n",
+					KBUILD_MODNAME, cpu);
 			return ret;
 		}
 
@@ -639,13 +642,13 @@ static int msm_thermal_get_freq_table(void)
 	while (table[i].frequency != CPUFREQ_TABLE_END)
 		i++;
 
-	limit_idx_high = limit_idx = i - 1;
+	limit_idx_high = limit_idx = max_idx = i - 1;
 	BUG_ON(limit_idx_high <= 0 || limit_idx_high <= limit_idx_low);
 fail:
 	return ret;
 }
 
-static int update_cpu_max_freq(int cpu, uint32_t max_freq)
+static int update_cpu_max_freq(int cpu, uint32_t max_freq, long temp)
 {
 	int ret = 0;
 
@@ -654,27 +657,28 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 		return ret;
 
 	thermal_limited_max_freq = max_freq;
-	if (max_freq != MSM_CPUFREQ_NO_LIMIT)
-		pr_info("%s: Limiting cpu%d max frequency to %d\n",
-				KBUILD_MODNAME, cpu, max_freq);
-	else
-		pr_info("%s: Max frequency reset for cpu%d\n",
-				KBUILD_MODNAME, cpu);
-
-	if (cpu_online(cpu)) {
-		struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
-		if (!policy)
-			return ret;
-		ret = cpufreq_driver_target(policy, policy->cur,
-				CPUFREQ_RELATION_H);
-		cpufreq_cpu_put(policy);
+	if (!cpu) {
+		if (max_freq != MSM_CPUFREQ_NO_LIMIT)
+			pr_info
+			    ("%s: Limiting max frequency to %d [Temp %ldC]\n",
+			     KBUILD_MODNAME, max_freq, temp);
+		else
+			pr_info("%s: Max frequency reset [Temp %ldC]\n",
+				KBUILD_MODNAME, temp);
 	}
+	get_online_cpus();
+	for_each_online_cpu(cpu) {
+		if (cpufreq_update_policy(cpu))
+			pr_info("%s: Unable to update policy for cpu:%d\n",
+				KBUILD_MODNAME, cpu);
+	}
+	put_online_cpus();
 
 	return ret;
 }
 
 #ifdef CONFIG_SMP
-static void __cpuinit do_core_control(long temp)
+static void __ref do_core_control(long temp)
 {
 	int i = 0;
 	int ret = 0;
@@ -838,7 +842,7 @@ exit:
 	return ret;
 }
 
-static void __cpuinit do_freq_control(long temp)
+static void __ref do_freq_control(long temp)
 {
 	int ret = 0;
 	int cpu = 0;
@@ -861,13 +865,17 @@ static void __cpuinit do_freq_control(long temp)
 		limit_idx -= msm_thermal_info_local.freq_step;
 		if (limit_idx < limit_idx_low)
 			limit_idx = limit_idx_low;
-		max_freq = table[limit_idx].frequency;
+		/* Consider saved policy->max freq */
+		max_freq = table[min(max_idx -
+					(int)msm_thermal_info_local.freq_step,
+					limit_idx)].frequency;
 	} else if (temp < msm_thermal_info_local.limit_temp_degC -
 			msm_thermal_info_local.temp_hysteresis_degC) {
 		if (limit_idx == limit_idx_high)
 			return;
 
 		limit_idx += msm_thermal_info_local.freq_step;
+		limit_idx_high = min(max_idx, limit_idx_high);
 		if ((limit_idx >= limit_idx_high) ||
 				immediately_limit_stop == true) {
 			limit_idx = limit_idx_high;
@@ -886,11 +894,26 @@ static void __cpuinit do_freq_control(long temp)
 	if (max_freq == thermal_limited_max_freq)
 		return;
 
+	if (!throttled && max_freq > 0) {
+		/*
+		 * We're about to throttle cpu maximum freq. Save
+		 * current policy->max frequency table index and
+		 * set max_freq accordingly.
+		 */
+		struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
+		max_idx = msm_cpufreq_get_index(policy, policy->max);
+		max_freq =
+		    table[max_idx - msm_thermal_info.freq_step].frequency;
+		throttled = 1;
+	} else if (throttled && max_freq < 0)
+		throttled = 0;
+
+	limited_max_freq = max_freq;
 	/* Update new limits */
 	for_each_possible_cpu(cpu) {
 		if (!(msm_thermal_info_local.freq_control_mask & BIT(cpu)))
 			continue;
-		ret = update_cpu_max_freq(cpu, max_freq);
+		ret = update_cpu_max_freq(cpu, max_freq, temp);
 		if (ret)
 			pr_debug(
 			"%s: Unable to limit cpu%d max freq to %d\n",
@@ -898,7 +921,7 @@ static void __cpuinit do_freq_control(long temp)
 	}
 }
 
-static void __cpuinit check_temp(struct work_struct *work)
+static void __ref check_temp(struct work_struct *work)
 {
 	static int limit_init;
 	struct tsens_device tsens_dev;
@@ -942,7 +965,7 @@ reschedule:
 				msecs_to_jiffies(msm_thermal_info_local.poll_ms));
 }
 
-static int __cpuinit msm_thermal_cpu_callback(struct notifier_block *nfb,
+static int __ref msm_thermal_cpu_callback(struct notifier_block *nfb,
 		unsigned long action, void *hcpu)
 {
 	unsigned int cpu = (unsigned long)hcpu;
@@ -964,7 +987,7 @@ static int __cpuinit msm_thermal_cpu_callback(struct notifier_block *nfb,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block __cpuinitdata msm_thermal_cpu_notifier = {
+static struct notifier_block __refdata msm_thermal_cpu_notifier = {
 	.notifier_call = msm_thermal_cpu_callback,
 };
 
@@ -1006,7 +1029,7 @@ static void thermal_rtc_callback(struct alarm *al)
  * status will be carried over to the process stopping the msm_thermal, as
  * we dont want to online a core and bring in the thermal issues.
  */
-static void __cpuinit disable_msm_thermal(void)
+static void __ref disable_msm_thermal(void)
 {
 	int cpu = 0;
 
@@ -1016,12 +1039,17 @@ static void __cpuinit disable_msm_thermal(void)
 	if (thermal_limited_max_freq == MSM_CPUFREQ_NO_LIMIT)
 		return;
 
-	for_each_possible_cpu(cpu) {
-		update_cpu_max_freq(cpu, MSM_CPUFREQ_NO_LIMIT);
+	limited_max_freq = MSM_CPUFREQ_NO_LIMIT;
+	get_online_cpus();
+	for_each_online_cpu(cpu) {
+		if (cpufreq_update_policy(cpu))
+			pr_info("%s: Unable to update policy for cpu:%d\n",
+				KBUILD_MODNAME, cpu);
 	}
+	put_online_cpus();
 }
 
-static int __cpuinit set_enabled(const char *val, const struct kernel_param *kp)
+static int __ref set_enabled(const char *val, const struct kernel_param *kp)
 {
 	int ret = 0;
 
@@ -1131,7 +1159,7 @@ done_stat_nodes:
 
 #ifdef CONFIG_SMP
 /* Call with core_control_mutex locked */
-static int __cpuinit update_offline_cores(int val)
+static int __ref update_offline_cores(int val)
 {
 	int cpu = 0;
 	int ret = 0;
@@ -1165,7 +1193,7 @@ static ssize_t show_cc_enabled(struct kobject *kobj,
 	return snprintf(buf, PAGE_SIZE, "%d\n", core_control_enabled);
 }
 
-static ssize_t __cpuinit store_cc_enabled(struct kobject *kobj,
+static ssize_t __ref store_cc_enabled(struct kobject *kobj,
 		struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	int ret = 0;
@@ -1202,7 +1230,7 @@ static ssize_t show_cpus_offlined(struct kobject *kobj,
 	return snprintf(buf, PAGE_SIZE, "%d\n", cpus_offlined);
 }
 
-static ssize_t __cpuinit store_cpus_offlined(struct kobject *kobj,
+static ssize_t __ref store_cpus_offlined(struct kobject *kobj,
 		struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	int ret = 0;
@@ -1230,19 +1258,19 @@ done_cc:
 	return count;
 }
 
-static __cpuinitdata struct kobj_attribute cc_enabled_attr =
+static __refdata struct kobj_attribute cc_enabled_attr =
 __ATTR(enabled, 0664, show_cc_enabled, store_cc_enabled);
 
-static __cpuinitdata struct kobj_attribute cpus_offlined_attr =
+static __refdata struct kobj_attribute cpus_offlined_attr =
 __ATTR(cpus_offlined, 0664, show_cpus_offlined, store_cpus_offlined);
 
-static __cpuinitdata struct attribute *cc_attrs[] = {
+static __refdata struct attribute *cc_attrs[] = {
 	&cc_enabled_attr.attr,
 	&cpus_offlined_attr.attr,
 	NULL,
 };
 
-static __cpuinitdata struct attribute_group cc_attr_group = {
+static __refdata struct attribute_group cc_attr_group = {
 	.attrs = cc_attrs,
 };
 
@@ -1280,15 +1308,15 @@ static ssize_t store_wakeup_ms(struct kobject *kobj,
 	return count;
 }
 
-static __cpuinitdata struct kobj_attribute timer_attr =
+static __refdata struct kobj_attribute timer_attr =
 __ATTR(wakeup_ms, 0644, show_wakeup_ms, store_wakeup_ms);
 
-static __cpuinitdata struct attribute *tt_attrs[] = {
+static __refdata struct attribute *tt_attrs[] = {
 	&timer_attr.attr,
 	NULL,
 };
 
-static __cpuinitdata struct attribute_group tt_attr_group = {
+static __refdata struct attribute_group tt_attr_group = {
 	.attrs = tt_attrs,
 };
 
@@ -1377,13 +1405,16 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 		return -EINVAL;
 
 	enabled = 1;
-	if (num_possible_cpus() > 1)
-		core_control_enabled = 1;
 	INIT_DELAYED_WORK(&check_temp_work, check_temp);
-	schedule_delayed_work(&check_temp_work, 0);
+	schedule_delayed_work(&check_temp_work, 10);
 
-	if (num_possible_cpus() > 1)
+	if (num_possible_cpus() > 1) {
+		mutex_lock(&core_control_mutex);
+		core_control_enabled = 1;
 		register_cpu_notifier(&msm_thermal_cpu_notifier);
+		update_offline_cores(cpus_offlined);
+		mutex_unlock(&core_control_mutex);
+	}
 
 	return ret;
 }
