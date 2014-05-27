@@ -2038,7 +2038,8 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	device->reset_counter++;
 
-	set_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv); 
+	set_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
+
 	return 0;
 
 error_rb_stop:
@@ -2155,7 +2156,8 @@ static int adreno_stop(struct kgsl_device *device)
 
 	kgsl_cffdump_close(device);
 
-	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv); 
+	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
+
 	return 0;
 }
 
