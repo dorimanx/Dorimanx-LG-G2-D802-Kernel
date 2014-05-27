@@ -1668,20 +1668,9 @@ module_param_call(smb349_irq_debug, smb349_irq_debug_set, param_get_int,
 #ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
 static int smb349_thermal_mitigation;
 static int
-smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp,
-			struct smb349_struct *smb349_chg)
+smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 {
 	int ret;
-#ifdef CONFIG_FORCE_FAST_CHARGE
-	int batt_temp_check;
-	int new_thermal_mitigation;
-
-	if (smb349_chg->btm_state == BTM_HEALTH_OVERHEAT) {
-		batt_temp_check = 1;
-		pr_err("Battery is overheated! above 55c");
-	} else
-		batt_temp_check = 0;
-#endif
 
 	ret = param_set_int(val, kp);
 	if (ret) {
@@ -1701,48 +1690,8 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp,
 		pr_err("thermal-engine chg current control not permitted\n");
 		return 0;
 	} else {
-#ifdef CONFIG_FORCE_FAST_CHARGE
-		if (force_fast_charge == 2) {
-			switch (fast_charge_level) {
-				case FAST_CHARGE_500:
-					new_thermal_mitigation = 500;
-					break;
-				case FAST_CHARGE_900:
-					new_thermal_mitigation = 900;
-					break;
-				case FAST_CHARGE_1200:
-					new_thermal_mitigation = 1200;
-					break;
-				case FAST_CHARGE_1500:
-					new_thermal_mitigation = 1500;
-					break;
-				case FAST_CHARGE_1800:
-					new_thermal_mitigation = 1800;
-					break;
-				case FAST_CHARGE_2000:
-					new_thermal_mitigation = 2000;
-					break;
-				default:
-					break;
-			}
-		} else {
-			new_thermal_mitigation = 1600;
-		}
-
-		/*
-		 * if batt_temp_check = 1 then battery is 55c or more!
-		 * stop fast charge and set max 300ma
-		 */
-		if (batt_temp_check == 1) {
-			the_smb349_chg->chg_current_te = 300;
-			smb349_thermal_mitigation = 300;
-		} else {
-			the_smb349_chg->chg_current_te = new_thermal_mitigation;
-			smb349_thermal_mitigation = new_thermal_mitigation;
-		}
-#else
 		the_smb349_chg->chg_current_te = smb349_thermal_mitigation;
-#endif
+
 		cancel_delayed_work_sync(&the_smb349_chg->battemp_work);
 		schedule_delayed_work(&the_smb349_chg->battemp_work, HZ*1);
 	}
@@ -2427,6 +2376,9 @@ static void smb349_irq_worker(struct work_struct *work)
 	}
 
 #ifdef CONFIG_FORCE_FAST_CHARGE
+
+	mutex_lock(&smb349_chg->lock);
+
 	if (smb349_chg->btm_state == BTM_HEALTH_OVERHEAT)
 		batt_temp_check = 1;
 	else
@@ -2463,12 +2415,19 @@ static void smb349_irq_worker(struct work_struct *work)
 	 * if batt_temp_check = 1 then battery is 55c or more!
 	 * stop fast charge and set max 300ma
 	 */
-
-	if (batt_temp_check == 1) {
+	if ((batt_temp_check == 1) && (smb349_thermal_mitigation != 300)) {
 		smb349_thermal_mitigation = 300;
+		the_smb349_chg->chg_current_te = smb349_thermal_mitigation;
+		cancel_delayed_work_sync(&the_smb349_chg->battemp_work);
+		schedule_delayed_work(&the_smb349_chg->battemp_work, HZ*1);
 	} else if (smb349_thermal_mitigation != new_thermal_mitigation) {
-			smb349_thermal_mitigation = new_thermal_mitigation;
+		smb349_thermal_mitigation = new_thermal_mitigation;
+		the_smb349_chg->chg_current_te = smb349_thermal_mitigation;
+		cancel_delayed_work_sync(&the_smb349_chg->battemp_work);
+		schedule_delayed_work(&the_smb349_chg->battemp_work, HZ*1);
 	}
+
+	mutex_unlock(&smb349_chg->lock);
 #endif
 
 	if (irqstat[IRQSTAT_D] & BIT(5)) {
