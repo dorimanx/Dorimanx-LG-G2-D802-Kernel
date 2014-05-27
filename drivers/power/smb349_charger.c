@@ -706,23 +706,13 @@ static bool smb349_is_charger_present(struct i2c_client *client)
 
 	if (power_ok) {
 		voltage = smb349_get_usbin_adc();
-#ifdef CONFIG_FORCE_FAST_CHARGE
-		if (fake_original_cable == FAKE_ORIGINAL_CABLE_ENABLE) {
-			dc_charger_present = 1;
-			smb349_pr_info("Fake Original Cable Enabled");
-		}
-#endif
 #if SMB349_BOOSTBACK_WORKAROUND
 		smb349_pr_info("DC is present. DC_IN volt:%d\n", voltage);
 #else
 		pr_err("DC is present. DC_IN volt:%d\n", voltage);
 #endif
-	} else {
+	} else
 		pr_err("DC is missing.\n");
-#ifdef CONFIG_FORCE_FAST_CHARGE
-		dc_charger_present = 0;
-#endif
-	}
 
 	return power_ok;
 }
@@ -2481,11 +2471,7 @@ static void smb349_irq_worker(struct work_struct *work)
 	}
 #endif
 
-#ifdef CONFIG_FORCE_FAST_CHARGE
-	if ((irqstat[IRQSTAT_D] & BIT(5)) || dc_charger_present == 1) {
-#else
 	if (irqstat[IRQSTAT_D] & BIT(5)) {
-#endif
 		ret = smb349_read_reg(smb349_chg->client, STATUS_E_REG, &val);
 		if (ret < 0)
 			pr_err("Failed to AICL result rc=%d\n", ret);
@@ -2500,11 +2486,7 @@ static void smb349_irq_worker(struct work_struct *work)
 #endif
 	}
 
-#ifdef CONFIG_FORCE_FAST_CHARGE
-	if ((!(irqstat[IRQSTAT_E] & 0x01)) || dc_charger_present == 1) {
-#else
 	if (!(irqstat[IRQSTAT_E] & 0x01)) {
-#endif
 #if SMB349_BOOSTBACK_WORKAROUND
 		smb349_pr_info("[BH] DC is present. DC_IN volt:%d\n", smb349_get_usbin_adc());
 #else

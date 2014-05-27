@@ -44,8 +44,6 @@
 int force_fast_charge;
 int fast_charge_level;
 int fake_charge_ac;
-int fake_original_cable;
-int dc_charger_present;
 
 /* sysfs interface for "force_fast_charge" */
 static ssize_t force_fast_charge_show(struct kobject *kobj,
@@ -130,31 +128,6 @@ static ssize_t fake_charge_ac_store(struct kobject *kobj,
 	return -EINVAL;
 }
 
-static ssize_t fake_original_cable_show(struct kobject *kobj,
-				struct kobj_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%d\n", fake_original_cable);
-}
-
-static ssize_t fake_original_cable_store(struct kobject *kobj,
-			struct kobj_attribute *attr, const char *buf,
-			size_t count)
-{
-	int new_fake_original_cable;
-
-	sscanf(buf, "%du", &new_fake_original_cable);
-
-	switch (new_fake_original_cable) {
-		case FAKE_ORIGINAL_CABLE_DISABLE:
-		case FAKE_ORIGINAL_CABLE_ENABLE:
-			fake_original_cable = new_fake_original_cable;
-			return count;
-		default:
-			return -EINVAL;
-	}
-	return -EINVAL;
-}
-
 /* sysfs interface for "fast_charge_levels" */
 static ssize_t available_charge_levels_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
@@ -191,16 +164,10 @@ static struct kobj_attribute fake_charge_ac_attribute =
 		fake_charge_ac_show,
 		fake_charge_ac_store);
 
-static struct kobj_attribute fake_original_cable_attribute =
-	__ATTR(fake_original_cable, 0666,
-		fake_original_cable_show,
-		fake_original_cable_store);
-
 static struct attribute *force_fast_charge_attrs[] = {
 	&force_fast_charge_attribute.attr,
 	&fast_charge_level_attribute.attr,
 	&fake_charge_ac_attribute.attr,
-	&fake_original_cable_attribute.attr,
 	&available_charge_levels_attribute.attr,
 	&version_attribute.attr,
 	NULL,

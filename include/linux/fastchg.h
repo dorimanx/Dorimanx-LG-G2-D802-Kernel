@@ -21,8 +21,6 @@
 extern int force_fast_charge;
 extern int fast_charge_level;
 extern int fake_charge_ac;
-extern int fake_original_cable;
-extern int dc_charger_present;
 
 #define FAST_CHARGE_DISABLED		0	/* default */
 #define FAST_CHARGE_FORCE_AC		1
@@ -39,8 +37,5 @@ extern int dc_charger_present;
 
 #define FAKE_CHARGE_AC_DISABLE	0
 #define FAKE_CHARGE_AC_ENABLE	1
-
-#define FAKE_ORIGINAL_CABLE_DISABLE	0
-#define FAKE_ORIGINAL_CABLE_ENABLE	1
 
 #endif
