@@ -41,7 +41,7 @@
 
 #define MAX_RAILS 5
 
-#define DEFAULT_POLLING_MS	250
+#define DEFAULT_POLLING_MS	500
 
 #ifdef CONFIG_INTELLI_THERMAL_STATS
 /* last 3 minutes based on $DEFAULT_POLLING_MS polling cycle */
@@ -60,19 +60,19 @@ static uint32_t hist_index = 0;
 static struct msm_thermal_data msm_thermal_info;
 
 static struct msm_thermal_data msm_thermal_info_local = {
-	.sensor_id = 0,
+	.sensor_id = 5,
 	.poll_ms = DEFAULT_POLLING_MS,
-	.limit_temp_degC = 75,
+	.limit_temp_degC = 80,
 	.temp_hysteresis_degC = 10,
 	.freq_step = 2,
 	.freq_control_mask = 0xf,
-	.core_limit_temp_degC = 70,
+	.core_limit_temp_degC = 80,
 	.core_temp_hysteresis_degC = 10,
 	.core_control_mask = 0xe,
 	.vdd_rstr_temp_degC = 5,
 	.vdd_rstr_temp_hyst_degC = 10,
 	.psm_temp_degC = 85,
-	.psm_temp_hyst_degC = 75,
+	.psm_temp_hyst_degC = 80,
 };
 static uint32_t thermal_limited_max_freq = MSM_CPUFREQ_NO_LIMIT;
 static struct delayed_work check_temp_work;
@@ -89,7 +89,13 @@ static int enabled;
 static int rails_cnt;
 static int psm_rails_cnt;
 static int limit_idx;
-static int limit_idx_low;
+
+/*
+ * min limit is set to 1497600!
+ * check your FREQ Table and set corect freq number.
+ */
+static int limit_idx_low = 9;
+
 static int limit_idx_high;
 static int max_tsens_num;
 static bool immediately_limit_stop = false;
@@ -112,7 +118,7 @@ module_param_named(limit_temp_degC, msm_thermal_info_local.limit_temp_degC,
 			int, 0664);
 module_param_named(temp_hysteresis_degC, msm_thermal_info_local.temp_hysteresis_degC,
 			int, 0664);
-module_param_named(freq_step, msm_thermal_info.freq_step,
+module_param_named(freq_step, msm_thermal_info_local.freq_step,
 			int, 0664);
 module_param_named(immediately_limit_stop, immediately_limit_stop,
 			bool, 0664);
@@ -637,7 +643,6 @@ static int msm_thermal_get_freq_table(void)
 	while (table[i].frequency != CPUFREQ_TABLE_END)
 		i++;
 
-	limit_idx_low = 0;
 	limit_idx_high = limit_idx = i - 1;
 	BUG_ON(limit_idx_high <= 0 || limit_idx_high <= limit_idx_low);
 fail:
@@ -838,8 +843,8 @@ static void __cpuinit do_freq_control(long temp)
 	int cpu = 0;
 	uint32_t max_freq = thermal_limited_max_freq;
 
-	if (msm_thermal_info_local.limit_temp_degC > 75)
-		msm_thermal_info_local.limit_temp_degC = 75;
+	if (msm_thermal_info_local.limit_temp_degC > 80)
+		msm_thermal_info_local.limit_temp_degC = 80;
 
 	if (debug_mode == 1)
 		printk(KERN_ERR "pre-check do_freq_control temp[%u], \
@@ -862,7 +867,7 @@ static void __cpuinit do_freq_control(long temp)
 			return;
 
 		limit_idx += msm_thermal_info_local.freq_step;
-		if (limit_idx >= limit_idx_high ||
+		if ((limit_idx >= limit_idx_high) ||
 				immediately_limit_stop == true) {
 			limit_idx = limit_idx_high;
 			max_freq = MSM_CPUFREQ_NO_LIMIT;
@@ -1027,7 +1032,7 @@ static int __cpuinit set_enabled(const char *val, const struct kernel_param *kp)
 		if (!enabled) {
 			enabled = 1;
 			queue_delayed_work(system_power_efficient_wq,
-					&check_temp_work, 10);
+					&check_temp_work, 0);
 			pr_info("msm_thermal: rescheduling...\n");
 		} else
 			pr_info("msm_thermal: already running...\n");
@@ -1375,7 +1380,7 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 	if (num_possible_cpus() > 1)
 		core_control_enabled = 1;
 	INIT_DELAYED_WORK(&check_temp_work, check_temp);
-	queue_delayed_work(system_power_efficient_wq, &check_temp_work, 10);
+	queue_delayed_work(system_power_efficient_wq, &check_temp_work, 0);
 
 	if (num_possible_cpus() > 1)
 		register_cpu_notifier(&msm_thermal_cpu_notifier);
