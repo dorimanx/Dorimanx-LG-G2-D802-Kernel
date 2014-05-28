@@ -162,7 +162,7 @@ static void run_boost_migration(unsigned int cpu)
 		return;
 
 	req_freq = load_based_syncs ?
-		(dest_policy.cpuinfo.max_freq * s->task_load) / 100 :
+		(dest_policy.max * s->task_load) / 100 :
 						src_policy.cur;
 
 	if (req_freq <= dest_policy.cpuinfo.min_freq) {
