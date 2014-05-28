@@ -5,7 +5,7 @@
 
 DHDCFLAGS = -Wall -Wstrict-prototypes -Dlinux -DLINUX -DBCMDRIVER             \
         -DBCMDONGLEHOST -DUNRELEASEDCHIP -DBCMDMA32 -DBCMFILEIMAGE            \
-        -DDHDTHREAD -DBDC                                                     \
+        -DDHDTHREAD -DBDC -DDHD_USE_POWERSUSPEND                              \
         -DDHD_BCMEVENTS -DSHOW_EVENTS -DBCMDBG                                \
         -DMMC_SDIO_ABORT -DBCMSDIO -DBCMLXSDMMC -DBCMPLATFORM_BUS -DWLP2P     \
         -DWIFI_ACT_FRAME -DARP_OFFLOAD_SUPPORT                                \
@@ -92,7 +92,7 @@ DHDCFLAGS += -DCUSTOM_PNO_EVENT_LOCK_xTIME=10
 DHDCFLAGS += -DPASS_ALL_MCAST_PKTS
 
 # Early suspend
-DHDCFLAGS += -DDHD_USE_EARLYSUSPEND -DCONFIG_HAS_EARLYSUSPEND
+#DHDCFLAGS += -DDHD_USE_EARLYSUSPEND -DCONFIG_HAS_EARLYSUSPEND
 
 # WiFi turn off delay
 #DHDCFLAGS += -DWIFI_TURNOFF_DELAY=100
@@ -336,7 +336,7 @@ endif
 
 #EXTRA_LDFLAGS += --strip-debug
 
-EXTRA_CFLAGS += $(DHDCFLAGS) #-DDHD_DEBUG
+EXTRA_CFLAGS += $(DHDCFLAGS) -DDHD_DEBUG
 EXTRA_CFLAGS += -DSRCBASE=\"$(src)/src\"
 EXTRA_CFLAGS += -I$(src)/src/include/
 EXTRA_CFLAGS += -I$(src)/src/dhd/sys/

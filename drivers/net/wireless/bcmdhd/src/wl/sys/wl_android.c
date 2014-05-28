@@ -453,7 +453,7 @@ static int wl_android_set_suspendmode(struct net_device *dev, char *command, int
 {
 	int ret = 0;
 
-#if !defined(CONFIG_HAS_EARLYSUSPEND) || !defined(DHD_USE_EARLYSUSPEND)
+#if !defined(CONFIG_POWERSUSPEND) || !defined(DHD_USE_POWERSUSPEND)
 	int suspend_flag;
 
 	suspend_flag = *(command + strlen(CMD_SETSUSPENDMODE) + 1) - '0';
