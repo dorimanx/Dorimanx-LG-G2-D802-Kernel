@@ -588,6 +588,104 @@ static struct early_suspend msm_hotplug_early_suspend_driver = {
 };
 #endif  /* CONFIG_HAS_EARLYSUSPEND */
 
+static int hotplug_start(void)
+{
+	int cpu, ret = 0;
+	struct down_lock *dl;
+
+	hotplug_wq =
+	    alloc_workqueue("msm_hotplug_wq", WQ_HIGHPRI | WQ_FREEZABLE, 0);
+	if (!hotplug_wq) {
+		pr_err("%s: Failed to allocate hotplug workqueue\n",
+		       MSM_HOTPLUG);
+		ret = -ENOMEM;
+		goto err_out;
+	}
+
+#ifdef CONFIG_MACH_LGE
+	hotplug.notif.notifier_call = lcd_notifier_callback;
+        if (lcd_register_client(&hotplug.notif) != 0) {
+                pr_err("%s: Failed to register LCD notifier callback\n",
+                       MSM_HOTPLUG);
+		goto err_dev;
+	}
+#endif
+
+	ret = input_register_handler(&hotplug_input_handler);
+	if (ret) {
+		pr_err("%s: Failed to register input handler: %d\n",
+		       MSM_HOTPLUG, ret);
+		goto err_dev;
+	}
+
+	stats.load_hist = kmalloc(sizeof(stats.hist_size), GFP_KERNEL);
+	if (!stats.load_hist) {
+		pr_err("%s: Failed to allocated memory\n", MSM_HOTPLUG);
+		ret = -ENOMEM;
+		goto err_input;
+	}
+
+	mutex_init(&stats.stats_mutex);
+
+	INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
+	INIT_WORK(&hotplug.up_work, cpu_up_work);
+	INIT_WORK(&hotplug.down_work, cpu_down_work);
+	INIT_WORK(&hotplug.resume_work, msm_hotplug_resume_work);
+
+	for_each_possible_cpu(cpu) {
+		dl = &per_cpu(lock_info, cpu);
+		INIT_DELAYED_WORK(&dl->lock_rem, remove_down_lock);
+	}
+
+	queue_delayed_work_on(0, hotplug_wq, &hotplug_work,
+					      START_DELAY);
+
+#if defined(CONFIG_HAS_EARLYSUSPEND) && !defined(CONFIG_MACH_LGE)
+	register_early_suspend(&msm_hotplug_early_suspend_driver);
+#endif
+
+	return ret;
+
+err_input:
+	input_unregister_handler(&hotplug_input_handler);
+err_dev:
+	destroy_workqueue(hotplug_wq);
+err_out:
+	return ret;
+}
+
+static int hotplug_stop(void)
+{
+	int cpu;
+
+#if defined(CONFIG_HAS_EARLYSUSPEND) && !defined(CONFIG_MACH_LGE)
+	unregister_early_suspend(&msm_hotplug_early_suspend_driver);
+#endif
+
+	input_unregister_handler(&hotplug_input_handler);
+
+	flush_workqueue(hotplug_wq);
+	cancel_delayed_work_sync(&hotplug_work);
+
+	mutex_destroy(&stats.stats_mutex);
+
+	for_each_online_cpu(cpu) {
+		if (cpu == 0)
+			continue;
+		cpu_down(cpu);
+	}
+
+#ifdef CONFIG_MACH_LGE
+	hotplug.notif.notifier_call = NULL;
+#endif
+
+	kfree(stats.load_hist);
+
+	destroy_workqueue(hotplug_wq);
+
+	return 0;
+}
+
 /************************** sysfs interface ************************/
 
 static ssize_t show_enable_hotplug(struct device *dev,
@@ -613,23 +711,10 @@ static ssize_t store_enable_hotplug(struct device *dev,
 
 	hotplug.msm_enabled = val;
 
-	if (hotplug.msm_enabled) {
-		reschedule_hotplug_work();
-#if defined(CONFIG_HAS_EARLYSUSPEND) && !defined(CONFIG_MACH_LGE)
-		register_early_suspend(&msm_hotplug_early_suspend_driver);
-#endif
-	} else {
-#if defined(CONFIG_HAS_EARLYSUSPEND) && !defined(CONFIG_MACH_LGE)
-		unregister_early_suspend(&msm_hotplug_early_suspend_driver);
-#endif
-		flush_workqueue(hotplug_wq);
-		cancel_delayed_work_sync(&hotplug_work);
-		for_each_online_cpu(cpu) {
-			if (cpu == 0)
-				continue;
-			cpu_down(cpu);
-		}
-	}
+	if (hotplug.msm_enabled)
+		hotplug_start();
+	else
+		hotplug_stop();
 
 	return count;
 }
@@ -758,13 +843,17 @@ static ssize_t store_history_size(struct device *dev,
 	if (ret != 1 || val < 1 || val > 20)
 		return -EINVAL;
 
-	flush_workqueue(hotplug_wq);
-	cancel_delayed_work_sync(&hotplug_work);
+	if (hotplug.msm_enabled) {
+		flush_workqueue(hotplug_wq);
+		cancel_delayed_work_sync(&hotplug_work);
+	}
 
 	memset(stats.load_hist, 0, sizeof(stats.load_hist));
 	stats.hist_size = val;
 
-	reschedule_hotplug_work();
+	if (hotplug.msm_enabled)
+		reschedule_hotplug_work();
+
 
 	return count;
 }
@@ -939,18 +1028,8 @@ static struct attribute_group attr_group = {
 
 static int __devinit msm_hotplug_probe(struct platform_device *pdev)
 {
-	int cpu, ret = 0;
+	int ret = 0;
 	struct kobject *module_kobj;
-	struct down_lock *dl;
-
-	hotplug_wq =
-	    alloc_workqueue("msm_hotplug_wq", WQ_HIGHPRI | WQ_FREEZABLE, 0);
-	if (!hotplug_wq) {
-		pr_err("%s: Failed to allocate hotplug workqueue\n",
-		       MSM_HOTPLUG);
-		ret = -ENOMEM;
-		goto err_out;
-	}
 
 	module_kobj = kset_find_obj(module_kset, MSM_HOTPLUG);
 	if (!module_kobj) {
@@ -964,49 +1043,12 @@ static int __devinit msm_hotplug_probe(struct platform_device *pdev)
 		goto err_dev;
 	}
 
-#ifdef CONFIG_MACH_LGE
-	hotplug.notif.notifier_call = lcd_notifier_callback;
-        if (lcd_register_client(&hotplug.notif) != 0) {
-                pr_err("%s: Failed to register LCD notifier callback\n",
-                       MSM_HOTPLUG);
-		goto err_dev;
-	}
-#endif
-
-	ret = input_register_handler(&hotplug_input_handler);
-	if (ret) {
-		pr_err("%s: Failed to register input handler: %d\n",
-		       MSM_HOTPLUG, ret);
-		goto err_dev;
-	}
-
-	stats.load_hist = kmalloc(sizeof(stats.hist_size), GFP_KERNEL);
-	if (!stats.load_hist) {
-		pr_err("%s: Failed to allocated memory\n", MSM_HOTPLUG);
-		ret = -ENOMEM;
-		goto err_dev;
-	}
-
-	mutex_init(&stats.stats_mutex);
-
-	INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
-	INIT_WORK(&hotplug.up_work, cpu_up_work);
-	INIT_WORK(&hotplug.down_work, cpu_down_work);
-	INIT_WORK(&hotplug.resume_work, msm_hotplug_resume_work);
-
-	for_each_possible_cpu(cpu) {
-		dl = &per_cpu(lock_info, cpu);
-		INIT_DELAYED_WORK(&dl->lock_rem, remove_down_lock);
-	}
-
 	if (hotplug.msm_enabled)
-		queue_delayed_work_on(0, hotplug_wq, &hotplug_work,
-				      START_DELAY);
+		ret = hotplug_start();
 
 	return ret;
 err_dev:
 	module_kobj = NULL;
-	destroy_workqueue(hotplug_wq);
 err_out:
 	return ret;
 }
@@ -1018,9 +1060,8 @@ static struct platform_device msm_hotplug_device = {
 
 static int msm_hotplug_remove(struct platform_device *pdev)
 {
-	destroy_workqueue(hotplug_wq);
-	input_unregister_handler(&hotplug_input_handler);
-	kfree(stats.load_hist);
+	if (hotplug.msm_enabled)
+		hotplug_stop();
 
 	return 0;
 }
