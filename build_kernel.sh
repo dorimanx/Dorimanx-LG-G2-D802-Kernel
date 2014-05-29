@@ -168,18 +168,19 @@ for i in $(find "$KERNELDIR"/ -name "*.ko"); do
         rm -f "$i";
 done;
 
-# dorimanx detection ;)
-if [ "$HOST" == "dorimanx-virtual-machine" ] || [ "$HOST" == "dorimanx" ]; then
-	NR_CPUS=16;
-	echo "Dori power detected!";
-else
-	NR_CPUS=4
-        echo "not dorimanx system detected, setting $NR_CPUS build threads"
-fi;
-
 # Copy needed dtc binary to system to finish the build.
 if [ ! -e /bin/dtc ]; then
 	cp -a tools/dtc-binary/dtc /bin/;
+fi;
+
+# Idea by savoca
+NR_CPUS=$(grep -c ^processor /proc/cpuinfo)
+
+if [ "$NR_CPUS" -le "2" ]; then
+	NR_CPUS=4;
+	echo "Building kernel with 4 CPU threads";
+else
+	echo "Building kernel with $NR_CPUS CPU threads";
 fi;
 
 # build zImage
