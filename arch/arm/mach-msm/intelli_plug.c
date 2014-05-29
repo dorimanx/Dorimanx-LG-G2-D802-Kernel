@@ -22,19 +22,15 @@
 #include <linux/slab.h>
 #include <linux/input.h>
 #include <linux/kobject.h>
-#include <linux/cpufreq.h>
-
 #if defined(CONFIG_POWERSUSPEND)
 #include <linux/powersuspend.h>
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
+#include <linux/cpufreq.h>
 
 #define INTELLI_PLUG_MAJOR_VERSION	3
-#define INTELLI_PLUG_MINOR_VERSION	5
-
-#define DEF_SAMPLING_MS			(40)
-#define BUSY_SAMPLING_MS		(20)
+#define INTELLI_PLUG_MINOR_VERSION	6
 
 #define BUSY_PERSISTENCE		10
 #define DUAL_CORE_PERSISTENCE		7
@@ -44,13 +40,19 @@
 #define CPU_DOWN_FACTOR			2
 #define NR_FSHIFT			3
 
-static DEFINE_MUTEX(intelli_plug_mutex);
+#define DEF_SAMPLING_MS			100 / 2
+#define BUSY_SAMPLING_MS		100 / 5
+#define RESUME_SAMPLING_MS		100 / 10
+#define START_DELAY_MS			100 * 20
+#define MIN_INPUT_INTERVAL		150 * 1000L
+
+static struct mutex intelli_plug_mutex;
+static u64 last_boost_time;
 
 static struct delayed_work intelli_plug_work;
 static struct workqueue_struct *intelliplug_wq;
 
 static unsigned int sampling_time = 10;
-static unsigned int sampling_time_on = 10;
 static unsigned int persist_count = 0;
 static unsigned int busy_persist_count = 0;
 static bool hotplug_suspended = false;
@@ -67,6 +69,7 @@ static atomic_t intelli_plug_active = ATOMIC_INIT(0);
 static unsigned int eco_mode_active = 0;
 static unsigned int strict_mode_active = 0;
 static unsigned int wake_boost_active = 0;
+static unsigned int touch_boosted_cpus = 2;
 static unsigned int screen_off_max = UINT_MAX;
 
 /* HotPlug Driver Tuning */
@@ -154,18 +157,18 @@ static unsigned int calculate_thread_stats(void)
 	unsigned int nr_run;
 	unsigned int threshold_size;
 
-	if (eco_mode_active == 1) {
-		threshold_size =  ARRAY_SIZE(nr_run_thresholds_eco);
-		nr_run_hysteresis = 4;
-		nr_fshift = 1;
-		if (debug_intelli_plug)
-			pr_info("intelliplug: eco mode active!");
-	} else if (strict_mode_active == 1) {
+	if (strict_mode_active) {
 		threshold_size =  ARRAY_SIZE(nr_run_thresholds_strict);
 		nr_run_hysteresis = 2;
 		nr_fshift = 1;
 		if (debug_intelli_plug)
 			pr_info("intelliplug: strict mode active!");
+	} else if (eco_mode_active) {
+		threshold_size =  ARRAY_SIZE(nr_run_thresholds_eco);
+		nr_run_hysteresis = 4;
+		nr_fshift = 1;
+		if (debug_intelli_plug)
+			pr_info("intelliplug: eco mode active!");
 	} else {
 		threshold_size =  ARRAY_SIZE(nr_run_thresholds_full);
 		nr_run_hysteresis = 8;
@@ -176,13 +179,12 @@ static unsigned int calculate_thread_stats(void)
 
 	for (nr_run = 1; nr_run < threshold_size; nr_run++) {
 		unsigned int nr_threshold;
-		if (eco_mode_active == 1) {
-			nr_threshold = nr_run_thresholds_eco[nr_run - 1];
-		} else if (strict_mode_active == 1) {
+		if (strict_mode_active)
 			nr_threshold = nr_run_thresholds_strict[nr_run - 1];
-		} else {
+		else if (eco_mode_active)
+			nr_threshold = nr_run_thresholds_eco[nr_run - 1];
+		else
 			nr_threshold = nr_run_thresholds_full[nr_run - 1];
-		}
 
 		if (nr_run_last <= nr_run)
 			nr_threshold += nr_run_hysteresis;
@@ -375,7 +377,7 @@ static void screen_off_limit(bool on)
 #ifdef CONFIG_POWERSUSPEND
 static void intelli_plug_suspend(struct power_suspend *handler)
 #else
-static void intelli_plug_early_suspend(struct early_suspend *handler)
+static void intelli_plug_suspend(struct early_suspend *handler)
 #endif
 {
 	int cpu = 0;
@@ -385,6 +387,7 @@ static void intelli_plug_early_suspend(struct early_suspend *handler)
 
 	/* flush hotplug workqueue */
 	flush_workqueue(intelliplug_wq);
+	cancel_delayed_work_sync(&intelli_plug_work);
 
 	mutex_lock(&intelli_plug_mutex);
 	hotplug_suspended = true;
@@ -402,7 +405,7 @@ static void intelli_plug_early_suspend(struct early_suspend *handler)
 #ifdef CONFIG_POWERSUSPEND
 static void __ref intelli_plug_resume(struct power_suspend *handler)
 #else
-static void __ref intelli_plug_late_resume(struct early_suspend *handler)
+static void __ref intelli_plug_resume(struct early_suspend *handler)
 #endif
 {
 	int cpu, num_of_active_cores;
@@ -414,6 +417,7 @@ static void __ref intelli_plug_late_resume(struct early_suspend *handler)
 	/* keep cores awake long enough for faster wake up */
 	persist_count = busy_persistence;
 	hotplug_suspended = false;
+	screen_off_limit(false);
 	mutex_unlock(&intelli_plug_mutex);
 
 	if (wake_boost_active)
@@ -421,10 +425,10 @@ static void __ref intelli_plug_late_resume(struct early_suspend *handler)
 		wakeup_boost();
 	else {
 		/* wake up all possible cores */
-		if (eco_mode_active == 1)
-			num_of_active_cores = 2;
-		else if (strict_mode_active == 1)
+		if (strict_mode_active)
 			num_of_active_cores = 1;
+		else if (eco_mode_active)
+			num_of_active_cores = 2;
 		else
 			num_of_active_cores = NR_CPUS;
 
@@ -437,26 +441,124 @@ static void __ref intelli_plug_late_resume(struct early_suspend *handler)
 		}
 	}
 
-	screen_off_limit(false);
+	/* resume hotplug workqueue */
+	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
+			      RESUME_SAMPLING_MS);
 }
 
 #ifdef CONFIG_POWERSUSPEND
 static struct power_suspend intelli_plug_power_suspend_driver = {
-	.suspend = intelli_plug_suspend,
-	.resume = intelli_plug_resume,
-};
 #else
 static struct early_suspend intelli_plug_early_suspend_struct_driver = {
 	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 10,
-	.suspend = intelli_plug_early_suspend,
-	.resume = intelli_plug_late_resume,
-};
 #endif
+	.suspend = intelli_plug_suspend,
+	.resume = intelli_plug_resume,
+};
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
+
+static void __ref intelli_plug_input_event(struct input_handle *handle,
+		unsigned int type, unsigned int code, int value)
+{
+	int cpu, boosted_cpus;
+	u64 now;
+
+	if (strict_mode_active || touch_boosted_cpus == 1 || hotplug_suspended)
+		return;
+
+	now = ktime_to_us(ktime_get());
+	if (now - last_boost_time < MIN_INPUT_INTERVAL)
+		return;
+
+	if (eco_mode_active)
+		boosted_cpus = 2;
+	else
+		boosted_cpus = touch_boosted_cpus;
+
+	for_each_cpu_not(cpu, cpu_online_mask) {
+		if (boosted_cpus <= num_online_cpus())
+			break;
+		if (cpu == 0)
+			continue;
+		cpu_up(cpu);
+	}
+	last_boost_time = ktime_to_us(ktime_get());
+}
+
+static int intelli_plug_input_connect(struct input_handler *handler,
+				 struct input_dev *dev,
+				 const struct input_device_id *id)
+{
+	struct input_handle *handle;
+	int err;
+
+	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
+	if (!handle)
+		return -ENOMEM;
+
+	handle->dev = dev;
+	handle->handler = handler;
+	handle->name = handler->name;
+
+	err = input_register_handle(handle);
+	if (err)
+		goto err_register;
+
+	err = input_open_device(handle);
+	if (err)
+		goto err_open;
+
+	if (debug_intelli_plug)
+		pr_info("%s found and connected!\n", dev->name);
+
+	return 0;
+err_open:
+	input_unregister_handle(handle);
+err_register:
+	kfree(handle);
+	return err;
+}
+
+static void intelli_plug_input_disconnect(struct input_handle *handle)
+{
+	input_close_device(handle);
+	input_unregister_handle(handle);
+	kfree(handle);
+}
+
+static const struct input_device_id intelli_plug_ids[] = {
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
+			 INPUT_DEVICE_ID_MATCH_ABSBIT,
+		.evbit = { BIT_MASK(EV_ABS) },
+		.absbit = { [BIT_WORD(ABS_MT_POSITION_X)] =
+			    BIT_MASK(ABS_MT_POSITION_X) |
+			    BIT_MASK(ABS_MT_POSITION_Y) },
+	}, /* multi-touch touchscreen */
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_KEYBIT |
+			 INPUT_DEVICE_ID_MATCH_ABSBIT,
+		.keybit = { [BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH) },
+		.absbit = { [BIT_WORD(ABS_X)] =
+			    BIT_MASK(ABS_X) | BIT_MASK(ABS_Y) },
+	}, /* touchpad */
+	{ },
+};
+
+static struct input_handler intelli_plug_input_handler = {
+	.event          = intelli_plug_input_event,
+	.connect        = intelli_plug_input_connect,
+	.disconnect     = intelli_plug_input_disconnect,
+	.name           = "intelliplug_handler",
+	.id_table       = intelli_plug_ids,
+};
 
 static int __ref intelli_plug_start(void)
 {
-	intelliplug_wq = create_singlethread_workqueue("intelliplug");
+	int rc;
+
+	intelliplug_wq = alloc_workqueue("intelliplug", WQ_HIGHPRI | WQ_FREEZABLE, 0);
+	rc = input_register_handler(&intelli_plug_input_handler);
 
 	if (!intelliplug_wq) {
 		printk(KERN_ERR "Failed to create intelliplug \
@@ -464,14 +566,15 @@ static int __ref intelli_plug_start(void)
 		return -EFAULT;
 	}
 
-	sampling_time_on = 10;
 	sampling_time = 10;
 	hotplug_suspended = false;
+
+	mutex_init(&intelli_plug_mutex);
 
 	INIT_DELAYED_WORK(&intelli_plug_work, intelli_plug_work_fn);
 
 	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
-			msecs_to_jiffies(sampling_time_on));
+			      START_DELAY_MS);
 
 #if defined(CONFIG_POWERSUSPEND)
 	register_power_suspend(&intelli_plug_power_suspend_driver);
@@ -490,8 +593,10 @@ static void intelli_plug_stop(void)
 	unregister_early_suspend(&intelli_plug_early_suspend_struct_driver);
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
+	flush_workqueue(intelliplug_wq);
 	cancel_delayed_work_sync(&intelli_plug_work);
-
+	mutex_destroy(&intelli_plug_mutex);
+	input_unregister_handler(&intelli_plug_input_handler);
 	destroy_workqueue(intelliplug_wq);
 }
 
@@ -512,6 +617,7 @@ static ssize_t show_intelli_plug_active(struct kobject *kobj,
 show_one(eco_mode_active, eco_mode_active);
 show_one(strict_mode_active, strict_mode_active);
 show_one(wake_boost_active, wake_boost_active);
+show_one(touch_boosted_cpus, touch_boosted_cpus);
 show_one(def_sampling_ms, def_sampling_ms);
 show_one(busy_sampling_ms, busy_sampling_ms);
 show_one(dual_core_persistence, dual_core_persistence);
@@ -544,6 +650,7 @@ static ssize_t store_##file_name		\
 store_one(eco_mode_active, eco_mode_active);
 store_one(strict_mode_active, strict_mode_active);
 store_one(wake_boost_active, wake_boost_active);
+store_one(touch_boosted_cpus, touch_boosted_cpus);
 store_one(def_sampling_ms, def_sampling_ms);
 store_one(busy_sampling_ms, busy_sampling_ms);
 store_one(dual_core_persistence, dual_core_persistence);
@@ -564,9 +671,8 @@ static void intelli_plug_active_eval_fn(unsigned int status)
 		ret = intelli_plug_start();
 		if (ret)
 			status = 0;
-	} else {
+	} else
 		intelli_plug_stop();
-	}
 
 	atomic_set(&intelli_plug_active, status);
 }
@@ -607,6 +713,10 @@ static struct kobj_attribute strict_mode_active_attr =
 static struct kobj_attribute wake_boost_active_attr =
 	__ATTR(wake_boost_active, 0664, show_wake_boost_active,
 			store_wake_boost_active);
+
+static struct kobj_attribute touch_boosted_cpus_attr =
+	__ATTR(touch_boosted_cpus, 0664, show_touch_boosted_cpus,
+			store_touch_boosted_cpus);
 
 static struct kobj_attribute def_sampling_ms_attr =
 	__ATTR(def_sampling_ms, 0664, show_def_sampling_ms,
@@ -657,6 +767,7 @@ static struct attribute *intelli_plug_attrs[] = {
 	&eco_mode_active_attr.attr,
 	&strict_mode_active_attr.attr,
 	&wake_boost_active_attr.attr,
+	&touch_boosted_cpus_attr.attr,
 	&def_sampling_ms_attr.attr,
 	&busy_sampling_ms_attr.attr,
 	&dual_core_persistence_attr.attr,
@@ -703,7 +814,7 @@ static int __exit intelli_plug_exit(void)
 }
 
 MODULE_AUTHOR("Paul Reioux <reioux@gmail.com>");
-MODULE_AUTHOR("Alucard24 & Dorimanx");
+MODULE_AUTHOR("Alucard24 & Dorimanx & neobuddy89");
 MODULE_DESCRIPTION("'intell_plug' - An intelligent cpu hotplug driver for "
 	"Low Latency Frequency Transition capable processors");
 MODULE_LICENSE("GPLv2");
