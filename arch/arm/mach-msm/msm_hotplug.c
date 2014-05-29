@@ -21,7 +21,7 @@
 #include <linux/slab.h>
 #include <linux/cpufreq.h>
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
-#ifdef defined(CONFIG_POWERSUSPEND)
+#ifdef CONFIG_POWERSUSPEND
 #include <linux/powersuspend.h>
 #else
 #include <linux/earlysuspend.h>
@@ -565,9 +565,7 @@ static void __ref msm_hotplug_resume_work(struct work_struct *work)
 		apply_down_lock(cpu);
 	}
 }
-#endif
 
-#if !defined(CONFIG_POWERSUSPEND) && !defined(CONFIG_HAS_EARLYSUSPEND)
 static int lcd_notifier_callback(struct notifier_block *nb,
                                  unsigned long event, void *data)
 {
@@ -722,7 +720,7 @@ static int __ref msm_hotplug_start(void)
 	queue_delayed_work_on(0, hotplug_wq, &hotplug_work,
 							START_DELAY);
 
-#ifdef defined(CONFIG_POWERSUSPEND)
+#if defined(CONFIG_POWERSUSPEND)
 	register_power_suspend(&msm_hotplug_power_suspend_driver);
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	register_early_suspend(&msm_hotplug_early_suspend_driver);
