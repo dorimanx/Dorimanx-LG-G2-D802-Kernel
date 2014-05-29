@@ -486,11 +486,12 @@ reschedule:
 	reschedule_hotplug_work();
 }
 
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 #ifdef CONFIG_POWERSUSPEND
 static void msm_hotplug_suspend(struct power_suspend *handler)
-#else
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 static void msm_hotplug_suspend(struct early_suspend *handler)
+#else
+static void msm_hotplug_suspend(struct work_struct *work)
 #endif
 {
 	int cpu;
@@ -515,7 +516,13 @@ static void msm_hotplug_suspend(struct early_suspend *handler)
 	pr_info("%s: suspend\n", MSM_HOTPLUG);
 }
 
+#ifdef CONFIG_POWERSUSPEND
 static void __ref msm_hotplug_resume(struct power_suspend *handler)
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+static void __ref msm_hotplug_resume(struct early_suspend *handler)
+#else
+static void __ref msm_hotplug_resume(struct work_struct *work)
+#endif
 {
 	int cpu;
 
@@ -538,6 +545,8 @@ static void __ref msm_hotplug_resume(struct power_suspend *handler)
 	reschedule_hotplug_work();
 	pr_info("%s: resume\n", MSM_HOTPLUG);
 }
+
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 #ifdef CONFIG_POWERSUSPEND
 static struct power_suspend msm_hotplug_power_suspend_driver = {
 #else
@@ -548,49 +557,6 @@ static struct early_suspend msm_hotplug_early_suspend_driver = {
 	.resume = msm_hotplug_resume,
 };
 #else
-
-static void __ref msm_hotplug_resume_work(struct work_struct *work)
-{
-	int cpu;
-
-	mutex_lock(&msm_hotplug_mutex);
-	hotplug_suspended = false;
-	mutex_unlock(&msm_hotplug_mutex);
-
-	/* Fire up all CPUs */
-	for_each_cpu_not(cpu, cpu_online_mask) {
-		if (cpu == 0)
-			continue;
-		cpu_up(cpu);
-		apply_down_lock(cpu);
-	}
-
-	/* Resume hotplug workqueue */
-	reschedule_hotplug_work();
-	pr_info("%s: resume\n", MSM_HOTPLUG);
-}
-
-static void msm_hotplug_suspend_work(struct work_struct *work)
-{
-	int cpu;
-
-	/* Flush hotplug workqueue */
-	flush_workqueue(hotplug_wq);
-	cancel_delayed_work_sync(&hotplug_work);
-
-	mutex_lock(&msm_hotplug_mutex);
-	hotplug_suspended = true;
-	mutex_unlock(&msm_hotplug_mutex);
-
-	/* Put all sibling cores to sleep */
-	for_each_online_cpu(cpu) {
-		if (cpu == 0)
-			continue;
-		cpu_down(cpu);
-	}
-	pr_info("%s: suspend\n", MSM_HOTPLUG);
-}
-
 static int lcd_notifier_callback(struct notifier_block *nb,
                                  unsigned long event, void *data)
 {
@@ -762,8 +728,8 @@ static int __ref msm_hotplug_start(void)
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	register_early_suspend(&msm_hotplug_early_suspend_driver);
 #else
-	INIT_WORK(&hotplug.resume_work, msm_hotplug_resume_work);
-	INIT_WORK(&hotplug.supend_work, msm_hotplug_suspend_work);
+	INIT_WORK(&hotplug.resume_work, msm_hotplug_resume);
+	INIT_WORK(&hotplug.supend_work, msm_hotplug_suspend);
 #endif
 
 	return ret;
