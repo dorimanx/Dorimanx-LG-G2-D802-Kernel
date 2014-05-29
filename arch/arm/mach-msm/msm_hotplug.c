@@ -20,14 +20,16 @@
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/cpufreq.h>
-#if defined(CONFIG_POWERSUSPEND)
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#ifdef defined(CONFIG_POWERSUSPEND)
 #include <linux/powersuspend.h>
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
+#else
 #include <linux/earlysuspend.h>
+#endif
+#include <linux/mutex.h>
 #else
 #include <linux/lcd_notify.h>
 #endif
-#include <linux/mutex.h>
 #include <linux/input.h>
 #include <linux/math64.h>
 #include <linux/kernel_stat.h>
@@ -46,8 +48,10 @@
 #define DEFAULT_MAX_CPUS_ONLINE	NR_CPUS
 #define DEFAULT_FAST_LANE_LOAD	95
 
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 static DEFINE_MUTEX(msm_hotplug_mutex);
 static bool hotplug_suspended = false;
+#endif
 
 static unsigned int debug = 0;
 module_param_named(debug_mask, debug, uint, 0644);
@@ -71,7 +75,7 @@ static struct cpu_hotplug {
 	unsigned int fast_lane_load;
 	struct work_struct up_work;
 	struct work_struct down_work;
-#if !defined(CONFIG_POWERSUSPEND)
+#if !defined(CONFIG_POWERSUSPEND) && !defined(CONFIG_HAS_EARLYSUSPEND)
 	struct work_struct resume_work;
 	struct notifier_block notif;
 #endif
@@ -429,10 +433,12 @@ static void msm_hotplug_work(struct work_struct *work)
 	unsigned int cur_load, online_cpus, target = 0;
 	unsigned int i;
 
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 	if (hotplug_suspended) {
 		dprintk("msm_hotplug is suspended!\n");
 		return;
 	}
+#endif
 
 	update_load_stats();
 
@@ -483,8 +489,12 @@ reschedule:
 	reschedule_hotplug_work();
 }
 
-#if defined(CONFIG_POWERSUSPEND)
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#ifdef CONFIG_POWERSUSPEND
 static void msm_hotplug_suspend(struct power_suspend *handler)
+#else
+static void msm_hotplug_suspend(struct early_suspend *handler)
+#endif
 {
 	int cpu;
 
@@ -529,8 +539,12 @@ static void __ref msm_hotplug_resume(struct power_suspend *handler)
 	/* Resume hotplug workqueue */
 	reschedule_hotplug_work();
 }
-
+#ifdef CONFIG_POWERSUSPEND
 static struct power_suspend msm_hotplug_power_suspend_driver = {
+#else
+static struct early_suspend msm_hotplug_early_suspend_driver = {
+	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 10,
+#endif
 	.suspend = msm_hotplug_suspend,
 	.resume = msm_hotplug_resume,
 };
@@ -572,10 +586,12 @@ static void hotplug_input_event(struct input_handle *handle, unsigned int type,
 {
 	u64 now;
 
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 	if (hotplug_suspended) {
 		dprintk("msm_hotplug is suspended!\n");
 		return;
 	}
+#endif
 
 	now = ktime_to_us(ktime_get());
 	hotplug.last_input = now;
@@ -644,25 +660,6 @@ static struct input_handler hotplug_input_handler = {
 	.id_table	= hotplug_ids,
 };
 
-#if defined(CONFIG_HAS_EARLYSUSPEND) && !defined(CONFIG_POWERSUSPEND)
-static void __ref msm_hotplug_early_suspend(struct early_suspend *handler)
-{
-}
-
-static void __cpuinit msm_hotplug_late_resume(
-				struct early_suspend *handler)
-{
-	if (hotplug.msm_enabled > 0)
-		schedule_work(&hotplug.resume_work);
-}
-
-static struct early_suspend msm_hotplug_early_suspend_driver = {
-	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 10,
-	.suspend = msm_hotplug_early_suspend,
-	.resume = msm_hotplug_late_resume,
-};
-#endif  /* CONFIG_HAS_EARLYSUSPEND */
-
 static int __ref msm_hotplug_start(void)
 {
 	int cpu, ret = 0;
@@ -686,14 +683,6 @@ static int __ref msm_hotplug_start(void)
 	}
 #endif
 
-#if defined(CONFIG_POWERSUSPEND) && !defined(CONFIG_HAS_EARLYSUSPEND)
-	register_power_suspend(&msm_hotplug_power_suspend_driver);
-#endif
-
-#if defined(CONFIG_HAS_EARLYSUSPEND) && !defined(CONFIG_POWERSUSPEND)
-	register_early_suspend(&msm_hotplug_early_suspend_driver);
-#endif
-
 	ret = input_register_handler(&hotplug_input_handler);
 	if (ret) {
 		pr_err("%s: Failed to register input handler: %d\n",
@@ -713,7 +702,7 @@ static int __ref msm_hotplug_start(void)
 	INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
 	INIT_WORK(&hotplug.up_work, cpu_up_work);
 	INIT_WORK(&hotplug.down_work, cpu_down_work);
-#if !defined(CONFIG_POWERSUSPEND)
+#if !defined(CONFIG_POWERSUSPEND) && !defined(CONFIG_HAS_EARLYSUSPEND)
 	INIT_WORK(&hotplug.resume_work, msm_hotplug_resume_work);
 #endif
 
@@ -733,6 +722,12 @@ static int __ref msm_hotplug_start(void)
 	queue_delayed_work_on(0, hotplug_wq, &hotplug_work,
 							START_DELAY);
 
+#ifdef defined(CONFIG_POWERSUSPEND)
+	register_power_suspend(&msm_hotplug_power_suspend_driver);
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+	register_early_suspend(&msm_hotplug_early_suspend_driver);
+#endif
+
 	return ret;
 
 err_input:
@@ -749,6 +744,14 @@ static void msm_hotplug_stop(void)
 	int cpu;
 	struct down_lock *dl;
 
+#if defined(CONFIG_POWERSUSPEND)
+	unregister_power_suspend(&msm_hotplug_power_suspend_driver);
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+	unregister_early_suspend(&msm_hotplug_early_suspend_driver);
+#endif
+
+	input_unregister_handler(&hotplug_input_handler);
+
 	for_each_possible_cpu(cpu) {
 		dl = &per_cpu(lock_info, cpu);
 		cancel_delayed_work_sync(&dl->lock_rem);
@@ -762,15 +765,6 @@ static void msm_hotplug_stop(void)
 	mutex_destroy(&stats.stats_mutex);
 	kfree(stats.load_hist);
 
-	input_unregister_handler(&hotplug_input_handler);
-
-#if defined(CONFIG_POWERSUSPEND) && !defined(CONFIG_HAS_EARLYSUSPEND)
-	unregister_power_suspend(&msm_hotplug_power_suspend_driver);
-#endif
-
-#if defined(CONFIG_HAS_EARLYSUSPEND) && !defined(CONFIG_POWERSUSPEND)
-	unregister_early_suspend(&msm_hotplug_early_suspend_driver);
-#endif
 
 #if !defined(CONFIG_POWERSUSPEND) && !defined(CONFIG_HAS_EARLYSUSPEND)
 	hotplug.notif.notifier_call = NULL;
