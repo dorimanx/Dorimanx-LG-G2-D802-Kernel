@@ -48,7 +48,7 @@
 #define DEFAULT_MAX_CPUS_ONLINE	NR_CPUS
 #define DEFAULT_FAST_LANE_LOAD	95
 
-static DEFINE_MUTEX(msm_hotplug_mutex);
+static struct mutex msm_hotplug_mutex;
 static bool hotplug_suspended = false;
 
 static unsigned int debug = 0;
@@ -656,9 +656,9 @@ static int hotplug_input_connect(struct input_handler *handler,
 		goto err_open;
 
 	return 0;
-err_register:
-	input_unregister_handle(handle);
 err_open:
+	input_unregister_handle(handle);
+err_register:
 	kfree(handle);
 	return err;
 }
@@ -721,6 +721,7 @@ static int __ref msm_hotplug_start(void)
 	}
 
 	mutex_init(&stats.stats_mutex);
+	mutex_init(&msm_hotplug_mutex);
 
 	INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
 	INIT_WORK(&hotplug.up_work, cpu_up_work);
@@ -788,6 +789,7 @@ static void msm_hotplug_stop(void)
 	flush_workqueue(hotplug_wq);
 	cancel_delayed_work_sync(&hotplug_work);
 
+	mutex_destroy(&msm_hotplug_mutex);
 	mutex_destroy(&stats.stats_mutex);
 	kfree(stats.load_hist);
 
