@@ -63,16 +63,12 @@ static struct msm_thermal_data msm_thermal_info_local = {
 	.sensor_id = 5,
 	.poll_ms = DEFAULT_POLLING_MS,
 	.limit_temp_degC = 75,
-	.temp_hysteresis_degC = 10,
+	.temp_hysteresis_degC = 5,
 	.freq_step = 2,
 	.freq_control_mask = 0xf,
 	.core_limit_temp_degC = 75,
-	.core_temp_hysteresis_degC = 10,
+	.core_temp_hysteresis_degC = 5,
 	.core_control_mask = 0xe,
-	.vdd_rstr_temp_degC = 5,
-	.vdd_rstr_temp_hyst_degC = 10,
-	.psm_temp_degC = 85,
-	.psm_temp_hyst_degC = 80,
 };
 static uint32_t thermal_limited_max_freq = MSM_CPUFREQ_NO_LIMIT;
 static struct delayed_work check_temp_work;
@@ -91,10 +87,10 @@ static int psm_rails_cnt;
 static int limit_idx;
 
 /*
- * min limit is set to 1497600!
+ * min limit is set to 1267200!
  * check your FREQ Table and set corect freq number.
  */
-static int limit_idx_low = 9;
+static int limit_idx_low = 8;
 
 static int limit_idx_high;
 static int max_tsens_num;
@@ -771,7 +767,7 @@ static int do_vdd_restriction(void)
 			dis_cnt++;
 			continue;
 		}
-		if (temp <=  msm_thermal_info_local.vdd_rstr_temp_degC) {
+		if (temp <=  msm_thermal_info.vdd_rstr_temp_degC) {
 			ret = vdd_restriction_apply_all(1);
 			if (ret) {
 				pr_err( \
@@ -779,7 +775,7 @@ static int do_vdd_restriction(void)
 				goto exit;
 			}
 			goto exit;
-		} else if (temp > msm_thermal_info_local.vdd_rstr_temp_hyst_degC)
+		} else if (temp > msm_thermal_info.vdd_rstr_temp_hyst_degC)
 			dis_cnt++;
 	}
 	if (dis_cnt == max_tsens_num) {
@@ -818,14 +814,14 @@ static int do_psm(void)
 		 * on all rails, and loop stops. Set auto mode when all rails
 		 * are below thershold
 		 */
-		if (temp >  msm_thermal_info_local.psm_temp_degC) {
+		if (temp >  msm_thermal_info.psm_temp_degC) {
 			ret = psm_set_mode_all(PMIC_PWM_MODE);
 			if (ret) {
 				pr_err("Set pwm mode for all failed\n");
 				goto exit;
 			}
 			break;
-		} else if (temp <= msm_thermal_info_local.psm_temp_hyst_degC)
+		} else if (temp <= msm_thermal_info.psm_temp_hyst_degC)
 			auto_cnt++;
 	}
 
@@ -955,15 +951,15 @@ static int __cpuinit msm_thermal_cpu_callback(struct notifier_block *nfb,
 		if (core_control_enabled &&
 			(msm_thermal_info_local.core_control_mask & BIT(cpu)) &&
 			(cpus_offlined & BIT(cpu))) {
-#if 0
-			pr_info(
-			"%s: Preventing cpu%d from coming online.\n",
-				KBUILD_MODNAME, cpu);
-#endif
+
+			if (debug_mode == 1)
+				pr_info(
+				"%s: Preventing cpu%d from coming online.\n",
+					KBUILD_MODNAME, cpu);
+
 			return NOTIFY_BAD;
 		}
 	}
-
 
 	return NOTIFY_OK;
 }
@@ -1005,7 +1001,7 @@ static void thermal_rtc_callback(struct alarm *al)
 			ts.tv_sec, ts.tv_usec);
 }
 
-/**
+/*
  * We will reset the cpu frequencies limits here. The core online/offline
  * status will be carried over to the process stopping the msm_thermal, as
  * we dont want to online a core and bring in the thermal issues.
