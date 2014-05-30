@@ -41,7 +41,7 @@
 
 #define MAX_RAILS 5
 
-#define DEFAULT_POLLING_MS	500
+#define DEFAULT_POLLING_MS	250
 
 #ifdef CONFIG_INTELLI_THERMAL_STATS
 /* last 3 minutes based on $DEFAULT_POLLING_MS polling cycle */
@@ -62,11 +62,11 @@ static struct msm_thermal_data msm_thermal_info;
 static struct msm_thermal_data msm_thermal_info_local = {
 	.sensor_id = 5,
 	.poll_ms = DEFAULT_POLLING_MS,
-	.limit_temp_degC = 80,
+	.limit_temp_degC = 75,
 	.temp_hysteresis_degC = 10,
 	.freq_step = 2,
 	.freq_control_mask = 0xf,
-	.core_limit_temp_degC = 80,
+	.core_limit_temp_degC = 75,
 	.core_temp_hysteresis_degC = 10,
 	.core_control_mask = 0xe,
 	.vdd_rstr_temp_degC = 5,
@@ -666,7 +666,12 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 				KBUILD_MODNAME, cpu);
 
 	if (cpu_online(cpu)) {
-		ret = cpufreq_update_policy(cpu);
+		struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
+		if (!policy)
+			return ret;
+		ret = cpufreq_driver_target(policy, policy->cur,
+				CPUFREQ_RELATION_H);
+		cpufreq_cpu_put(policy);
 	}
 
 	return ret;
@@ -937,7 +942,7 @@ static void __cpuinit check_temp(struct work_struct *work)
 
 reschedule:
 	if (enabled)
-		queue_delayed_work(system_power_efficient_wq, &check_temp_work,
+		schedule_delayed_work(&check_temp_work,
 				msecs_to_jiffies(msm_thermal_info_local.poll_ms));
 }
 
@@ -1031,8 +1036,7 @@ static int __cpuinit set_enabled(const char *val, const struct kernel_param *kp)
 	} else {
 		if (!enabled) {
 			enabled = 1;
-			queue_delayed_work(system_power_efficient_wq,
-					&check_temp_work, 0);
+			schedule_delayed_work(&check_temp_work, 0);
 			pr_info("msm_thermal: rescheduling...\n");
 		} else
 			pr_info("msm_thermal: already running...\n");
@@ -1380,7 +1384,7 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 	if (num_possible_cpus() > 1)
 		core_control_enabled = 1;
 	INIT_DELAYED_WORK(&check_temp_work, check_temp);
-	queue_delayed_work(system_power_efficient_wq, &check_temp_work, 0);
+	schedule_delayed_work(&check_temp_work, 0);
 
 	if (num_possible_cpus() > 1)
 		register_cpu_notifier(&msm_thermal_cpu_notifier);
