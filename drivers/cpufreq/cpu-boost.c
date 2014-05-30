@@ -213,7 +213,7 @@ static void run_boost_migration(unsigned int cpu)
 		cpufreq_update_policy(src_cpu);
 	if (cpu_online(dest_cpu)) {
 		cpufreq_update_policy(dest_cpu);
-		queue_delayed_work_on(dest_cpu, cpu_boost_wq,
+		queue_delayed_work_on(0, cpu_boost_wq,
 			&s->boost_rem, msecs_to_jiffies(boost_ms));
 	} else {
 		s->boost_min = 0;
@@ -305,7 +305,7 @@ static void do_input_boost(struct work_struct *work)
 		cancel_delayed_work_sync(&i_sync_info->input_boost_rem);
 		i_sync_info->input_boost_min = input_boost_freq;
 		cpufreq_update_policy(i);
-		queue_delayed_work_on(i_sync_info->cpu, cpu_boost_wq,
+		queue_delayed_work_on(0, cpu_boost_wq,
 			&i_sync_info->input_boost_rem,
 			msecs_to_jiffies(input_boost_ms));
 	}
@@ -423,7 +423,7 @@ static void do_plug_boost(struct work_struct *work)
 			 i, policy.cur, plug_boost_freq);
 		i_sync_info->plug_boost_min = plug_boost_freq;
 		cpufreq_update_policy(i);
-		queue_delayed_work_on(i_sync_info->cpu, cpu_boost_wq,
+		queue_delayed_work_on(0, cpu_boost_wq,
 			&i_sync_info->plug_boost_rem,
 			msecs_to_jiffies(plug_boost_ms));
 	}
