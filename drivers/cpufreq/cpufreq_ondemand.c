@@ -39,13 +39,13 @@
 #define DEF_FREQUENCY_UP_THRESHOLD		(80)
 #define DEF_FREQUENCY_UP_THRESHOLD_ANY_CPU	(80)
 #define DEF_FREQUENCY_UP_THRESHOLD_MULTI_CORE	(80)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(90)
+#define MICRO_FREQUENCY_UP_THRESHOLD		(85)
 
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
-#define DEF_SAMPLING_RATE			(60000)
+#define DEF_SAMPLING_RATE			(50000)
 
-#define DEF_SYNC_FREQUENCY			(1574400)
-#define DEF_OPTIMAL_FREQUENCY			(1574400)
+#define DEF_SYNC_FREQUENCY			(1497600)
+#define DEF_OPTIMAL_FREQUENCY			(1497600)
 
 /* Kernel tunabble controls */
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
@@ -61,18 +61,18 @@
 #define SMART_UP_SLOW_UP_AT_HIGH_FREQ (1)
 #define SUP_MAX_STEP (3)
 #define SUP_CORE_NUM (4)
-#define SUP_SLOW_UP_DUR (4)
+#define SUP_SLOW_UP_DUR (3)
 #define SUP_SLOW_UP_DUR_DEFAULT (2)
 
 #if defined(SMART_UP_PLUS)
-static unsigned int SUP_THRESHOLD_STEPS[SUP_MAX_STEP] = {75, 80, 85};
-static unsigned int SUP_FREQ_STEPS[SUP_MAX_STEP] = {4, 3, 2};
+static unsigned int SUP_THRESHOLD_STEPS[SUP_MAX_STEP] = {70, 80, 90};
+static unsigned int SUP_FREQ_STEPS[SUP_MAX_STEP] = {3, 2, 1};
 static unsigned int min_range = 108000;
 #endif
 
 #if defined(SMART_UP_SLOW_UP_AT_HIGH_FREQ)
-#define SUP_SLOW_UP_FREQUENCY			(1958400)
-#define SUP_SLOW_UP_LOAD			(75)
+#define SUP_SLOW_UP_FREQUENCY			(2265600)
+#define SUP_SLOW_UP_LOAD			(70)
 
 typedef struct {
 	unsigned int hist_max_load[SUP_SLOW_UP_DUR];
@@ -97,7 +97,7 @@ static history_load hist_load[SUP_CORE_NUM] = {};
 static unsigned int min_sampling_rate;
 
 #define LATENCY_MULTIPLIER			(1000)
-#define MIN_LATENCY_MULTIPLIER			(100)
+#define MIN_LATENCY_MULTIPLIER			(80)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
 #define POWERSAVE_BIAS_MAXLEVEL			(1000)
