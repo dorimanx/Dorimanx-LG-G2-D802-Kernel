@@ -95,8 +95,12 @@ static struct delayed_work hotplug_work;
 
 static u64 last_boost_time;
 
+static unsigned int default_update_rates[] = { DEFAULT_UPDATE_RATE };
+
 static struct cpu_stats {
-	unsigned int update_rate;
+	unsigned int *update_rates;
+	int nupdate_rates;
+	spinlock_t update_rates_lock;
 	unsigned int *load_hist;
 	unsigned int hist_size;
 	unsigned int hist_cnt;
@@ -107,7 +111,8 @@ static struct cpu_stats {
 	unsigned int cur_max_load;
 	struct mutex stats_mutex;
 } stats = {
-	.update_rate = DEFAULT_UPDATE_RATE,
+	.update_rates = default_update_rates,
+	.nupdate_rates = ARRAY_SIZE(default_update_rates),
 	.hist_size = DEFAULT_HISTORY_SIZE,
 	.min_cpus = 1,
 	.total_cpus = NR_CPUS
@@ -423,16 +428,32 @@ static void offline_cpu(unsigned int target)
 	queue_work_on(0, hotplug_wq, &hotplug.down_work);
 }
 
+static unsigned int load_to_update_rate(unsigned int load)
+{
+	int i, ret;
+	unsigned long flags;
+
+	spin_lock_irqsave(&stats.update_rates_lock, flags);
+
+	for (i = 0; i < stats.nupdate_rates - 1 &&
+			load >= stats.update_rates[i+1]; i += 2)
+		;
+
+	ret = stats.update_rates[i];
+	spin_unlock_irqrestore(&stats.update_rates_lock, flags);
+	return ret;
+}
+
 static int reschedule_hotplug_work(void)
 {
 	return queue_delayed_work_on(0, hotplug_wq, &hotplug_work,
-				     stats.update_rate);
+				     msecs_to_jiffies(load_to_update_rate(
+						      stats.cur_avg_load)));
 }
 
 static void msm_hotplug_work(struct work_struct *work)
 {
-	unsigned int cur_load, online_cpus, target = 0;
-	unsigned int i;
+	unsigned int i, target = 0;
 
 	if (hotplug_suspended) {
 		dprintk("msm_hotplug is suspended!\n");
@@ -447,23 +468,20 @@ static void msm_hotplug_work(struct work_struct *work)
 		goto reschedule;
 	}
 
-	cur_load = stats.cur_avg_load;
-	online_cpus = stats.online_cpus;
-
 	/* If number of cpus locked, break out early */
 	if (hotplug.min_cpus_online == num_possible_cpus()) {
-		if (online_cpus != hotplug.min_cpus_online)
+		if (stats.online_cpus != hotplug.min_cpus_online)
 			online_cpu(hotplug.min_cpus_online);
 		goto reschedule;
 	} else if (hotplug.max_cpus_online == stats.min_cpus) {
-		if (online_cpus != hotplug.max_cpus_online)
+		if (stats.online_cpus != hotplug.max_cpus_online)
 			offline_cpu(hotplug.max_cpus_online);
 		goto reschedule;
 	}
 
 	for (i = stats.min_cpus; loads[i].up_threshold; i++) {
-		if (cur_load <= loads[i].up_threshold
-		    && cur_load > loads[i].down_threshold) {
+		if (stats.cur_avg_load <= loads[i].up_threshold
+		    && stats.cur_avg_load > loads[i].down_threshold) {
 			target = i;
 			break;
 		}
@@ -474,17 +492,17 @@ static void msm_hotplug_work(struct work_struct *work)
 	else if (target < hotplug.min_cpus_online)
 		target = hotplug.min_cpus_online;
 
-	if (online_cpus != target) {
-		if (target > online_cpus)
+	if (stats.online_cpus != target) {
+		if (target > stats.cur_avg_load)
 			online_cpu(target);
-		else if (target < online_cpus)
+		else if (target < stats.cur_avg_load)
 			offline_cpu(target);
 	}
 
-	dprintk("%s: cur_load: %3u online_cpus: %u target: %u\n", MSM_HOTPLUG,
-		cur_load, online_cpus, target);
-
 reschedule:
+	dprintk("%s: cur_load: %3u online_cpus: %u target: %u\n", MSM_HOTPLUG,
+		stats.cur_avg_load, stats.online_cpus, target);
+
 	reschedule_hotplug_work();
 }
 
@@ -740,7 +758,7 @@ static int __ref msm_hotplug_start(void)
 
 	stats.load_hist = kmalloc(sizeof(stats.hist_size), GFP_KERNEL);
 	if (!stats.load_hist) {
-		pr_err("%s: Failed to allocated memory\n", MSM_HOTPLUG);
+		pr_err("%s: Failed to allocate memory\n", MSM_HOTPLUG);
 		ret = -ENOMEM;
 		goto err_input;
 	}
@@ -833,6 +851,51 @@ static void msm_hotplug_stop(void)
 	}
 }
 
+static unsigned int *get_tokenized_data(const char *buf, int *num_tokens)
+{
+	const char *cp;
+	int i;
+	int ntokens = 1;
+	int *tokenized_data;
+	int err = -EINVAL;
+
+	cp = buf;
+	while ((cp = strpbrk(cp + 1, " :")))
+		ntokens++;
+
+	if (!(ntokens & 0x1))
+		goto err;
+
+	tokenized_data = kmalloc(ntokens * sizeof(int), GFP_KERNEL);
+	if (!tokenized_data) {
+		err = -ENOMEM;
+		goto err;
+	}
+
+	cp = buf;
+	i = 0;
+	while (i < ntokens) {
+		if (sscanf(cp, "%d", &tokenized_data[i++]) != 1)
+			goto err_kfree;
+
+		cp = strpbrk(cp, " :");
+		if (!cp)
+			break;
+		cp++;
+	}
+
+	if (i != ntokens)
+		goto err_kfree;
+
+	*num_tokens = ntokens;
+	return tokenized_data;
+
+err_kfree:
+	kfree(tokenized_data);
+err:
+	return ERR_PTR(err);
+}
+
 /************************** sysfs interface ************************/
 
 static ssize_t show_enable_hotplug(struct device *dev,
@@ -914,26 +977,43 @@ static ssize_t store_boost_lock_duration(struct device *dev,
 	return count;
 }
 
-static ssize_t show_update_rate(struct device *dev,
+static ssize_t show_update_rates(struct device *dev,
 				struct device_attribute *msm_hotplug_attrs,
 				char *buf)
 {
-	return sprintf(buf, "%u\n", stats.update_rate);
+	int i;
+	ssize_t ret = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&stats.update_rates_lock, flags);
+
+	for (i = 0; i < stats.nupdate_rates; i++)
+		ret += sprintf(buf + ret, "%u%s", stats.update_rates[i],
+			       i & 0x1 ? ":" : " ");
+
+	sprintf(buf + ret - 1, "\n");
+	spin_unlock_irqrestore(&stats.update_rates_lock, flags);
+	return ret;
 }
 
-static ssize_t store_update_rate(struct device *dev,
+static ssize_t store_update_rates(struct device *dev,
 				 struct device_attribute *msm_hotplug_attrs,
 				 const char *buf, size_t count)
 {
-	int ret;
-	unsigned int val;
+	int ntokens;
+	unsigned int *new_update_rates = NULL;
+	unsigned long flags;
 
-	ret = sscanf(buf, "%u", &val);
-	if (ret != 1)
-		return -EINVAL;
+	new_update_rates = get_tokenized_data(buf, &ntokens);
+	if (IS_ERR(new_update_rates))
+		return PTR_RET(new_update_rates);
 
-	stats.update_rate = val;
-
+	spin_lock_irqsave(&stats.update_rates_lock, flags);
+	if (stats.update_rates != default_update_rates)
+		kfree(stats.update_rates);
+	stats.update_rates = new_update_rates;
+	stats.nupdate_rates = ntokens;
+	spin_unlock_irqrestore(&stats.update_rates_lock, flags);
 	return count;
 }
 
@@ -1192,7 +1272,7 @@ static DEVICE_ATTR(down_lock_duration, 644, show_down_lock_duration,
 		   store_down_lock_duration);
 static DEVICE_ATTR(boost_lock_duration, 644, show_boost_lock_duration,
 		   store_boost_lock_duration);
-static DEVICE_ATTR(update_rate, 644, show_update_rate, store_update_rate);
+static DEVICE_ATTR(update_rates, 644, show_update_rates, store_update_rates);
 static DEVICE_ATTR(load_levels, 644, show_load_levels, store_load_levels);
 static DEVICE_ATTR(history_size, 644, show_history_size, store_history_size);
 static DEVICE_ATTR(min_cpus_online, 644, show_min_cpus_online,
@@ -1213,7 +1293,7 @@ static struct attribute *msm_hotplug_attrs[] = {
 	&dev_attr_msm_enabled.attr,
 	&dev_attr_down_lock_duration.attr,
 	&dev_attr_boost_lock_duration.attr,
-	&dev_attr_update_rate.attr,
+	&dev_attr_update_rates.attr,
 	&dev_attr_load_levels.attr,
 	&dev_attr_history_size.attr,
 	&dev_attr_min_cpus_online.attr,
