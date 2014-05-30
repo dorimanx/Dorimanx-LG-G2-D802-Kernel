@@ -40,7 +40,7 @@
  */
 #define CEILING			50000
 
-unsigned int upthreshold = DEF_UPTHRESH;
+unsigned int upthreshold_cons = DEF_UPTHRESH;
 unsigned int downthreshold = DEF_DOWNTHRESH;
 unsigned int conservativeness = DEF_CONSERVATIVENESS;
 
@@ -95,14 +95,14 @@ static int devfreq_conservative_func(struct devfreq *devfreq,
 
 	/* Apply conservativeness factor */
 	if (conservativeness) {
-		upthreshold = (upthreshold * (100 + conservativeness)) / 100;
+		upthreshold_cons = (upthreshold_cons * (100 + conservativeness)) / 100;
 		downthreshold =
 		    (downthreshold * (100 + conservativeness)) / 100;
 	}
 
 	load = (100 * priv->bin.busy_time) / priv->bin.total_time;
 
-	if (load > upthreshold)
+	if (load > upthreshold_cons)
 		level = max_t(int, level - 1, 0);
 	else if (load < downthreshold)
 		level = min_t(int, level + 1, profile->max_state);
@@ -117,14 +117,14 @@ clear:
 }
 EXPORT_SYMBOL(devfreq_conservative_func);
 
-static ssize_t conservative_upthreshold_show(struct kobject *kobj,
+static ssize_t conservative_upthreshold_cons_show(struct kobject *kobj,
 					     struct kobj_attribute *attr,
 					     char *buf)
 {
-	return sprintf(buf, "%u\n", upthreshold);
+	return sprintf(buf, "%u\n", upthreshold_cons);
 }
 
-static ssize_t conservative_upthreshold_store(struct kobject *kobj,
+static ssize_t conservative_upthreshold_cons_store(struct kobject *kobj,
 					      struct kobj_attribute *attr,
 					      const char *buf, size_t count)
 {
@@ -135,7 +135,7 @@ static ssize_t conservative_upthreshold_store(struct kobject *kobj,
 	if (ret != 1 || val > 100 || val < downthreshold)
 		return -EINVAL;
 
-	upthreshold = val;
+	upthreshold_cons = val;
 
 	return ret;
 }
@@ -155,7 +155,7 @@ static ssize_t conservative_downthreshold_store(struct kobject *kobj,
 	unsigned int val;
 
 	ret = sscanf(buf, "%d", &val);
-	if (ret != 1 || val > upthreshold)
+	if (ret != 1 || val > upthreshold_cons)
 		return -EINVAL;
 
 	downthreshold = val;
@@ -187,9 +187,9 @@ static ssize_t conservative_conservativeness_store(struct kobject *kobj,
 	return ret;
 }
 
-static struct kobj_attribute upthreshold_attribute =
-	__ATTR(upthreshold, 0664, conservative_upthreshold_show,
-	       conservative_upthreshold_store);
+static struct kobj_attribute upthreshold_cons_attribute =
+	__ATTR(upthreshold_cons, 0664, conservative_upthreshold_cons_show,
+	       conservative_upthreshold_cons_store);
 static struct kobj_attribute downthreshold_attribute =
 	__ATTR(downthreshold, 0664, conservative_downthreshold_show,
 	       conservative_downthreshold_store);
@@ -198,7 +198,7 @@ static struct kobj_attribute conservativeness_attribute =
 	       conservative_conservativeness_store);
 
 static struct attribute *attrs[] = {
-	&upthreshold_attribute.attr,
+	&upthreshold_cons_attribute.attr,
 	&downthreshold_attribute.attr,
 	&conservativeness_attribute.attr,
 	NULL,
