@@ -94,7 +94,7 @@ static int devfreq_conservative_func(struct devfreq *devfreq,
 	}
 
 	/* Apply conservativeness factor */
-	if (conservativeness) {
+	if (conservativeness > 0) {
 		upthreshold_cons = (upthreshold_cons * (100 + conservativeness)) / 100;
 		downthreshold =
 		    (downthreshold * (100 + conservativeness)) / 100;
@@ -128,16 +128,15 @@ static ssize_t conservative_upthreshold_cons_store(struct kobject *kobj,
 					      struct kobj_attribute *attr,
 					      const char *buf, size_t count)
 {
-	int ret;
 	unsigned int val;
 
-	ret = sscanf(buf, "%d", &val);
-	if (ret != 1 || val > 100 || val < downthreshold)
+	sscanf(buf, "%d", &val);
+	if (val < 1 || val > 100 || val < downthreshold)
 		return -EINVAL;
 
 	upthreshold_cons = val;
 
-	return ret;
+	return count;
 }
 
 static ssize_t conservative_downthreshold_show(struct kobject *kobj,
@@ -151,16 +150,15 @@ static ssize_t conservative_downthreshold_store(struct kobject *kobj,
 						struct kobj_attribute *attr,
 						const char *buf, size_t count)
 {
-	int ret;
 	unsigned int val;
 
-	ret = sscanf(buf, "%d", &val);
-	if (ret != 1 || val > upthreshold_cons)
+	sscanf(buf, "%d", &val);
+	if (val < 1 || val > upthreshold_cons)
 		return -EINVAL;
 
 	downthreshold = val;
 
-	return ret;
+	return count;
 }
 
 static ssize_t conservative_conservativeness_show(struct kobject *kobj,
@@ -175,16 +173,15 @@ static ssize_t conservative_conservativeness_store(struct kobject *kobj,
 						   const char *buf,
 						   size_t count)
 {
-	int ret;
 	unsigned int val;
 
-	ret = sscanf(buf, "%d", &val);
-	if (ret != 1 || val > 100)
+	sscanf(buf, "%d", &val);
+	if (val < 0 || val > 100)
 		return -EINVAL;
 
 	conservativeness = val;
 
-	return ret;
+	return count;
 }
 
 static struct kobj_attribute upthreshold_cons_attribute =
