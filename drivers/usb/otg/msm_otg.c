@@ -3400,19 +3400,11 @@ static void msm_otg_set_vbus_state(int online)
 {
 	static bool init;
 	struct msm_otg *motg = the_msm_otg;
-	struct usb_otg *otg = motg->phy.otg;
-
-	/* In A Host Mode, ignore received BSV interrupts
-	 * otg+charge: ignore unless usbhost_charge_mode,
-	 * then we want to sense vbus
-	 */
-	if (!usbhost_charge_mode && otg->phy->state >= OTG_STATE_A_IDLE)
-		return;
 
 	if (online) {
 		pr_debug("PMIC: BSV set\n");
 		set_bit(B_SESS_VLD, &motg->inputs);
-		if (otg->phy->state >= OTG_STATE_A_IDLE && usbhost_charge_mode) {
+		if (usbhost_charge_mode) {
 			printk("[usbhost_charge_mode]: already in host mode, restart chg_work");
 			msm_chg_detect_work(&motg->chg_work.work);
 		}
@@ -3421,7 +3413,7 @@ static void msm_otg_set_vbus_state(int online)
 		clear_bit(B_SESS_VLD, &motg->inputs);
 
 		/* otg+charge:  cancel charging when power is disconnected */
-		if (otg->phy->state >= OTG_STATE_A_IDLE && usbhost_charge_mode) {
+		if (usbhost_charge_mode) {
 			printk("[usbhost_charge_mode]: chg_work cancel from set vbus state");
 			cancel_delayed_work_sync(&motg->chg_work);
 			motg->chg_state = USB_CHG_STATE_UNDEFINED;
