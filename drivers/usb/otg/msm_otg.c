@@ -110,6 +110,10 @@ static struct regulator *vbus_otg;
 static struct regulator *mhl_usb_hs_switch;
 static struct power_supply *psy;
 
+/* otg+charge: sysfs entry */
+static bool usbhost_charge_mode = false;
+module_param(usbhost_charge_mode, bool, 0755);
+
 static bool aca_id_turned_on;
 static bool legacy_power_supply;
 static inline bool aca_enabled(void)
@@ -1287,7 +1291,7 @@ static void msm_otg_notify_host_mode(struct msm_otg *motg, bool host_mode)
 
 	if (legacy_power_supply) {
 		/* legacy support */
-		if (host_mode) {
+		if (host_mode && !usbhost_charge_mode) {
 			power_supply_set_scope(psy, POWER_SUPPLY_SCOPE_SYSTEM);
 		} else {
 			power_supply_set_scope(psy, POWER_SUPPLY_SCOPE_DEVICE);
@@ -1593,6 +1597,13 @@ static void msm_hsusb_vbus_power(struct msm_otg *motg, bool on)
 {
 	int ret;
 	static bool vbus_is_on;
+
+	/* otg+charge: just to be safe, turn off battery power to otg perhipheral */
+	if (usbhost_charge_mode) {
+		printk("[usbhost_charge_mode]: Do not supply power in host mode\n");
+		msm_otg_notify_host_mode(motg, on);
+		return;
+	}
 
 	if (vbus_is_on == on)
 		return;
@@ -2436,9 +2447,14 @@ static void msm_chg_detect_work(struct work_struct *w)
 				break;
 			}
 
-			if (line_state) /* DP > VLGC or/and DM > VLGC */
-				motg->chg_type = USB_PROPRIETARY_CHARGER;
-			else if (!dcd && floated_charger_enable)
+			if (line_state) { /* DP > VLGC or/and DM > VLGC */
+				/* otg + charge */
+				if (usbhost_charge_mode) {
+					motg->chg_type = USB_ACA_A_CHARGER;
+				} else {
+					motg->chg_type = USB_PROPRIETARY_CHARGER;
+				}
+			} else if (!dcd && floated_charger_enable)
 				motg->chg_type = USB_FLOATED_CHARGER;
 			else
 				motg->chg_type = USB_SDP_CHARGER;
@@ -3012,6 +3028,16 @@ static void msm_otg_sm_work(struct work_struct *w)
 		} else if (test_bit(ID_A, &motg->inputs)) {
 			msm_hsusb_vbus_power(motg, 0);
 		} else if (!test_bit(A_BUS_REQ, &motg->inputs)) {
+			/* otg+charge: if there is current, start charging */
+			if (usbhost_charge_mode) {
+				if (test_bit(B_SESS_VLD, &motg->inputs)) {
+					pr_debug("b_sess_vld\n");
+					usleep_range(10000, 12000);
+					if (motg->chg_state == USB_CHG_STATE_UNDEFINED)
+						msm_chg_detect_work(&motg->chg_work.work);
+				}
+			}
+
 			/*
 			 * If TA_WAIT_BCON is infinite, we don;t
 			 * turn off VBUS. Enter low power mode.
@@ -3374,13 +3400,34 @@ static void msm_otg_set_vbus_state(int online)
 {
 	static bool init;
 	struct msm_otg *motg = the_msm_otg;
+	struct usb_otg *otg = motg->phy.otg;
+
+	/* In A Host Mode, ignore received BSV interrupts
+	 * otg+charge: ignore unless usbhost_charge_mode,
+	 * then we want to sense vbus
+	 */
+	if (!usbhost_charge_mode && otg->phy->state >= OTG_STATE_A_IDLE)
+		return;
 
 	if (online) {
 		pr_debug("PMIC: BSV set\n");
 		set_bit(B_SESS_VLD, &motg->inputs);
+		if (otg->phy->state >= OTG_STATE_A_IDLE && usbhost_charge_mode) {
+			printk("[usbhost_charge_mode]: already in host mode, restart chg_work");
+			msm_chg_detect_work(&motg->chg_work.work);
+		}
 	} else {
 		pr_debug("PMIC: BSV clear\n");
 		clear_bit(B_SESS_VLD, &motg->inputs);
+
+		/* otg+charge:  cancel charging when power is disconnected */
+		if (otg->phy->state >= OTG_STATE_A_IDLE && usbhost_charge_mode) {
+			printk("[usbhost_charge_mode]: chg_work cancel from set vbus state");
+			cancel_delayed_work_sync(&motg->chg_work);
+			motg->chg_state = USB_CHG_STATE_UNDEFINED;
+			motg->chg_type = USB_INVALID_CHARGER;
+			msm_otg_notify_charger(motg, 0);
+		}
 	}
 
 	/* do not queue state m/c work if id is grounded */
