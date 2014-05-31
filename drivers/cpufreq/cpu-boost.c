@@ -299,8 +299,14 @@ static void do_input_boost(struct work_struct *work)
 		ret = cpufreq_get_policy(&policy, i);
 		if (ret)
 			continue;
-		if (policy.cur >= input_boost_freq)
+		if (policy.cur >= input_boost_freq){
+			if (!delayed_work_pending(&i_sync_info->input_boost_rem)
+			     && i_sync_info->input_boost_min != 0){
+				i_sync_info->input_boost_min = 0;
+				cpufreq_update_policy(i);
+			}
 			continue;
+		}
 
 		cancel_delayed_work_sync(&i_sync_info->input_boost_rem);
 		i_sync_info->input_boost_min = input_boost_freq;
@@ -316,18 +322,22 @@ static void cpuboost_input_event(struct input_handle *handle,
 		unsigned int type, unsigned int code, int value)
 {
 	u64 now;
+	int ret;
+	struct cpufreq_policy policy;
 
-	if (!input_boost_freq)
+	if (!input_boost_freq || work_pending(&input_boost_work))
+		return;
+
+	ret = cpufreq_get_policy(&policy, 0);
+	if (!ret && input_boost_freq <= policy.cpuinfo.min_freq)
 		return;
 
 	now = ktime_to_us(ktime_get());
 	if (now - last_input_time < MIN_INPUT_INTERVAL)
 		return;
 
-	if (work_pending(&input_boost_work))
-		return;
-
 	queue_work(cpu_boost_wq, &input_boost_work);
+
 	last_input_time = ktime_to_us(ktime_get());
 }
 
@@ -415,12 +425,16 @@ static void do_plug_boost(struct work_struct *work)
 		ret = cpufreq_get_policy(&policy, i);
 		if (ret)
 			continue;
-		if (policy.cur >= plug_boost_freq)
+		if (policy.cur >= plug_boost_freq){
+			if (!delayed_work_pending(&i_sync_info->plug_boost_rem)
+			    && i_sync_info->plug_boost_min != 0){
+				i_sync_info->plug_boost_min = 0;
+				cpufreq_update_policy(i);
+			}
 			continue;
+		}
 
 		cancel_delayed_work_sync(&i_sync_info->plug_boost_rem);
-		pr_debug("Applying plug boost for CPU%u %u --> %u\n",
-			 i, policy.cur, plug_boost_freq);
 		i_sync_info->plug_boost_min = plug_boost_freq;
 		cpufreq_update_policy(i);
 		queue_delayed_work_on(0, cpu_boost_wq,
@@ -433,13 +447,23 @@ static void do_plug_boost(struct work_struct *work)
 static int cpuboost_cpu_callback(struct notifier_block *cpu_nb,
 				 unsigned long action, void *hcpu)
 {
+	int ret;
+	struct cpufreq_policy policy;
+
+	if (!plug_boost_freq)
+		return NOTIFY_OK;
+
+	ret = cpufreq_get_policy(&policy, 0);
+	if (!ret && plug_boost_freq <= policy.cpuinfo.min_freq)
+		return NOTIFY_OK;
+
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_UP_PREPARE:
 	case CPU_DEAD:
 	case CPU_UP_CANCELED:
 		break;
 	case CPU_ONLINE:
-		if (plug_boost_freq && !work_pending(&plug_boost_work))
+		if (!work_pending(&plug_boost_work))
 			queue_work(cpu_boost_wq, &plug_boost_work);
 		break;
 	default:
