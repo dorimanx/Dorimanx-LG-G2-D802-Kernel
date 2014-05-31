@@ -76,9 +76,9 @@ static struct cpu_hotplug {
 	struct mutex msm_hotplug_mutex;
 	struct work_struct up_work;
 	struct work_struct down_work;
-#if !defined(CONFIG_POWERSUSPEND) && !defined(CONFIG_HAS_EARLYSUSPEND)
 	struct delayed_work suspend_work;
 	struct work_struct resume_work;
+#if !defined(CONFIG_POWERSUSPEND) && !defined(CONFIG_HAS_EARLYSUSPEND)
 	struct notifier_block notif;
 #endif
 } hotplug = {
@@ -507,13 +507,7 @@ reschedule:
 	reschedule_hotplug_work();
 }
 
-#ifdef CONFIG_POWERSUSPEND
-static void msm_hotplug_suspend(struct power_suspend *handler)
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-static void msm_hotplug_suspend(struct early_suspend *handler)
-#else
 static void msm_hotplug_suspend(struct work_struct *work)
-#endif
 {
 	int ret;
 	unsigned int cpu, max_freq = 0;
@@ -559,13 +553,7 @@ static void msm_hotplug_suspend(struct work_struct *work)
 		hotplug.suspend_max_freq : max_freq) / 1000);
 }
 
-#ifdef CONFIG_POWERSUSPEND
-static void __ref msm_hotplug_resume(struct power_suspend *handler)
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-static void __ref msm_hotplug_resume(struct early_suspend *handler)
-#else
 static void __ref msm_hotplug_resume(struct work_struct *work)
-#endif
 {
 	int ret, required_reschedule = 0;
 	unsigned int cpu, max_freq = 0;
@@ -609,13 +597,34 @@ static void __ref msm_hotplug_resume(struct work_struct *work)
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 #ifdef CONFIG_POWERSUSPEND
+static void __msm_hotplug_suspend(struct power_suspend *handler)
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+static void __msm_hotplug_suspend(struct early_suspend *handler)
+#endif
+{
+	INIT_DELAYED_WORK(&hotplug.suspend_work, msm_hotplug_suspend);
+	schedule_delayed_work_on(0, &hotplug.suspend_work,
+			msecs_to_jiffies(hotplug.suspend_defer_time * 1000));
+}
+
+#ifdef CONFIG_POWERSUSPEND
+static void __ref __msm_hotplug_resume(struct power_suspend *handler)
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+static void __ref __msm_hotplug_resume(struct early_suspend *handler)
+#endif
+{
+	cancel_delayed_work_sync(&hotplug.suspend_work);
+	schedule_work_on(0, &hotplug.resume_work);
+}
+
+#ifdef CONFIG_POWERSUSPEND
 static struct power_suspend msm_hotplug_power_suspend_driver = {
 #else
 static struct early_suspend msm_hotplug_early_suspend_driver = {
 	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 10,
 #endif
-	.suspend = msm_hotplug_suspend,
-	.resume = msm_hotplug_resume,
+	.suspend = __msm_hotplug_suspend,
+	.resume = __msm_hotplug_resume,
 };
 #else
 static int lcd_notifier_callback(struct notifier_block *nb,
@@ -801,10 +810,9 @@ static int __ref msm_hotplug_start(void)
 	register_power_suspend(&msm_hotplug_power_suspend_driver);
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	register_early_suspend(&msm_hotplug_early_suspend_driver);
-#else
+#endif
 	INIT_DELAYED_WORK(&hotplug.suspend_work, msm_hotplug_suspend);
 	INIT_WORK(&hotplug.resume_work, msm_hotplug_resume);
-#endif
 
 	return ret;
 
@@ -827,10 +835,9 @@ static void msm_hotplug_stop(void)
 	unregister_power_suspend(&msm_hotplug_power_suspend_driver);
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&msm_hotplug_early_suspend_driver);
-#else
+#endif
 	cancel_work_sync(&hotplug.resume_work);
 	cancel_delayed_work_sync(&hotplug.suspend_work);
-#endif
 
 	input_unregister_handler(&hotplug_input_handler);
 
