@@ -47,9 +47,7 @@
 #define DEFAULT_MIN_CPUS_ONLINE	1
 #define DEFAULT_MAX_CPUS_ONLINE	NR_CPUS
 #define DEFAULT_FAST_LANE_LOAD	95
-
-static struct mutex msm_hotplug_mutex;
-static bool hotplug_suspended = false;
+#define DEFAULT_SUSPEND_DEFER_TIME	5
 
 static unsigned int debug = 0;
 module_param_named(debug_mask, debug, uint, 0644);
@@ -62,6 +60,7 @@ do { 				\
 
 static struct cpu_hotplug {
 	unsigned int msm_enabled;
+	unsigned int suspended;
 	unsigned int target_cpus;
 	unsigned int min_cpus_online;
 	unsigned int max_cpus_online;
@@ -73,28 +72,31 @@ static struct cpu_hotplug {
 	u64 boost_lock_dur;
 	u64 last_input;
 	unsigned int fast_lane_load;
+	unsigned int suspend_defer_time;
+	struct mutex msm_hotplug_mutex;
 	struct work_struct up_work;
 	struct work_struct down_work;
 #if !defined(CONFIG_POWERSUSPEND) && !defined(CONFIG_HAS_EARLYSUSPEND)
+	struct delayed_work suspend_work;
 	struct work_struct resume_work;
-	struct work_struct suspend_work;
 	struct notifier_block notif;
 #endif
 } hotplug = {
 	.msm_enabled = HOTPLUG_ENABLED,
+	.suspended = 0,
 	.min_cpus_online = DEFAULT_MIN_CPUS_ONLINE,
 	.max_cpus_online = DEFAULT_MAX_CPUS_ONLINE,
 	.cpus_boosted = DEFAULT_NR_CPUS_BOOSTED,
 	.down_lock_dur = DEFAULT_DOWN_LOCK_DUR,
 	.boost_lock_dur = DEFAULT_BOOST_LOCK_DUR,
-	.fast_lane_load = DEFAULT_FAST_LANE_LOAD
+	.fast_lane_load = DEFAULT_FAST_LANE_LOAD,
+	.suspend_defer_time = DEFAULT_SUSPEND_DEFER_TIME
 };
 
 static struct workqueue_struct *hotplug_wq;
 static struct delayed_work hotplug_work;
 
 static u64 last_boost_time;
-
 static unsigned int default_update_rates[] = { DEFAULT_UPDATE_RATE };
 
 static struct cpu_stats {
@@ -455,8 +457,8 @@ static void msm_hotplug_work(struct work_struct *work)
 {
 	unsigned int i, target = 0;
 
-	if (hotplug_suspended) {
-		dprintk("msm_hotplug is suspended!\n");
+	if (hotplug.suspended) {
+		dprintk("%s: suspended.\n", MSM_HOTPLUG);
 		return;
 	}
 
@@ -500,9 +502,8 @@ static void msm_hotplug_work(struct work_struct *work)
 	}
 
 reschedule:
-	dprintk("%s: cur_load: %3u online_cpus: %u target: %u\n", MSM_HOTPLUG,
+	dprintk("%s: cur_avg_load: %3u online_cpus: %u target: %u\n", MSM_HOTPLUG,
 		stats.cur_avg_load, stats.online_cpus, target);
-
 	reschedule_hotplug_work();
 }
 
@@ -541,9 +542,9 @@ static void msm_hotplug_suspend(struct work_struct *work)
 		cancel_delayed_work_sync(&hotplug_work);
 	}
 
-	mutex_lock(&msm_hotplug_mutex);
-	hotplug_suspended = true;
-	mutex_unlock(&msm_hotplug_mutex);
+	mutex_lock(&hotplug.msm_hotplug_mutex);
+	hotplug.suspended = 1;
+	mutex_unlock(&hotplug.msm_hotplug_mutex);
 
 	/* Put all sibling cores to sleep */
 	for_each_online_cpu(cpu) {
@@ -566,7 +567,7 @@ static void __ref msm_hotplug_resume(struct early_suspend *handler)
 static void __ref msm_hotplug_resume(struct work_struct *work)
 #endif
 {
-	int ret;
+	int ret, required_reschedule = 0;
 	unsigned int cpu, max_freq = 0;
 	struct cpufreq_policy policy;
 
@@ -582,9 +583,14 @@ static void __ref msm_hotplug_resume(struct work_struct *work)
 			max_freq = policy.max;
 	}
 
-	mutex_lock(&msm_hotplug_mutex);
-	hotplug_suspended = false;
-	mutex_unlock(&msm_hotplug_mutex);
+	if (hotplug.suspended) {
+		mutex_lock(&hotplug.msm_hotplug_mutex);
+		required_reschedule = 1;
+		hotplug.suspended = 0;
+		mutex_unlock(&hotplug.msm_hotplug_mutex);
+		/* Initialize canceled hotplug work */
+		INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
+	}
 
 	/* Fire up all CPUs */
 	for_each_cpu_not(cpu, cpu_online_mask) {
@@ -594,8 +600,10 @@ static void __ref msm_hotplug_resume(struct work_struct *work)
 		apply_down_lock(cpu);
 	}
 
-	/* Resume hotplug workqueue */
-	reschedule_hotplug_work();
+	/* Resume hotplug workqueue if required */
+	if (required_reschedule)
+		reschedule_hotplug_work();
+
 	dprintk("%s: Resuming cpus to %uMHz\n", MSM_HOTPLUG, max_freq / 1000);
 }
 
@@ -614,24 +622,27 @@ static int lcd_notifier_callback(struct notifier_block *nb,
                                  unsigned long event, void *data)
 {
 	if (!hotplug.msm_enabled)
-		NOTIFY_OK;
+		return NOTIFY_OK;
 
 	switch (event) {
 		case LCD_EVENT_ON_START:
-			schedule_work(&hotplug.resume_work);
+			cancel_delayed_work_sync(&hotplug.suspend_work);
+			schedule_work_on(0, &hotplug.resume_work);
 			break;
 		case LCD_EVENT_ON_END:
 			break;
 		case LCD_EVENT_OFF_START:
+			INIT_DELAYED_WORK(&hotplug.suspend_work, msm_hotplug_suspend);
 			break;
 		case LCD_EVENT_OFF_END:
-			schedule_work(&hotplug.suspend_work);
+			schedule_delayed_work_on(0, &hotplug.suspend_work,
+						msecs_to_jiffies(hotplug.suspend_defer_time * 1000));
 			break;
 		default:
 			break;
 	}
 
-	return 0;
+	return NOTIFY_OK;
 }
 #endif
 
@@ -640,8 +651,8 @@ static void hotplug_input_event(struct input_handle *handle, unsigned int type,
 {
 	u64 now;
 
-	if (hotplug_suspended) {
-		dprintk("msm_hotplug is suspended!\n");
+	if (hotplug.suspended) {
+		dprintk("%s: suspended.\n", MSM_HOTPLUG);
 		return;
 	}
 
@@ -753,18 +764,18 @@ static int __ref msm_hotplug_start(void)
 	if (ret) {
 		pr_err("%s: Failed to register input handler: %d\n",
 		       MSM_HOTPLUG, ret);
-		goto err_dev;
+		goto err_input;
 	}
 
 	stats.load_hist = kmalloc(sizeof(stats.hist_size), GFP_KERNEL);
 	if (!stats.load_hist) {
 		pr_err("%s: Failed to allocate memory\n", MSM_HOTPLUG);
 		ret = -ENOMEM;
-		goto err_input;
+		goto err_dev;
 	}
 
 	mutex_init(&stats.stats_mutex);
-	mutex_init(&msm_hotplug_mutex);
+	mutex_init(&hotplug.msm_hotplug_mutex);
 
 	INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
 	INIT_WORK(&hotplug.up_work, cpu_up_work);
@@ -791,14 +802,15 @@ static int __ref msm_hotplug_start(void)
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	register_early_suspend(&msm_hotplug_early_suspend_driver);
 #else
+	INIT_DELAYED_WORK(&hotplug.suspend_work, msm_hotplug_suspend);
 	INIT_WORK(&hotplug.resume_work, msm_hotplug_resume);
-	INIT_WORK(&hotplug.supend_work, msm_hotplug_suspend);
 #endif
 
 	return ret;
 
 err_input:
 	input_unregister_handler(&hotplug_input_handler);
+	destroy_workqueue(hotplug_wq);
 err_dev:
 	destroy_workqueue(hotplug_wq);
 err_out:
@@ -817,7 +829,7 @@ static void msm_hotplug_stop(void)
 	unregister_early_suspend(&msm_hotplug_early_suspend_driver);
 #else
 	cancel_work_sync(&hotplug.resume_work);
-	cancel_work_sync(&hotplug.supend_work);
+	cancel_delayed_work_sync(&hotplug.suspend_work);
 #endif
 
 	input_unregister_handler(&hotplug_input_handler);
@@ -832,13 +844,13 @@ static void msm_hotplug_stop(void)
 	flush_workqueue(hotplug_wq);
 	cancel_delayed_work_sync(&hotplug_work);
 
-	mutex_destroy(&msm_hotplug_mutex);
+	mutex_destroy(&hotplug.msm_hotplug_mutex);
 	mutex_destroy(&stats.stats_mutex);
 	kfree(stats.load_hist);
 
 
 #if !defined(CONFIG_POWERSUSPEND) && !defined(CONFIG_HAS_EARLYSUSPEND)
-	hotplug.notif.notifier_call = NULL;
+	lcd_unregister_client(&hotplug.notif);
 #endif
 
 	destroy_workqueue(hotplug_wq);
@@ -1267,6 +1279,29 @@ static ssize_t show_current_load(struct device *dev,
 	return sprintf(buf, "%u\n", stats.cur_avg_load);
 }
 
+static ssize_t store_suspend_defer_time(struct device *dev,
+				    struct device_attribute *msm_hotplug_attrs,
+				    const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+
+	ret = sscanf(buf, "%u", &val);
+	if (ret != 1)
+		return -EINVAL;
+
+	hotplug.suspend_defer_time = val;
+
+	return count;
+}
+
+static ssize_t show_suspend_defer_time(struct device *dev,
+				 struct device_attribute *msm_hotplug_attrs,
+				 char *buf)
+{
+	return sprintf(buf, "%u\n", hotplug.suspend_defer_time);
+}
+
 static DEVICE_ATTR(msm_enabled, 644, show_enable_hotplug, store_enable_hotplug);
 static DEVICE_ATTR(down_lock_duration, 644, show_down_lock_duration,
 		   store_down_lock_duration);
@@ -1288,6 +1323,8 @@ static DEVICE_ATTR(offline_load, 644, show_offline_load, store_offline_load);
 static DEVICE_ATTR(fast_lane_load, 644, show_fast_lane_load,
 		   store_fast_lane_load);
 static DEVICE_ATTR(current_load, 444, show_current_load, NULL);
+static DEVICE_ATTR(suspend_defer_time, 644, show_suspend_defer_time,
+		   store_suspend_defer_time);
 
 static struct attribute *msm_hotplug_attrs[] = {
 	&dev_attr_msm_enabled.attr,
@@ -1304,6 +1341,7 @@ static struct attribute *msm_hotplug_attrs[] = {
 	&dev_attr_offline_load.attr,
 	&dev_attr_fast_lane_load.attr,
 	&dev_attr_current_load.attr,
+	&dev_attr_suspend_defer_time.attr,
 	NULL,
 };
 
