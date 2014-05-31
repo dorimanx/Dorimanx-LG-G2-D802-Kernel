@@ -202,8 +202,8 @@ static unsigned int calculate_thread_stats(void)
 
 static int boost_lock_check(void)
 {
-	if (boosted_cpus > 1 && num_online_cpus() <= boosted_cpus
-	    && (ktime_to_us(ktime_get()) - last_input < boost_lock_duration))
+	if (num_online_cpus() <= boosted_cpus &&
+	    (ktime_to_us(ktime_get()) - last_input < boost_lock_duration))
 		return 1;
 	return 0;
 }
