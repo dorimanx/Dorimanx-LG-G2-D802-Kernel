@@ -40,9 +40,9 @@
  */
 #define CEILING			50000
 
-unsigned int upthreshold_cons = DEF_UPTHRESH;
-unsigned int downthreshold = DEF_DOWNTHRESH;
-unsigned int conservativeness = DEF_CONSERVATIVENESS;
+static unsigned int upthreshold_cons = DEF_UPTHRESH;
+static unsigned int downthreshold = DEF_DOWNTHRESH;
+static unsigned int conservativeness = DEF_CONSERVATIVENESS;
 
 static int devfreq_conservative_func(struct devfreq *devfreq,
 				     unsigned long *freq, u32 * flag)
