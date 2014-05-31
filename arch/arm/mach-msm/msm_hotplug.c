@@ -59,37 +59,49 @@ do { 				\
 
 static struct cpu_hotplug {
 	unsigned int msm_enabled;
+#if defined(CONFIG_LCD_NOTIFY) || \
+	defined(CONFIG_POWERSUSPEND) || \
+	defined(CONFIG_HAS_EARLYSUSPEND)
 	unsigned int suspended;
+	unsigned int suspend_max_freq;
+	unsigned int suspend_max_cpus;
+	unsigned int suspend_defer_time;
+#endif
 	unsigned int target_cpus;
 	unsigned int min_cpus_online;
 	unsigned int max_cpus_online;
-	unsigned int suspend_max_freq;
-	unsigned int suspend_max_cpus;
 	unsigned int cpus_boosted;
 	unsigned int offline_load;
 	unsigned int down_lock_dur;
 	u64 boost_lock_dur;
 	u64 last_input;
 	unsigned int fast_lane_load;
-	unsigned int suspend_defer_time;
-	struct mutex msm_hotplug_mutex;
 	struct work_struct up_work;
 	struct work_struct down_work;
+#if defined(CONFIG_LCD_NOTIFY) || \
+	defined(CONFIG_POWERSUSPEND) || \
+	defined(CONFIG_HAS_EARLYSUSPEND)
 	struct delayed_work suspend_work;
 	struct work_struct resume_work;
+	struct mutex msm_hotplug_mutex;
 #ifdef CONFIG_LCD_NOTIFY
 	struct notifier_block notif;
 #endif
+#endif
 } hotplug = {
 	.msm_enabled = HOTPLUG_ENABLED,
-	.suspended = 0,
 	.min_cpus_online = DEFAULT_MIN_CPUS_ONLINE,
 	.max_cpus_online = DEFAULT_MAX_CPUS_ONLINE,
+#if defined(CONFIG_LCD_NOTIFY) || \
+	defined(CONFIG_POWERSUSPEND) || \
+	defined(CONFIG_HAS_EARLYSUSPEND)
+	.suspended = 0,
+	.suspend_defer_time = DEFAULT_SUSPEND_DEFER_TIME,
+#endif
 	.cpus_boosted = DEFAULT_NR_CPUS_BOOSTED,
 	.down_lock_dur = DEFAULT_DOWN_LOCK_DUR,
 	.boost_lock_dur = DEFAULT_BOOST_LOCK_DUR,
-	.fast_lane_load = DEFAULT_FAST_LANE_LOAD,
-	.suspend_defer_time = DEFAULT_SUSPEND_DEFER_TIME
+	.fast_lane_load = DEFAULT_FAST_LANE_LOAD
 };
 
 static struct workqueue_struct *hotplug_wq;
@@ -793,7 +805,11 @@ static int __ref msm_hotplug_start(void)
 	}
 
 	mutex_init(&stats.stats_mutex);
+#if defined(CONFIG_LCD_NOTIFY) || \
+	defined(CONFIG_POWERSUSPEND) || \
+	defined(CONFIG_HAS_EARLYSUSPEND)
 	mutex_init(&hotplug.msm_hotplug_mutex);
+#endif
 
 	INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
 	INIT_WORK(&hotplug.up_work, cpu_up_work);
@@ -854,7 +870,11 @@ static void msm_hotplug_stop(void)
 	flush_workqueue(hotplug_wq);
 	cancel_delayed_work_sync(&hotplug_work);
 
+#if defined(CONFIG_LCD_NOTIFY) || \
+	defined(CONFIG_POWERSUSPEND) || \
+	defined(CONFIG_HAS_EARLYSUSPEND)
 	mutex_destroy(&hotplug.msm_hotplug_mutex);
+#endif
 	mutex_destroy(&stats.stats_mutex);
 	kfree(stats.load_hist);
 
