@@ -45,11 +45,14 @@
 #define RESUME_SAMPLING_MS		100 / 10
 #define START_DELAY_MS			100 * 20
 #define MIN_INPUT_INTERVAL		150 * 1000L
+#define BOOST_LOCK_DUR			4000 * 1000L
 
 static struct mutex intelli_plug_mutex;
-static u64 last_boost_time;
+static u64 last_boost_time, last_input;
+static unsigned int boosted_cpus = 2;
 
 static struct delayed_work intelli_plug_work;
+static struct delayed_work intelli_plug_boost;
 static struct workqueue_struct *intelliplug_wq;
 
 static unsigned int sampling_time = 10;
@@ -204,6 +207,7 @@ static void __ref intelli_plug_work_fn(struct work_struct *work)
 
 	int decision = 0;
 	int i;
+	u64 now;
 
 	nr_run_stat = calculate_thread_stats();
 	if (debug_intelli_plug)
@@ -213,6 +217,7 @@ static void __ref intelli_plug_work_fn(struct work_struct *work)
 	 * using msm rqstats
 	 */
 	online_cpus = num_online_cpus();
+
 	if (!eco_mode_active && !strict_mode_active && online_cpus < NR_CPUS) {
 		decision = mp_decision();
 		if (decision) {
@@ -251,6 +256,11 @@ static void __ref intelli_plug_work_fn(struct work_struct *work)
 			pr_info("intelli_plug is suspended!\n");
 		return;
 	}
+
+	now = ktime_to_us(ktime_get());
+	if (online_cpus <= boosted_cpus &&
+	    (now - last_input < BOOST_LOCK_DUR))
+		goto reschedule;
 
 	switch (cpu_count) {
 	case 1:
@@ -317,9 +327,36 @@ static void __ref intelli_plug_work_fn(struct work_struct *work)
 		break;
 	}
 
+reschedule:
 	if (atomic_read(&intelli_plug_active) == 1)
 		queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
 					msecs_to_jiffies(sampling_time));
+}
+
+static void __ref intelli_plug_boost_fn(struct work_struct *work)
+{
+	int cpu;	
+	u64 now;	
+
+	now = ktime_to_us(ktime_get());
+	last_input = now;
+
+	if (now - last_boost_time < MIN_INPUT_INTERVAL)
+		return;
+
+	if (eco_mode_active)
+		boosted_cpus = 2;
+	else
+		boosted_cpus = touch_boosted_cpus;
+
+	for_each_cpu_not(cpu, cpu_online_mask) {
+		if (boosted_cpus <= num_online_cpus())
+			break;
+		if (cpu == 0)
+			continue;
+		cpu_up(cpu);
+	}
+	last_boost_time = ktime_to_us(ktime_get());
 }
 
 static void __ref wakeup_boost(void)
@@ -387,6 +424,7 @@ static void intelli_plug_suspend(struct early_suspend *handler)
 
 	/* flush hotplug workqueue */
 	flush_workqueue(intelliplug_wq);
+	cancel_delayed_work_sync(&intelli_plug_boost);
 	cancel_delayed_work_sync(&intelli_plug_work);
 
 	mutex_lock(&intelli_plug_mutex);
@@ -441,6 +479,9 @@ static void __ref intelli_plug_resume(struct early_suspend *handler)
 		}
 	}
 
+	INIT_DELAYED_WORK(&intelli_plug_work, intelli_plug_work_fn);
+	INIT_DELAYED_WORK(&intelli_plug_boost, intelli_plug_boost_fn);
+
 	/* resume hotplug workqueue */
 	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
 			      RESUME_SAMPLING_MS);
@@ -457,32 +498,14 @@ static struct early_suspend intelli_plug_early_suspend_struct_driver = {
 };
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
-static void __ref intelli_plug_input_event(struct input_handle *handle,
+static void intelli_plug_input_event(struct input_handle *handle,
 		unsigned int type, unsigned int code, int value)
 {
-	int cpu, boosted_cpus;
-	u64 now;
-
 	if (strict_mode_active || touch_boosted_cpus == 1 || hotplug_suspended)
 		return;
 
-	now = ktime_to_us(ktime_get());
-	if (now - last_boost_time < MIN_INPUT_INTERVAL)
-		return;
-
-	if (eco_mode_active)
-		boosted_cpus = 2;
-	else
-		boosted_cpus = touch_boosted_cpus;
-
-	for_each_cpu_not(cpu, cpu_online_mask) {
-		if (boosted_cpus <= num_online_cpus())
-			break;
-		if (cpu == 0)
-			continue;
-		cpu_up(cpu);
-	}
-	last_boost_time = ktime_to_us(ktime_get());
+	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_boost,
+			      RESUME_SAMPLING_MS);
 }
 
 static int intelli_plug_input_connect(struct input_handler *handler,
@@ -572,6 +595,7 @@ static int __ref intelli_plug_start(void)
 	mutex_init(&intelli_plug_mutex);
 
 	INIT_DELAYED_WORK(&intelli_plug_work, intelli_plug_work_fn);
+	INIT_DELAYED_WORK(&intelli_plug_boost, intelli_plug_boost_fn);
 
 	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
 			      START_DELAY_MS);
@@ -594,6 +618,7 @@ static void intelli_plug_stop(void)
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 	flush_workqueue(intelliplug_wq);
+	cancel_delayed_work_sync(&intelli_plug_boost);
 	cancel_delayed_work_sync(&intelli_plug_work);
 	mutex_destroy(&intelli_plug_mutex);
 	input_unregister_handler(&intelli_plug_input_handler);
