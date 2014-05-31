@@ -457,7 +457,6 @@ static struct early_suspend intelli_plug_early_suspend_struct_driver = {
 };
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
-#if 0
 static void __ref intelli_plug_input_event(struct input_handle *handle,
 		unsigned int type, unsigned int code, int value)
 {
@@ -553,16 +552,13 @@ static struct input_handler intelli_plug_input_handler = {
 	.name           = "intelliplug_handler",
 	.id_table       = intelli_plug_ids,
 };
-#endif
 
 static int __ref intelli_plug_start(void)
 {
 	int rc;
 
 	intelliplug_wq = alloc_workqueue("intelliplug", WQ_HIGHPRI | WQ_FREEZABLE, 0);
-#if 0
 	rc = input_register_handler(&intelli_plug_input_handler);
-#endif
 
 	if (!intelliplug_wq) {
 		printk(KERN_ERR "Failed to create intelliplug \
@@ -600,9 +596,7 @@ static void intelli_plug_stop(void)
 	flush_workqueue(intelliplug_wq);
 	cancel_delayed_work_sync(&intelli_plug_work);
 	mutex_destroy(&intelli_plug_mutex);
-#if 0
 	input_unregister_handler(&intelli_plug_input_handler);
-#endif
 	destroy_workqueue(intelliplug_wq);
 }
 
