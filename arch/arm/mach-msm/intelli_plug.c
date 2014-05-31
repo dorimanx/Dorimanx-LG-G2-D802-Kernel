@@ -200,6 +200,14 @@ static unsigned int calculate_thread_stats(void)
 	return nr_run;
 }
 
+static int boost_lock_check(void)
+{
+	if (boosted_cpus > 1 && num_online_cpus() <= boosted_cpus
+	    && (ktime_to_us(ktime_get()) - last_input < boost_lock_duration))
+		return 1;
+	return 0;
+}
+
 static void __ref intelli_plug_work_fn(struct work_struct *work)
 {
 	unsigned int nr_run_stat;
@@ -207,8 +215,7 @@ static void __ref intelli_plug_work_fn(struct work_struct *work)
 	unsigned int online_cpus = 0;
 
 	int decision = 0;
-	int i;
-	u64 now;
+	int i, boost_locked;
 
 	nr_run_stat = calculate_thread_stats();
 	if (debug_intelli_plug)
@@ -258,10 +265,7 @@ static void __ref intelli_plug_work_fn(struct work_struct *work)
 		return;
 	}
 
-	now = ktime_to_us(ktime_get());
-	if (online_cpus <= boosted_cpus &&
-	    (now - last_input < boost_lock_duration))
-		goto reschedule;
+	boost_locked = boost_lock_check();
 
 	switch (cpu_count) {
 	case 1:
@@ -269,11 +273,12 @@ static void __ref intelli_plug_work_fn(struct work_struct *work)
 			persist_count--;
 		if (persist_count == 0) {
 			/* take down everyone */
-			for_each_online_cpu(i) {
-				if (i == 0)
-					continue;
-				cpu_down(i);
-			}
+			if (!boost_locked)
+				for_each_online_cpu(i) {
+					if (i == 0)
+						continue;
+					cpu_down(i);
+				}
 		}
 		if (debug_intelli_plug)
 			pr_info("case 1: %u\n", persist_count);
@@ -287,8 +292,9 @@ static void __ref intelli_plug_work_fn(struct work_struct *work)
 			for (i = 1; i < cpu_count; i++)
 				cpu_up(i);
 		} else {
-			for (i = 3; i >  1; i--)
-				cpu_down(i);
+			if (!boost_locked)
+				for (i = 3; i >  1; i--)
+					cpu_down(i);
 		}
 		if (debug_intelli_plug)
 			pr_info("case 2: %u\n", persist_count);
@@ -302,8 +308,9 @@ static void __ref intelli_plug_work_fn(struct work_struct *work)
 			for (i = 1; i < cpu_count; i++)
 				cpu_up(i);
 		} else {
-			for (i = 3; i > 2; i--)
-				cpu_down(i);
+			if (!boost_locked)
+				for (i = 3; i > 2; i--)
+					cpu_down(i);
 		}
 		if (debug_intelli_plug)
 			pr_info("case 3: %u\n", persist_count);
@@ -328,7 +335,6 @@ static void __ref intelli_plug_work_fn(struct work_struct *work)
 		break;
 	}
 
-reschedule:
 	if (atomic_read(&intelli_plug_active) == 1)
 		queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
 					msecs_to_jiffies(sampling_time));
