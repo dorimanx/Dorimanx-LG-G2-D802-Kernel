@@ -468,10 +468,14 @@ static void msm_hotplug_work(struct work_struct *work)
 {
 	unsigned int i, target = 0;
 
+#if defined(CONFIG_LCD_NOTIFY) || \
+	defined(CONFIG_POWERSUSPEND) || \
+	defined(CONFIG_HAS_EARLYSUSPEND)
 	if (hotplug.suspended) {
 		dprintk("%s: suspended.\n", MSM_HOTPLUG);
 		return;
 	}
+#endif
 
 	update_load_stats();
 
@@ -722,9 +726,9 @@ static int hotplug_input_connect(struct input_handler *handler,
 		goto err_open;
 
 	return 0;
-err_open:
-	input_unregister_handle(handle);
 err_register:
+	input_unregister_handle(handle);
+err_open:
 	kfree(handle);
 	return err;
 }
