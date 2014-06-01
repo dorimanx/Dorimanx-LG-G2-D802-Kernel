@@ -906,18 +906,20 @@ static void __ref do_freq_control(long temp)
 		struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
 		max_idx = msm_cpufreq_get_index(policy, policy->max);
 		max_freq =
-		    table[max_idx - msm_thermal_info.freq_step].frequency;
+		    table[max_idx - msm_thermal_info_local.freq_step].frequency;
 		throttled = 1;
 	} else if (throttled && max_freq < 0)
 		throttled = 0;
 
 	thermal_limited_max_freq = max_freq;
 	/* Update new limits */
+	get_online_cpus();
 	for_each_possible_cpu(cpu) {
 		if (!(msm_thermal_info_local.freq_control_mask & BIT(cpu)))
 			continue;
 		update_cpu_max_freq(cpu, max_freq, temp);
 	}
+	put_online_cpus();
 }
 
 static void __ref check_temp(struct work_struct *work)
@@ -1059,7 +1061,8 @@ static int __ref set_enabled(const char *val, const struct kernel_param *kp)
 	} else {
 		if (!enabled) {
 			enabled = 1;
-			schedule_delayed_work(&check_temp_work, 0);
+			schedule_delayed_work(&check_temp_work,
+					msecs_to_jiffies(10000));
 			pr_info("msm_thermal: rescheduling...\n");
 		} else
 			pr_info("msm_thermal: already running...\n");
@@ -1107,15 +1110,15 @@ static ssize_t show_thermal_stats(struct kobject *kobj,
 			msm_thermal_stats.warning,
 			msm_thermal_stats.normal);
 }
-static __cpuinitdata struct kobj_attribute msm_thermal_stat_attr =
+static __refdata struct kobj_attribute msm_thermal_stat_attr =
 __ATTR(statistics, 0444, show_thermal_stats, NULL);
 
-static __cpuinitdata struct attribute *msm_thermal_stat_attrs[] = {
+static __refdata struct attribute *msm_thermal_stat_attrs[] = {
         &msm_thermal_stat_attr.attr,
         NULL,
 };
 
-static __cpuinitdata struct attribute_group msm_thermal_stat_attr_group = {
+static __refdata struct attribute_group msm_thermal_stat_attr_group = {
         .attrs = msm_thermal_stat_attrs,
 };
 
@@ -1412,7 +1415,8 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 			KBUILD_MODNAME);
 
 	INIT_DELAYED_WORK(&check_temp_work, check_temp);
-	schedule_delayed_work(&check_temp_work, 10);
+	schedule_delayed_work(&check_temp_work,
+			msecs_to_jiffies(10000));
 
 	if (num_possible_cpus() > 1) {
 		mutex_lock(&core_control_mutex);
@@ -1831,7 +1835,6 @@ static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
 	int ret = 0;
 	char *key = NULL;
 	struct device_node *node = pdev->dev.of_node;
-
 	struct msm_thermal_data data;
 
 	memset(&data, 0, sizeof(struct msm_thermal_data));
