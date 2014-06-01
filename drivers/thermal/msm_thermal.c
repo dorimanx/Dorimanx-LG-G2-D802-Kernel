@@ -34,7 +34,7 @@
 #include <linux/sysfs.h>
 #include <linux/types.h>
 #include <linux/android_alarm.h>
-#include <mach/cpufreq.h>
+#include <linux/thermal.h>
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
 #include <mach/cpufreq.h>
