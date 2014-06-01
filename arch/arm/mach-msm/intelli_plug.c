@@ -105,11 +105,10 @@ static unsigned int nr_run_last;
 static unsigned int NwNs_Threshold[] = { 19, 30,  19,  11,  19,  11, 0,  11};
 static unsigned int TwTs_Threshold[] = {140,  0, 140, 190, 140, 190, 0, 190};
 
-static int mp_decision(void)
+static int mp_decision(int nr_cpu_online)
 {
 	static bool first_call = true;
 	int new_state = 0;
-	int nr_cpu_online;
 	int index;
 	unsigned int rq_depth;
 	static cputime64_t total_time = 0;
@@ -126,8 +125,6 @@ static int mp_decision(void)
 	total_time += this_time;
 
 	rq_depth = rq_info.rq_avg;
-	/* pr_info(" rq_deptch = %u", rq_depth); */
-	nr_cpu_online = num_online_cpus();
 
 	if (nr_cpu_online) {
 		index = (nr_cpu_online - 1) * 2;
@@ -224,7 +221,7 @@ static void __ref intelli_plug_work_fn(struct work_struct *work)
 	online_cpus = num_online_cpus();
 
 	if (!eco_mode_active && !strict_mode_active && online_cpus < NR_CPUS) {
-		decision = mp_decision();
+		decision = mp_decision(online_cpus);
 		if (decision) {
 			switch (online_cpus) {
 			case 2:
