@@ -64,14 +64,14 @@
 #define SUP_SLOW_UP_DUR_DEFAULT (2)
 
 #if defined(SMART_UP_PLUS)
-static unsigned int SUP_THRESHOLD_STEPS[SUP_MAX_STEP] = {70, 80, 90};
-static unsigned int SUP_FREQ_STEPS[SUP_MAX_STEP] = {3, 2, 1};
+static unsigned int SUP_THRESHOLD_STEPS[SUP_MAX_STEP] = {75, 85, 90};
+static unsigned int SUP_FREQ_STEPS[SUP_MAX_STEP] = {4, 3, 2};
 static unsigned int min_range = 108000;
 #endif
 
 #if defined(SMART_UP_SLOW_UP_AT_HIGH_FREQ)
 #define SUP_SLOW_UP_FREQUENCY			(2265600)
-#define SUP_SLOW_UP_LOAD			(70)
+#define SUP_SLOW_UP_LOAD			(80)
 
 typedef struct {
 	unsigned int hist_max_load[SUP_SLOW_UP_DUR];
@@ -96,7 +96,7 @@ static history_load hist_load[SUP_CORE_NUM] = {};
 static unsigned int min_sampling_rate;
 
 #define LATENCY_MULTIPLIER			(1000)
-#define MIN_LATENCY_MULTIPLIER			(80)
+#define MIN_LATENCY_MULTIPLIER			(100)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
 #define POWERSAVE_BIAS_MAXLEVEL			(1000)
@@ -181,8 +181,6 @@ static struct dbs_tuners {
 	unsigned int sampling_down_factor;
 	int          powersave_bias;
 	unsigned int io_is_busy;
-	unsigned int input_boost_freq;
-	unsigned int boostpulse_duration;
 	unsigned int smart_up;
 	unsigned int smart_slow_up_load;
 	unsigned int smart_slow_up_freq;
@@ -206,8 +204,6 @@ static struct dbs_tuners {
 	.smart_slow_up_dur = SUP_SLOW_UP_DUR_DEFAULT,
 	.smart_each_off = 0,
 	.io_is_busy = 0,
-	.input_boost_freq = 1574400,
-	.boostpulse_duration = 900000,
 	.sampling_rate = DEF_SAMPLING_RATE,
 };
 
@@ -347,8 +343,6 @@ show_one(down_differential_multi_core, down_differential_multi_core);
 show_one(optimal_freq, optimal_freq);
 show_one(micro_freq_up_threshold, micro_freq_up_threshold);
 show_one(sync_freq, sync_freq);
-show_one(input_boost_freq, input_boost_freq);
-show_one(boostpulse_duration, boostpulse_duration);
 
 static ssize_t show_powersave_bias
 (struct kobject *kobj, struct attribute *attr, char *buf)
@@ -651,32 +645,6 @@ skip_this_cpu_bypass:
 	return count;
 }
 
-static ssize_t store_input_boost_freq(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-
-	ret = sscanf(buf, "%u", &input);
-	if (ret != 1)
-		return -EINVAL;
-	dbs_tuners_ins.input_boost_freq = input;
-	return count;
-}
-
-static ssize_t store_boostpulse_duration(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-
-	ret = sscanf(buf, "%u", &input);
-	if (ret != 1)
-		return -EINVAL;
-	dbs_tuners_ins.boostpulse_duration = input;
-	return count;
-}
-
 /* PATCH : SMART_UP */
 #if defined(SMART_UP_SLOW_UP_AT_HIGH_FREQ)
 static void reset_hist(history_load *hist_load)
@@ -819,8 +787,6 @@ define_one_global_rw(down_differential_multi_core);
 define_one_global_rw(optimal_freq);
 define_one_global_rw(micro_freq_up_threshold);
 define_one_global_rw(sync_freq);
-define_one_global_rw(input_boost_freq);
-define_one_global_rw(boostpulse_duration);
 define_one_global_rw(smart_up);
 define_one_global_rw(smart_slow_up_load);
 define_one_global_rw(smart_slow_up_freq);
@@ -841,8 +807,6 @@ static struct attribute *dbs_attributes[] = {
 	&optimal_freq.attr,
 	&micro_freq_up_threshold.attr,
 	&sync_freq.attr,
-	&input_boost_freq.attr,
-	&boostpulse_duration.attr,
 	&smart_up.attr,
 	&smart_slow_up_load.attr,
 	&smart_slow_up_freq.attr,
@@ -886,8 +850,6 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	unsigned int max_load_other_cpu = 0;
 	struct cpufreq_policy *policy;
 	unsigned int j;
-	bool boosted = ktime_to_us(ktime_get()) <
-		(last_input_time + dbs_tuners_ins.boostpulse_duration);
 
 	this_dbs_info->freq_lo = 0;
 	policy = this_dbs_info->cur_policy;
@@ -1076,16 +1038,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 				this_dbs_info->rate_mult =
 					dbs_tuners_ins.sampling_down_factor;
 
-			/*
-			 * Input boost
-			 */
-			if (boosted) {
-				if (policy->cur < dbs_tuners_ins.input_boost_freq)
-					dbs_freq_increase(policy, dbs_tuners_ins.input_boost_freq);
-				else
-					dbs_freq_increase(policy, freq_next);
-			} else
-				dbs_freq_increase(policy, freq_next);
+			dbs_freq_increase(policy, freq_next);
 
 			return;
 		}
@@ -1097,16 +1050,6 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 				this_dbs_info->rate_mult =
 					dbs_tuners_ins.sampling_down_factor;
 			dbs_freq_increase(policy, policy->max);
-			return;
-		}
-
-		/*
-		 * Input boost
-		 */
-		if (boosted) {
-			if (policy->cur < dbs_tuners_ins.input_boost_freq)
-				dbs_freq_increase(policy, dbs_tuners_ins.input_boost_freq);
-
 			return;
 		}
 	}
