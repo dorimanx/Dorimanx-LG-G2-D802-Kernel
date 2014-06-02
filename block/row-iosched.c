@@ -87,11 +87,11 @@ struct row_queue_params {
 static const struct row_queue_params row_queues_def[] = {
 /* idling_enabled, quantum, is_urgent */
 	{true, 10, true},	/* ROWQ_PRIO_HIGH_READ */
-	{false, 1, false},	/* ROWQ_PRIO_HIGH_SWRITE */
-	{true, 100, true},	/* ROWQ_PRIO_REG_READ */
+	{false, 5, true},	/* ROWQ_PRIO_HIGH_SWRITE */
+	{true, 80, true},	/* ROWQ_PRIO_REG_READ */
 	{false, 1, false},	/* ROWQ_PRIO_REG_SWRITE */
-	{false, 1, false},	/* ROWQ_PRIO_REG_WRITE */
-	{false, 1, false},	/* ROWQ_PRIO_LOW_READ */
+	{false, 20, true},	/* ROWQ_PRIO_REG_WRITE */
+	{false, 5, false},	/* ROWQ_PRIO_LOW_READ */
 	{false, 1, false}	/* ROWQ_PRIO_LOW_SWRITE */
 };
 

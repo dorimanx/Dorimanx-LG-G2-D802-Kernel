@@ -22,23 +22,23 @@
  */
 /* max queue in one round of service */
 static const int cfq_quantum = 8;
-static const int cfq_fifo_expire[2] = { HZ / 4, HZ / 8 };
+static const int cfq_fifo_expire[2] = { 100 / 4, 100 / 8 };
 /* maximum backwards seek, in KiB */
 static const int cfq_back_max = 16 * 1024;
 /* penalty of a backwards seek */
 static const int cfq_back_penalty = 2;
-static const int cfq_slice_sync = HZ / 10;
-static int cfq_slice_async = HZ / 25;
+static const int cfq_slice_sync = 100 / 10;
+static int cfq_slice_async = 100 / 25;
 static const int cfq_slice_async_rq = 2;
-static int cfq_slice_idle = HZ / 125;
-static int cfq_group_idle = HZ / 125;
-static const int cfq_target_latency = HZ * 3/10; /* 300 ms */
+static int cfq_slice_idle = 100 / 125;
+static int cfq_group_idle = 100 / 125;
+static const int cfq_target_latency = 100 * 3/10; /* 300 ms */
 static const int cfq_hist_divisor = 4;
 
 /*
  * offset from end of service tree
  */
-#define CFQ_IDLE_DELAY		(HZ / 5)
+#define CFQ_IDLE_DELAY		(100 / 5)
 
 /*
  * below this threshold, we consider thinktime immediate
@@ -1323,7 +1323,7 @@ static void cfq_service_tree_add(struct cfq_data *cfqd, struct cfq_queue *cfqq,
 		rb_key -= cfqq->slice_resid;
 		cfqq->slice_resid = 0;
 	} else {
-		rb_key = -HZ;
+		rb_key = -100;
 		__cfqq = cfq_rb_first(service_tree);
 		rb_key += __cfqq ? __cfqq->rb_key : jiffies;
 	}
@@ -3752,7 +3752,7 @@ static void *cfq_init_queue(struct request_queue *q)
 	 * we optimistically start assuming sync ops weren't delayed in last
 	 * second, in order to have larger depth for async operations.
 	 */
-	cfqd->last_delayed_sync = jiffies - HZ;
+	cfqd->last_delayed_sync = jiffies - 100;
 	return cfqd;
 }
 

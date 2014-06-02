@@ -70,7 +70,7 @@
 static const int bfq_quantum = 4;
 
 /* Expiration time of sync (0) and async (1) requests, in jiffies. */
-static const int bfq_fifo_expire[2] = { HZ / 4, HZ / 8 };
+static const int bfq_fifo_expire[2] = { 100 / 4, 100 / 8 };
 
 /* Maximum backwards seek, in KiB. */
 static const int bfq_back_max = 16 * 1024;
@@ -79,7 +79,7 @@ static const int bfq_back_max = 16 * 1024;
 static const int bfq_back_penalty = 2;
 
 /* Idling period duration, in jiffies. */
-static int bfq_slice_idle = HZ / 125;
+static int bfq_slice_idle = 100 / 125;
 
 /* Default maximum budget values, in sectors and number of requests. */
 static const int bfq_default_max_budget = 16 * 1024;
@@ -93,8 +93,8 @@ static const int bfq_max_budget_async_rq = 4;
 static const int bfq_async_charge_factor = 10;
 
 /* Default timeout values, in jiffies, approximating CFQ defaults. */
-static const int bfq_timeout_sync = HZ / 8;
-static int bfq_timeout_async = HZ / 25;
+static const int bfq_timeout_sync = 100 / 8;
+static int bfq_timeout_async = 100 / 25;
 
 struct kmem_cache *bfq_pool;
 
@@ -1874,7 +1874,7 @@ static inline unsigned long bfq_bfqq_softrt_next_start(struct bfq_data *bfqd,
 						       struct bfq_queue *bfqq)
 {
 	return max(bfqq->last_idle_bklogged +
-		   HZ * bfqq->service_from_backlogged /
+		   100 * bfqq->service_from_backlogged /
 		   bfqd->bfq_wr_max_softrt_rate,
 		   jiffies + bfqq->bfqd->bfq_slice_idle + 4);
 }
