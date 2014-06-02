@@ -470,7 +470,6 @@ static int reschedule_hotplug_work(void)
 static void msm_hotplug_work(struct work_struct *work)
 {
 	unsigned int i, target = 0;
-	unsigned int cpu0_cur_freq = 0;
 
 #if defined(CONFIG_LCD_NOTIFY) || \
 	defined(CONFIG_POWERSUSPEND) || \
@@ -483,10 +482,8 @@ static void msm_hotplug_work(struct work_struct *work)
 
 	update_load_stats();
 
-	cpu0_cur_freq = cpufreq_quick_get(0);
-
-	if ((stats.cur_max_load >= hotplug.fast_lane_load)
-		&& (cpu0_cur_freq >= hotplug.fast_lane_min_freq)) {
+	if (cpufreq_quick_get(0) >= hotplug.fast_lane_min_freq &&
+			stats.cur_max_load >= hotplug.fast_lane_load) {
 		/* Enter the fast lane */
 		online_cpu(hotplug.max_cpus_online);
 		goto reschedule;
