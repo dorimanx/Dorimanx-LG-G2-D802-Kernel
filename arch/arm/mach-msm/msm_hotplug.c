@@ -45,7 +45,8 @@
 #define DEFAULT_NR_CPUS_BOOSTED	1
 #define DEFAULT_MIN_CPUS_ONLINE	1
 #define DEFAULT_MAX_CPUS_ONLINE	NR_CPUS
-#define DEFAULT_FAST_LANE_LOAD	120
+#define DEFAULT_FAST_LANE_LOAD	95
+#define DEFAULT_FAST_LANE_MIN_FREQ 1728000
 #define DEFAULT_SUSPEND_DEFER_TIME	5
 
 static unsigned int debug = 0;
@@ -73,6 +74,7 @@ static struct cpu_hotplug {
 	unsigned int cpus_boosted;
 	unsigned int offline_load;
 	unsigned int down_lock_dur;
+	unsigned int fast_lane_min_freq;
 	u64 boost_lock_dur;
 	u64 last_input;
 	unsigned int fast_lane_load;
@@ -101,7 +103,8 @@ static struct cpu_hotplug {
 	.cpus_boosted = DEFAULT_NR_CPUS_BOOSTED,
 	.down_lock_dur = DEFAULT_DOWN_LOCK_DUR,
 	.boost_lock_dur = DEFAULT_BOOST_LOCK_DUR,
-	.fast_lane_load = DEFAULT_FAST_LANE_LOAD
+	.fast_lane_load = DEFAULT_FAST_LANE_LOAD,
+	.fast_lane_min_freq = DEFAULT_FAST_LANE_MIN_FREQ
 };
 
 static struct workqueue_struct *hotplug_wq;
@@ -467,6 +470,7 @@ static int reschedule_hotplug_work(void)
 static void msm_hotplug_work(struct work_struct *work)
 {
 	unsigned int i, target = 0;
+	unsigned int cpu0_cur_freq = 0;
 
 #if defined(CONFIG_LCD_NOTIFY) || \
 	defined(CONFIG_POWERSUSPEND) || \
@@ -479,7 +483,10 @@ static void msm_hotplug_work(struct work_struct *work)
 
 	update_load_stats();
 
-	if (stats.cur_max_load >= hotplug.fast_lane_load) {
+	cpu0_cur_freq = cpufreq_quick_get(0);
+
+	if ((stats.cur_max_load >= hotplug.fast_lane_load)
+		&& (cpu0_cur_freq >= hotplug.fast_lane_min_freq)) {
 		/* Enter the fast lane */
 		online_cpu(hotplug.max_cpus_online);
 		goto reschedule;
