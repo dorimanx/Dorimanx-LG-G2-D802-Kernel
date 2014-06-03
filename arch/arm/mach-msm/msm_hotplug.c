@@ -334,7 +334,7 @@ static int get_lowest_load_cpu(void)
 {
 	int cpu, lowest_cpu = 0;
 	unsigned int lowest_load = UINT_MAX;
-	unsigned int cpu_load[NR_CPUS];
+	unsigned int cpu_load[stats.total_cpus];
 	unsigned int proj_load;
 	struct cpu_load_data *pcpu;
 
@@ -491,7 +491,7 @@ static void msm_hotplug_work(struct work_struct *work)
 	}
 
 	/* If number of cpus locked, break out early */
-	if (hotplug.min_cpus_online == num_possible_cpus()) {
+	if (hotplug.min_cpus_online == stats.total_cpus) {
 		if (stats.online_cpus != hotplug.min_cpus_online)
 			online_cpu(hotplug.min_cpus_online);
 		goto reschedule;
@@ -1155,7 +1155,7 @@ static ssize_t store_min_cpus_online(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val < 1 || val > DEFAULT_MAX_CPUS_ONLINE)
+	if (ret != 1 || val < 1 || val > stats.total_cpus)
 		return -EINVAL;
 
 	if (hotplug.max_cpus_online < val)
@@ -1181,7 +1181,7 @@ static ssize_t store_max_cpus_online(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val < 1 || val > DEFAULT_MAX_CPUS_ONLINE)
+	if (ret != 1 || val < 1 || val > stats.total_cpus)
 		return -EINVAL;
 
 	if (hotplug.min_cpus_online > val)
@@ -1242,7 +1242,7 @@ static ssize_t store_suspend_max_cpus(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val < 0 || val > DEFAULT_MAX_CPUS_ONLINE)
+	if (ret != 1 || val < 0 || val > stats.total_cpus)
 		return -EINVAL;
 
 	hotplug.suspend_max_cpus = val;
@@ -1289,7 +1289,7 @@ static ssize_t store_cpus_boosted(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val < 1 || val > DEFAULT_MAX_CPUS_ONLINE)
+	if (ret != 1 || val < 1 || val > stats.total_cpus)
 		return -EINVAL;
 
 	hotplug.cpus_boosted = val;
