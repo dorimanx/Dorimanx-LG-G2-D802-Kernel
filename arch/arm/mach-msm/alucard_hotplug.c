@@ -168,12 +168,11 @@ static int __cpuinit hotplug_work_fn(struct work_struct *work)
 {
 	int upmaxcoreslimit = 0;
 	unsigned int cpu = 0;
+	int next_online = -1;
 	int online_cpu = 0;
 	int offline_cpu = 0;
 	int online_cpus = 0;
 	unsigned int rq_avg;
-	int cpus_off[4] = {-1, -1, -1, -1};
-	int cpus_on[4] = {-1, -1, -1, -1};
 	bool force_up = force_cpu_up;
 
 	rq_avg = get_nr_run_avg();
@@ -203,6 +202,10 @@ static int __cpuinit hotplug_work_fn(struct work_struct *work)
 		bool check_up = false, check_down = false;
 		unsigned int up_rate = hotplug_rate[cpu][UP_INDEX];
 		unsigned int down_rate = hotplug_rate[cpu][DOWN_INDEX];
+		int cpuret = 0;
+
+		if (cpu == next_online)
+			continue;
 
 #ifdef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
 		cur_load = cpufreq_quick_get_util(cpu);
@@ -245,10 +248,13 @@ static int __cpuinit hotplug_work_fn(struct work_struct *work)
 			check_down = (pcpu_info->cpu_down_rate % down_rate == 0);
 
 			if (cpu > 0 
-				&& ((online_cpus - online_cpu) > upmaxcoreslimit)) {
-					cpus_on[online_cpu] = cpu;
-					++online_cpu;
-					pcpu_info->cpu_down_rate = 1;
+				&& ((online_cpus - offline_cpu) > upmaxcoreslimit)) {
+					cpuret = cpu_down(cpu);
+					if (!cpuret) {
+						pcpu_info->cpu_up_rate = 1;
+						pcpu_info->cpu_down_rate = 1;
+						++offline_cpu;
+					}
 					continue;
 			} else if (force_up == true) {
 					check_up = true;
@@ -259,14 +265,17 @@ static int __cpuinit hotplug_work_fn(struct work_struct *work)
 
 			if (!cpu_online(upcpu)
 				&& upcpu < upmaxcoreslimit
-				&& (online_cpus + offline_cpu) < upmaxcoreslimit
+				&& (online_cpus + online_cpu) < upmaxcoreslimit
  			    && cur_load >= up_load 
 				&& cur_freq >= up_freq 
 				&& rq_avg > up_rq) {
 					if (check_up) {
-						cpus_off[offline_cpu] = upcpu;
-						++offline_cpu;
-						pcpu_info->cpu_up_rate = 1;
+						cpuret = cpu_up(upcpu);
+						if (!cpuret) {
+							pcpu_info->cpu_up_rate = 1;
+							next_online = upcpu;
+							++online_cpu;
+						}
 					} else {
 						++pcpu_info->cpu_up_rate;
 					}
@@ -275,26 +284,16 @@ static int __cpuinit hotplug_work_fn(struct work_struct *work)
 						   || (cur_load < down_load
 						       && rq_avg <= down_rq))) {
 							if (check_down) {
-								cpus_on[online_cpu] = cpu;
-								++online_cpu;
-								pcpu_info->cpu_up_rate = 1;
-								pcpu_info->cpu_down_rate = 1;
+								cpuret = cpu_down(cpu);
+								if (!cpuret) {
+									pcpu_info->cpu_up_rate = 1;
+									pcpu_info->cpu_down_rate = 1;
+									++offline_cpu;
+								}
 							} else {
 								++pcpu_info->cpu_down_rate;
 							}
 			}
-		}
-	}
-
-	if (offline_cpu > 0) {
-		for (cpu = 0; cpu < offline_cpu; cpu++) {
-			cpu_up(cpus_off[cpu]);
-		}
-	}
-
-	if (online_cpu > 0) {
-		for (cpu = 0; cpu < online_cpu; cpu++) {
-			cpu_down(cpus_on[cpu]);
 		}
 	}
 
