@@ -31,6 +31,13 @@ AFLAGS_decompress.o += -Wa,-mcpu=cortex-a15
 
 HEAD	= head.o
 MISC	+= misc.o
+ifeq ($(CONFIG_KERNEL_LZ4),y)
+CFLAGS_decompress.o := -Os
+endif
+ifeq ($(CONFIG_KERNEL_LZMA),y)
+CFLAGS_decompress.o := -Os
+endif
+
 DECOMPRESS = decompress.o
 FONTC	= $(srctree)/drivers/video/console/font_acorn_8x8.c
 
