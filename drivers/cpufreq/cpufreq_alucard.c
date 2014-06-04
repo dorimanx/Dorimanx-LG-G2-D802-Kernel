@@ -85,7 +85,7 @@ static struct alucard_tuners {
 	.inc_cpu_load = 80,
 	.dec_cpu_load_at_min_freq = 40,
 	.dec_cpu_load = 60,
-	.freq_responsiveness = 960000,
+	.freq_responsiveness = 1497600,
 	.pump_inc_step = 2,
 	.pump_dec_step = 1,
 
@@ -380,7 +380,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 				CPUFREQ_RELATION_L, &index);
 
 			if ((index + pump_inc_step) > this_alucard_cpuinfo->max_index)
-				index = max_index;
+				index = this_alucard_cpuinfo->max_index;
 			else
 				index += pump_inc_step;
 
@@ -394,7 +394,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 				CPUFREQ_RELATION_L, &index);
 
 			if ((index - pump_dec_step) < this_alucard_cpuinfo->min_index)
-				index = min_index;
+				index = this_alucard_cpuinfo->min_index;
 			else
 				index -= pump_dec_step;
 
