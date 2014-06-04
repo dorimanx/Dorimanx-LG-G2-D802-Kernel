@@ -46,7 +46,7 @@ struct cpufreq_alucard_cpuinfo {
 	ktime_t time_stamp;
 #endif
 	int cpu;
-#ifdef CONFIG_MACH_LGE
+#if !defined(CONFIG_MACH_JF)
 	unsigned int min_index;
 	unsigned int max_index;
 #endif
@@ -85,7 +85,11 @@ static struct alucard_tuners {
 	.inc_cpu_load = 80,
 	.dec_cpu_load_at_min_freq = 40,
 	.dec_cpu_load = 60,
+#if defined(CONFIG_MACH_LGE)
 	.freq_responsiveness = 1497600,
+#else
+	.freq_responsiveness = 918000,
+#endif
 	.pump_inc_step = 2,
 	.pump_dec_step = 1,
 
@@ -375,7 +379,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 		}		
 		/* Check for frequency increase or for frequency decrease */
 		if (cur_load >= inc_cpu_load && cpu_policy->cur < max_freq) {
-#ifdef CONFIG_MACH_LGE
+#if !defined(CONFIG_MACH_JF)
 			cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, cpu_policy->cur,
 				CPUFREQ_RELATION_L, &index);
 
@@ -389,7 +393,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 			tmp_freq = min(cpu_policy->cur + (pump_inc_step * 108000), max_freq);
 #endif
 		} else if (cur_load < dec_cpu_load && cpu_policy->cur > min_freq) {
-#ifdef CONFIG_MACH_LGE
+#if !defined(CONFIG_MACH_JF)
 			cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, cpu_policy->cur,
 				CPUFREQ_RELATION_L, &index);
 
@@ -470,7 +474,7 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 
 		this_alucard_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
 
-#ifdef CONFIG_MACH_LGE
+#if !defined(CONFIG_MACH_JF)
 		cpufreq_frequency_table_target(policy, this_alucard_cpuinfo->freq_table, policy->min,
 			CPUFREQ_RELATION_L, &this_alucard_cpuinfo->min_index);
 
@@ -537,7 +541,7 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 			return -EPERM;
 		}
 		mutex_lock(&this_alucard_cpuinfo->timer_mutex);
-#ifdef CONFIG_MACH_LGE
+#if !defined(CONFIG_MACH_JF)
 		cpufreq_frequency_table_target(policy, this_alucard_cpuinfo->freq_table, policy->min,
 			CPUFREQ_RELATION_L, &this_alucard_cpuinfo->min_index);
 
