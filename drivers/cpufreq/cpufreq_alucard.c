@@ -53,7 +53,9 @@ struct cpufreq_alucard_cpuinfo {
 	struct cpufreq_frequency_table *freq_table;
 	struct delayed_work work;
 	struct cpufreq_policy *cur_policy;
+#if 0
 	ktime_t time_stamp;
+#endif
 	int cpu;
 	unsigned int enable:1;
 	/*
@@ -310,6 +312,7 @@ static struct attribute_group alucard_attr_group = {
 
 /************************** sysfs end ************************/
 
+#if 0
 /* Will return if we need to evaluate cpu load again or not */
 static inline bool need_load_eval(struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo,
 		unsigned int sampling_rate)
@@ -325,6 +328,7 @@ static inline bool need_load_eval(struct cpufreq_alucard_cpuinfo *this_alucard_c
 
 	return true;
 }
+#endif
 
 static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo)
 {
@@ -417,7 +421,9 @@ static void do_alucard_timer(struct work_struct *work)
 		delay -= jiffies % delay;
 	}
 
+#if 0
 	if (need_load_eval(alucard_cpuinfo, sampling_rate))
+#endif
 		alucard_check_cpu(alucard_cpuinfo);
 
 	queue_delayed_work_on(cpu, alucard_wq, &alucard_cpuinfo->work, delay);
@@ -466,8 +472,10 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 
 		mutex_init(&this_alucard_cpuinfo->timer_mutex);
 
+#if 0
 		/* Initiate timer time stamp */
 		this_alucard_cpuinfo->time_stamp = ktime_get();
+#endif
 
 		delay=usecs_to_jiffies(alucard_tuners_ins.sampling_rate);
 		if (num_online_cpus() > 1) {
