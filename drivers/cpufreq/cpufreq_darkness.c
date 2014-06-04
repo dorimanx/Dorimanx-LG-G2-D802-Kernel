@@ -35,17 +35,6 @@
  */
 
 static void do_darkness_timer(struct work_struct *work);
-static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
-				unsigned int event);
-
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_DARKNESS
-static
-#endif
-struct cpufreq_governor cpufreq_gov_darkness = {
-	.name                   = "darkness",
-	.governor               = cpufreq_governor_darkness,
-	.owner                  = THIS_MODULE,
-};
 
 struct cpufreq_darkness_cpuinfo {
 	u64 prev_cpu_wall;
@@ -333,6 +322,15 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 	}
 	return 0;
 }
+
+#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_DARKNESS
+static
+#endif
+struct cpufreq_governor cpufreq_gov_darkness = {
+	.name                   = "darkness",
+	.governor               = cpufreq_governor_darkness,
+	.owner                  = THIS_MODULE,
+};
 
 static int __init cpufreq_gov_darkness_init(void)
 {

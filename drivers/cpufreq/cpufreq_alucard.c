@@ -35,17 +35,6 @@
  */
 
 static void do_alucard_timer(struct work_struct *work);
-static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
-				unsigned int event);
-
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_ALUCARD
-static
-#endif
-struct cpufreq_governor cpufreq_gov_alucard = {
-	.name                   = "alucard",
-	.governor               = cpufreq_governor_alucard,
-	.owner                  = THIS_MODULE,
-};
 
 struct cpufreq_alucard_cpuinfo {
 	u64 prev_cpu_wall;
@@ -523,6 +512,16 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 	}
 	return 0;
 }
+
+#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_ALUCARD
+static
+#endif
+struct cpufreq_governor cpufreq_gov_alucard = {
+	.name                   = "alucard",
+	.governor               = cpufreq_governor_alucard,
+	.owner                  = THIS_MODULE,
+};
+
 
 static int __init cpufreq_gov_alucard_init(void)
 {

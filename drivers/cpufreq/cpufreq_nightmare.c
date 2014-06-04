@@ -35,17 +35,6 @@
  */
 
 static void do_nightmare_timer(struct work_struct *work);
-static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
-				unsigned int event);
-
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_NIGHTMARE
-static
-#endif
-struct cpufreq_governor cpufreq_gov_nightmare = {
-	.name                   = "nightmare",
-	.governor               = cpufreq_governor_nightmare,
-	.owner                  = THIS_MODULE,
-};
 
 struct cpufreq_nightmare_cpuinfo {
 	u64 prev_cpu_wall;
@@ -630,6 +619,15 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 	}
 	return 0;
 }
+
+#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_NIGHTMARE
+static
+#endif
+struct cpufreq_governor cpufreq_gov_nightmare = {
+	.name                   = "nightmare",
+	.governor               = cpufreq_governor_nightmare,
+	.owner                  = THIS_MODULE,
+};
 
 static int __init cpufreq_gov_nightmare_init(void)
 {
