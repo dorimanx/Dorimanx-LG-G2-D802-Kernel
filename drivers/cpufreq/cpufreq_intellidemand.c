@@ -82,7 +82,7 @@ static unsigned long stored_sampling_rate;
 #endif
 
 #if defined(SMART_UP_PLUS)
-static unsigned int SUP_THRESHOLD_STEPS[SUP_MAX_STEP] = {75, 80, 85};
+static unsigned int SUP_THRESHOLD_STEPS[SUP_MAX_STEP] = {70, 80, 85};
 static unsigned int SUP_FREQ_STEPS[SUP_MAX_STEP] = {4, 3, 2};
 //static unsigned int min_range = 108000;
 typedef struct{
@@ -558,7 +558,7 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
                 return -EINVAL;
         if (input == dbs_tuners_ins.origin_sampling_rate)
                 return count;
-        dbs_tuners_ins.sampling_rate = input;
+        dbs_tuners_ins.sampling_rate = max(input, min_sampling_rate);
         dbs_tuners_ins.origin_sampling_rate = dbs_tuners_ins.sampling_rate;
         return count;
 }
