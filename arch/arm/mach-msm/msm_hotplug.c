@@ -483,8 +483,8 @@ static void msm_hotplug_work(struct work_struct *work)
 
 	update_load_stats();
 
-	if (cpufreq_quick_get(0) >= hotplug.fast_lane_min_freq &&
-			stats.cur_max_load >= hotplug.fast_lane_load) {
+	if ((stats.cur_max_load >= hotplug.fast_lane_load) &&
+			(cpufreq_quick_get(0) >= hotplug.fast_lane_min_freq)) {
 		/* Enter the fast lane */
 		online_cpu(hotplug.max_cpus_online);
 		goto reschedule;
