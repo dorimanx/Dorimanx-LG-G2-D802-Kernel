@@ -355,12 +355,11 @@ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
 CFLAGS_MODULE   = -DMODULE -fno-pic -mcpu=cortex-a15 -mtune=cortex-a15 \
-		  -march=armv7-a -marm -mfpu=neon-vfpv4 \
-		  -mvectorize-with-neon-quad
+		  -marm -mfpu=neon-vfpv4 -mvectorize-with-neon-quad
 AFLAGS_MODULE   =
 LDFLAGS_MODULE  =
-CFLAGS_KERNEL	= -mcpu=cortex-a15 -mtune=cortex-a15 -march=armv7-a \
-		  -marm -mfpu=neon-vfpv4 -mvectorize-with-neon-quad
+CFLAGS_KERNEL	= -mcpu=cortex-a15 -mtune=cortex-a15 -marm -mfpu=neon-vfpv4 \
+		  -mvectorize-with-neon-quad
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
