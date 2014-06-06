@@ -165,9 +165,6 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 			(cur_idle_time - this_darkness_cpuinfo->prev_cpu_idle);
 	this_darkness_cpuinfo->prev_cpu_idle = cur_idle_time;
 
-	if (!cpu_policy)
-		return;
-
 	/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",cpu, wall_time, idle_time);*/
 
 	if (wall_time >= idle_time) { /*if wall_time < idle_time, evaluate cpu load next time*/
