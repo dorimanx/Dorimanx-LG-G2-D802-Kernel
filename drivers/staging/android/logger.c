@@ -37,11 +37,15 @@
 #define CONFIG_LOGCAT_SIZE 256
 #endif
 
-static unsigned int log_enabled = 1;
-static unsigned int log_always_on = 0;
+/*
+ * 0 - Enabled
+ * 1 - Auto Suspend
+ * 2 - Disabled
+ */
+static unsigned int log_mode = 1;
+static unsigned int log_enabled = 1; // Do not change this value
 
-module_param(log_enabled, uint, S_IWUSR | S_IRUGO);
-module_param(log_always_on, uint, S_IWUSR | S_IRUGO);
+module_param(log_mode, uint, S_IWUSR | S_IRUGO);
 
 /**
  * struct logger_log - represents a specific log, such as 'main' or 'radio'
@@ -472,14 +476,13 @@ static ssize_t do_write_log_from_user(struct logger_log *log,
 
 static void log_early_suspend(struct power_suspend *handler)
 {
-	if (log_enabled)
+	if (log_mode == 1)
 		log_enabled = 0;
 }
 
 static void log_late_resume(struct power_suspend *handler)
 {
-	if (!log_enabled)
-		log_enabled = 1;
+	log_enabled = 1;
 }
 
 static struct power_suspend log_suspend = {
@@ -495,15 +498,15 @@ static struct power_suspend log_suspend = {
 static ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 			 unsigned long nr_segs, loff_t ppos)
 {
-	struct logger_log *log = file_get_log(iocb->ki_filp);
-	size_t orig;
+	struct logger_log *log;
+	size_t orig, ret = 0;
 	struct logger_entry header;
 	struct timespec now;
-	ssize_t ret = 0;
 
-	if (!log_enabled && !log_always_on)
+	if (!log_enabled || log_mode == 2)
 		return 0;
 
+	log = file_get_log(iocb->ki_filp);
 	now = current_kernel_time();
 
 	header.pid = current->tgid;
