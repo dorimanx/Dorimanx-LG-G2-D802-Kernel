@@ -170,7 +170,7 @@ static void cpufreq_ondemandplus_timer(unsigned long data)
 
         time_in_idle = pcpu->time_in_idle;
         idle_exit_time = pcpu->idle_exit_time;
-        now_idle = get_cpu_idle_time(data, &pcpu->timer_run_time, 0);
+        now_idle = get_cpu_idle_time(data, &pcpu->timer_run_time, io_is_busy);
         smp_wmb();
 
         /* If we raced with cancelling a timer, skip. */
@@ -378,7 +378,7 @@ rearm:
                 }
 
                 pcpu->time_in_idle = get_cpu_idle_time(
-                        data, &pcpu->idle_exit_time, 0);
+                        data, &pcpu->idle_exit_time, io_is_busy);
                 mod_timer(&pcpu->cpu_timer,
                         jiffies + usecs_to_jiffies(timer_rate));
         }
@@ -412,7 +412,8 @@ static void cpufreq_ondemandplus_idle_start(void)
                  */
                 if (!pending) {
                         pcpu->time_in_idle = get_cpu_idle_time(
-                                smp_processor_id(), &pcpu->idle_exit_time, 0);
+                                smp_processor_id(), &pcpu->idle_exit_time,
+						io_is_busy);
                         pcpu->timer_idlecancel = 0;
                         mod_timer(&pcpu->cpu_timer,
                                   jiffies + usecs_to_jiffies(timer_rate));
@@ -463,7 +464,8 @@ static void cpufreq_ondemandplus_idle_end(void)
             pcpu->governor_enabled) {
                 pcpu->time_in_idle =
                         get_cpu_idle_time(smp_processor_id(),
-                                             &pcpu->idle_exit_time, 0);
+                                             &pcpu->idle_exit_time,
+						io_is_busy);
                 pcpu->timer_idlecancel = 0;
                 mod_timer(&pcpu->cpu_timer,
                           jiffies + usecs_to_jiffies(timer_rate));
@@ -823,7 +825,7 @@ static int cpufreq_governor_ondemandplus(struct cpufreq_policy *policy,
                         pcpu->freq_table = freq_table;
                         pcpu->target_set_time_in_idle =
                                 get_cpu_idle_time(j,
-                                             &pcpu->target_set_time, 0);
+                                             &pcpu->target_set_time, io_is_busy);
                         pcpu->governor_enabled = 1;
                         smp_wmb();
                 }
