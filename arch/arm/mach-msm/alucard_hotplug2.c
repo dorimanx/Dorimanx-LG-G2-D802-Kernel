@@ -46,7 +46,7 @@ static struct hotplug_cpuinfo {
 
 static DEFINE_PER_CPU(struct hotplug_cpuinfo, od_hotplug_cpuinfo);
 
-static unsigned int suspended = 0;
+static bool suspended = false;
 
 static struct hotplug_tuners {
 	unsigned int hotplug_sampling_rate;
@@ -311,7 +311,7 @@ static void __ref alucard_hotplug_suspend(struct early_suspend *handler)
 #endif
 {
 	if (hotplug_tuners_ins.hotplug_enable > 0) {
-		suspended = 1;
+		suspended = true;
 	}
 }
 
@@ -329,7 +329,7 @@ static void __cpuinit alucard_hotplug_resume(
 		/* wake up everyone */
 		maxcoreslimit = hotplug_tuners_ins.maxcoreslimit;
 
-		suspended = 0;
+		suspended = false;
 
 		for (i = 1; i < maxcoreslimit; i++) {
 			if (!cpu_online(i))
@@ -419,7 +419,7 @@ static int hotplug_start()
 		return ret;
 	}
 
-	suspended = 0;
+	suspended = false;
 
 	init_rq_avg_stats();
 
