@@ -662,7 +662,7 @@ static int mmc_stop_request(struct mmc_host *host)
 	mmc_host_clk_hold(host);
 	err = host->ops->stop_request(host);
 	if (err) {
-		pr_err("%s: Call to host->ops->stop_request() failed (%d)\n",
+		pr_debug("%s: Call to host->ops->stop_request() failed (%d)\n",
 				mmc_hostname(host), err);
 		goto out;
 	}
