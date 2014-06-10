@@ -168,28 +168,32 @@ static unsigned int hotplug_rate[NR_CPUS][2] = {
 	{4, 1}
 };
 
-static int hotplug_onoff[NR_CPUS][2] = {
-		{-1, -1},
-		{-1, -1},
-		{-1, -1},
-		{-1, -1}
+static bool hotplug_onoff[NR_CPUS][2] = {
+		{false, false},
+		{false, false},
+		{false, false},
+		{false, false}
 };
 
 static void __ref schedule_hotplug_work(struct work_struct *work)
 {
 	unsigned int cpu;
 	unsigned int oncpu = 0;
-	unsigned int ret = 0;
 
 	for (cpu = 1; cpu < NR_CPUS; cpu++) {
-		if (hotplug_onoff[cpu][UP_INDEX] > 0) {
-			ret = cpu_up(hotplug_onoff[cpu][UP_INDEX]);
+		unsigned int ret = 0;
+
+		if (hotplug_onoff[cpu][UP_INDEX] == true) {
+			ret = cpu_up(cpu);
+
 			if (oncpu == 0 && ret == 0)
-				oncpu = hotplug_onoff[cpu][UP_INDEX];
-			hotplug_onoff[cpu][UP_INDEX] = -1;
-		}else if (hotplug_onoff[cpu][DOWN_INDEX] > 0) {
-			cpu_down(hotplug_onoff[cpu][DOWN_INDEX]);
-			hotplug_onoff[cpu][DOWN_INDEX] = -1;
+				oncpu = cpu;
+
+			hotplug_onoff[cpu][UP_INDEX] = false;
+		} else if (hotplug_onoff[cpu][DOWN_INDEX] == true) {
+			cpu_down(cpu);
+
+			hotplug_onoff[cpu][DOWN_INDEX] = false;
 		}		
 	}
 
@@ -278,7 +282,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 
 			if (cpu > 0 
 				&& ((online_cpus - offline_cpu) > upmaxcoreslimit)) {
-					hotplug_onoff[cpu][DOWN_INDEX] = cpu;
+					hotplug_onoff[cpu][DOWN_INDEX] = true;
 					pcpu_info->cpu_up_rate = 1;
 					pcpu_info->cpu_down_rate = 1;
 					++offline_cpu;
@@ -297,7 +301,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 				&& cur_freq >= up_freq 
 				&& rq_avg > up_rq) {
 					if (check_up) {
-						hotplug_onoff[upcpu][UP_INDEX] = upcpu;
+						hotplug_onoff[upcpu][UP_INDEX] = true;
 						pcpu_info->cpu_up_rate = 1;
 						++online_cpu;
 					} else {
@@ -308,7 +312,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 						   || (cur_load < down_load
 						       && rq_avg <= down_rq))) {
 							if (check_down) {
-								hotplug_onoff[cpu][DOWN_INDEX] = cpu;
+								hotplug_onoff[cpu][DOWN_INDEX] = true;
 								pcpu_info->cpu_up_rate = 1;
 								pcpu_info->cpu_down_rate = 1;
 								++offline_cpu;
