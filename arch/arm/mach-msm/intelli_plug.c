@@ -71,6 +71,7 @@ static unsigned int strict_mode_active = 0;
 static unsigned int wake_boost_active = 0;
 static unsigned int touch_boosted_cpus = 2;
 static unsigned int screen_off_max = UINT_MAX;
+static unsigned int min_cpus_online = 1;
 
 /* HotPlug Driver Tuning */
 static u64 boost_lock_duration = BOOST_LOCK_DUR;
@@ -662,6 +663,7 @@ show_one(debug_intelli_plug, debug_intelli_plug);
 show_one(nr_fshift, nr_fshift);
 show_one(nr_run_hysteresis, nr_run_hysteresis);
 show_one(screen_off_max, screen_off_max);
+show_one(min_cpus_online, min_cpus_online);
 
 #define store_one(file_name, object)		\
 static ssize_t store_##file_name		\
@@ -696,6 +698,7 @@ store_one(debug_intelli_plug, debug_intelli_plug);
 store_one(nr_fshift, nr_fshift);
 store_one(nr_run_hysteresis, nr_run_hysteresis);
 store_one(screen_off_max, screen_off_max);
+store_one(min_cpus_online, min_cpus_online);
 
 static ssize_t show_intelli_plug_active(struct kobject *kobj,
 					struct kobj_attribute *attr,
@@ -770,6 +773,7 @@ KERNEL_ATTR_RW(debug_intelli_plug);
 KERNEL_ATTR_RW(nr_fshift);
 KERNEL_ATTR_RW(nr_run_hysteresis);
 KERNEL_ATTR_RW(screen_off_max);
+KERNEL_ATTR_RW(min_cpus_online);
 
 static struct attribute *intelli_plug_attrs[] = {
 	&intelli_plug_active_attr.attr,
@@ -789,6 +793,7 @@ static struct attribute *intelli_plug_attrs[] = {
 	&nr_fshift_attr.attr,
 	&nr_run_hysteresis_attr.attr,
 	&screen_off_max_attr.attr,
+	&min_cpus_online_attr.attr,
 	NULL,
 };
 

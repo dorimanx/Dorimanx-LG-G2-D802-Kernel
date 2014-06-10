@@ -52,11 +52,13 @@ static struct hotplug_tuners {
 	unsigned int hotplug_sampling_rate;
 	unsigned int hotplug_enable;
 	unsigned int maxcoreslimit;
+	unsigned int min_cpus_online;
 	unsigned int maxcoreslimit_sleep;
 } hotplug_tuners_ins = {
 	.hotplug_sampling_rate = 60,
 	.hotplug_enable = 0,
 	.maxcoreslimit = NR_CPUS,
+	.min_cpus_online = 1,
 	.maxcoreslimit_sleep = 1,
 };
 
@@ -167,6 +169,7 @@ static unsigned int hotplug_rate[4][2] = {
 static int __cpuinit hotplug_work_fn(struct work_struct *work)
 {
 	int upmaxcoreslimit = 0;
+	int upmin_cpus_online;
 	unsigned int cpu = 0;
 	int next_online = -1;
 	int online_cpu = 0;
@@ -177,10 +180,13 @@ static int __cpuinit hotplug_work_fn(struct work_struct *work)
 
 	rq_avg = get_nr_run_avg();
 
-	if (suspended)
+	if (suspended) {
 		upmaxcoreslimit = hotplug_tuners_ins.maxcoreslimit_sleep;
-	else
+		upmin_cpus_online = hotplug_tuners_ins.maxcoreslimit_sleep;
+	} else {
 		upmaxcoreslimit = hotplug_tuners_ins.maxcoreslimit;
+		upmin_cpus_online = max(hotplug_tuners_ins.min_cpus_online, hotplug_tuners_ins.maxcoreslimit);
+	}
 
 	online_cpus = num_online_cpus();
 
@@ -418,6 +424,7 @@ static ssize_t show_##file_name						\
 show_one(hotplug_sampling_rate, hotplug_sampling_rate);
 show_one(hotplug_enable, hotplug_enable);
 show_one(maxcoreslimit, maxcoreslimit);
+show_one(min_cpus_online, min_cpus_online);
 show_one(maxcoreslimit_sleep, maxcoreslimit_sleep);
 
 #define show_hotplug_param(file_name, num_core, up_down)		\
@@ -638,6 +645,27 @@ static ssize_t store_maxcoreslimit(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+/* min_cpus_online */
+static ssize_t store_min_cpus_online(struct kobject *a, struct attribute *b,
+				  const char *buf, size_t count)
+{
+	int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	input = max(input > NR_CPUS ? NR_CPUS : input, 1);
+
+	if (hotplug_tuners_ins.min_cpus_online == input)
+		return count;
+
+	hotplug_tuners_ins.min_cpus_online = input;
+
+	return count;
+}
+
 /* maxcoreslimit_sleep */
 static ssize_t store_maxcoreslimit_sleep(struct kobject *a,
 				struct attribute *b,
@@ -663,6 +691,7 @@ static ssize_t store_maxcoreslimit_sleep(struct kobject *a,
 define_one_global_rw(hotplug_sampling_rate);
 define_one_global_rw(hotplug_enable);
 define_one_global_rw(maxcoreslimit);
+define_one_global_rw(min_cpus_online);
 define_one_global_rw(maxcoreslimit_sleep);
 
 static struct attribute *alucard_hotplug_attributes[] = {
@@ -701,6 +730,7 @@ static struct attribute *alucard_hotplug_attributes[] = {
 	&hotplug_rate_4_0.attr,
 #endif
 	&maxcoreslimit.attr,
+	&min_cpus_online.attr,
 	&maxcoreslimit_sleep.attr,
 	NULL
 };
