@@ -397,6 +397,9 @@ static int sched_debug_show(struct seq_file *m, void *v)
 	P(sched_downmigrate);
 	P(sched_init_task_load_windows);
 	P(sched_init_task_load_pelt);
+	P(min_capacity);
+	P(max_capacity);
+	P(sched_use_pelt);
 #endif
 #undef PN
 #undef P
