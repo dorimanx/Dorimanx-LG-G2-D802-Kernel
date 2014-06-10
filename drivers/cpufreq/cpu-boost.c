@@ -47,7 +47,7 @@ static struct workqueue_struct *cpu_boost_wq;
 static struct work_struct input_boost_work;
 static struct work_struct plug_boost_work;
 
-static unsigned int boost_ms = 40;
+static unsigned int boost_ms = 30;
 module_param(boost_ms, uint, 0644);
 
 static unsigned int sync_threshold;
@@ -56,7 +56,7 @@ module_param(sync_threshold, uint, 0644);
 static unsigned int input_boost_freq = 1574400;
 module_param(input_boost_freq, uint, 0644);
 
-static unsigned int input_boost_ms = 40;
+static unsigned int input_boost_ms = 30;
 module_param(input_boost_ms, uint, 0644);
 
 static unsigned int migration_load_threshold = 30;
@@ -71,7 +71,7 @@ module_param(hotplug_boost, bool, 0644);
 static unsigned int plug_boost_freq = 1574400;
 module_param(plug_boost_freq, uint, 0644);
 
-static unsigned int plug_boost_ms = 40;
+static unsigned int plug_boost_ms = 30;
 module_param(plug_boost_ms, uint, 0644);
 
 static u64 last_input_time;
