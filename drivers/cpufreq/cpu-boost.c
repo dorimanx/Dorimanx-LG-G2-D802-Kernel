@@ -388,23 +388,20 @@ static int cpuboost_cpu_callback(struct notifier_block *cpu_nb,
 	int ret;
 	struct cpufreq_policy policy;
 
-	if (!cpu_boost)
-		return NOTIFY_OK;
-
-	ret = cpufreq_get_policy(&policy, 0);
-	if (!ret && input_boost_freq <= policy.cpuinfo.min_freq)
-		return NOTIFY_OK;
-
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_UP_PREPARE:
 	case CPU_DEAD:
 	case CPU_UP_CANCELED:
 		break;
 	case CPU_ONLINE:
-		if (work_pending(&input_boost_work))
+		if (!cpu_boost || !input_boost_freq ||
+		     work_pending(&input_boost_work))
 			break;
-		pr_debug("Input boost for CPU%d\n", (int)hcpu);
+		ret = cpufreq_get_policy(&policy, 0);
+		if (!ret && input_boost_freq <= policy.cpuinfo.min_freq)
+			break;
 		queue_work(cpu_boost_wq, &input_boost_work);
+		pr_debug("Input boost for CPU%d\n", (int)hcpu);
 		last_input_time = ktime_to_us(ktime_get());
 		break;
 	default:
