@@ -10,6 +10,26 @@
  * GNU General Public License for more details.
  */
 
+&mdss_dsi0 {
+	qcom,platform-lane-config = [00 00 00 00 00 00 00 01 c8
+			00 00 00 00 05 00 00 01 c8
+			00 00 00 00 0a 00 00 01 c8
+			00 00 00 00 0f 00 00 01 c8
+			00 c0 00 00 00 00 00 01 bb];
+	qcom,dsi-pref-prim-pan = <&mdss_dsi_g2_lgd_cmd>;
+	qcom,platform-supply-entry2 {
+		qcom,supply-enable-load = <300000>;
+	};
+};
+
+&mdss_dsi_g2_lgd_cmd {
+	qcom,mdss-dsi-panel-clock-rate = <893952000>;
+};
+
+&mdss_dsi_g2_jdi_cmd {
+	qcom,mdss-dsi-panel-clock-rate = <893952000>;
+};
+
 &soc {
 	qcom,mdss_dsi_lgit_video {
 		status = "disable";
@@ -17,11 +37,11 @@
 	};
 
 	qcom,mdss_dsi_lgit_cmd {
-		status = "disable";
+		qcom,mdss-dsi-panel-clock-rate = <893952000>;
 	};
 
 	qcom,mdss_dsi_jdi_cmd {
-		status = "disable";
+		qcom,mdss-dsi-panel-clock-rate = <893952000>;
 	};
 
 	qcom,mdss_dsi_jdi_video {

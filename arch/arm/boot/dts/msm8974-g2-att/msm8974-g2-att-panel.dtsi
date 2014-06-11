@@ -31,6 +31,23 @@
 };
 
 &soc {
+	qcom,mdss_dsi_lgit_video {
+		status = "disable";
+		qcom,cont-splash-enabled;
+	};
+
+	qcom,mdss_dsi_lgit_cmd {
+		qcom,mdss-dsi-panel-clock-rate = <893952000>;
+	};
+
+	qcom,mdss_dsi_jdi_cmd {
+		qcom,mdss-dsi-panel-clock-rate = <893952000>;
+	};
+
+	qcom,mdss_dsi_jdi_video {
+		status = "disable";
+	};
+
 	i2c@f9967000 {
 		lm3630_rev_b@38 {
 			status = "ok";

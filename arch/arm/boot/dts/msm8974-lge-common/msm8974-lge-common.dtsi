@@ -25,18 +25,6 @@
 
 &soc {
 
-	qcom,mdss_dsi_lgit_video {
-	};
-
-	qcom,mdss_dsi_lgit_cmd {
-	};
-
-	qcom,mdss_dsi_jdi_cmd {
-	};
-
-	qcom,mdss_dsi_jdi_video {
-	};
-
 	/* common: core */
 	qcom,wdt@f9017000 {
 		qcom,bark-time = <16000>;
