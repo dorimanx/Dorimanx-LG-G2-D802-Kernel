@@ -200,8 +200,6 @@ static ssize_t cam_mic_gain_store(struct kobject *kobj,
 			lvalnew = 24;
 		if (lval > 0)
 			lvalnew = (24 + lval);
-		if (lval < 0)
-			lvalnew = (24 - lval);
 		taiko_write(fauxsound_codec_ptr,
 			TAIKO_A_CDC_TX6_VOL_CTL_GAIN, lvalnew);
 #else
@@ -219,6 +217,11 @@ static ssize_t lge_cam_mic_gain_store(struct kobject *kobj,
 	unsigned int lval;
 
 	sscanf(buf, "%u", &lval);
+
+	if (lval >= 40)
+		lval = 40;
+	if (lval <= 0)
+		lval = 24;
 
 	taiko_write(fauxsound_codec_ptr,
 		TAIKO_A_CDC_TX6_VOL_CTL_GAIN, lval);
@@ -248,8 +251,6 @@ static ssize_t mic_gain_store(struct kobject *kobj,
 			lvalnew = 24;
 		if (lval > 0)
 			lvalnew = (24 + lval);
-		if (lval < 0)
-			lvalnew = (24 - lval);
 		taiko_write(fauxsound_codec_ptr,
 			TAIKO_A_CDC_TX7_VOL_CTL_GAIN, lvalnew);
 #else
@@ -268,6 +269,11 @@ static ssize_t lge_mic_gain_store(struct kobject *kobj,
 	unsigned int lval;
 
 	sscanf(buf, "%u", &lval);
+
+	if (lval >= 40)
+		lval = 40;
+	if (lval <= 0)
+		lval = 24;
 
 	taiko_write(fauxsound_codec_ptr,
 		TAIKO_A_CDC_TX7_VOL_CTL_GAIN, lval);
@@ -290,29 +296,20 @@ static ssize_t speaker_gain_show(struct kobject *kobj,
 static ssize_t speaker_gain_store(struct kobject *kobj,
 		struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	unsigned int lval, rval, valnew, chksum;
+	unsigned int lval, rval, chksum;
 
 	sscanf(buf, "%u %u %u", &lval, &rval, &chksum);
 
 	if (calc_checksum(lval, rval, chksum)) {
-#ifdef CONFIG_MACH_LGE
 		/* we have mono speaker! lval = rval */
-		if (lval == 0)
-			valnew = 24;
-		if (lval > 0)
-			valnew = (24 + lval);
-		if (lval < 0)
-			valnew = (24 - lval);
-		taiko_write(fauxsound_codec_ptr,
-			TAIKO_A_CDC_RX7_VOL_CTL_B2_CTL, valnew);
-		taiko_write(fauxsound_codec_ptr,
-			TAIKO_A_CDC_RX7_VOL_CTL_B2_CTL, valnew);
-#else
+		if (lval >= 10)
+			lval = 10;
+		if (rval >= 10)
+			rval = 10;
 		taiko_write(fauxsound_codec_ptr,
 			TAIKO_A_CDC_RX7_VOL_CTL_B2_CTL, lval);
 		taiko_write(fauxsound_codec_ptr,
 			TAIKO_A_CDC_RX7_VOL_CTL_B2_CTL, rval);
-#endif
 	}
 	return count;
 }
@@ -325,6 +322,16 @@ static ssize_t lge_speaker_gain_store(struct kobject *kobj,
 
 	sscanf(buf, "%u %u", &lval, &rval);
 
+	if (lval >= 10)
+		lval = 10;
+	if (rval >= 10)
+		rval = 10;
+	if (lval <= 0)
+		lval = 0;
+	if (rval <= 0)
+		rval = 0;
+
+	/* we have mono speaker! lval = rval */
 	taiko_write(fauxsound_codec_ptr,
 		TAIKO_A_CDC_RX7_VOL_CTL_B2_CTL, lval);
 	taiko_write(fauxsound_codec_ptr,
