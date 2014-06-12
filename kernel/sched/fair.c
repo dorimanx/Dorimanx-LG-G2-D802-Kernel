@@ -1429,6 +1429,16 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 					&rq->active_balance_work);
 }
 
+static inline int capacity(struct rq *rq)
+{
+	return rq->capacity;
+}
+
+static inline int nr_big_tasks(struct rq *rq)
+{
+	return rq->nr_big_tasks;
+}
+
 #else	/* CONFIG_SCHED_HMP */
 
 static inline int select_best_cpu(struct task_struct *p, int target)
@@ -1449,6 +1459,26 @@ static inline int power_cost(struct task_struct *p, int cpu)
 static inline int mostly_idle_cpu(int cpu)
 {
 	return 0;
+}
+
+static inline int is_small_task(struct task_struct *p)
+{
+	return 0;
+}
+
+static inline int is_big_task(struct task_struct *p)
+{
+	return 0;
+}
+
+static inline int nr_big_tasks(struct rq *rq)
+{
+	return 0;
+}
+
+static inline int capacity(struct rq *rq)
+{
+	return SCHED_LOAD_SCALE;
 }
 
 #endif	/* CONFIG_SCHED_HMP */
@@ -4196,6 +4226,7 @@ static unsigned long __read_mostly max_load_balance_interval = HZ/10;
 #define LBF_ALL_PINNED	0x01
 #define LBF_NEED_BREAK	0x02
 #define LBF_SOME_PINNED 0x04
+#define LBF_IGNORE_SMALL_TASKS 0x08
 
 struct lb_env {
 	struct sched_domain	*sd;
@@ -4281,6 +4312,14 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	 * 4) are cache-hot on their current CPU.
 	 */
 	if (throttled_lb_pair(task_group(p), env->src_cpu, env->dst_cpu))
+		return 0;
+
+	if (nr_big_tasks(env->src_rq) &&
+			capacity(env->dst_rq) > capacity(env->src_rq) &&
+			!is_big_task(p))
+		return 0;
+
+	if (env->flags & LBF_IGNORE_SMALL_TASKS && is_small_task(p))
 		return 0;
 
 	if (!cpumask_test_cpu(env->dst_cpu, tsk_cpus_allowed(p))) {
@@ -4384,10 +4423,15 @@ static int move_tasks(struct lb_env *env)
 	struct task_struct *p;
 	unsigned long load;
 	int pulled = 0;
+	int orig_loop = env->loop;
 
 	if (env->imbalance <= 0)
 		return 0;
 
+	if (capacity(env->dst_rq) > capacity(env->src_rq))
+		env->flags |= LBF_IGNORE_SMALL_TASKS;
+
+redo:
 	while (!list_empty(tasks)) {
 		p = list_first_entry(tasks, struct task_struct, se.group_node);
 
@@ -4439,6 +4483,13 @@ static int move_tasks(struct lb_env *env)
 		continue;
 next:
 		list_move_tail(&p->se.group_node, tasks);
+	}
+
+	if (env->flags & LBF_IGNORE_SMALL_TASKS && !pulled) {
+		tasks = &env->src_rq->cfs_tasks;
+		env->flags &= ~LBF_IGNORE_SMALL_TASKS;
+		env->loop = orig_loop;
+		goto redo;
 	}
 
 	/*
@@ -4589,6 +4640,7 @@ struct sd_lb_stats {
 	unsigned long this_load_per_task;
 	unsigned long this_nr_running;
 	unsigned long this_has_capacity;
+	unsigned long this_group_capacity;
 	unsigned int  this_idle_cpus;
 
 	/* Statistics of the busiest group */
@@ -4596,6 +4648,10 @@ struct sd_lb_stats {
 	unsigned long max_load;
 	unsigned long busiest_load_per_task;
 	unsigned long busiest_nr_running;
+#ifdef CONFIG_SCHED_HMP
+	unsigned long busiest_nr_small_tasks;
+	unsigned long busiest_nr_big_tasks;
+#endif
 	unsigned long busiest_group_capacity;
 	unsigned long busiest_has_capacity;
 	unsigned int  busiest_group_weight;
@@ -4610,6 +4666,7 @@ struct sg_lb_stats {
 	unsigned long avg_load; /*Avg load across the CPUs of the group */
 	unsigned long group_load; /* Total load over the CPUs of the group */
 	unsigned long sum_nr_running; /* Nr tasks running in the group */
+	unsigned long sum_nr_big_tasks, sum_nr_small_tasks;
 	unsigned long sum_weighted_load; /* Weighted load of group's tasks */
 	unsigned long group_capacity;
 	unsigned long idle_cpus;
@@ -4617,6 +4674,35 @@ struct sg_lb_stats {
 	int group_imb; /* Is there an imbalance in the group ? */
 	int group_has_capacity; /* Is there extra capacity in the group? */
 };
+
+#ifdef CONFIG_SCHED_HMP
+
+static int
+bail_inter_cluster_balance(struct lb_env *env, struct sd_lb_stats *sds)
+{
+	if (sds->this_group_capacity <= sds->busiest_group_capacity)
+		return 0;
+
+	if (sds->busiest_nr_big_tasks &&
+			 sds->this_group_capacity > sds->busiest_group_capacity)
+		return 0;
+
+	if ((sds->busiest_nr_running - sds->busiest_nr_small_tasks) <=
+				 sds->busiest_group_capacity)
+		return 1;
+
+	return 0;
+}
+
+#else	/* CONFIG_SCHED_HMP */
+
+static inline int
+bail_inter_cluster_balance(struct lb_env *env, struct sd_lb_stats *sds)
+{
+	return 0;
+}
+
+#endif	/* CONFIG_SCHED_HMP */
 
 /**
  * get_sd_load_idx - Obtain the load index for a given sched domain.
@@ -4847,6 +4933,10 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 
 		sgs->group_load += load;
 		sgs->sum_nr_running += nr_running;
+#ifdef CONFIG_SCHED_HMP
+		sgs->sum_nr_big_tasks += rq->nr_big_tasks;
+		sgs->sum_nr_small_tasks += rq->nr_small_tasks;
+#endif
 		sgs->sum_weighted_load += weighted_cpuload(i);
 		if (idle_cpu(i))
 			sgs->idle_cpus++;
@@ -5000,6 +5090,7 @@ static inline void update_sd_lb_stats(struct lb_env *env,
 			sds->this_load_per_task = sgs.sum_weighted_load;
 			sds->this_has_capacity = sgs.group_has_capacity;
 			sds->this_idle_cpus = sgs.idle_cpus;
+			sds->this_group_capacity = sgs.group_capacity;
 		} else if (update_sd_pick_busiest(env, sds, sg, &sgs)) {
 			sds->max_load = sgs.avg_load;
 			sds->busiest = sg;
@@ -5010,6 +5101,10 @@ static inline void update_sd_lb_stats(struct lb_env *env,
 			sds->busiest_has_capacity = sgs.group_has_capacity;
 			sds->busiest_group_weight = sgs.group_weight;
 			sds->group_imb = sgs.group_imb;
+#ifdef CONFIG_SCHED_HMP
+			sds->busiest_nr_small_tasks = sgs.sum_nr_small_tasks;
+			sds->busiest_nr_big_tasks = sgs.sum_nr_big_tasks;
+#endif
 		}
 
 		sg = sg->next;
@@ -5259,6 +5354,9 @@ find_busiest_group(struct lb_env *env, const struct cpumask *cpus, int *balance)
 	if (!sds.busiest || sds.busiest_nr_running == 0)
 		goto out_balanced;
 
+	if (bail_inter_cluster_balance(env, &sds))
+		goto out_balanced;
+
 	sds.avg_load = (SCHED_POWER_SCALE * sds.total_load) / sds.total_pwr;
 
 	/*
@@ -5321,6 +5419,29 @@ ret:
 /*
  * find_busiest_queue - find the busiest runqueue among the cpus in group.
  */
+#ifdef CONFIG_SCHED_HMP
+static struct rq *find_busiest_queue(struct lb_env *env,
+				     struct sched_group *group)
+{
+	struct rq *busiest = NULL, *rq;
+	u64 max_runnable_avg = 0;
+	int i;
+
+	for_each_cpu(i, sched_group_cpus(group)) {
+		if (!cpumask_test_cpu(i, env->cpus))
+			continue;
+
+		rq = cpu_rq(i);
+
+		if (rq->cumulative_runnable_avg > max_runnable_avg) {
+			max_runnable_avg = rq->cumulative_runnable_avg;
+			busiest = rq;
+		}
+	}
+
+	return busiest;
+}
+#else /* CONFIG_SCHED_HMP */
 static struct rq *find_busiest_queue(struct lb_env *env,
 				     struct sched_group *group,
 				     const struct cpumask *cpus)
@@ -5332,7 +5453,7 @@ static struct rq *find_busiest_queue(struct lb_env *env,
 	for_each_cpu_and(i, sched_group_cpus(group), cpus) {
 		unsigned long power = power_of(i);
 		unsigned long capacity = DIV_ROUND_CLOSEST(power,
-							   SCHED_POWER_SCALE);
+							SCHED_POWER_SCALE);
 		unsigned long wl;
 
 		if (!capacity)
@@ -5368,6 +5489,7 @@ static struct rq *find_busiest_queue(struct lb_env *env,
 
 	return busiest;
 }
+#endif /* CONFIG_SCHED_HMP */
 
 /*
  * Max backoff if we encounter pinned tasks. Pretty arbitrary value, but
