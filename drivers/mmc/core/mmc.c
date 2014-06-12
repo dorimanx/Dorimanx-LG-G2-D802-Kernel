@@ -1408,16 +1408,22 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 
 	/* The extra bit indicates that we support high capacity */
 	err = mmc_send_op_cond(host, ocr | (1 << 30), &rocr);
-	if (err)
+	if (err) {
+		pr_err("%s: %s: mmc_send_op_cond() fails %d\n",
+				mmc_hostname(host), __func__, err);
 		goto err;
+	}
 
 	/*
 	 * For SPI, enable CRC as appropriate.
 	 */
 	if (mmc_host_is_spi(host)) {
 		err = mmc_spi_set_crc(host, use_spi_crc);
-		if (err)
+		if (err) {
+			pr_err("%s: %s: mmc_spi_set_crc() fails %d\n",
+					mmc_hostname(host), __func__, err);
 			goto err;
+		}
 	}
 
 	/*
@@ -1427,12 +1433,17 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_send_cid(host, cid);
 	else
 		err = mmc_all_send_cid(host, cid);
-	if (err)
+	if (err) {
+		pr_err("%s: %s: mmc_send_cid() fails %d\n",
+				mmc_hostname(host), __func__, err);
 		goto err;
+	}
 
 	if (oldcard) {
 		if (memcmp(cid, oldcard->raw_cid, sizeof(cid)) != 0) {
 			err = -ENOENT;
+			pr_err("%s: %s: CID memcmp failed %d\n",
+					mmc_hostname(host), __func__, err);
 			goto err;
 		}
 
@@ -1444,6 +1455,8 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		card = mmc_alloc_card(host, &mmc_type);
 		if (IS_ERR(card)) {
 			err = PTR_ERR(card);
+			pr_err("%s: %s: no memory to allocate for card %d\n",
+					mmc_hostname(host), __func__, err);
 			goto err;
 		}
 
@@ -1451,6 +1464,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		card->rca = 1;
 		memcpy(card->raw_cid, cid, sizeof(card->raw_cid));
 		card->reboot_notify.notifier_call = mmc_reboot_notify;
+		host->card = card;
 	}
 
 	/*
@@ -1458,8 +1472,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 */
 	if (!mmc_host_is_spi(host)) {
 		err = mmc_set_relative_addr(card);
-		if (err)
+		if (err) {
+			pr_err("%s: %s: mmc_set_relative_addr() fails %d\n",
+					mmc_hostname(host), __func__, err);
 			goto free_card;
+		}
 
 		mmc_set_bus_mode(host, MMC_BUSMODE_PUSHPULL);
 	}
@@ -1469,16 +1486,25 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		 * Fetch CSD from card.
 		 */
 		err = mmc_send_csd(card, card->raw_csd);
-		if (err)
+		if (err) {
+			pr_err("%s: %s: mmc_send_csd() fails %d\n",
+					mmc_hostname(host), __func__, err);
 			goto free_card;
+		}
 
 		err = mmc_decode_csd(card);
-		if (err)
+		if (err) {
+			pr_err("%s: %s: mmc_decode_csd() fails %d\n",
+					mmc_hostname(host), __func__, err);
 			goto free_card;
+		}
 #ifndef CONFIG_MACH_LGE
 		err = mmc_decode_cid(card);
-		if (err)
+		if (err) {
+			pr_err("%s: %s: mmc_decode_cid() fails %d\n",
+					mmc_hostname(host), __func__, err);
 			goto free_card;
+		}
 #endif
 	}
 
@@ -1487,8 +1513,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 */
 	if (!mmc_host_is_spi(host)) {
 		err = mmc_select_card(card);
-		if (err)
+		if (err) {
+			pr_err("%s: %s: mmc_select_card() fails %d\n",
+					mmc_hostname(host), __func__, err);
 			goto free_card;
+		}
 	}
 
 	if (!oldcard) {
@@ -1497,12 +1526,18 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		 */
 
 		err = mmc_get_ext_csd(card, &ext_csd);
-		if (err)
+		if (err) {
+			pr_err("%s: %s: mmc_get_ext_csd() fails %d\n",
+					mmc_hostname(host), __func__, err);
 			goto free_card;
+		}
 		card->cached_ext_csd = ext_csd;
 		err = mmc_read_ext_csd(card, ext_csd);
-		if (err)
+		if (err) {
+			pr_err("%s: %s: mmc_read_ext_csd() fails %d\n",
+					mmc_hostname(host), __func__, err);
 			goto free_card;
+		}
 #ifdef CONFIG_MACH_LGE
 		err = mmc_decode_cid(card);
 		if (err)
@@ -1534,8 +1569,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				 EXT_CSD_ERASE_GROUP_DEF, 1,
 				 card->ext_csd.generic_cmd6_time);
 
-		if (err && err != -EBADMSG)
+		if (err && err != -EBADMSG) {
+			pr_err("%s: %s: mmc_switch() for ERASE_GRP_DEF fails %d\n",
+					mmc_hostname(host), __func__, err);
 			goto free_card;
+		}
 
 		if (err) {
 			err = 0;
@@ -1565,8 +1603,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_PART_CONFIG,
 				 card->ext_csd.part_config,
 				 card->ext_csd.part_time);
-		if (err && err != -EBADMSG)
+		if (err && err != -EBADMSG) {
+			pr_err("%s: %s: mmc_switch() for PART_CONFIG fails %d\n",
+					mmc_hostname(host), __func__, err);
 			goto free_card;
+		}
 		card->part_curr = card->ext_csd.part_config &
 				  EXT_CSD_PART_CONFIG_ACC_MASK;
 	}
@@ -1581,8 +1622,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				 EXT_CSD_POWER_OFF_NOTIFICATION,
 				 EXT_CSD_POWER_ON,
 				 card->ext_csd.generic_cmd6_time);
-		if (err && err != -EBADMSG)
+		if (err && err != -EBADMSG) {
+			pr_err("%s: %s: mmc_switch() for POWER_ON PON fails %d\n",
+					mmc_hostname(host), __func__, err);
 			goto free_card;
+		}
 
 		/*
 		 * The err can be -EBADMSG or 0,
@@ -1596,8 +1640,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 * Activate highest bus speed mode supported by both host and card.
 	 */
 	err = mmc_select_bus_speed(card, ext_csd);
-	if (err)
+	if (err) {
+		pr_err("%s: %s: mmc_select_bus_speed() fails %d\n",
+					mmc_hostname(host), __func__, err);
 		goto free_card;
+	}
 
 	/*
 	 * Enable HPI feature (if supported)
@@ -1606,8 +1653,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				EXT_CSD_HPI_MGMT, 1,
 				card->ext_csd.generic_cmd6_time);
-		if (err && err != -EBADMSG)
+		if (err && err != -EBADMSG) {
+			pr_err("%s: %s: mmc_switch() for HPI_MGMT fails %d\n",
+					mmc_hostname(host), __func__, err);
 			goto free_card;
+		}
 		if (err) {
 			pr_warning("%s: Enabling HPI failed\n",
 				   mmc_hostname(card->host));
@@ -1627,8 +1677,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				EXT_CSD_CACHE_CTRL, 1,
 				card->ext_csd.generic_cmd6_time);
-		if (err && err != -EBADMSG)
+		if (err && err != -EBADMSG) {
+			pr_err("%s: %s: mmc_switch() for CACHE_CTRL fails %d\n",
+					mmc_hostname(host), __func__, err);
 			goto free_card;
+		}
 
 		/*
 		 * Only if no error, cache is turned on successfully.
@@ -1657,8 +1710,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				EXT_CSD_EXP_EVENTS_CTRL,
 				EXT_CSD_PACKED_EVENT_EN,
 				card->ext_csd.generic_cmd6_time);
-		if (err && err != -EBADMSG)
+		if (err && err != -EBADMSG) {
+			pr_err("%s: %s: mmc_switch() for EXP_EVENTS_CTRL fails %d\n",
+					mmc_hostname(host), __func__, err);
 			goto free_card;
+		}
 		if (err) {
 			pr_warning("%s: Enabling packed event failed\n",
 					mmc_hostname(card->host));
@@ -1682,8 +1738,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				(card->ext_csd.max_packed_writes + 1) *
 				sizeof(*card->wr_pack_stats.packing_events),
 				GFP_KERNEL);
-			if (!card->wr_pack_stats.packing_events)
+			if (!card->wr_pack_stats.packing_events) {
+				pr_err("%s: %s: no memory for packing events\n",
+						mmc_hostname(host), __func__);
 				goto free_card;
+			}
 		}
 
 		if (card->ext_csd.bkops_en) {
@@ -1705,14 +1764,13 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		}
 	}
 
-	if (!oldcard)
-		host->card = card;
-
 	return 0;
 
 free_card:
-	if (!oldcard)
+	if (!oldcard) {
+		host->card = NULL;
 		mmc_remove_card(card);
+	}
 err:
 	return err;
 }
@@ -1872,12 +1930,28 @@ out:
 static int mmc_resume(struct mmc_host *host)
 {
 	int err;
+	int retries;
 
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
 	mmc_claim_host(host);
-	err = mmc_init_card(host, host->ocr, host->card);
+	retries = 3;
+	while (retries) {
+		err = mmc_init_card(host, host->ocr, host->card);
+
+		if (err) {
+			pr_err("%s: MMC card re-init failed rc = %d (retries = %d)\n",
+			       mmc_hostname(host), err, retries);
+			retries--;
+			mmc_power_off(host);
+			usleep_range(5000, 5500);
+			mmc_power_up(host);
+			mmc_select_voltage(host, host->ocr);
+			continue;
+		}
+		break;
+	}
 	mmc_release_host(host);
 
 	/*
