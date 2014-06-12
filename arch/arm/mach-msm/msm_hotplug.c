@@ -1347,6 +1347,29 @@ static ssize_t store_fast_lane_load(struct device *dev,
 	return count;
 }
 
+static ssize_t show_fast_lane_min_freq(struct device *dev,
+				   struct device_attribute *msm_hotplug_attrs,
+				   char *buf)
+{
+	return sprintf(buf, "%u\n", hotplug.fast_lane_min_freq);
+}
+
+static ssize_t store_fast_lane_min_freq(struct device *dev,
+				    struct device_attribute *msm_hotplug_attrs,
+				    const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+
+	ret = sscanf(buf, "%u", &val);
+	if (ret != 1)
+		return -EINVAL;
+
+	hotplug.fast_lane_min_freq = val;
+
+	return count;
+}
+
 static ssize_t show_io_is_busy(struct device *dev,
 				   struct device_attribute *msm_hotplug_attrs,
 				   char *buf)
@@ -1403,6 +1426,8 @@ static DEVICE_ATTR(cpus_boosted, 644, show_cpus_boosted, store_cpus_boosted);
 static DEVICE_ATTR(offline_load, 644, show_offline_load, store_offline_load);
 static DEVICE_ATTR(fast_lane_load, 644, show_fast_lane_load,
 		   store_fast_lane_load);
+static DEVICE_ATTR(fast_lane_min_freq, 644, show_fast_lane_min_freq,
+		   store_fast_lane_min_freq);
 static DEVICE_ATTR(io_is_busy, 644, show_io_is_busy, store_io_is_busy);
 static DEVICE_ATTR(current_load, 444, show_current_load, NULL);
 
@@ -1426,6 +1451,7 @@ static struct attribute *msm_hotplug_attrs[] = {
 	&dev_attr_offline_load.attr,
 	&dev_attr_io_is_busy.attr,
 	&dev_attr_fast_lane_load.attr,
+	&dev_attr_fast_lane_min_freq.attr,
 	&dev_attr_current_load.attr,
 	NULL,
 };
