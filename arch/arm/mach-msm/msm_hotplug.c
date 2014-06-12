@@ -388,13 +388,12 @@ static void cpu_down_work(struct work_struct *work)
 	for_each_online_cpu(cpu) {
 		if (cpu == 0)
 			continue;
-		if (check_down_lock(cpu))
-			break;
 		lowest_cpu = get_lowest_load_cpu();
-		if (lowest_cpu < stats.min_cpus || lowest_cpu > stats.total_cpus
-		     || check_down_lock(lowest_cpu))
-			break;
-		cpu_down(lowest_cpu);
+		if (lowest_cpu > 0 && lowest_cpu <= stats.total_cpus) {
+			if (check_down_lock(lowest_cpu))
+				break;
+			cpu_down(lowest_cpu);
+		}
 		if (target >= num_online_cpus())
 			break;
 	}
