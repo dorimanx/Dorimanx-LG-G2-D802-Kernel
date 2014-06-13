@@ -282,6 +282,7 @@ static struct kobject *power_suspend_kobj;
 static int __init power_suspend_init(void)
 {
 
+#if 0 /* do not export controls, this mode is not for users to play with. */
 	int sysfs_result;
 
         power_suspend_kobj = kobject_create_and_add("power_suspend",
@@ -299,7 +300,7 @@ static int __init power_suspend_init(void)
                 kobject_put(power_suspend_kobj);
                 return -ENOMEM;
         }
-
+#endif
 	suspend_work_queue = create_singlethread_workqueue("p-suspend");
 
 	if (suspend_work_queue == NULL) {
@@ -314,8 +315,10 @@ static int __init power_suspend_init(void)
 
 static void __exit power_suspend_exit(void)
 {
+#if 0 /* not created in the INIT above */
 	if (power_suspend_kobj != NULL)
 		kobject_put(power_suspend_kobj);
+#endif
 
 	destroy_workqueue(suspend_work_queue);
 } 
