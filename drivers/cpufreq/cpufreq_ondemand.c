@@ -90,12 +90,13 @@ struct cpu_dbs_info_s {
 	u64 prev_cpu_iowait;
 	u64 prev_cpu_wall;
 	u64 prev_cpu_nice;
-	unsigned int prev_load;
 	/*
-	 * Flag to ensure that we copy the previous load only once, upon the
-	 * first wake-up from idle.
+	 * Used to keep track of load in the previous interval. However, when
+	 * explicitly set to zero, it is used as a flag to ensure that we copy
+	 * the previous load to the current interval only once, upon the first
+	 * wake-up from idle.
 	 */
-	bool copy_prev_load;
+	unsigned int prev_load;
 	struct cpufreq_policy *cur_policy;
 	struct delayed_work work;
 	struct cpufreq_frequency_table *freq_table;
@@ -892,15 +893,24 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		 * timer would not have fired during CPU-idle periods. Hence
 		 * an unusually large 'wall_time' (as compared to the sampling
 		 * rate) indicates this scenario.
+		 *
+		 * prev_load can be zero in two cases and we must recalculate it
+		 * for both cases:
+		 * - during long idle intervals
+		 * - explicitly set to zero
 		 */
 		if (unlikely(wall_time > 2 * sampling_rate) &&
-					j_dbs_info->copy_prev_load) {
+			     j_dbs_info->prev_load) {
 			cur_load = j_dbs_info->prev_load;
-			j_dbs_info->copy_prev_load = false;
+			/*
+			 * Perform a destructive copy, to ensure that we copy
+			 * the previous load only once, upon the first wake-up
+			 * from idle.
+			 */
+			j_dbs_info->prev_load = 0;
 		} else {
 			cur_load = 100 * (wall_time - idle_time) / wall_time;
 			j_dbs_info->prev_load = cur_load;
-			j_dbs_info->copy_prev_load = true;
 		}
 
 		j_dbs_info->max_load  = max(cur_load, j_dbs_info->prev_load);
@@ -1162,7 +1172,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				(j_dbs_info->prev_cpu_wall - j_dbs_info->prev_cpu_idle);
 			j_dbs_info->prev_load = 100 * prev_load /
 				(unsigned int) j_dbs_info->prev_cpu_wall;
-			j_dbs_info->copy_prev_load = true;
 
 			if (dbs_tuners_ins.ignore_nice)
 				j_dbs_info->prev_cpu_nice =
