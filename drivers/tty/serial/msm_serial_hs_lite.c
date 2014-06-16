@@ -168,10 +168,6 @@ static int get_console_state(struct uart_port *port);
 static inline int get_console_state(struct uart_port *port) { return -ENODEV; };
 #endif
 
-#if defined(CONFIG_EARJACK_DEBUGGER)
-static bool msm_console_disabled = false;
-#endif
-
 static struct dentry *debug_base;
 static inline void wait_for_xmitr(struct uart_port *port);
 static inline void msm_hsl_write(struct uart_port *port,
@@ -194,18 +190,6 @@ static unsigned int msm_serial_hsl_has_gsbi(struct uart_port *port)
 {
 	return (UART_TO_MSM(port)->uart_type == GSBI_HSUART);
 }
-
-#if defined(CONFIG_EARJACK_DEBUGGER)
-void msm_console_set_enable(bool enable)
-{
-	msm_console_disabled = !enable;
-}
-
-static bool console_disabled(void)
-{
-	return msm_console_disabled;
-}
-#endif
 
 /**
  * set_gsbi_uart_func_mode: Check the currently used GSBI UART mode
@@ -553,12 +537,6 @@ static void msm_hsl_start_tx(struct uart_port *port)
 		pr_err("%s: System is in Suspend state\n", __func__);
 		return;
 	}
-
-#if defined(CONFIG_EARJACK_DEBUGGER)
-	if (is_console(port) && console_disabled())
-		return;
-#endif
-
 	msm_hsl_port->imr |= UARTDM_ISR_TXLEV_BMSK;
 	msm_hsl_write(port, msm_hsl_port->imr,
 		regmap[msm_hsl_port->ver_id][UARTDM_IMR]);
@@ -784,9 +762,6 @@ static unsigned int msm_hsl_tx_empty(struct uart_port *port)
 #ifdef CONFIG_EARJACK_DEBUGGER
         if (!(lge_get_uart_mode() & UART_MODE_EN_BMSK) && is_console(port))
                 return 1;
-
-	if (is_console(port) && console_disabled())
-		return 1;
 #endif
 
 	ret = (msm_hsl_read(port, regmap[vid][UARTDM_SR]) &
@@ -1516,9 +1491,6 @@ static void msm_hsl_console_write(struct console *co, const char *s,
 
 #ifdef CONFIG_EARJACK_DEBUGGER
 	if (!(lge_get_uart_mode() & UART_MODE_EN_BMSK))
-		return;
-
-	if (console_disabled())
 		return;
 #endif
 

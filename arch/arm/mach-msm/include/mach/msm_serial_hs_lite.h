@@ -40,9 +40,5 @@ struct msm_serial_hslite_platform_data {
 	int line;
 };
 
-#if defined(CONFIG_EARJACK_DEBUGGER)
-void msm_console_set_enable(bool enable);
-#endif
-
 #endif
 
