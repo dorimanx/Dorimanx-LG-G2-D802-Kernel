@@ -49,20 +49,13 @@ static struct workqueue_struct *intelliplug_wq;
 
 static bool hotplug_suspended = false;
 
-struct ip_cpu_info {
-	int cpu;
-	unsigned int curr_max;
-};
-
-static DEFINE_PER_CPU(struct ip_cpu_info, ip_info);
-
 /* HotPlug Driver controls */
 static atomic_t intelli_plug_active = ATOMIC_INIT(0);
 static unsigned int wake_boost_active = 0;
 static unsigned int cpus_boosted = DEFAULT_NR_CPUS_BOOSTED;
 static unsigned int min_cpus_online = DEFAULT_MIN_CPUS_ONLINE;
 static unsigned int max_cpus_online = DEFAULT_MAX_CPUS_ONLINE;
-static unsigned int suspend_max_freq = UINT_MAX;
+static unsigned int suspend_max_freq = 0;
 
 /* HotPlug Driver Tuning */
 static unsigned int target_cpus = 0;
@@ -287,20 +280,26 @@ static void __ref wakeup_boost(void)
 }
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+struct ip_cpu_info {
+	int cpu;
+	unsigned int curr_max;
+};
+
+static DEFINE_PER_CPU(struct ip_cpu_info, ip_info);
+
 static void screen_off_limit(bool on)
 {
-	unsigned int i, ret;
+	unsigned int cpu, ret;
 	struct cpufreq_policy policy;
 	struct ip_cpu_info *l_ip_info;
 
 	/* not active, so exit */
-	if (suspend_max_freq == UINT_MAX)
+	if (suspend_max_freq == 0)
 		return;
 
-	for_each_online_cpu(i) {
-
-		l_ip_info = &per_cpu(ip_info, i);
-		ret = cpufreq_get_policy(&policy, i);
+	for_each_possible_cpu(cpu) {
+		l_ip_info = &per_cpu(ip_info, cpu);
+		ret = cpufreq_get_policy(&policy, cpu);
 		if (ret)
 			continue;
 
@@ -308,11 +307,13 @@ static void screen_off_limit(bool on)
 			/* save current instance */
 			l_ip_info->curr_max = policy.max;
 			policy.max = suspend_max_freq;
+			pr_info("setting suspend max freq %d\n",
+				suspend_max_freq);
 		} else {
 			/* restore */
 			policy.max = l_ip_info->curr_max;
 		}
-		cpufreq_update_policy(i);
+		cpufreq_update_policy(cpu);
 	}
 }
 
@@ -333,7 +334,6 @@ static void intelli_plug_suspend(struct early_suspend *handler)
 
 	mutex_lock(&intelli_plug_mutex);
 	hotplug_suspended = true;
-	screen_off_limit(true);
 	mutex_unlock(&intelli_plug_mutex);
 
 	/* put rest of the cores to sleep! */
@@ -342,6 +342,8 @@ static void intelli_plug_suspend(struct early_suspend *handler)
 			continue;
 		cpu_down(cpu);
 	}
+
+	screen_off_limit(true);
 }
 
 #ifdef CONFIG_POWERSUSPEND
@@ -357,8 +359,9 @@ static void __ref intelli_plug_resume(struct early_suspend *handler)
 
 	mutex_lock(&intelli_plug_mutex);
 	hotplug_suspended = false;
-	screen_off_limit(false);
 	mutex_unlock(&intelli_plug_mutex);
+
+	screen_off_limit(false);
 
 	if (wake_boost_active)
 		/* wake up and boost all cores to max freq */
@@ -601,7 +604,6 @@ store_one(debug_intelli_plug, debug_intelli_plug);
 store_one(nr_fshift, nr_fshift);
 store_one(nr_run_hysteresis, nr_run_hysteresis);
 store_one(down_lock_duration, down_lock_dur);
-store_one(suspend_max_freq, suspend_max_freq);
 
 static ssize_t show_intelli_plug_active(struct kobject *kobj,
 					struct kobj_attribute *attr,
@@ -689,6 +691,31 @@ static ssize_t store_max_cpus_online(struct kobject *kobj,
 		min_cpus_online = val;
 
 	max_cpus_online = val;
+
+	return count;
+}
+
+static ssize_t store_suspend_max_freq(struct device *dev,
+				      struct device_attribute *msm_hotplug_attrs,
+				      const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
+
+	ret = sscanf(buf, "%u", &val);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (val == 0)
+		goto out;
+
+	if (val < policy->min)
+		val = policy->min;
+	else if (val > policy->max)
+		val = policy->max;
+out:
+	suspend_max_freq = val;
 
 	return count;
 }

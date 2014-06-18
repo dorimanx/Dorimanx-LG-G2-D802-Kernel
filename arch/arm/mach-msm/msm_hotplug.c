@@ -65,7 +65,6 @@ static struct cpu_hotplug {
 	defined(CONFIG_HAS_EARLYSUSPEND)
 	unsigned int suspended;
 	unsigned int suspend_max_freq;
-	unsigned int suspend_max_cpus;
 	unsigned int suspend_defer_time;
 #endif
 	unsigned int target_cpus;
@@ -98,6 +97,7 @@ static struct cpu_hotplug {
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
 	.suspended = 0,
+	.suspend_max_freq = 0,
 	.suspend_defer_time = DEFAULT_SUSPEND_DEFER_TIME,
 #endif
 	.cpus_boosted = DEFAULT_NR_CPUS_BOOSTED,
@@ -534,34 +534,53 @@ reschedule:
 #if defined(CONFIG_LCD_NOTIFY) || \
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
+struct ip_cpu_info {
+	int cpu;
+	unsigned int curr_max;
+};
+
+static DEFINE_PER_CPU(struct ip_cpu_info, ip_info);
+
+static void screen_off_limit(bool on)
+{
+	unsigned int cpu, ret;
+	struct cpufreq_policy policy;
+	struct ip_cpu_info *l_ip_info;
+
+	/* not active, so exit */
+	if (hotplug.suspend_max_freq == 0)
+		return;
+
+	for_each_possible_cpu(cpu) {
+		l_ip_info = &per_cpu(ip_info, cpu);
+		ret = cpufreq_get_policy(&policy, cpu);
+		if (ret)
+			continue;
+
+		if (on) {
+			/* save current instance */
+			l_ip_info->curr_max = policy.max;
+			policy.max = hotplug.suspend_max_freq;
+			pr_info("setting suspend max freq %d\n",
+				hotplug.suspend_max_freq);
+		} else {
+			/* restore */
+			policy.max = l_ip_info->curr_max;
+		}
+		cpufreq_update_policy(cpu);
+	}
+}
+
 static void msm_hotplug_suspend(struct work_struct *work)
 {
-	int ret;
 	unsigned int cpu, max_freq = 0;
-	struct cpufreq_policy policy;
 
 	if (!hotplug.msm_enabled)
 		return;
 
-	for_each_possible_cpu(cpu) {
-		ret = cpufreq_get_policy(&policy, cpu);
-		if (ret)
-			continue;
-		if (!cpu)
-			max_freq = policy.max;
-		cpufreq_verify_within_limits(&policy, policy.min,
-					     hotplug.suspend_max_freq);
-		if (hotplug.suspend_max_cpus == num_online_cpus())
-			break;
-		if (cpu && cpu_online(cpu))
-			cpu_down(cpu);
-	}
-
-	if (hotplug.suspend_max_cpus == 1) {
-		/* Flush hotplug workqueue */
-		flush_workqueue(hotplug_wq);
-		cancel_delayed_work_sync(&hotplug_work);
-	}
+	/* Flush hotplug workqueue */
+	flush_workqueue(hotplug_wq);
+	cancel_delayed_work_sync(&hotplug_work);
 
 	mutex_lock(&hotplug.msm_hotplug_mutex);
 	hotplug.suspended = 1;
@@ -573,30 +592,21 @@ static void msm_hotplug_suspend(struct work_struct *work)
 			continue;
 		cpu_down(cpu);
 	}
+
+	screen_off_limit(true);
+
 	dprintk("%s: Suspending %u cpus max to %uMHz\n", MSM_HOTPLUG,
-		hotplug.suspend_max_cpus > 0 ?
-		hotplug.suspend_max_cpus : stats.total_cpus,
 		(hotplug.suspend_max_freq > 0 ?
 		hotplug.suspend_max_freq : max_freq) / 1000);
 }
 
 static void __ref msm_hotplug_resume(struct work_struct *work)
 {
-	int ret, required_reschedule = 0;
+	int required_reschedule = 0;
 	unsigned int cpu, max_freq = 0;
-	struct cpufreq_policy policy;
 
 	if (!hotplug.msm_enabled)
 		return;
-
-	for_each_possible_cpu(cpu) {
-		ret = cpufreq_get_policy(&policy, cpu);
-		if (ret)
-			continue;
-		cpufreq_verify_within_cpu_limits(&policy);
-		if (!cpu)
-			max_freq = policy.max;
-	}
 
 	if (hotplug.suspended) {
 		mutex_lock(&hotplug.msm_hotplug_mutex);
@@ -606,6 +616,8 @@ static void __ref msm_hotplug_resume(struct work_struct *work)
 		/* Initialize canceled hotplug work */
 		INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
 	}
+
+	screen_off_limit(false);
 
 	/* Fire up all CPUs */
 	for_each_cpu_not(cpu, cpu_online_mask) {
@@ -1231,29 +1243,6 @@ out:
 	return count;
 }
 
-static ssize_t show_suspend_max_cpus(struct device *dev,
-				     struct device_attribute *msm_hotplug_attrs,
-				     char *buf)
-{
-	return sprintf(buf, "%u\n", hotplug.suspend_max_cpus);
-}
-
-static ssize_t store_suspend_max_cpus(struct device *dev,
-				      struct device_attribute *msm_hotplug_attrs,
-				      const char *buf, size_t count)
-{
-	int ret;
-	unsigned int val;
-
-	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val < 0 || val > stats.total_cpus)
-		return -EINVAL;
-
-	hotplug.suspend_max_cpus = val;
-
-	return count;
-}
-
 static ssize_t store_suspend_defer_time(struct device *dev,
 				    struct device_attribute *msm_hotplug_attrs,
 				    const char *buf, size_t count)
@@ -1417,8 +1406,6 @@ static DEVICE_ATTR(max_cpus_online, 644, show_max_cpus_online,
 	defined(CONFIG_HAS_EARLYSUSPEND)
 static DEVICE_ATTR(suspend_max_freq, 644, show_suspend_max_freq,
 		   store_suspend_max_freq);
-static DEVICE_ATTR(suspend_max_cpus, 644, show_suspend_max_cpus,
-		   store_suspend_max_cpus);
 static DEVICE_ATTR(suspend_defer_time, 644, show_suspend_defer_time,
                    store_suspend_defer_time);
 #endif
@@ -1444,7 +1431,6 @@ static struct attribute *msm_hotplug_attrs[] = {
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
 	&dev_attr_suspend_max_freq.attr,
-	&dev_attr_suspend_max_cpus.attr,
 	&dev_attr_suspend_defer_time.attr,
 #endif
 	&dev_attr_cpus_boosted.attr,

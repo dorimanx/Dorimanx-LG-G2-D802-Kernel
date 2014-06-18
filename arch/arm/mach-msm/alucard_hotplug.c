@@ -39,13 +39,7 @@ static struct hotplug_cpuinfo {
 	unsigned int cpu_down_rate;
 };
 
-struct ip_cpu_info {
-	int cpu;
-	unsigned int curr_max;
-};
-
 static DEFINE_PER_CPU(struct hotplug_cpuinfo, od_hotplug_cpuinfo);
-static DEFINE_PER_CPU(struct ip_cpu_info, ip_info);
 
 static struct workqueue_struct *alucardhp_wq;
 
@@ -69,7 +63,7 @@ static struct hotplug_tuners {
 	.min_cpus_online = 1,
 	.maxcoreslimit = NR_CPUS,
 	.maxcoreslimit_sleep = 1,
-	.suspend_max_freq = UINT_MAX,
+	.suspend_max_freq = 0,
 };
 
 #define DOWN_INDEX		(0)
@@ -338,20 +332,26 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 }
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+struct ip_cpu_info {
+	int cpu;
+	unsigned int curr_max;
+};
+
+static DEFINE_PER_CPU(struct ip_cpu_info, ip_info);
+
 static void screen_off_limit(bool on)
 {
-	unsigned int i, ret;
+	unsigned int cpu, ret;
 	struct cpufreq_policy policy;
 	struct ip_cpu_info *l_ip_info;
 
 	/* not active, so exit */
-	if (hotplug_tuners_ins.suspend_max_freq == UINT_MAX)
+	if (hotplug_tuners_ins.suspend_max_freq == 0)
 		return;
 
-	for_each_online_cpu(i) {
-
-		l_ip_info = &per_cpu(ip_info, i);
-		ret = cpufreq_get_policy(&policy, i);
+	for_each_possible_cpu(cpu) {
+		l_ip_info = &per_cpu(ip_info, cpu);
+		ret = cpufreq_get_policy(&policy, cpu);
 		if (ret)
 			continue;
 
@@ -359,11 +359,13 @@ static void screen_off_limit(bool on)
 			/* save current instance */
 			l_ip_info->curr_max = policy.max;
 			policy.max = hotplug_tuners_ins.suspend_max_freq;
+			pr_info("setting suspend max freq %d\n",
+				hotplug_tuners_ins.suspend_max_freq);
 		} else {
 			/* restore */
 			policy.max = l_ip_info->curr_max;
 		}
-		cpufreq_update_policy(i);
+		cpufreq_update_policy(cpu);
 	}
 }
 
