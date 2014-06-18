@@ -48,6 +48,7 @@
 #include <asm/system.h>
 
 #include <mach/socinfo.h>
+#include <mach/msm_rtb.h>
 
 
 #include <mach/moca_kernel_probe.h>
@@ -445,6 +446,7 @@ asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 		if (likely(irqnr > 15 && irqnr < 1021)) {
 			irqnr = irq_find_mapping(gic->domain, irqnr);
 			handle_IRQ(irqnr, regs);
+			uncached_logk(LOGK_IRQ, (void *)(uintptr_t)irqnr);
 			continue;
 		}
 		if (irqnr < 16) {
@@ -455,6 +457,7 @@ asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 				raw_spin_unlock(&irq_controller_lock);
 #ifdef CONFIG_SMP
 			handle_IPI(irqnr, regs);
+			uncached_logk(LOGK_IRQ, (void *)(uintptr_t)irqnr);
 #endif
 			continue;
 		}
