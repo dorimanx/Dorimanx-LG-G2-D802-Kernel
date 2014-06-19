@@ -56,14 +56,12 @@ static struct hotplug_tuners {
 	unsigned int min_cpus_online;
 	unsigned int maxcoreslimit;
 	unsigned int maxcoreslimit_sleep;
-	unsigned int suspend_max_freq;
 } hotplug_tuners_ins = {
 	.hotplug_sampling_rate = 60,
 	.hotplug_enable = 0,
 	.min_cpus_online = 1,
 	.maxcoreslimit = NR_CPUS,
 	.maxcoreslimit_sleep = 1,
-	.suspend_max_freq = 0,
 };
 
 #define DOWN_INDEX		(0)
@@ -332,53 +330,14 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 }
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
-struct ip_cpu_info {
-	int cpu;
-	unsigned int curr_max;
-};
-
-static DEFINE_PER_CPU(struct ip_cpu_info, ip_info);
-
-static void screen_off_limit(bool on)
-{
-	unsigned int cpu, ret;
-	struct cpufreq_policy policy;
-	struct ip_cpu_info *l_ip_info;
-
-	/* not active, so exit */
-	if (hotplug_tuners_ins.suspend_max_freq == 0)
-		return;
-
-	for_each_possible_cpu(cpu) {
-		l_ip_info = &per_cpu(ip_info, cpu);
-		ret = cpufreq_get_policy(&policy, cpu);
-		if (ret)
-			continue;
-
-		if (on) {
-			/* save current instance */
-			l_ip_info->curr_max = policy.max;
-			policy.max = hotplug_tuners_ins.suspend_max_freq;
-			pr_info("setting suspend max freq %d\n",
-				hotplug_tuners_ins.suspend_max_freq);
-		} else {
-			/* restore */
-			policy.max = l_ip_info->curr_max;
-		}
-		cpufreq_update_policy(cpu);
-	}
-}
-
 #ifdef CONFIG_POWERSUSPEND
 static void __ref alucard_hotplug_suspend(struct power_suspend *handler)
 #else
 static void __ref alucard_hotplug_early_suspend(struct early_suspend *handler)
 #endif
 {
-	if (hotplug_tuners_ins.hotplug_enable > 0) {
+	if (hotplug_tuners_ins.hotplug_enable > 0)
 		suspended = true;
-		screen_off_limit(true);
-	}
 }
 
 #ifdef CONFIG_POWERSUSPEND
@@ -392,7 +351,6 @@ static void __cpuinit alucard_hotplug_late_resume(
 		/* wake up everyone */
 		suspended = false;
 		force_cpu_up = true;
-		screen_off_limit(false);
 	}
 }
 
@@ -489,7 +447,6 @@ show_one(hotplug_enable, hotplug_enable);
 show_one(min_cpus_online, min_cpus_online);
 show_one(maxcoreslimit, maxcoreslimit);
 show_one(maxcoreslimit_sleep, maxcoreslimit_sleep);
-show_one(suspend_max_freq, suspend_max_freq);
 
 #define show_hotplug_param(file_name, num_core, up_down)		\
 static ssize_t show_##file_name##_##num_core##_##up_down		\
@@ -752,38 +709,11 @@ static ssize_t store_maxcoreslimit_sleep(struct kobject *a,
 	return count;
 }
 
-/* suspend_max_freq */
-static ssize_t store_suspend_max_freq(struct kobject *a,
-				struct attribute *b,
-				const char *buf, size_t count)
-{
-	int ret;
-	unsigned int val;
-	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
-
-	ret = sscanf(buf, "%u", &val);
-	if (ret != 1)
-		return -EINVAL;
-
-	if (val == 0)
-		goto out;
-
-	if (val < policy->min)
-		val = policy->min;
-	else if (val > policy->max)
-		val = policy->max;
-out:
-	hotplug_tuners_ins.suspend_max_freq = val;
-
-	return count;
-}
-
 define_one_global_rw(hotplug_sampling_rate);
 define_one_global_rw(hotplug_enable);
 define_one_global_rw(min_cpus_online);
 define_one_global_rw(maxcoreslimit);
 define_one_global_rw(maxcoreslimit_sleep);
-define_one_global_rw(suspend_max_freq);
 
 static struct attribute *alucard_hotplug_attributes[] = {
 	&hotplug_sampling_rate.attr,
@@ -823,7 +753,6 @@ static struct attribute *alucard_hotplug_attributes[] = {
 	&min_cpus_online.attr,
 	&maxcoreslimit.attr,
 	&maxcoreslimit_sleep.attr,
-	&suspend_max_freq.attr,
 	NULL
 };
 

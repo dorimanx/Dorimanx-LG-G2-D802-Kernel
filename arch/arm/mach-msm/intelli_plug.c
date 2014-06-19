@@ -55,7 +55,6 @@ static unsigned int wake_boost_active = 0;
 static unsigned int cpus_boosted = DEFAULT_NR_CPUS_BOOSTED;
 static unsigned int min_cpus_online = DEFAULT_MIN_CPUS_ONLINE;
 static unsigned int max_cpus_online = DEFAULT_MAX_CPUS_ONLINE;
-static unsigned int suspend_max_freq = 0;
 
 /* HotPlug Driver Tuning */
 static unsigned int target_cpus = 0;
@@ -280,43 +279,6 @@ static void __ref wakeup_boost(void)
 }
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
-struct ip_cpu_info {
-	int cpu;
-	unsigned int curr_max;
-};
-
-static DEFINE_PER_CPU(struct ip_cpu_info, ip_info);
-
-static void screen_off_limit(bool on)
-{
-	unsigned int cpu, ret;
-	struct cpufreq_policy policy;
-	struct ip_cpu_info *l_ip_info;
-
-	/* not active, so exit */
-	if (suspend_max_freq == 0)
-		return;
-
-	for_each_possible_cpu(cpu) {
-		l_ip_info = &per_cpu(ip_info, cpu);
-		ret = cpufreq_get_policy(&policy, cpu);
-		if (ret)
-			continue;
-
-		if (on) {
-			/* save current instance */
-			l_ip_info->curr_max = policy.max;
-			policy.max = suspend_max_freq;
-			pr_info("setting suspend max freq %d\n",
-				suspend_max_freq);
-		} else {
-			/* restore */
-			policy.max = l_ip_info->curr_max;
-		}
-		cpufreq_update_policy(cpu);
-	}
-}
-
 #ifdef CONFIG_POWERSUSPEND
 static void intelli_plug_suspend(struct power_suspend *handler)
 #else
@@ -342,8 +304,6 @@ static void intelli_plug_suspend(struct early_suspend *handler)
 			continue;
 		cpu_down(cpu);
 	}
-
-	screen_off_limit(true);
 }
 
 #ifdef CONFIG_POWERSUSPEND
@@ -360,8 +320,6 @@ static void __ref intelli_plug_resume(struct early_suspend *handler)
 	mutex_lock(&intelli_plug_mutex);
 	hotplug_suspended = false;
 	mutex_unlock(&intelli_plug_mutex);
-
-	screen_off_limit(false);
 
 	if (wake_boost_active)
 		/* wake up and boost all cores to max freq */
@@ -577,7 +535,6 @@ show_one(debug_intelli_plug, debug_intelli_plug);
 show_one(nr_fshift, nr_fshift);
 show_one(nr_run_hysteresis, nr_run_hysteresis);
 show_one(down_lock_duration, down_lock_dur);
-show_one(suspend_max_freq, suspend_max_freq);
 
 #define store_one(file_name, object)		\
 static ssize_t store_##file_name		\
@@ -695,31 +652,6 @@ static ssize_t store_max_cpus_online(struct kobject *kobj,
 	return count;
 }
 
-static ssize_t store_suspend_max_freq(struct device *dev,
-				      struct device_attribute *msm_hotplug_attrs,
-				      const char *buf, size_t count)
-{
-	int ret;
-	unsigned int val;
-	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
-
-	ret = sscanf(buf, "%u", &val);
-	if (ret != 1)
-		return -EINVAL;
-
-	if (val == 0)
-		goto out;
-
-	if (val < policy->min)
-		val = policy->min;
-	else if (val > policy->max)
-		val = policy->max;
-out:
-	suspend_max_freq = val;
-
-	return count;
-}
-
 #define KERNEL_ATTR_RW(_name) \
 static struct kobj_attribute _name##_attr = \
 	__ATTR(_name, 0644, show_##_name, store_##_name)
@@ -735,7 +667,6 @@ KERNEL_ATTR_RW(debug_intelli_plug);
 KERNEL_ATTR_RW(nr_fshift);
 KERNEL_ATTR_RW(nr_run_hysteresis);
 KERNEL_ATTR_RW(down_lock_duration);
-KERNEL_ATTR_RW(suspend_max_freq);
 
 static struct attribute *intelli_plug_attrs[] = {
 	&intelli_plug_active_attr.attr,
@@ -749,7 +680,6 @@ static struct attribute *intelli_plug_attrs[] = {
 	&nr_fshift_attr.attr,
 	&nr_run_hysteresis_attr.attr,
 	&down_lock_duration_attr.attr,
-	&suspend_max_freq_attr.attr,
 	NULL,
 };
 
