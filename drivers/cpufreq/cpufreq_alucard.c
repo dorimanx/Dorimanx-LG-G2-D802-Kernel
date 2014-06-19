@@ -348,8 +348,6 @@ static inline bool need_load_eval(struct cpufreq_alucard_cpuinfo *this_alucard_c
 static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo)
 {
 	struct cpufreq_policy *cpu_policy;
-	unsigned int min_freq;
-	unsigned int max_freq;
 	unsigned int freq_responsiveness = alucard_tuners_ins.freq_responsiveness;
 	int dec_cpu_load = alucard_tuners_ins.dec_cpu_load;
 	int inc_cpu_load = alucard_tuners_ins.inc_cpu_load;
@@ -358,9 +356,9 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 	u64 cur_wall_time, cur_idle_time;
 	unsigned int wall_time, idle_time;
 	unsigned int index = 0;
+	unsigned int hi_index = 0;
 	int cur_load = -1;
 	unsigned int cpu;
-	unsigned int next_freq = 0;
 	unsigned long flags;
 	
 	cpu = this_alucard_cpuinfo->cpu;
@@ -384,45 +382,36 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 
 		cpufreq_notify_utilization(cpu_policy, cur_load);
 
-		/* Checking Frequency Limit */
-		min_freq = cpu_policy->min;
 		/* Maximum increasing frequency possible */
-		max_freq = max(min(cur_load * (cpu_policy->max / 100), cpu_policy->max), min_freq);
+		cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, max(cur_load * (cpu_policy->max / 100), cpu_policy->min),
+				CPUFREQ_RELATION_L, &hi_index);
 
+		cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, cpu_policy->cur,
+				CPUFREQ_RELATION_L, &index);
+	
 		/* CPUs Online Scale Frequency*/
 		if (cpu_policy->cur < freq_responsiveness) {
 			inc_cpu_load = alucard_tuners_ins.inc_cpu_load_at_min_freq;
 			dec_cpu_load = alucard_tuners_ins.dec_cpu_load_at_min_freq;
 			pump_inc_step = alucard_tuners_ins.pump_inc_step_at_min_freq;
-			max_freq = cpu_policy->max;
+			hi_index = this_alucard_cpuinfo->max_index;
 		}		
 		/* Check for frequency increase or for frequency decrease */
-		if (cur_load >= inc_cpu_load && cpu_policy->cur < max_freq) {
-			cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, cpu_policy->cur,
-				CPUFREQ_RELATION_L, &index);
-
-			if ((index + pump_inc_step) > this_alucard_cpuinfo->max_index)
-				index = this_alucard_cpuinfo->max_index;
+		if (cur_load >= inc_cpu_load && index < hi_index) {
+			if ((index + pump_inc_step) >= hi_index)
+				index = hi_index;
 			else
 				index += pump_inc_step;
 
-		} else if (cur_load < dec_cpu_load && cpu_policy->cur > min_freq) {
-			cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, cpu_policy->cur,
-				CPUFREQ_RELATION_L, &index);
-
-			if ((index - pump_dec_step) < this_alucard_cpuinfo->min_index)
+		} else if (cur_load < dec_cpu_load && index > this_alucard_cpuinfo->min_index) {
+			if ((index - pump_dec_step) <= this_alucard_cpuinfo->min_index)
 				index = this_alucard_cpuinfo->min_index;
 			else
 				index -= pump_dec_step;
-
-		} else {
-			/* if cpu frequency is already at maximum or minimum or cur_load is between inc_cpu_load and dec_cpu_load var, we don't need to set frequency! */
-			return;
 		}
 
-		next_freq = min(max(this_alucard_cpuinfo->freq_table[index].frequency, min_freq), max_freq);
-		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq);*/
-		if (next_freq != cpu_policy->cur) {
+		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, this_alucard_cpuinfo->freq_table[index].frequency, cpu_policy->cur, cpu_policy->min, this_alucard_cpuinfo->freq_table[hi_index].frequency);*/
+		if (this_alucard_cpuinfo->freq_table[index].frequency != cpu_policy->cur) {
 			__cpufreq_driver_target(cpu_policy, this_alucard_cpuinfo->freq_table[index].frequency, CPUFREQ_RELATION_L);
 		}
 	}
