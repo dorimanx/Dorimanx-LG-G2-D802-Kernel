@@ -1,7 +1,9 @@
 /*
- * Author: Paul Reioux aka Faux123 <reioux@gmail.com>
+ * MSM CPU Frequency Limiter Driver
  *
- * Copyright 2012-2014 Paul Reioux
+ * Copyright (c) 2012-2014, Paul Reioux Faux123 <reioux@gmail.com>
+ * Copyright (c) 2013-2014, Dorimanx <yuri@bynet.co.il>
+ * Copyright (c) 2013-2014, Pranav Vashi <neobuddy89@gmail.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -27,13 +29,13 @@
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
 #endif
-
 #include <mach/cpufreq.h>
 
 #define MSM_CPUFREQ_LIMIT_MAJOR		1
-#define MSM_CPUFREQ_LIMIT_MINOR		3
+#define MSM_CPUFREQ_LIMIT_MINOR		4
 
-//#define DEBUG_CPU_LIMITER
+#define MSM_LIMIT			"msm_cpufreq_limit"
+/* #define DEBUG_CPU_LIMITER */
 
 uint32_t limited_max_freq = 2265600;
 
@@ -41,16 +43,22 @@ uint32_t limited_max_freq = 2265600;
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
 
-#define DEFAULT_SUSPEND_DEFER_TIME 5
-static uint32_t suspend_max_freq = 0;
-static uint32_t resume_max_freq = 2265600;
+#define DEFAULT_SUSPEND_DEFER_TIME	5
+#define DEFAULT_SUSPEND_FREQUENCY	0
+#define DEFAULT_RESUME_FREQUENCY	2265600
 
 static struct cpu_limit {
+	uint32_t suspend_max_freq;
+	uint32_t resume_max_freq;
 	unsigned int suspend_defer_time;
 	struct delayed_work suspend_work;
 	struct work_struct resume_work;
+#ifdef CONFIG_LCD_NOTIFY
 	struct notifier_block notif;
+#endif
 } limit = {
+	.suspend_max_freq = DEFAULT_SUSPEND_FREQUENCY,
+	.resume_max_freq = DEFAULT_RESUME_FREQUENCY,
 	.suspend_defer_time = DEFAULT_SUSPEND_DEFER_TIME,
 };
 #endif
@@ -84,40 +92,40 @@ static void msm_limit_suspend(struct work_struct *work)
 {
 	int cpu = 0, ret = 0;
 
-	/* save current instance */
-	resume_max_freq = limited_max_freq;
+	/* Save current instance */
+	limit.resume_max_freq = limited_max_freq;
 
-	/* not active, so exit */
-	if (suspend_max_freq == 0)
+	/* Do not suspend if suspend freq is not available */
+	if (limit.suspend_max_freq == 0)
 		return;
 
 	for_each_possible_cpu(cpu) {
-		ret = update_cpu_max_freq(cpu, suspend_max_freq);
+		ret = update_cpu_max_freq(cpu, limit.suspend_max_freq);
 		if (ret)
 			pr_debug("can't limit cpu%d max freq to %d\n",
-				cpu, suspend_max_freq);
+				cpu, limit.suspend_max_freq);
 	}
 	if (!ret)
-		limited_max_freq = suspend_max_freq;
+		limited_max_freq = limit.suspend_max_freq;
 }
 
 static void __ref msm_limit_resume(struct work_struct *work)
 {
 	int cpu = 0, ret = 0;
 
-	/* not active, so exit */
-	if (suspend_max_freq == 0)
+	/* Do not resume if suspend freq is not available */
+	if (limit.suspend_max_freq == 0)
 		return;
 
-	/* restore max allowed freq */
+	/* Restore max allowed freq */
 	for_each_possible_cpu(cpu) {
-		ret = update_cpu_max_freq(cpu, resume_max_freq);
+		ret = update_cpu_max_freq(cpu, limit.resume_max_freq);
 		if (ret)
 			pr_debug("can't restore cpu%d max freq to %d\n",
-				cpu, resume_max_freq);
+				cpu, limit.resume_max_freq);
 	}
 	if (!ret)
-		limited_max_freq = resume_max_freq;
+		limited_max_freq = limit.resume_max_freq;
 }
 
 #ifdef CONFIG_LCD_NOTIFY
@@ -165,7 +173,8 @@ static int lcd_notifier_callback(struct notifier_block *nb,
 
 	return NOTIFY_OK;
 }
-#elif defined(CONFIG_POWERSUSPEND)
+
+#elif defined CONFIG_POWERSUSPEND
 static struct power_suspend msm_limit_power_suspend_driver = {
 #else
 static struct early_suspend msm_limit_early_suspend_driver = {
@@ -174,43 +183,33 @@ static struct early_suspend msm_limit_early_suspend_driver = {
 	.suspend = __msm_limit_suspend,
 	.resume = __msm_limit_resume,
 };
-#endif
 
-static ssize_t msm_cpufreq_limit_show(struct kobject *kobj,
+static ssize_t suspend_defer_time_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%u\n", limited_max_freq);
+	return sprintf(buf, "%u\n", limit.suspend_defer_time);
 }
 
-static ssize_t msm_cpufreq_limit_store(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf, size_t count)
+static ssize_t suspend_defer_time_store(struct kobject *kobj,
+				      struct kobj_attribute *attr,
+				      const char *buf, size_t count)
 {
-	int cpu = 0;
-	int ret = 0;
+	int ret;
+	unsigned int val;
 
-	unsigned int data;
+	ret = sscanf(buf, "%u\n", &val);
+	if (ret != 1)
+		return -EINVAL;
 
-	if(sscanf(buf, "%u\n", &data) == 1) {
-		for_each_possible_cpu(cpu) {
-			ret = update_cpu_max_freq(cpu, data);
-			if (ret)
-				pr_debug("can't limit cpu%d max freq to %d\n",
-					cpu, data);
-		}
-		if (!ret)
-			limited_max_freq = data;
-	}
+	limit.suspend_defer_time = val;
 
 	return count;
 }
 
-#if defined(CONFIG_LCD_NOTIFY) || \
-	defined(CONFIG_POWERSUSPEND) || \
-	defined(CONFIG_HAS_EARLYSUSPEND)
 static ssize_t suspend_max_freq_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%u\n", suspend_max_freq);
+	return sprintf(buf, "%u\n", limit.suspend_max_freq);
 }
 
 static ssize_t suspend_max_freq_store(struct kobject *kobj,
@@ -221,23 +220,66 @@ static ssize_t suspend_max_freq_store(struct kobject *kobj,
 	unsigned int val;
 	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
 
-	ret = sscanf(buf, "%u", &val);
+	ret = sscanf(buf, "%u\n", &val);
 	if (ret != 1)
 		return -EINVAL;
 
 	if (val == 0)
 		goto out;
 
-	if (val < policy->min)
-		val = policy->min;
-	else if (val > policy->max)
-		val = policy->max;
+	if (val == limit.suspend_max_freq)
+		return count;
+
+	if (val < policy->cpuinfo.min_freq)
+		val = policy->cpuinfo.min_freq;
+	else if (val > policy->cpuinfo.max_freq)
+		val = policy->cpuinfo.max_freq;
+
 out:
-	suspend_max_freq = val;
+	limit.suspend_max_freq = val;
 
 	return count;
 }
 #endif
+
+static ssize_t msm_cpufreq_limit_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", limited_max_freq);
+}
+
+static ssize_t msm_cpufreq_limit_store(struct kobject *kobj,
+				      struct kobj_attribute *attr,
+				      const char *buf, size_t count)
+{
+	int cpu = 0, update = 0, ret;
+	unsigned int val;
+	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
+
+	ret = sscanf(buf, "%u\n", &val);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (val == limited_max_freq)
+		goto out;
+
+	if (val < policy->cpuinfo.min_freq)
+		val = policy->cpuinfo.min_freq;
+	else if (val > policy->cpuinfo.max_freq)
+		val = policy->cpuinfo.max_freq;
+
+	for_each_possible_cpu(cpu) {
+		update = update_cpu_max_freq(cpu, val);
+		if (update)
+			pr_debug("can't limit cpu%d max freq to %d\n",
+				cpu, val);
+	}
+out:
+	if (!update)
+		limited_max_freq = val;
+
+	return count;
+}
 
 static ssize_t msm_cpufreq_limit_version_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
@@ -246,12 +288,12 @@ static ssize_t msm_cpufreq_limit_version_show(struct kobject *kobj,
 			MSM_CPUFREQ_LIMIT_MAJOR, MSM_CPUFREQ_LIMIT_MINOR);
 }
 
-static struct kobj_attribute msm_cpufreq_limit_attribute = 
+static struct kobj_attribute msm_cpufreq_limit_attribute =
 	__ATTR(cpufreq_limit, 0666,
 		msm_cpufreq_limit_show,
 		msm_cpufreq_limit_store);
 
-static struct kobj_attribute msm_cpufreq_limit_version_attribute = 
+static struct kobj_attribute msm_cpufreq_limit_version_attribute =
 	__ATTR(msm_cpufreq_limit_version, 0444,
 		msm_cpufreq_limit_version_show,
 		NULL);
@@ -259,6 +301,11 @@ static struct kobj_attribute msm_cpufreq_limit_version_attribute =
 #if defined(CONFIG_LCD_NOTIFY) || \
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
+static struct kobj_attribute suspend_defer_time_attribute =
+	__ATTR(suspend_defer_time, 0666,
+		suspend_defer_time_show,
+		suspend_defer_time_store);
+
 static struct kobj_attribute suspend_max_freq_attribute =
 	__ATTR(suspend_max_freq, 0666,
 		suspend_max_freq_show,
@@ -267,12 +314,13 @@ static struct kobj_attribute suspend_max_freq_attribute =
 
 static struct attribute *msm_cpufreq_limit_attrs[] =
 	{
-		&msm_cpufreq_limit_attribute.attr,
 #if defined(CONFIG_LCD_NOTIFY) || \
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
+		&suspend_defer_time_attribute.attr,
 		&suspend_max_freq_attribute.attr,
 #endif
+		&msm_cpufreq_limit_attribute.attr,
 		&msm_cpufreq_limit_version_attribute.attr,
 		NULL,
 	};
@@ -286,30 +334,31 @@ static struct kobject *msm_cpufreq_limit_kobj;
 
 static int msm_cpufreq_limit_init(void)
 {
-	int sysfs_result;
+	int ret;
 
 	msm_cpufreq_limit_kobj =
-		kobject_create_and_add("msm_cpufreq_limit", kernel_kobj);
+		kobject_create_and_add(MSM_LIMIT, kernel_kobj);
 	if (!msm_cpufreq_limit_kobj) {
 		pr_err("%s msm_cpufreq_limit_kobj kobject create failed!\n",
 			__func__);
 		return -ENOMEM;
         }
 
-	sysfs_result = sysfs_create_group(msm_cpufreq_limit_kobj,
+	ret = sysfs_create_group(msm_cpufreq_limit_kobj,
 			&msm_cpufreq_limit_attr_group);
 
-        if (sysfs_result) {
-		pr_info("%s msm_cpufreq_limit_kobj create failed!\n",
+        if (ret) {
+		pr_err("%s msm_cpufreq_limit_kobj create failed!\n",
 			__func__);
-		kobject_put(msm_cpufreq_limit_kobj);
+		goto err_dev;
 	}
 
 #ifdef CONFIG_LCD_NOTIFY
 	limit.notif.notifier_call = lcd_notifier_callback;
-        if (lcd_register_client(&limit.notif) != 0) {
-                pr_err("%s: Failed to register LCD notifier callback\n",
-                       MSM_LIMIT);
+	ret = lcd_register_client(&limit.notif);
+	if (ret != 0) {
+		pr_err("%s: Failed to register LCD notifier callback\n",
+			MSM_LIMIT);
 		goto err_dev;
 	}
 #elif defined(CONFIG_POWERSUSPEND)
@@ -325,7 +374,11 @@ static int msm_cpufreq_limit_init(void)
 	INIT_WORK(&limit.resume_work, msm_limit_resume);
 #endif
 
-	return sysfs_result;
+	return ret;
+err_dev:
+	if (msm_cpufreq_limit_kobj != NULL)
+		kobject_put(msm_cpufreq_limit_kobj);
+	return ret;
 }
 
 static void msm_cpufreq_limit_exit(void)
@@ -352,8 +405,9 @@ static void msm_cpufreq_limit_exit(void)
 
 module_init(msm_cpufreq_limit_init);
 module_exit(msm_cpufreq_limit_exit);
-MODULE_LICENSE("GPL v2"); 
+
 MODULE_AUTHOR("Paul Reioux <reioux@gmail.com>");
 MODULE_AUTHOR("Dorimanx <yuri@bynet.co.il>");
-MODULE_DESCRIPTION("Krait CPU frequency Limit Driver");
-
+MODULE_AUTHOR("Pranav Vashi <neobuddy89@gmail.com>");
+MODULE_DESCRIPTION("MSM Krait CPU Frequency Limiter Driver");
+MODULE_LICENSE("GPL v2");
