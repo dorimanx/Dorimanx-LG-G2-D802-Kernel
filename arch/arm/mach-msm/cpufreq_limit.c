@@ -35,7 +35,6 @@
 #define MSM_CPUFREQ_LIMIT_MINOR		4
 
 #define MSM_LIMIT			"msm_cpufreq_limit"
-/* #define DEBUG_CPU_LIMITER */
 
 uint32_t limited_max_freq = 2265600;
 
@@ -46,6 +45,15 @@ uint32_t limited_max_freq = 2265600;
 #define DEFAULT_SUSPEND_DEFER_TIME	5
 #define DEFAULT_SUSPEND_FREQUENCY	0
 #define DEFAULT_RESUME_FREQUENCY	2265600
+
+static unsigned int debug = 0;
+module_param_named(debug_mask, debug, uint, 0644);
+
+#define dprintk(msg...)		\
+do { 				\
+	if (debug)		\
+		pr_info(msg);	\
+} while (0)
 
 static struct cpu_limit {
 	uint32_t suspend_max_freq;
@@ -72,14 +80,12 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 		return ret;
 
 	limited_max_freq = max_freq;
-#ifdef DEBUG_CPU_LIMITER
 	if (max_freq != MSM_CPUFREQ_NO_LIMIT)
-		pr_info("%s: Limiting cpu%d max frequency to %d\n",
+		dprintk("%s: Limiting cpu%d max frequency to %d\n",
 			__func__, cpu, max_freq);
 	else
-		pr_info("%s: Max frequency reset for cpu%d\n",
+		dprintk("%s: Max frequency reset for cpu%d\n",
 			__func__, cpu);
-#endif
 	ret = cpufreq_update_policy(cpu);
 
 	return ret;
@@ -102,7 +108,7 @@ static void msm_limit_suspend(struct work_struct *work)
 	for_each_possible_cpu(cpu) {
 		ret = update_cpu_max_freq(cpu, limit.suspend_max_freq);
 		if (ret)
-			pr_debug("can't limit cpu%d max freq to %d\n",
+			dprintk("can't limit cpu%d max freq to %d\n",
 				cpu, limit.suspend_max_freq);
 	}
 	if (!ret)
@@ -121,7 +127,7 @@ static void __ref msm_limit_resume(struct work_struct *work)
 	for_each_possible_cpu(cpu) {
 		ret = update_cpu_max_freq(cpu, limit.resume_max_freq);
 		if (ret)
-			pr_debug("can't restore cpu%d max freq to %d\n",
+			dprintk("can't restore cpu%d max freq to %d\n",
 				cpu, limit.resume_max_freq);
 	}
 	if (!ret)
@@ -271,7 +277,7 @@ static ssize_t msm_cpufreq_limit_store(struct kobject *kobj,
 	for_each_possible_cpu(cpu) {
 		update = update_cpu_max_freq(cpu, val);
 		if (update)
-			pr_debug("can't limit cpu%d max freq to %d\n",
+			dprintk("can't limit cpu%d max freq to %d\n",
 				cpu, val);
 	}
 out:
