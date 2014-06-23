@@ -5282,7 +5282,8 @@ fix_small_capacity(struct sched_domain *sd, struct sched_group *group)
  */
 static inline void update_sg_lb_stats(struct lb_env *env,
 			struct sched_group *group, int load_idx,
-			int local_group, int *balance, struct sg_lb_stats *sgs)
+			int local_group, int *balance, struct sg_lb_stats *sgs,
+			bool *overload)
 {
 	unsigned long nr_running, max_nr_running, min_nr_running;
 	unsigned long scaled_load, load, max_cpu_load, min_cpu_load;
@@ -5332,6 +5333,10 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 
 		sgs->group_load += load;
 		sgs->sum_nr_running += nr_running;
+
+		if (nr_running > 1)
+			*overload = true;
+
 #ifdef CONFIG_SCHED_HMP
 		sgs->sum_nr_big_tasks += rq->nr_big_tasks;
 		sgs->sum_nr_small_tasks += rq->nr_small_tasks;
@@ -5469,6 +5474,7 @@ static inline void update_sd_lb_stats(struct lb_env *env,
 	struct sched_group *sg = env->sd->groups;
 	struct sg_lb_stats sgs;
 	int load_idx, prefer_sibling = 0;
+	bool overload = false;
 
 	if (child && child->flags & SD_PREFER_SIBLING)
 		prefer_sibling = 1;
@@ -5480,7 +5486,8 @@ static inline void update_sd_lb_stats(struct lb_env *env,
 
 		local_group = cpumask_test_cpu(env->dst_cpu, sched_group_cpus(sg));
 		memset(&sgs, 0, sizeof(sgs));
-		update_sg_lb_stats(env, sg, load_idx, local_group, balance, &sgs);
+		update_sg_lb_stats(env, sg, load_idx, local_group, balance, &sgs,
+						&overload);
 
 		if (local_group && !(*balance))
 			return;
@@ -5528,6 +5535,13 @@ static inline void update_sd_lb_stats(struct lb_env *env,
 
 		sg = sg->next;
 	} while (sg != env->sd->groups);
+
+	if (!env->sd->parent) {
+		/* update overload indicator if we are at root domain */
+		if (env->dst_rq->rd->overload != overload)
+			env->dst_rq->rd->overload = overload;
+	}
+
 }
 
 /**
@@ -6211,7 +6225,8 @@ void idle_balance(int this_cpu, struct rq *this_rq)
 
 	this_rq->idle_stamp = rq_clock(this_rq);
 
-	if (this_rq->avg_idle < this_rq->max_idle_balance_cost)
+	if (this_rq->avg_idle < this_rq->max_idle_balance_cost ||
+	    !this_rq->rd->overload)
 		return;
 
 	update_rq_runnable_avg(this_rq, 1);
