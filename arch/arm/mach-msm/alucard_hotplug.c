@@ -45,8 +45,6 @@ static struct workqueue_struct *alucardhp_wq;
 
 static struct delayed_work alucard_hotplug_work;
 
-static struct work_struct hotplug_work;
-
 static bool suspended = false;
 static bool force_cpu_up = false;
 
@@ -168,39 +166,6 @@ static unsigned int hotplug_rate[NR_CPUS][2] = {
 	{4, 1}
 };
 
-static bool hotplug_onoff[NR_CPUS][2] = {
-		{false, false},
-		{false, false},
-		{false, false},
-		{false, false}
-};
-
-static void __ref schedule_hotplug_work(struct work_struct *work)
-{
-	unsigned int cpu;
-	unsigned int oncpu = 0;
-
-	for (cpu = 1; cpu < NR_CPUS; cpu++) {
-		unsigned int ret = 0;
-
-		if (hotplug_onoff[cpu][UP_INDEX] == true) {
-			ret = cpu_up(cpu);
-
-			if (oncpu == 0 && ret == 0)
-				oncpu = cpu;
-
-			hotplug_onoff[cpu][UP_INDEX] = false;
-		} else if (hotplug_onoff[cpu][DOWN_INDEX] == true) {
-			cpu_down(cpu);
-
-			hotplug_onoff[cpu][DOWN_INDEX] = false;
-		}		
-	}
-
-	queue_delayed_work_on(oncpu, alucardhp_wq, &alucard_hotplug_work,
-							  msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate));
-}
-
 static void __cpuinit hotplug_work_fn(struct work_struct *work)
 {
 	int upmaxcoreslimit = 0;
@@ -211,6 +176,12 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 	int online_cpus = 0;
 	unsigned int rq_avg;
 	bool force_up = force_cpu_up;
+	bool hotplug_onoff[NR_CPUS][2] = {
+		{false, false},
+		{false, false},
+		{false, false},
+		{false, false}
+	};
 
 	rq_avg = get_nr_run_avg();
 
@@ -323,10 +294,18 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 		}
 	}
 
+	for (cpu = 1; cpu < NR_CPUS; cpu++) {
+		if (hotplug_onoff[cpu][UP_INDEX] == true)
+			cpu_up(cpu);
+		else if (hotplug_onoff[cpu][DOWN_INDEX] == true)
+			cpu_down(cpu);
+	}
+
 	if (force_up == true)
 		force_cpu_up = false;
 
-	queue_work_on(0, alucardhp_wq, &hotplug_work);
+	queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
+							  msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate));
 }
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
@@ -404,7 +383,6 @@ static int hotplug_start(void)
 
 	init_rq_avg_stats;
 	INIT_DELAYED_WORK(&alucard_hotplug_work, hotplug_work_fn);
-	INIT_WORK(&hotplug_work, schedule_hotplug_work);
 	queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
 						msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate));
 
@@ -424,8 +402,6 @@ static void hotplug_stop(void)
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&alucard_hotplug_early_suspend_driver);
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
-
-	cancel_work_sync(&hotplug_work);
 
 	cancel_delayed_work_sync(&alucard_hotplug_work);
 
