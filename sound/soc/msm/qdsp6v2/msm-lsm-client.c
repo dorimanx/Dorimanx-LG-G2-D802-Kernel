@@ -395,7 +395,7 @@ static int msm_lsm_ioctl_compat(struct snd_pcm_substream *substream,
 		if (!user) {
 			pr_err("%s: Allocation failed event status size %d\n",
 			__func__, size);
-			err = -EFAULT;
+			return -EFAULT;
 		} else {
 			cmd = SNDRV_LSM_EVENT_STATUS;
 			user->payload_size = userarg32.payload_size;
