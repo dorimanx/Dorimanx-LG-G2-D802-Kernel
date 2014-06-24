@@ -1471,7 +1471,12 @@ struct page *follow_page(struct vm_area_struct *vma, unsigned long address,
 	pte_t *ptep, pte;
 	spinlock_t *ptl;
 	struct page *page;
-	struct mm_struct *mm = vma->vm_mm;
+	struct mm_struct *mm;
+
+	if (WARN_ON(!vma))
+		return NULL;
+
+	mm = vma->vm_mm;
 
 	page = follow_huge_addr(mm, address, flags & FOLL_WRITE);
 	if (!IS_ERR(page)) {
