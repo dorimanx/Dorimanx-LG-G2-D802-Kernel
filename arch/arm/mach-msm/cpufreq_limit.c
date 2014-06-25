@@ -31,8 +31,8 @@
 #endif
 #include <mach/cpufreq.h>
 
-#define MSM_CPUFREQ_LIMIT_MAJOR		1
-#define MSM_CPUFREQ_LIMIT_MINOR		4
+#define MSM_CPUFREQ_LIMIT_MAJOR		2
+#define MSM_CPUFREQ_LIMIT_MINOR		0
 
 #define MSM_LIMIT			"msm_cpufreq_limit"
 
@@ -42,7 +42,7 @@ uint32_t limited_max_freq = 2265600;
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
 
-#define DEFAULT_SUSPEND_DEFER_TIME	5
+#define DEFAULT_SUSPEND_DEFER_TIME	10
 #define DEFAULT_SUSPEND_FREQUENCY	0
 #define DEFAULT_RESUME_FREQUENCY	2265600
 
@@ -50,7 +50,7 @@ static unsigned int debug = 0;
 module_param_named(debug_mask, debug, uint, 0644);
 
 #define dprintk(msg...)		\
-do { 				\
+do {				\
 	if (debug)		\
 		pr_info(msg);	\
 } while (0)
@@ -58,15 +58,18 @@ do { 				\
 static struct cpu_limit {
 	uint32_t suspend_max_freq;
 	uint32_t resume_max_freq;
+	unsigned int suspended;
 	unsigned int suspend_defer_time;
 	struct delayed_work suspend_work;
 	struct work_struct resume_work;
+	struct mutex msm_limiter_mutex;
 #ifdef CONFIG_LCD_NOTIFY
 	struct notifier_block notif;
 #endif
 } limit = {
 	.suspend_max_freq = DEFAULT_SUSPEND_FREQUENCY,
 	.resume_max_freq = DEFAULT_RESUME_FREQUENCY,
+	.suspended = 0,
 	.suspend_defer_time = DEFAULT_SUSPEND_DEFER_TIME,
 };
 #endif
@@ -105,6 +108,10 @@ static void msm_limit_suspend(struct work_struct *work)
 	if (limit.suspend_max_freq == 0)
 		return;
 
+	mutex_lock(&limit.msm_limiter_mutex);
+	limit.suspended = 1;
+	mutex_unlock(&limit.msm_limiter_mutex);
+
 	for_each_possible_cpu(cpu) {
 		ret = update_cpu_max_freq(cpu, limit.suspend_max_freq);
 		if (ret)
@@ -120,8 +127,12 @@ static void __ref msm_limit_resume(struct work_struct *work)
 	int cpu = 0, ret = 0;
 
 	/* Do not resume if suspend freq is not available */
-	if (limit.suspend_max_freq == 0)
+	if (limit.suspend_max_freq == 0 || !limit.suspended)
 		return;
+
+	mutex_lock(&limit.msm_limiter_mutex);
+	limit.suspended = 0;
+	mutex_unlock(&limit.msm_limiter_mutex);
 
 	/* Restore max allowed freq */
 	for_each_possible_cpu(cpu) {
@@ -373,6 +384,8 @@ static int msm_cpufreq_limit_init(void)
 	register_early_suspend(&msm_limit_early_suspend_driver);
 #endif
 
+	mutex_init(&limit.msm_limiter_mutex);
+
 #if defined(CONFIG_LCD_NOTIFY) || \
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
@@ -398,6 +411,7 @@ static void msm_cpufreq_limit_exit(void)
 	cancel_work_sync(&limit.resume_work);
 	cancel_delayed_work_sync(&limit.suspend_work);
 #endif
+	mutex_destroy(&limit.msm_limiter_mutex);
 
 #ifdef CONFIG_LCD_NOTIFY
 	lcd_unregister_client(&limit.notif);
