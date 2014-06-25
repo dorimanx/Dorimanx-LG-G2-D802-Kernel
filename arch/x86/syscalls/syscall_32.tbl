@@ -357,3 +357,4 @@
 348	i386	process_vm_writev	sys_process_vm_writev		compat_sys_process_vm_writev
 349	i386	sched_setattr		sys_sched_setattr
 350	i386	sched_getattr		sys_sched_getattr
+354	i386	seccomp			sys_seccomp
