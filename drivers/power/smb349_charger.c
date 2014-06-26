@@ -2277,7 +2277,7 @@ static void smb349_bb_worker_trigger(struct smb349_struct *smb349_chg,
  */
 static void smb349_irq_worker(struct work_struct *work)
 {
-	u8 val;
+	u8 val = 0;
 	int ret = 0, usb_present = 0, host_mode;
 #if defined(CONFIG_BQ51053B_CHARGER) && defined(CONFIG_WIRELESS_CHARGER)
 	int wlc_present =0;

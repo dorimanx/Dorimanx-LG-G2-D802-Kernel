@@ -355,7 +355,7 @@ static ssize_t anx7808_write_reg_store(struct device *dev, struct device_attribu
 	char op, i;
 	char r[3];
 	char v[3];
-	unchar tmp;
+	unchar tmp = 0;
 	int id, reg, val = 0 ;
 
 	if (sp_tx_system_state != STATE_PLAY_BACK) {

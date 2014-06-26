@@ -619,7 +619,7 @@ EXPORT_SYMBOL(journal_trans_will_send_data_barrier);
 
 int journal_next_log_block(journal_t *journal, unsigned int *retp)
 {
-	unsigned int blocknr;
+	unsigned int blocknr = 0;
 
 	spin_lock(&journal->j_state_lock);
 	J_ASSERT(journal->j_free > 1);
@@ -680,7 +680,7 @@ int journal_bmap(journal_t *journal, unsigned int blocknr,
 struct journal_head *journal_get_descriptor_buffer(journal_t *journal)
 {
 	struct buffer_head *bh;
-	unsigned int blocknr;
+	unsigned int blocknr = 0;
 	int err;
 
 	err = journal_next_log_block(journal, &blocknr);
@@ -824,7 +824,7 @@ journal_t * journal_init_inode (struct inode *inode)
 	journal_t *journal = journal_init_common();
 	int err;
 	int n;
-	unsigned int blocknr;
+	unsigned int blocknr = 0;
 
 	if (!journal)
 		return NULL;
@@ -936,7 +936,7 @@ static int journal_reset(journal_t *journal)
  **/
 int journal_create(journal_t *journal)
 {
-	unsigned int blocknr;
+	unsigned int blocknr = 0;
 	struct buffer_head *bh;
 	journal_superblock_t *sb;
 	int i, err;

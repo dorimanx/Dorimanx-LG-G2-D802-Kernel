@@ -230,7 +230,7 @@ static int max2165_set_rf(struct max2165_priv *priv, u32 freq)
 
 static void max2165_debug_status(struct max2165_priv *priv)
 {
-	u8 status, autotune;
+	u8 status = 0, autotune = 0;
 	u8 auto_vco_success, auto_vco_active;
 	u8 pll_locked;
 	u8 dc_offset_low, dc_offset_hi;
