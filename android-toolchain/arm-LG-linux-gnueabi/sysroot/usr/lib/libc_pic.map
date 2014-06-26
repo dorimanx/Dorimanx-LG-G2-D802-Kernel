@@ -89,7 +89,6 @@ GLIBC_2.4 {
     __fgets_chk; __fgets_unlocked_chk;
     __fpu_control;
     __fpurge; __fpending; __fsetlocking; _flushlbf;
-    __frame_state_for; __register_frame_info_table;
     __fxstatat; __fxstatat64;
     __getdelim;
     __gethostname_chk; __getdomainname_chk; __wcrtomb_chk; __mbsnrtowcs_chk;
@@ -141,7 +140,6 @@ GLIBC_2.4 {
     __realpath_chk; __wctomb_chk;
     __recv_chk; __recvfrom_chk;
     __register_atfork;
-    __register_frame; __register_frame_table; __deregister_frame;
     __res_randomid;
     __res_state; __res_init; __res_nclose; __res_ninit; _res_hconf;
     __rpc_thread_svc_fdset; __rpc_thread_createerr;
@@ -191,7 +189,6 @@ GLIBC_2.4 {
     __xpg_basename;
     __xpg_sigpause;
     __xpg_strerror_r;
-    __xstat64; __fxstat64; __lxstat64;
     __xstat64; __fxstat64; __lxstat64; __poll;
     __xstat; __fxstat; __lxstat; __xmknod; __write; __close; __fcntl;
     _authenticate;
@@ -222,7 +219,6 @@ GLIBC_2.4 {
     addseverity;
     adjtime; adjtimex; asctime; asctime_r;
     alarm;
-    alphasort64;
     alphasort64;
     alphasort;
     argp_err_exit_status; argp_program_bug_address; argp_program_version;
@@ -385,7 +381,6 @@ GLIBC_2.4 {
     getpwent_r; getpwuid_r; getpwnam_r;
     getresgid; getresuid; setresgid; setresuid;
     getrlimit64;
-    getrlimit; setrlimit; getrlimit64;
     getrpcbyname_r; getrpcbynumber; getrpcbynumber_r; getrpcent; getrpcent_r;
     getrpcport; getservbyname; getservbyname_r; getservbyport;
     gets;
@@ -398,7 +393,6 @@ GLIBC_2.4 {
     getutmpx; getutmp;
     getwc; getwc_unlocked; getwchar; getwchar_unlocked;
     getxattr;
-    glob64;
     glob_pattern_p; globfree; group_member;
     gnu_dev_major; gnu_dev_minor; gnu_dev_makedev;
     gnu_get_libc_release; gnu_get_libc_version;
@@ -519,7 +513,6 @@ GLIBC_2.4 {
     pipe; poll;
     pivot_root;
     pmap_getmaps; pmap_getport; pmap_rmtcall; pmap_set; pmap_unset;
-    posix_fadvise64; posix_fallocate64;
     posix_fadvise; posix_fadvise64; posix_fallocate; posix_fallocate64;
     posix_madvise;
     posix_memalign;
@@ -587,7 +580,6 @@ GLIBC_2.4 {
     read; readlink; rmdir;
     readahead;
     readdir64; readdir64_r;
-    readdir64; readdir64_r;
     readdir; readdir_r; rewinddir;
     readlinkat;
     readv; reboot; remque; revoke;
@@ -610,7 +602,6 @@ GLIBC_2.4 {
     sbrk; select; setdomainname; setfsent; sethostent; sethostid; sethostname;
     scalbln; scalblnf; scalblnl;
     scalbn; scalbnf; scalbnl;
-    scandir64;
     scandir64;
     scandir; seekdir;
     scanf; snprintf; sprintf; sscanf;
@@ -715,7 +706,6 @@ GLIBC_2.4 {
     valloc;
     vasprintf; vdprintf; vscanf; vsnprintf; vsprintf; vsscanf;
     verr; verrx; vhangup; vsyslog; vwarn; vwarnx;
-    versionsort64;
     versionsort; versionsort64;
     vfork;
     vfprintf; vfscanf; vprintf;
