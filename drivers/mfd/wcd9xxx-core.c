@@ -30,6 +30,8 @@
 #include <linux/i2c.h>
 #include <sound/soc.h>
 
+#include <linux/reboot.h>
+
 #define WCD9XXX_REGISTER_START_OFFSET 0x800
 #define WCD9XXX_SLIM_RW_MAX_TRIES 3
 #define SLIMBUS_PRESENT_TIMEOUT 100
@@ -1667,6 +1669,7 @@ err_slim_add:
 	slim_remove_device(wcd9xxx->slim_slave);
 err_reset:
 	wcd9xxx_free_reset(wcd9xxx);
+	kernel_restart("wcd9xxx_slim_probe fail, kernel restart");
 err_supplies:
 	wcd9xxx_disable_supplies(wcd9xxx, pdata);
 err_codec:

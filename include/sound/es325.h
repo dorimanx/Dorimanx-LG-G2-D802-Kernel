@@ -855,4 +855,6 @@
 #define ES325_FLUSH		0x20D4
 #define ES325_FLUSH_STAGED	0x28D4
 
+extern void msm_slim_vote_func(struct slim_device *gen0_client);
+
 #endif /* _ES325_H */

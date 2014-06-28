@@ -558,7 +558,7 @@ void __weak arch_enable_nonboot_cpus_end(void)
 {
 }
 
-#ifdef CONFIG_MACH_MSM8974_B1_KR
+#if 1 /* Boost CPU When wakeup */
 #define BOOST_FREQ_TIME_MS 2000
 static struct timer_list boost_freq_timer;
 int boost_freq = 0;
@@ -572,7 +572,7 @@ static void boost_freq_timer_cb(unsigned long data)
 void __ref enable_nonboot_cpus(void)
 {
 	int cpu, error;
-#ifdef CONFIG_MACH_MSM8974_B1_KR
+#if 1 /* Boost CPU When wakeup */
 	static int first = 0;
 
 	if (!first) {
