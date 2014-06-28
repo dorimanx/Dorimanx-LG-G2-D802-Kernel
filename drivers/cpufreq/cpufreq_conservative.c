@@ -23,6 +23,7 @@
 #include <linux/tick.h>
 #include <linux/ktime.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
 
 /*
  * dbs is used in this file as a shortform for demandbased switching

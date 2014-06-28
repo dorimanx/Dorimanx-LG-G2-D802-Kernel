@@ -754,7 +754,9 @@ void add_device_randomness(const void *buf, unsigned int size)
 }
 EXPORT_SYMBOL(add_device_randomness);
 
+#if 0
 static struct timer_rand_state input_timer_state = INIT_TIMER_RAND_STATE;
+#endif
 
 /*
  * This function adds entropy to the entropy "pool" by using timing

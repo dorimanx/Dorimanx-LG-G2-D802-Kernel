@@ -31,6 +31,7 @@
 #include <linux/tick.h>
 #include <asm/smp_plat.h>
 #include <linux/suspend.h>
+#include "acpuclock.h"
 
 #define MAX_LONG_SIZE 24
 #define DEFAULT_RQ_POLL_JIFFIES 1
@@ -61,7 +62,9 @@ static unsigned int lock_hotplug_disabled = 1;
 
 static DEFINE_PER_CPU(struct cpu_load_data, cpuload);
 
-static bool io_is_busy;
+#ifndef CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL
+static bool io_is_busy = false;
+#endif
 
 static int update_average_load(unsigned int freq, unsigned int cpu)
 {

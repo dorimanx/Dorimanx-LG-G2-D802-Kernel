@@ -43,7 +43,4 @@ void set_speed_pvs_bin(int speed, int pvs);
 void get_speed_bin(int *speed);
 void get_pvs_bin(int *pvs);
 
-extern int msm_cpufreq_get_index(struct cpufreq_policy *policy,
-				 unsigned int freq);
-
 #endif /* __ARCH_ARM_MACH_MSM_MACH_CPUFREQ_H */

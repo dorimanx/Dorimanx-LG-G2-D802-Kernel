@@ -289,7 +289,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
 	struct task_struct *selected = NULL;
-	const struct cred *cred = current_cred(), *pcred; 
+	const struct cred *pcred;
 	unsigned int uid = 0;
 	int rem = 0;
 	int tasksize;
@@ -420,16 +420,16 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				selected = p;
 				selected_tasksize = tasksize;
 				selected_oom_score_adj = oom_score_adj;
-				lowmem_print(2, "select '%s' (%d), adj %hd, size %dkB, to kill\n",
+				lowmem_print(2, "select '%s' (%d), adj %hd, size %ldkB, to kill\n",
 					p->comm, p->pid, oom_score_adj, tasksize * (long)(PAGE_SIZE / 1024));
 			} else
-				lowmem_print(2, "selected skipped %s' (%d), adj %hd, size %dkB, not kill\n",
+				lowmem_print(2, "selected skipped %s' (%d), adj %hd, size %ldkB, not kill\n",
 					p->comm, p->pid, oom_score_adj, tasksize * (long)(PAGE_SIZE / 1024));
 		} else {
 			selected = p;
 			selected_tasksize = tasksize;
 			selected_oom_score_adj = oom_score_adj;
-			lowmem_print(2, "select %s' (%d), adj %hd, size %dkB, to kill\n",
+			lowmem_print(2, "select %s' (%d), adj %hd, size %ldkB, to kill\n",
 				p->comm, p->pid, oom_score_adj, tasksize * (long)(PAGE_SIZE / 1024));
 		}
 	}

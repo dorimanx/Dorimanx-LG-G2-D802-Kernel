@@ -2,6 +2,9 @@
 # Makefile for the Linux Bluetooth subsystem.
 #
 
+#GCC Fix
+CFLAGS_l2cap_sock.o += -w
+
 obj-$(CONFIG_BT)	+= bluetooth.o
 obj-$(CONFIG_BT_RFCOMM)	+= rfcomm/
 obj-$(CONFIG_BT_BNEP)	+= bnep/

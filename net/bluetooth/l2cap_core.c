@@ -4130,9 +4130,6 @@ static struct sock *l2cap_create_connect(struct l2cap_conn *conn,
 	u16 dcid = 0, scid;
 	__le16 psm;
 
-	if (cmd_len < sizeof(struct l2cap_conn_req))
-		return -EPROTO;
-
 	scid = __le16_to_cpu(req->scid);
 	psm = req->psm;
 

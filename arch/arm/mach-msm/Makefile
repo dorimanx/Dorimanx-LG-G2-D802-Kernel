@@ -1,5 +1,9 @@
 CFLAGS_scm.o :=$(call as-instr,.arch_extension sec,-DREQUIRES_SEC=1)
 
+# GCC 4.8+ fix.
+CFLAGS_cpubw-krait.o += -w
+CFLAGS_alucard_hotplug.o += -w
+
 obj-y += io.o dma.o memory.o
 ifndef CONFIG_ARM_ARCH_TIMER
 obj-y += timer.o

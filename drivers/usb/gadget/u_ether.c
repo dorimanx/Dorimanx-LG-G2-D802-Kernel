@@ -881,8 +881,10 @@ static int eth_stop(struct net_device *net)
 	spin_lock_irqsave(&dev->lock, flags);
 	if (dev->port_usb) {
 		struct gether	*link = dev->port_usb;
+#if 0
 		const struct usb_endpoint_descriptor *in;
 		const struct usb_endpoint_descriptor *out;
+#endif
 
 		if (link->close)
 			link->close(link);

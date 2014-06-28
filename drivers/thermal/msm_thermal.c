@@ -37,7 +37,6 @@
 #include <linux/thermal.h>
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
-#include <mach/cpufreq.h>
 #include <linux/regulator/consumer.h>
 
 #define MAX_RAILS 5
@@ -859,9 +858,9 @@ static void __ref do_freq_control(long temp)
 		msm_thermal_info_local.limit_temp_degC = 80;
 
 	if (debug_mode == 1)
-		printk(KERN_ERR "pre-check do_freq_control temp[%u], \
-				limit_idx[%u], limit_idx_low[%u], \
-				limited_idx_high[%u]\n",
+		printk(KERN_ERR "pre-check do_freq_control temp[%ld], \
+				limit_idx[%d], limit_idx_low[%d], \
+				limited_idx_high[%d]\n",
 				temp, limit_idx, limit_idx_low,
 				limit_idx_high);
 
@@ -892,9 +891,9 @@ static void __ref do_freq_control(long temp)
 	}
 
 	if (debug_mode == 1)
-		printk(KERN_ERR "do_freq_control temp[%u], \
-				limit_idx[%u], max_freq[%u], \
-				thermal_limited_max_freq[%u]\n",
+		printk(KERN_ERR "do_freq_control temp[%ld], \
+				limit_idx[%d], max_freq[%d], \
+				thermal_limited_max_freq[%d]\n",
 				temp, limit_idx, max_freq,
 				thermal_limited_max_freq);
 

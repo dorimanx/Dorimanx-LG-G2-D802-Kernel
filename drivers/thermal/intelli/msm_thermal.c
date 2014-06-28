@@ -26,7 +26,6 @@
 #include <linux/msm_tsens.h>
 #include <linux/msm_thermal.h>
 #include <linux/thermal.h>
-#include <mach/cpufreq.h>
 
 #define DEFAULT_POLLING_MS	250
 

@@ -838,7 +838,6 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 {
 	struct inet_sock *isk = inet_sk(sk);
 	int family = sk->sk_family;
-	struct sockaddr_in *sin;
 	struct sockaddr_in6 *sin6;
 	struct sk_buff *skb;
 	int copied, err;

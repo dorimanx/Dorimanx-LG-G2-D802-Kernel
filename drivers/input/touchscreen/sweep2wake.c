@@ -92,11 +92,6 @@ static DEFINE_MUTEX(pwrkeyworklock);
 static struct workqueue_struct *s2w_input_wq;
 static struct work_struct s2w_input_work;
 
-static int s2w_start_posn = DEFAULT_S2W_X_B1;
-static int s2w_mid_posn = DEFAULT_S2W_X_B2;
-static int s2w_end_posn = (DEFAULT_S2W_X_MAX - DEFAULT_S2W_X_B0);
-static int s2w_threshold = DEFAULT_S2W_X_B0;
-
 /* Read cmdline for s2w */
 static int __init read_s2w_cmdline(char *s2w)
 {
@@ -154,7 +149,6 @@ static void sweep2wake_reset(void) {
 /* Sweep2wake main function */
 static void detect_sweep2wake(int sweep_coord, int sweep_height, bool st)
 {
-	int swap_temp1, swap_temp2;
 	int prev_coord = 0, next_coord = 0;
 	int reverse_prev_coord = 0, reverse_next_coord = 0;
 	bool single_touch = st;

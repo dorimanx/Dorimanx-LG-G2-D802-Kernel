@@ -860,14 +860,12 @@ static int __init intelli_plug_init(void)
 	return 0;
 }
 
-static int __exit intelli_plug_exit(void)
+static void __exit intelli_plug_exit(void)
 {
 	if (atomic_read(&intelli_plug_active) == 1)
 		intelli_plug_stop();
 
 	sysfs_remove_group(kernel_kobj, &intelli_plug_attr_group);
-
-	return 0;
 }
 
 late_initcall(intelli_plug_init);
