@@ -294,12 +294,24 @@ static void do_input_boost(struct work_struct *work)
 	put_online_cpus();
 }
 
+#ifdef CONFIG_MACH_LGE
+/* Boost CPU When wakeup */
+extern int boost_freq;
+#endif
+
 static void cpuboost_input_event(struct input_handle *handle,
 		unsigned int type, unsigned int code, int value)
 {
 	u64 now;
 	int ret;
 	struct cpufreq_policy policy;
+
+#ifdef CONFIG_MACH_LGE
+/* Boost CPU When wakeup */
+	if (boost_freq == 1)
+		if (!strcmp((char*)(handle->dev->name), "qpnp_pon"))
+			boost_freq++;
+#endif
 
 	if (!input_boost_freq || work_pending(&input_boost_work))
 		return;

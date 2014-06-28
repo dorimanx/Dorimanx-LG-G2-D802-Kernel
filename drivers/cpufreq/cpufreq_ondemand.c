@@ -221,6 +221,10 @@ static struct dbs_tuners {
 	.sampling_rate = DEF_SAMPLING_RATE,
 };
 
+#ifdef CONFIG_MACH_LGE
+/* Boost CPU When wakeup */
+extern int boost_freq;
+#endif
 extern u64 last_input_time;
 
 static inline u64 get_cpu_iowait_time(unsigned int cpu, u64 *wall)
@@ -1128,15 +1132,33 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 				reset_hist(&hist_load[core_j]);
 			}
 #endif
+
+#ifdef CONFIG_MACH_LGE
+/* Boost CPU When wakeup */
+			if (boost_freq == 2) {
+				if (policy->cur < policy->max) {
+					dbs_freq_increase(policy, policy->max);
+					return;
+				}
+			}
+#endif
 			if (freq_next == policy->max)
 				this_dbs_info->rate_mult =
 					dbs_tuners_ins.sampling_down_factor;
 
 			dbs_freq_increase(policy, freq_next);
-
 			return;
 		}
 	} else {
+#ifdef CONFIG_MACH_LGE
+/* Boost CPU When wakeup */
+		if (boost_freq == 2) {
+			if (policy->cur < policy->max) {
+				dbs_freq_increase(policy, policy->max);
+			}
+			return;
+		}
+#endif
 		/* Check for frequency increase */
 		if (max_load_freq > dbs_tuners_ins.up_threshold * policy->cur) {
 			int freq_target, freq_div;
