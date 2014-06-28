@@ -236,11 +236,11 @@ static void change_fw_func(struct work_struct *work_thermal) {
 				break;
 			case TOUCH_VENDOR_LGIT:
 				min_peak[0] = 0x0d;
-				#ifdef CONFIG_MACH_MSM8974_G2_KDDI   
-                min_peak[1] = 0x28;               
-                #else
+#ifdef CONFIG_MACH_MSM8974_G2_KDDI
+                min_peak[1] = 0x28;
+#else
 				min_peak[1] = 0x20;
-                #endif
+#endif
 				if(ts_charger_plug == 0){
 					if (touch_i2c_write(ts->client, MINIMUM_PEAK_AMPLITUDE_REG, sizeof(min_peak), min_peak) < 0){
 						TOUCH_ERR_MSG("%s : Touch i2c write fail !! \n", __func__);
@@ -2128,7 +2128,7 @@ switch(ts->fw_info.fw_setting.ic_chip_rev) {
 	mutex_unlock(&ts->irq_work_mutex);
 
 	TOUCH_INFO_MSG("INTERRUPT_STATUS_REG %x\n", buf);
-#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+#ifndef CONFIG_LGE_SECURITY_KNOCK_ON
 	wake_lock_timeout(&touch_wake_lock, msecs_to_jiffies(3000));
 #endif
 #if defined(CONFIG_LGE_VU3_TOUCHSCREEN)
@@ -3025,7 +3025,11 @@ if ((!strncmp(ts->fw_info.ic_fw_identifier, "PLG208", 6)) || (!strncmp(ts->fw_in
 			goto out;
 		} else{
 			TOUCH_INFO_MSG("SSUNTEL G1F FW-upgrade is checking...\n");
+#ifdef CONFIG_MACH_MSM8974_G2_ATT
+			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) >=
+#else
 			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) ==
+#endif
 				 (int)simple_strtoul(&ts->fw_info.syna_img_fw_version[1], NULL, 10))
 				 && !ts->fw_info.fw_upgrade.fw_force_upgrade) {
 				TOUCH_INFO_MSG("SSUNTEL G1F FW-upgrade is not executed\n");
@@ -3045,7 +3049,11 @@ if ((!strncmp(ts->fw_info.ic_fw_identifier, "PLG208", 6)) || (!strncmp(ts->fw_in
 			goto out;
 		} else{
 			TOUCH_INFO_MSG("LGIT G1F FW-upgrade is checking...\n");
+#ifdef CONFIG_MACH_MSM8974_G2_ATT
+			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) >=
+#else
 			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) ==
+#endif
 				 (int)simple_strtoul(&ts->fw_info.syna_img_fw_version[1], NULL, 10))
 				 && !ts->fw_info.fw_upgrade.fw_force_upgrade) {
 				TOUCH_INFO_MSG("LGIT G1F FW-upgrade is not executed\n");
@@ -3065,7 +3073,11 @@ if ((!strncmp(ts->fw_info.ic_fw_identifier, "PLG208", 6)) || (!strncmp(ts->fw_in
 			goto out;
 		} else{
 			TOUCH_INFO_MSG("LGIT G2 Hybrid FW-upgrade is checking...\n");
+#ifdef CONFIG_MACH_MSM8974_G2_ATT
+			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) >=
+#else
 			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) ==
+#endif
 				 (int)simple_strtoul(&ts->fw_info.syna_img_fw_version[1], NULL, 10))
 				 && !ts->fw_info.fw_upgrade.fw_force_upgrade) {
 				TOUCH_INFO_MSG("LGIT G1F FW-upgrade is not executed\n");
@@ -3100,7 +3112,11 @@ if ((!strncmp(ts->fw_info.ic_fw_identifier, "PLG208", 6)) || (!strncmp(ts->fw_in
 				TOUCH_INFO_MSG("Panel changed [unknown]!! FW-upgrade is executed\n");
 				break;
 		}
+#ifdef CONFIG_MACH_MSM8974_G2_ATT
+	} else if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) >=
+#else
 	} else if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) ==
+#endif
 		 (int)simple_strtoul(&ts->fw_info.syna_img_fw_version[1], NULL, 10))
 		 && !ts->fw_info.fw_upgrade.fw_force_upgrade) {
 		TOUCH_INFO_MSG("FW-upgrade is not executed\n");
@@ -3270,7 +3286,9 @@ static irqreturn_t touch_thread_irq_handler(int irq, void *dev_id)
 
 #ifdef CUST_G2_TOUCH_WAKEUP_GESTURE
 	if(ts_suspend && touch_gesture_enable){
-#ifndef CONFIG_LGE_SECURITY_KNOCK_ON
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+		wake_lock_timeout(&touch_wake_lock, msecs_to_jiffies(3000));
+#else
 		wake_lock_timeout(&touch_wake_lock, msecs_to_jiffies(1000));
 #endif
 		TOUCH_INFO_MSG("gesture wakeup\n");
@@ -3284,7 +3302,6 @@ static irqreturn_t touch_thread_irq_handler(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 #endif
-
 	queue_work(touch_wq, &ts->work);
 
 	return IRQ_HANDLED;
@@ -3309,17 +3326,17 @@ static enum hrtimer_restart touch_timer_handler(struct hrtimer *timer)
 
 #ifdef I2C_SUSPEND_WORKAROUND
 static void synaptics_touch_check_suspended_worker(struct work_struct *check_suspended_work)
-{	
-	struct lge_touch_data *ts =		
-		container_of(to_delayed_work(check_suspended_work), struct lge_touch_data, check_suspended_work);	
-	if (atmel_touch_i2c_suspended){		
-		dev_err(&ts->client->dev, "lge_touch touch suspended. try i2c operation after 10ms.\n");		
-		queue_delayed_work(touch_wq, &ts->check_suspended_work, msecs_to_jiffies(10));		
-		return;	
-		} else {		
-		dev_dbg(&ts->client->dev, "lge_touch touch resume. do touch work.\n");		
+{
+	struct lge_touch_data *ts =
+		container_of(to_delayed_work(check_suspended_work), struct lge_touch_data, check_suspended_work);
+	if (atmel_touch_i2c_suspended){
+		dev_err(&ts->client->dev, "lge_touch touch suspended. try i2c operation after 10ms.\n");
+		queue_delayed_work(touch_wq, &ts->check_suspended_work, msecs_to_jiffies(10));
+		return;
+		} else {
+		dev_dbg(&ts->client->dev, "lge_touch touch resume. do touch work.\n");
 		queue_delayed_work(touch_wq, &ts->work_gesture_wakeup, msecs_to_jiffies(0));
-		return;	
+		return;
 		}
 }
 #endif
@@ -5304,12 +5321,12 @@ static void touch_multi_tap_wakeup_enable(struct lge_touch_data *ts, int value)
 	TOUCH_INFO_MSG("%s : enable_irq !!\n", __func__);
 	touch_ic_init(ts);
 
-if(touch_device_func->ic_ctrl) {
+	if(touch_device_func->ic_ctrl) {
 		if(touch_device_func->ic_ctrl(ts->client, IC_CTRL_DOUBLE_TAP_WAKEUP_MODE, value) < 0){
-		TOUCH_ERR_MSG("IC_CTRL_DOUBLE_TAP_WAKEUP_MODE handling fail\n");
-		return;
+			TOUCH_ERR_MSG("IC_CTRL_DOUBLE_TAP_WAKEUP_MODE handling fail\n");
+			return;
+		}
 	}
-}
 }
 #endif
 #endif
@@ -5751,7 +5768,7 @@ static int touch_lcd_suspend(struct device *device)
 	if (!ts) {
 		TOUCH_ERR_MSG("Called before init\n");
 		return 0;
-		}
+	}
 #endif
 
 #ifdef CUST_G2_TOUCH
@@ -5836,7 +5853,9 @@ static int touch_lcd_suspend(struct device *device)
 			if(f54_window_crack)
 				f54_window_crack = 2;
 #endif
-			} else
+		} else if (lge_get_boot_mode() != LGE_BOOT_MODE_NORMAL) {
+			touch_power_cntl(ts, ts->pdata->role->suspend_pwr);
+		} else
 #endif
 #if defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
 		{
@@ -5844,12 +5863,12 @@ static int touch_lcd_suspend(struct device *device)
 			touch_power_cntl(ts, ts->pdata->role->suspend_pwr);
 		}
 #else
-			queue_delayed_work(touch_wq, &ts->work_f54,
+		queue_delayed_work(touch_wq, &ts->work_f54,
 				msecs_to_jiffies(10));
 #endif
-		}
-		else
-			touch_power_cntl(ts, ts->pdata->role->suspend_pwr);
+	}
+	else
+		touch_power_cntl(ts, ts->pdata->role->suspend_pwr);
 #endif
 #else
 	touch_power_cntl(ts, ts->pdata->role->suspend_pwr);
