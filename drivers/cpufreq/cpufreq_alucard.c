@@ -128,7 +128,7 @@ static ssize_t store_##file_name##_##num_core		\
 (struct kobject *kobj, struct attribute *attr,				\
 	const char *buf, size_t count)					\
 {									\
-	unsigned int input;						\
+	int input;						\
 	struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo; \
 	int ret;							\
 														\
