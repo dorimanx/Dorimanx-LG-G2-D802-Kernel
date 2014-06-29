@@ -49,6 +49,9 @@ struct cpufreq_alucard_cpuinfo {
 	int cpu;
 	int min_index;
 	int max_index;
+	int pump_inc_step;
+	int pump_inc_step_at_min_freq;
+	int pump_dec_step;
 };
 
 static DEFINE_PER_CPU(struct cpufreq_alucard_cpuinfo, od_alucard_cpuinfo);
@@ -69,9 +72,6 @@ static struct alucard_tuners {
 	int dec_cpu_load_at_min_freq;
 	int dec_cpu_load;
 	int freq_responsiveness;
-	int pump_inc_step;
-	int pump_inc_step_at_min_freq;
-	int pump_dec_step;
 } alucard_tuners_ins = {
 	.sampling_rate = 60000,
 	.inc_cpu_load_at_min_freq = 60,
@@ -81,12 +81,8 @@ static struct alucard_tuners {
 #if defined(CONFIG_MACH_LGE)
 	.freq_responsiveness = 1497600,
 #else
-	.freq_responsiveness = 810000,
+	.freq_responsiveness = 1134000,
 #endif
-	.pump_inc_step = 2,
-	.pump_inc_step_at_min_freq = 2,
-	.pump_dec_step = 1,
-
 };
 
 /************************** sysfs interface ************************/
@@ -104,9 +100,79 @@ show_one(inc_cpu_load, inc_cpu_load);
 show_one(dec_cpu_load_at_min_freq, dec_cpu_load_at_min_freq);
 show_one(dec_cpu_load, dec_cpu_load);
 show_one(freq_responsiveness, freq_responsiveness);
-show_one(pump_inc_step, pump_inc_step);
-show_one(pump_inc_step_at_min_freq, pump_inc_step_at_min_freq);
-show_one(pump_dec_step, pump_dec_step);
+
+#define show_pcpu_param(file_name, num_core)		\
+static ssize_t show_##file_name##_##num_core		\
+(struct kobject *kobj, struct attribute *attr, char *buf)		\
+{									\
+	struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, num_core - 1); \
+	return sprintf(buf, "%d\n", \
+			this_alucard_cpuinfo->file_name);		\
+}
+
+show_pcpu_param(pump_inc_step_at_min_freq, 1);
+show_pcpu_param(pump_inc_step_at_min_freq, 2);
+show_pcpu_param(pump_inc_step_at_min_freq, 3);
+show_pcpu_param(pump_inc_step_at_min_freq, 4);
+show_pcpu_param(pump_inc_step, 1);
+show_pcpu_param(pump_inc_step, 2);
+show_pcpu_param(pump_inc_step, 3);
+show_pcpu_param(pump_inc_step, 4);
+show_pcpu_param(pump_dec_step, 1);
+show_pcpu_param(pump_dec_step, 2);
+show_pcpu_param(pump_dec_step, 3);
+show_pcpu_param(pump_dec_step, 4);
+
+#define store_pcpu_param(file_name, num_core)		\
+static ssize_t store_##file_name##_##num_core		\
+(struct kobject *kobj, struct attribute *attr,				\
+	const char *buf, size_t count)					\
+{									\
+	unsigned int input;						\
+	struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo; \
+	int ret;							\
+														\
+	ret = sscanf(buf, "%d", &input);					\
+	if (ret != 1)											\
+		return -EINVAL;										\
+														\
+	input = min(max(1, input), 3);							\
+														\
+	this_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, num_core - 1); \
+														\
+	if (input == this_alucard_cpuinfo->file_name) {		\
+		return count;						\
+	}								\
+										\
+	this_alucard_cpuinfo->file_name = input;			\
+	return count;							\
+}
+
+store_pcpu_param(pump_inc_step_at_min_freq, 1);
+store_pcpu_param(pump_inc_step_at_min_freq, 2);
+store_pcpu_param(pump_inc_step_at_min_freq, 3);
+store_pcpu_param(pump_inc_step_at_min_freq, 4);
+store_pcpu_param(pump_inc_step, 1);
+store_pcpu_param(pump_inc_step, 2);
+store_pcpu_param(pump_inc_step, 3);
+store_pcpu_param(pump_inc_step, 4);
+store_pcpu_param(pump_dec_step, 1);
+store_pcpu_param(pump_dec_step, 2);
+store_pcpu_param(pump_dec_step, 3);
+store_pcpu_param(pump_dec_step, 4);
+
+define_one_global_rw(pump_inc_step_at_min_freq_1);
+define_one_global_rw(pump_inc_step_at_min_freq_2);
+define_one_global_rw(pump_inc_step_at_min_freq_3);
+define_one_global_rw(pump_inc_step_at_min_freq_4);
+define_one_global_rw(pump_inc_step_1);
+define_one_global_rw(pump_inc_step_2);
+define_one_global_rw(pump_inc_step_3);
+define_one_global_rw(pump_inc_step_4);
+define_one_global_rw(pump_dec_step_1);
+define_one_global_rw(pump_dec_step_2);
+define_one_global_rw(pump_dec_step_3);
+define_one_global_rw(pump_dec_step_4);
 
 /* sampling_rate */
 static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
@@ -234,78 +300,12 @@ static ssize_t store_freq_responsiveness(struct kobject *a, struct attribute *b,
 	return count;
 }
 
-/* pump_inc_step */
-static ssize_t store_pump_inc_step(struct kobject *a, struct attribute *b,
-			       const char *buf, size_t count)
-{
-	int input;
-	int ret;
-
-	ret = sscanf(buf, "%d", &input);
-	if (ret != 1)
-		return -EINVAL;
-
-	input = max(min(input,3),1);
-
-	if (input == alucard_tuners_ins.pump_inc_step)
-		return count;
-
-	alucard_tuners_ins.pump_inc_step = input;
-
-	return count;
-}
-
-/* pump_inc_step_at_min_freq */
-static ssize_t store_pump_inc_step_at_min_freq(struct kobject *a, struct attribute *b,
-			       const char *buf, size_t count)
-{
-	int input;
-	int ret;
-
-	ret = sscanf(buf, "%d", &input);
-	if (ret != 1)
-		return -EINVAL;
-
-	input = max(min(input,3),1);
-
-	if (input == alucard_tuners_ins.pump_inc_step_at_min_freq)
-		return count;
-
-	alucard_tuners_ins.pump_inc_step_at_min_freq = input;
-
-	return count;
-}
-
-/* pump_dec_step */
-static ssize_t store_pump_dec_step(struct kobject *a, struct attribute *b,
-			       const char *buf, size_t count)
-{
-	int input;
-	int ret;
-
-	ret = sscanf(buf, "%d", &input);
-	if (ret != 1)
-		return -EINVAL;
-
-	input = max(min(input,3),1);
-
-	if (input == alucard_tuners_ins.pump_dec_step)
-		return count;
-
-	alucard_tuners_ins.pump_dec_step = input;
-
-	return count;
-}
-
 define_one_global_rw(sampling_rate);
 define_one_global_rw(inc_cpu_load_at_min_freq);
 define_one_global_rw(inc_cpu_load);
 define_one_global_rw(dec_cpu_load_at_min_freq);
 define_one_global_rw(dec_cpu_load);
 define_one_global_rw(freq_responsiveness);
-define_one_global_rw(pump_inc_step);
-define_one_global_rw(pump_inc_step_at_min_freq);
-define_one_global_rw(pump_dec_step);
 
 static struct attribute *alucard_attributes[] = {
 	&sampling_rate.attr,
@@ -314,9 +314,18 @@ static struct attribute *alucard_attributes[] = {
 	&dec_cpu_load_at_min_freq.attr,
 	&dec_cpu_load.attr,
 	&freq_responsiveness.attr,
-	&pump_inc_step.attr,
-	&pump_inc_step_at_min_freq.attr,
-	&pump_dec_step.attr,
+	&pump_inc_step_at_min_freq_1.attr,
+	&pump_inc_step_at_min_freq_2.attr,
+	&pump_inc_step_at_min_freq_3.attr,
+	&pump_inc_step_at_min_freq_4.attr,
+	&pump_inc_step_1.attr,
+	&pump_inc_step_2.attr,
+	&pump_inc_step_3.attr,
+	&pump_inc_step_4.attr,
+	&pump_dec_step_1.attr,
+	&pump_dec_step_2.attr,
+	&pump_dec_step_3.attr,
+	&pump_dec_step_4.attr,
 	NULL
 };
 
@@ -351,8 +360,8 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 	unsigned int freq_responsiveness = alucard_tuners_ins.freq_responsiveness;
 	int dec_cpu_load = alucard_tuners_ins.dec_cpu_load;
 	int inc_cpu_load = alucard_tuners_ins.inc_cpu_load;
-	int pump_inc_step = alucard_tuners_ins.pump_inc_step;
-	int pump_dec_step = alucard_tuners_ins.pump_dec_step;
+	int pump_inc_step = this_alucard_cpuinfo->pump_inc_step;
+	int pump_dec_step = this_alucard_cpuinfo->pump_dec_step;
 	u64 cur_wall_time, cur_idle_time;
 	unsigned int wall_time, idle_time;
 	unsigned int index = 0;
@@ -393,7 +402,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 		if (cpu_policy->cur < freq_responsiveness) {
 			inc_cpu_load = alucard_tuners_ins.inc_cpu_load_at_min_freq;
 			dec_cpu_load = alucard_tuners_ins.dec_cpu_load_at_min_freq;
-			pump_inc_step = alucard_tuners_ins.pump_inc_step_at_min_freq;
+			pump_inc_step = this_alucard_cpuinfo->pump_inc_step_at_min_freq;
 			hi_index = this_alucard_cpuinfo->max_index;
 		}		
 		/* Check for frequency increase or for frequency decrease */
@@ -568,6 +577,15 @@ static int __init cpufreq_gov_alucard_init(void)
 		struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, cpu);
 
 		this_alucard_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
+
+		this_alucard_cpuinfo->pump_inc_step_at_min_freq = 2;
+
+		if (cpu < 2)
+			this_alucard_cpuinfo->pump_inc_step = 2;
+		else
+			this_alucard_cpuinfo->pump_inc_step = 1;
+
+		this_alucard_cpuinfo->pump_dec_step = 1;
 	}
 
 	return cpufreq_register_governor(&cpufreq_gov_alucard);
