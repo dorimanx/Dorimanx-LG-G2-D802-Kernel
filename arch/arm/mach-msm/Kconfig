@@ -1902,7 +1902,7 @@ config MSM_DALRPC_TEST
 
 if CPU_FREQ_MSM
 
-config INTELLI_PLUG
+config INTELLI_HOTPLUG
 	bool "Enable intelli-plug cpu hotplug driver"
 	default y
 	help
