@@ -73,11 +73,15 @@ int thermal_status = 0;
 extern int touch_thermal_mode;
 #endif
 
+#if defined(CONFIG_LGE_VU3_TOUCHSCREEN)
+static int knockon_wakeup_uevent_reporting = 0;
+#endif
+
 #if defined(Z_GLOVE_TOUCH_SUPPORT)
 static int set_glove_finger_enable(struct lge_touch_data *ts, int onoff);
 static int glove_finger_enable = 0;
 #endif
-#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU)) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
+#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI)&& !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU)) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
 int ime_drumming_status = 0;
 int keyguard_status = 0;
 #endif
@@ -232,8 +236,11 @@ static void change_fw_func(struct work_struct *work_thermal) {
 				break;
 			case TOUCH_VENDOR_LGIT:
 				min_peak[0] = 0x0d;
+#ifdef CONFIG_MACH_MSM8974_G2_KDDI
+                min_peak[1] = 0x28;
+#else
 				min_peak[1] = 0x20;
-
+#endif
 				if(ts_charger_plug == 0){
 					if (touch_i2c_write(ts->client, MINIMUM_PEAK_AMPLITUDE_REG, sizeof(min_peak), min_peak) < 0){
 						TOUCH_ERR_MSG("%s : Touch i2c write fail !! \n", __func__);
@@ -286,15 +293,15 @@ static void change_fw_func(struct work_struct *work_thermal) {
 	}
 }
 
-#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU)) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
+#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU)) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
 static void change_ime_drumming_func(struct work_struct *work_ime_drumming) {
 	struct lge_touch_data *ts = container_of(to_delayed_work(work_ime_drumming), struct lge_touch_data, work_ime_drumming);
 #ifdef CONFIG_LGE_Z_TOUCHSCREEN
 	u8 small_finger_amp_th[2] = {0};
 	if (ts->curr_pwr_state == POWER_OFF)
 		return;
-
-	if((ts_charger_plug||thermal_status) && (keyguard_status == 9) && ime_drumming_status) {
+	
+	if((ts_charger_plug) && (keyguard_status == 9) && ime_drumming_status) {
 		small_finger_amp_th[0]=0x67;
 		small_finger_amp_th[1]=0x39;
 		if(touch_i2c_write(ts->client, SMALL_FINGER_AMPLITUDE_THRESHOLD_REG, 2, small_finger_amp_th) < 0) {
@@ -1457,9 +1464,6 @@ static void safety_reset(struct lge_touch_data *ts)
 static int touch_ic_init(struct lge_touch_data *ts)
 {
 	int next_work = 0;
-#if defined(CONFIG_LGE_VU3_TOUCHSCREEN)
-	int ret = 0;
-#endif
 	ts->int_pin_state = 0;
 
 #ifdef CUST_G2_TOUCH
@@ -1610,12 +1614,7 @@ err_out_retry:
 	atomic_set(&ts->device_init, 0);
 	ts->ic_init_err_cnt++;
 	safety_reset(ts);
-#if defined(CONFIG_LGE_VU3_TOUCHSCREEN)
-	ret = touch_ic_init(ts);
-	return ret;
-#else
 	queue_delayed_work(touch_wq, &ts->work_init, msecs_to_jiffies(10));
-#endif
 	return 0;
 
 err_out_critical:
@@ -2065,6 +2064,7 @@ static void touch_gesture_wakeup_func(struct work_struct *work_gesture_wakeup)
 	}
 	mutex_lock(&ts->irq_work_mutex);
 	mutex_lock(&i2c_suspend_lock);
+
 	if (unlikely(touch_i2c_read(ts->client, 0x05, 1, &buf) < 0)) {
 		mutex_unlock(&i2c_suspend_lock);
 		mutex_unlock(&ts->irq_work_mutex);
@@ -2080,6 +2080,18 @@ static void touch_gesture_wakeup_func(struct work_struct *work_gesture_wakeup)
 	if((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10)<50){
 #endif
 #if defined(A1_only)
+#if defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
+switch(ts->fw_info.fw_setting.ic_chip_rev) {
+						case TOUCH_PANEL_G1F_LGIT:
+						   A1_vendor = 17;
+						   break;
+					   case TOUCH_PANEL_G1F_SSUNTEL:
+						   A1_vendor = 9;
+						   break;
+					   default:
+						   break;
+   }
+#else
 	switch(touch_test_dev->fw_info.fw_setting.curr_touch_vendor) {
 							case TOUCH_VENDOR_TPK:
 							   A1_vendor = 14;
@@ -2090,6 +2102,7 @@ static void touch_gesture_wakeup_func(struct work_struct *work_gesture_wakeup)
 						   default:
 							   break;
 	   }
+#endif	
 	if((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10)<A1_vendor){
 #endif
 		if(buf !=0x04){
@@ -2115,7 +2128,7 @@ static void touch_gesture_wakeup_func(struct work_struct *work_gesture_wakeup)
 	mutex_unlock(&ts->irq_work_mutex);
 
 	TOUCH_INFO_MSG("INTERRUPT_STATUS_REG %x\n", buf);
-#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+#ifndef CONFIG_LGE_SECURITY_KNOCK_ON
 	wake_lock_timeout(&touch_wake_lock, msecs_to_jiffies(3000));
 #endif
 #if defined(CONFIG_LGE_VU3_TOUCHSCREEN)
@@ -2144,6 +2157,18 @@ static void touch_gesture_wakeup_func(struct work_struct *work_gesture_wakeup)
 	if((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10)<50){
 #endif
 #if defined(A1_only)
+#if defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
+ switch(ts->fw_info.fw_setting.ic_chip_rev) {
+						 case TOUCH_PANEL_G1F_LGIT:
+							A1_vendor = 17;
+							break;
+						case TOUCH_PANEL_G1F_SSUNTEL:
+							A1_vendor = 9;
+							break;
+						default:
+							break;
+	}
+#else
  switch(touch_test_dev->fw_info.fw_setting.curr_touch_vendor) {
 						 case TOUCH_VENDOR_TPK:
 						 	A1_vendor = 14;
@@ -2154,6 +2179,7 @@ static void touch_gesture_wakeup_func(struct work_struct *work_gesture_wakeup)
 						default:
 							break;
  	}
+ #endif
 	if((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10)<A1_vendor){
 #endif
 		if( buf==0x04 ){
@@ -2496,11 +2522,7 @@ static void touch_work_func_a(struct work_struct *work)
 				ts->ts_data.state = DO_NOT_ANYTHING;
 				if(ts->ts_data.total_num == 1 && ts->ts_data.curr_data[0].y_position <= TOUCH_BUTTON_ENABLE_Y_POSITION)
 #endif
-#if defined(CONFIG_LGE_VU3_TOUCHSCREEN)
-					ts->ts_data.state = ABS_PRESS;
-#else
 					ts->ts_data.state = TOUCH_BUTTON_LOCK;
-#endif
 
 			}
 			/* key button cancel */
@@ -3003,7 +3025,11 @@ if ((!strncmp(ts->fw_info.ic_fw_identifier, "PLG208", 6)) || (!strncmp(ts->fw_in
 			goto out;
 		} else{
 			TOUCH_INFO_MSG("SSUNTEL G1F FW-upgrade is checking...\n");
+#if defined (CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_G2_KT)
 			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) >=
+#else
+			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) ==
+#endif
 				 (int)simple_strtoul(&ts->fw_info.syna_img_fw_version[1], NULL, 10))
 				 && !ts->fw_info.fw_upgrade.fw_force_upgrade) {
 				TOUCH_INFO_MSG("SSUNTEL G1F FW-upgrade is not executed\n");
@@ -3023,7 +3049,11 @@ if ((!strncmp(ts->fw_info.ic_fw_identifier, "PLG208", 6)) || (!strncmp(ts->fw_in
 			goto out;
 		} else{
 			TOUCH_INFO_MSG("LGIT G1F FW-upgrade is checking...\n");
+#if defined (CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_G2_KT)
 			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) >=
+#else
+			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) ==
+#endif
 				 (int)simple_strtoul(&ts->fw_info.syna_img_fw_version[1], NULL, 10))
 				 && !ts->fw_info.fw_upgrade.fw_force_upgrade) {
 				TOUCH_INFO_MSG("LGIT G1F FW-upgrade is not executed\n");
@@ -3043,7 +3073,11 @@ if ((!strncmp(ts->fw_info.ic_fw_identifier, "PLG208", 6)) || (!strncmp(ts->fw_in
 			goto out;
 		} else{
 			TOUCH_INFO_MSG("LGIT G2 Hybrid FW-upgrade is checking...\n");
+#if defined (CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_G2_KT)
 			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) >=
+#else
+			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) ==
+#endif
 				 (int)simple_strtoul(&ts->fw_info.syna_img_fw_version[1], NULL, 10))
 				 && !ts->fw_info.fw_upgrade.fw_force_upgrade) {
 				TOUCH_INFO_MSG("LGIT G1F FW-upgrade is not executed\n");
@@ -3078,7 +3112,11 @@ if ((!strncmp(ts->fw_info.ic_fw_identifier, "PLG208", 6)) || (!strncmp(ts->fw_in
 				TOUCH_INFO_MSG("Panel changed [unknown]!! FW-upgrade is executed\n");
 				break;
 		}
+#if defined (CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_G2_KT)
 	} else if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) >=
+#else
+	} else if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) ==
+#endif
 		 (int)simple_strtoul(&ts->fw_info.syna_img_fw_version[1], NULL, 10))
 		 && !ts->fw_info.fw_upgrade.fw_force_upgrade) {
 		TOUCH_INFO_MSG("FW-upgrade is not executed\n");
@@ -3115,7 +3153,7 @@ if ((!strncmp(ts->fw_info.ic_fw_identifier, "PLG208", 6)) || (!strncmp(ts->fw_in
 		}
 #endif	//#ifdef CONFIG_MACH_MSM8974_G2_OPEN_COM
 #endif	//#ifdef CONFIG_MACH_MSM8974_VU3_KR
-#endif	//                               
+#endif	//#ifdef CONFIG_LGE_Z_TOUCHSCREEN
 	}
 #else
 	if ((!strcmp(ts->pdata->fw_version, ts->fw_info.ic_fw_version)
@@ -3204,16 +3242,6 @@ err_out:
 	touch_ic_init(ts);
 
 out:
-#if defined(CONFIG_LGE_Z_TOUCHSCREEN)
-	/* Specific device resolution */
-	if (touch_device_func->resolution) {
-		if(touch_device_func->resolution(ts->client) < 0) {
-			TOUCH_ERR_MSG("specific device resolution fail\n");
-		}
-	}
-	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0, ts->pdata->caps->x_max, 0, 0);
-	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0, ts->pdata->caps->y_max, 0, 0);
-#endif
 	memset(&ts->fw_info.fw_upgrade, 0, sizeof(ts->fw_info.fw_upgrade));
 	ts->fw_info.fw_force_rework = false;
 	return;
@@ -3258,21 +3286,22 @@ static irqreturn_t touch_thread_irq_handler(int irq, void *dev_id)
 
 #ifdef CUST_G2_TOUCH_WAKEUP_GESTURE
 	if(ts_suspend && touch_gesture_enable){
-#ifndef CONFIG_LGE_SECURITY_KNOCK_ON
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+		wake_lock_timeout(&touch_wake_lock, msecs_to_jiffies(3000));
+#else
 		wake_lock_timeout(&touch_wake_lock, msecs_to_jiffies(1000));
 #endif
 		TOUCH_INFO_MSG("gesture wakeup\n");
+#ifdef I2C_SUSPEND_WORKAROUND
+		queue_delayed_work(touch_wq, &ts->check_suspended_work, 0);
+#else	
 		queue_delayed_work(touch_wq, &ts->work_gesture_wakeup,
 				msecs_to_jiffies(0));
+#endif
 		return IRQ_HANDLED;
 	}
 #endif
-
-#ifdef I2C_SUSPEND_WORKAROUND
-	queue_delayed_work(touch_wq, &ts->check_suspended_work, 0);
-#else
 	queue_work(touch_wq, &ts->work);
-#endif
 
 	return IRQ_HANDLED;
 }
@@ -3305,7 +3334,7 @@ static void synaptics_touch_check_suspended_worker(struct work_struct *check_sus
 		return;
 		} else {
 		dev_dbg(&ts->client->dev, "lge_touch touch resume. do touch work.\n");
-		queue_work(touch_wq, &ts->work);
+		queue_delayed_work(touch_wq, &ts->work_gesture_wakeup, msecs_to_jiffies(0));
 		return;
 		}
 }
@@ -3819,7 +3848,7 @@ static ssize_t store_keyguard_info(struct lge_touch_data *ts, const char *buf, s
 	int value;
 	sscanf(buf, "%d", &value);
 
-#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU) && defined(CONFIG_MACH_MSM8974_G2_KR)) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
+#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU) && defined(CONFIG_MACH_MSM8974_G2_KR)) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
 	if(value == KEYGUARD_ENABLE) {
 		ts->gf_ctrl.stage = GHOST_STAGE_1 | GHOST_STAGE_2 | GHOST_STAGE_4;
 		keyguard_status = ts->gf_ctrl.stage;
@@ -4031,7 +4060,7 @@ static ssize_t show_f54_window_crack(struct lge_touch_data *ts, char *buf)
 	ret = sprintf(buf, "%d\n", f54_window_crack);
 	return ret;
 }
-#if defined(A1_only) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
+#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI)) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
 static ssize_t show_ime_drumming_status(struct lge_touch_data *ts, char *buf)
 {
 	int ret = 0;
@@ -4068,7 +4097,7 @@ static ssize_t store_ime_drumming_status(struct lge_touch_data *ts, const char *
 {
 	int value;
 	sscanf(buf, "%d", &value);
-#if !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU) && defined(CONFIG_MACH_MSM8974_G2_KR)
+#if !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU) && defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
 	if( (value == IME_ON) && (ime_drumming_status == 0) ) {
 		ime_drumming_status = 1;
 		queue_delayed_work(touch_wq, &touch_test_dev->work_ime_drumming, msecs_to_jiffies(10));
@@ -4625,11 +4654,11 @@ static int touch_lcd_resume(struct device *device);
 static ssize_t store_lpwg_notify(struct lge_touch_data *ts, const char *buf, size_t count)
 {
 //    static int suspend = 0;
-    int type = 0;
-    int value[4] = {0};
+	int type = 0;
+	int value[4] = {0};
 
-    sscanf(buf, "%d %d %d %d %d", &type, &value[0], &value[1], &value[2], &value[3]);
-    TOUCH_INFO_MSG("[%s] type = %d, value = %d %d %d %d\n", __func__, type, value[0], value[1], value[2], value[3]);
+	sscanf(buf, "%d %d %d %d %d", &type, &value[0], &value[1], &value[2], &value[3]);
+	TOUCH_INFO_MSG("[%s] type = %d, value = %d %d %d %d\n", __func__, type, value[0], value[1], value[2], value[3]);
 
 #ifdef CONFIG_LGE_Z_TOUCHSCREEN
 #ifndef CONFIG_MACH_MSM8974_Z_CTC_CN
@@ -4663,7 +4692,9 @@ static ssize_t store_lpwg_notify(struct lge_touch_data *ts, const char *buf, siz
 			touch_device_func->lpwg(ts->client, LPWG_ACTIVE_AREA_Y2, value[3], NULL);
 			break;
         case 4 :
+			mutex_lock(&ts->irq_work_mutex);
 			touch_device_func->lpwg(ts->client, LPWG_TAP_COUNT, value[0], NULL);
+			mutex_unlock(&ts->irq_work_mutex);
 			break;
         case 6 :
 #if 0 //#if defined(CONFIG_FB)
@@ -4755,7 +4786,7 @@ static struct attribute *lge_touch_attribute_list[] = {
 #if defined(Z_GLOVE_TOUCH_SUPPORT)
 	&lge_touch_attr_glove_finger_enable.attr,
 #endif
-#if defined(A1_only) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
+#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI)) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
 	&lge_touch_attr_ime_status.attr,
 #endif
 #ifdef CUST_G2_TOUCH_WAKEUP_GESTURE
@@ -5279,12 +5310,12 @@ static void touch_multi_tap_wakeup_enable(struct lge_touch_data *ts, int value)
 	TOUCH_INFO_MSG("%s : enable_irq !!\n", __func__);
 	touch_ic_init(ts);
 
-if(touch_device_func->ic_ctrl) {
-		if(touch_device_func->ic_ctrl(ts->client, IC_CTRL_DOUBLE_TAP_WAKEUP_MODE, value) < 0){
-		TOUCH_ERR_MSG("IC_CTRL_DOUBLE_TAP_WAKEUP_MODE handling fail\n");
-		return;
+	if (touch_device_func->ic_ctrl) {
+		if (touch_device_func->ic_ctrl(ts->client, IC_CTRL_DOUBLE_TAP_WAKEUP_MODE, value) < 0) {
+			TOUCH_ERR_MSG("IC_CTRL_DOUBLE_TAP_WAKEUP_MODE handling fail\n");
+			return;
+		}
 	}
-}
 }
 #endif
 #endif
@@ -5422,7 +5453,7 @@ static int touch_probe(struct i2c_client *client, const struct i2c_device_id *id
 #ifdef I2C_SUSPEND_WORKAROUND
 	INIT_DELAYED_WORK(&ts->check_suspended_work, synaptics_touch_check_suspended_worker);
 #endif
-#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU))  || defined(CONFIG_LGE_Z_TOUCHSCREEN)
+#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU))  || defined(CONFIG_LGE_Z_TOUCHSCREEN)
 	INIT_DELAYED_WORK(&ts->work_ime_drumming, change_ime_drumming_func);
 #endif
 #ifdef CUST_G2_TOUCH_WAKEUP_GESTURE
@@ -5538,15 +5569,7 @@ static int touch_probe(struct i2c_client *client, const struct i2c_device_id *id
 	disable_irq(ts->client->irq);
 	TOUCH_INFO_MSG("%s : disable_irq !!\n", __func__);
 	release_all_ts_event(ts);
-#if defined(CONFIG_LGE_VU3_TOUCHSCREEN)
-	ret = touch_ic_init(ts);
-	if(ret == -1) {
-		touch_power_cntl(ts, POWER_OFF);
-		goto err_check_functionality_failed;
-	}
-#else
 	touch_ic_init(ts);
-#endif
 
 #ifdef CUST_G2_TOUCH_WAKEUP_GESTURE
 #if !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
@@ -5734,7 +5757,7 @@ static int touch_lcd_suspend(struct device *device)
 	if (!ts) {
 		TOUCH_ERR_MSG("Called before init\n");
 		return 0;
-		}
+	}
 #endif
 
 #ifdef CUST_G2_TOUCH
@@ -5771,7 +5794,7 @@ static int touch_lcd_suspend(struct device *device)
 #ifdef I2C_SUSPEND_WORKAROUND
 	cancel_delayed_work_sync(&ts->check_suspended_work);
 #endif
-#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU)) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
+#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU)) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
 	cancel_delayed_work_sync(&ts->work_ime_drumming);
 #endif
 	if (ts->pdata->role->key_type == TOUCH_HARD_KEY)
@@ -5788,7 +5811,7 @@ static int touch_lcd_suspend(struct device *device)
 	knockon_wakeup_uevent_reporting = 0;
 #endif
 
-#if 0//                                   
+#if 0//#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
 //	atomic_set(&ts->state.uevent_state, UEVENT_IDLE);
 	touch_device_func->suspend(ts->client);
 #endif
@@ -5818,8 +5841,10 @@ static int touch_lcd_suspend(struct device *device)
 #if defined(A1_only)
 			if(f54_window_crack)
 				f54_window_crack = 2;
+		} else if (lge_get_boot_mode() != LGE_BOOT_MODE_NORMAL) {
+			touch_power_cntl(ts, ts->pdata->role->suspend_pwr);
 #endif
-			} else
+		} else
 #endif
 #if defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
 		{
@@ -5827,12 +5852,11 @@ static int touch_lcd_suspend(struct device *device)
 			touch_power_cntl(ts, ts->pdata->role->suspend_pwr);
 		}
 #else
-			queue_delayed_work(touch_wq, &ts->work_f54,
+		queue_delayed_work(touch_wq, &ts->work_f54,
 				msecs_to_jiffies(10));
 #endif
-		}
-		else
-			touch_power_cntl(ts, ts->pdata->role->suspend_pwr);
+	} else
+		touch_power_cntl(ts, ts->pdata->role->suspend_pwr);
 #endif
 #else
 	touch_power_cntl(ts, ts->pdata->role->suspend_pwr);
