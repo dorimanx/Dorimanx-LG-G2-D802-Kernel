@@ -38,22 +38,14 @@
 #include "SynaImage_for_G2_KDDI.h"
 #else
 #include "SynaImage_for_G2_LGIT_revA.h"
-#if defined(CONFIG_MACH_MSM8974_G2_ATT)
-#include "d800_driver/SynaImage_for_G2_LGIT_revB.h"
-#include "d800_driver/SynaImage_for_G2_TPK.h"
-#else
-#if defined(CONFIG_MACH_MSM8974_G2_TMO_US)
-#include "d801_driver/SynaImage_for_G2_LGIT_revB.h"
-#include "d801_driver/SynaImage_for_G2_TPK.h"
-#else
-#if defined(CONFIG_MACH_MSM8974_G2_CA)
-#include "d801_driver/SynaImage_for_G2_LGIT_revB.h"
-#include "d801_driver/SynaImage_for_G2_TPK.h"
+#if defined(CONFIG_MACH_MSM8974_G2_ATT) || \
+	defined(CONFIG_MACH_MSM8974_G2_TMO_US) || \
+	defined(CONFIG_MACH_MSM8974_G2_CA)
+#include "d800_801_803_driver/SynaImage_for_G2_LGIT_revB.h"
+#include "d800_801_803_driver/SynaImage_for_G2_TPK.h"
 #else
 #include "SynaImage_for_G2_LGIT_revB.h"
 #include "SynaImage_for_G2_TPK.h"
-#endif
-#endif
 #endif
 #endif
 
