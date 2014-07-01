@@ -24,7 +24,7 @@
  * kernel_neon_begin/kernel_neon_end pair.
  *
  * (1) Current GCC (4.7) might generate NEON instructions at O3 level if
- *     -mpfu=neon is set.
+ *     -mfpu=neon-vfpv4 is set.
  */
 
 #define kernel_neon_begin() \
