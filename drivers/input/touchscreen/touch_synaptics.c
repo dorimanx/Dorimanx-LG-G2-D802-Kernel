@@ -46,8 +46,13 @@
 #include "d801_driver/SynaImage_for_G2_LGIT_revB.h"
 #include "d801_driver/SynaImage_for_G2_TPK.h"
 #else
+#if defined(CONFIG_MACH_MSM8974_G2_CA)
+#include "d801_driver/SynaImage_for_G2_LGIT_revB.h"
+#include "d801_driver/SynaImage_for_G2_TPK.h"
+#else
 #include "SynaImage_for_G2_LGIT_revB.h"
 #include "SynaImage_for_G2_TPK.h"
+#endif
 #endif
 #endif
 #endif
