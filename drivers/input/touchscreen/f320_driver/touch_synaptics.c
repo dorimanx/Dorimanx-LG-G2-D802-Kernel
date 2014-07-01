@@ -97,6 +97,9 @@
 #endif
 
 #define INTERRUPT_ENABLE_REG			(ts->common_fc.dsc.control_base+1)		/* Interrupt Enable 0 */
+#define DOZE_WAKE_THRESH_REG 				(ts->common_fc.dsc.control_base+3)		/* DOZE_WAKE_THRESH_REG */
+#define DOZE_HOLDOFF_REG 				(ts->common_fc.dsc.control_base+4)		/* DOZE_HOLD_OFF_REG */
+#define DOZE_RECAL_INTERVAL_REG 				(ts->common_fc.dsc.control_base+5)		/* DOZE_RECAL_INTERVAL_REG */
 
 #define DEVICE_STATUS_REG				(ts->common_fc.dsc.data_base)			/* Device Status */
 #define DEVICE_FAILURE_MASK				0x03
@@ -176,6 +179,7 @@
 #define LPWG_CTRL_PAGE					0x04
 #define MULTITAP_COUNT_REG				0x31
 #define MAX_INTERTAP_TIME_REG			0x33
+#define MULTITAP_PRESS_RELEASE_DISTANCE	0x34
 #define INTERTAP_DISTANCE_REG			0x35
 #endif
 
@@ -229,7 +233,7 @@ extern int use_test_limit_2;
 #ifdef CONFIG_LGE_SECURITY_KNOCK_ON
 extern void send_uevent_lpwg(int type);
 #endif
-#if defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
+#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU)) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
 extern int ime_drumming_status;
 extern int keyguard_status;
 #endif
@@ -248,12 +252,14 @@ extern int keyguard_status;
 #if defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
 int g_mvol_for_touch;
 
+#if 0  //move to lge_touch_core.h file
 enum {
 	TOUCH_PANEL_UNKNOWN = 0,
 	TOUCH_PANEL_G1F_LGIT,
 	TOUCH_PANEL_G1F_SSUNTEL,
 	TOUCH_PANEL_G2_LGIT,
 };
+#endif 
 
 /* Board_lge.h */
 typedef enum {
@@ -303,8 +309,10 @@ touch_maker_id get_touch_maker_id(void)
 
 /* LIMIT: Include ONLY A1, B1, Vu3, Z models used MSM8974 AA/AB */
 #ifdef CONFIG_ADC_READY_CHECK_JB
-	while ((qpnp_vadc_is_ready() != 0) && (trial_us < (200 * 1000))) {
-		udelay(1);
+	//while ((qpnp_vadc_is_ready() != 0) && (trial_us < (200 * 1000))) {
+		//udelay(1);
+	while ((qpnp_vadc_is_ready() != 0) && (trial_us < (150))) {
+		msleep(10);
 		trial_us++;
 	}
 
@@ -537,10 +545,10 @@ int synaptics_ts_get_data(struct i2c_client *client, struct touch_data* data)
 		{
 			int i = 0;
 			if (custom_gesture_status) {
-			for(i=0;i<ts->password_tap_count;i++) {
-				TOUCH_INFO_MSG("lpwg data %d: 0:0x%-4x 1:0x%-4x 2:0x%-4x 3:0x%-4x\n",  i, lpwg_data[4*i], lpwg_data[4*i+1],lpwg_data[4*i+2],lpwg_data[4*i+3]);
+				for (i = 0; i < ts->password_tap_count; i++) {
+					TOUCH_INFO_MSG("lpwg data %d: 0:0x%-4x 1:0x%-4x 2:0x%-4x 3:0x%-4x\n",  i, lpwg_data[4*i], lpwg_data[4*i+1],lpwg_data[4*i+2],lpwg_data[4*i+3]);
+				}
 			}
-		}
 		}
 		if (unlikely(touch_i2c_write_byte(client, PAGE_SELECT_REG, 0) < 0)) {
 			TOUCH_ERR_MSG("PAGE_SELECT_REG write fail\n");
@@ -1019,7 +1027,7 @@ int get_ic_chip_rev(struct synaptics_ts_data *ts, struct touch_fw_info *fw_info)
 	TOUCH_INFO_MSG("FW_REVISION_REG = %d\n", ts->fw_info.fw_rev);
 	if (ts->fw_info.fw_rev == 1)
 		return TOUCH_CHIP_REV_B;
-#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_B1_KR)
+#if defined(CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_B1_KR) || defined(CONFIG_MACH_MSM8974_B1W)
 	if (lge_get_board_revno() >= HW_REV_E)
 		return TOUCH_CHIP_REV_B;
 #elif defined(CONFIG_MACH_MSM8974_G2_KDDI)
@@ -1103,7 +1111,21 @@ int set_fw_info(struct synaptics_ts_data *ts, struct touch_fw_info *fw_info)
 					break;
 			case TOUCH_PANEL_H_PATTERN:
 					TOUCH_INFO_MSG("panel pattern type : TOUCH_PANEL_H_PATTERN (customer_family == 1)\n");
+#if defined(CONFIG_MACH_MSM8974_Z_SPR) || defined(CONFIG_MACH_MSM8974_Z_TMO_US) || defined(CONFIG_MACH_MSM8974_Z_ATT_US)
+					if (lge_get_board_revno() >= HW_REV_1_0) /* new H_PATTERN panel*/
+						memcpy(&SynaFirmware,&SynaFirmware_d,sizeof(SynaFirmware));
+					else
+						memcpy(&SynaFirmware,&SynaFirmware_c,sizeof(SynaFirmware));
+#elif defined(CONFIG_MACH_MSM8974_Z_KR)
+					if (lge_get_board_revno() >= HW_REV_H) /* new H_PATTERN panel*/
+						memcpy(&SynaFirmware,&SynaFirmware_d,sizeof(SynaFirmware));
+					else
+						memcpy(&SynaFirmware,&SynaFirmware_c,sizeof(SynaFirmware));
+#elif defined(CONFIG_MACH_MSM8974_Z_OPEN_COM) || defined(CONFIG_MACH_MSM8974_Z_CTC_CN)
+					memcpy(&SynaFirmware,&SynaFirmware_d,sizeof(SynaFirmware));
+#else
 					memcpy(&SynaFirmware, &SynaFirmware_c, sizeof(SynaFirmware));
+#endif
 					break;
 			default:
 					if (get_touch_panel_info(ts) == TOUCH_PANEL_H_PATTERN) { /* H_pattern panel */
@@ -1282,6 +1304,7 @@ int synaptics_ts_init(struct i2c_client *client, struct touch_fw_info *fw_info)
 #endif
 #if defined(CONFIG_LGE_VU3_TOUCHSCREEN)
 	unsigned char *r_mem = NULL;
+	r_mem = kzalloc(sizeof(char) * (9), GFP_KERNEL);
 #endif
 #if defined(CONFIG_LGE_Z_TOUCHSCREEN)
 	u8 xy_coordinate[4] = {0xd0, 0x02, 0x00, 0x05};
@@ -1303,7 +1326,7 @@ int synaptics_ts_init(struct i2c_client *client, struct touch_fw_info *fw_info)
 				TOUCH_ERR_MSG("DEVICE_CONTROL_REG write fail\n");
 				return -EIO;
 			}
-#if defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU) && defined(CONFIG_MACH_MSM8974_G2_KR)
+#if defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU) && defined(CONFIG_MACH_MSM8974_G2_KR)
 			if ((keyguard_status == 9) && ime_drumming_status) {
 				switch (fw_info->fw_setting.curr_touch_vendor) {
 				case TOUCH_VENDOR_TPK:
@@ -1342,6 +1365,17 @@ int synaptics_ts_init(struct i2c_client *client, struct touch_fw_info *fw_info)
 				TOUCH_ERR_MSG("DEVICE_CONTROL_REG write fail\n");
 				return -EIO;
 			}
+#if defined(CONFIG_LGE_Z_TOUCHSCREEN)
+			if((keyguard_status == 9) && ime_drumming_status) {
+				small_finger_amp_th[0]=0x67;
+				small_finger_amp_th[1]=0x39;
+				if(touch_i2c_write(ts->client, SMALL_FINGER_AMPLITUDE_THRESHOLD_REG, 2, small_finger_amp_th) < 0) {
+					TOUCH_ERR_MSG("%s : Touch i2c write fail !! \n", __func__);
+				} else {
+					TOUCH_INFO_MSG("%s\n", __func__);
+				}
+			}
+#endif
 #if defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
 #if defined(CONFIG_MACH_MSM8974_G2_KR)
 			if ((keyguard_status == 9) && ime_drumming_status) {
@@ -1411,7 +1445,7 @@ int synaptics_ts_init(struct i2c_client *client, struct touch_fw_info *fw_info)
 			TOUCH_ERR_MSG("DEVICE_CONTROL_REG write fail\n");
 			return -EIO;
 		}
-#if defined(A1_only)&& !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM)&& !defined(CONFIG_MACH_MSM8974_G2_OPT_AU) && defined(CONFIG_MACH_MSM8974_G2_KR)
+#if defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU) && defined(CONFIG_MACH_MSM8974_G2_KR)
 		if ((keyguard_status == 9) && ime_drumming_status) {
 			switch (fw_info->fw_setting.curr_touch_vendor) {
 			case TOUCH_VENDOR_TPK:
@@ -1464,7 +1498,10 @@ int synaptics_ts_init(struct i2c_client *client, struct touch_fw_info *fw_info)
 	}
 
 #if defined(CONFIG_LGE_VU3_TOUCHSCREEN)
+////for vu3 pen writing
+	r_mem = kzalloc(sizeof(char) * (9), GFP_KERNEL);
 	if (unlikely(touch_i2c_read(client, JITTER_FILTER_STR_REG, (JITTER_FILTER_STR_REG_OFFSET+1), r_mem) < 0)) {
+		if (r_mem != NULL) kfree(r_mem);
 		TOUCH_ERR_MSG("0x16_REG read fail\n");
 		return -EIO;
 	}
@@ -1475,11 +1512,13 @@ int synaptics_ts_init(struct i2c_client *client, struct touch_fw_info *fw_info)
 
 	if (touch_i2c_write(ts->client, JITTER_FILTER_STR_REG, (JITTER_FILTER_STR_REG_OFFSET+1), r_mem) < 0) {
 		TOUCH_ERR_MSG("0x16_REG write fail\n");
+		if (r_mem != NULL) kfree(r_mem);
 		return -EIO;
 	}
 
 	if (unlikely(touch_i2c_read(client, JITTER_FILTER_STR_REG, (JITTER_FILTER_STR_REG_OFFSET+1), r_mem) < 0)) {
 		TOUCH_ERR_MSG("0x16_REG read fail\n");
+		if (r_mem != NULL) kfree(r_mem);
 		return -EIO;
 	}
 
@@ -1487,6 +1526,22 @@ int synaptics_ts_init(struct i2c_client *client, struct touch_fw_info *fw_info)
 
 	if (r_mem != NULL)
 		kfree(r_mem);
+////for doze mode
+	if (unlikely(touch_i2c_write_byte(client, DOZE_INTERVAL_REG, 1) < 0)) {
+		TOUCH_ERR_MSG("DOZE_INTERVAL_REG write fail\n");
+		return -EIO;
+	}
+
+	if (unlikely(touch_i2c_write_byte(client, DOZE_WAKE_THRESH_REG, 10) < 0)) {
+		TOUCH_ERR_MSG("DOZE_WAKE_THRESH_REG write fail\n");
+		return -EIO;
+	}
+
+	if (unlikely(touch_i2c_write_byte(client, DOZE_HOLDOFF_REG, 20) < 0)) {
+		TOUCH_ERR_MSG("DOZE_HOLDOFF_REG write fail\n");
+		return -EIO;
+	}
+
 #endif
 /*
 	if (unlikely(touch_i2c_read(client, OBJECT_TYPE_AND_STATUS_REG, sizeof(ts->ts_data.finger.finger_reg),
@@ -1495,6 +1550,17 @@ int synaptics_ts_init(struct i2c_client *client, struct touch_fw_info *fw_info)
 		return -EIO;	// it is critical problem because interrupt will not occur on some FW.
 	}
 */
+#if defined(CONFIG_LGE_Z_TOUCHSCREEN)
+	if (get_ic_fw_version(ts) < 35) {
+		use_test_limit_2 = 0;
+		TOUCH_INFO_MSG("firmware version < E035, 1100*1900 -> 720*1280\n");
+		if (touch_i2c_write(client, MAXIMUM_XY_COORDINATE_REG, 4, xy_coordinate) < 0){
+			TOUCH_ERR_MSG("MAXIMUM XY COORDINATE write fail!!\n");
+		}
+	} else {
+		use_test_limit_2 = 1;
+	}
+#endif
 	ts->is_probed = 1;
 #ifdef CONFIG_LGE_SECURITY_KNOCK_ON
 	DO_SAFE(lpwg_tap_control(ts, 0), error);
@@ -1663,35 +1729,6 @@ err_alloc_data_failed:
 }
 
 
-#if defined(CONFIG_LGE_Z_TOUCHSCREEN)
-int synaptics_ts_resolution(struct i2c_client *client)
-{
-	struct synaptics_ts_data *ts =
-			(struct synaptics_ts_data *)get_touch_handle(client);
-
-	u8 buf[4] = {0,};
-
-	if (unlikely(touch_i2c_read(ts->client, MAXIMUM_XY_COORDINATE_REG,
-					sizeof(buf), buf) < 0)) {
-		TOUCH_ERR_MSG("MAXIMUM XY COORDINATE read fail, use f/w version & board revision info.\n");
-
-		if (get_touch_panel_info(ts) == TOUCH_PANEL_BAR_PATTERN) { /* H_pattern panel */
-			ts->pdata->caps->x_max = 1100;
-			ts->pdata->caps->y_max = 1900;
-		}
-		TOUCH_INFO_MSG("MAXIMUM XY COORDINATE : x = %d\n", ts->pdata->caps->x_max);
-		TOUCH_INFO_MSG("MAXIMUM XY COORDINATE : y = %d\n", ts->pdata->caps->y_max);
-		return -EIO;
-	}
-	ts->pdata->caps->x_max = (int)(buf[1] << 8 | buf[0]);
-	TOUCH_INFO_MSG("MAXIMUM XY COORDINATE : x = %d\n", ts->pdata->caps->x_max);
-	ts->pdata->caps->y_max = (int)(buf[3] << 8 | buf[2]);
-	TOUCH_INFO_MSG("MAXIMUM XY COORDINATE : y = %d\n", ts->pdata->caps->y_max);
-
-	return 0;
-}
-#endif
-
 void synaptics_ts_remove(struct i2c_client *client)
 {
 	struct synaptics_ts_data *ts =
@@ -1730,13 +1767,13 @@ int synaptics_ts_fw_upgrade(struct i2c_client *client, struct touch_fw_info *fw_
 	if (ts->fw_info.fw_reflash_twice) {
 		TOUCH_INFO_MSG("Touch IC Bootloader is old, So Reflash again....\n");
 		ret = FirmwareUpgrade(ts, fw_info->fw_upgrade.fw_path);
-		}
+	}
 	/* update IC info */
 	if (ret >= 0)
 		get_ic_info(ts, fw_info);
 
 	return ret;
-	}
+}
 
 #ifdef CONFIG_LGE_SECURITY_KNOCK_ON
 err_t synaptics_ts_lpwg(struct i2c_client* client, u32 code, u32 value, struct point *data);
@@ -1858,6 +1895,14 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 		break;
 #endif
 	case IC_CTRL_DOUBLE_TAP_WAKEUP_MODE:
+#ifdef CONFIG_LGE_Z_TOUCHSCREEN
+#ifndef CONFIG_MACH_MSM8974_Z_CTC_CN
+			if(lge_get_board_revno() < HW_REV_B){
+				TOUCH_INFO_MSG("ic_ctrl: IC_CTRL_DOUBLE_TAP_WAKEUP_MODE HW_REV : %d, Knock skipped ", lge_get_board_revno());
+				return 0;
+			}
+#endif
+#endif
 			switch (value) {
 				unsigned char *r_mem = NULL;
 
@@ -1917,11 +1962,14 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 					TOUCH_INFO_MSG("ic_ctrl: IC_CTRL_DOUBLE_TAP_WAKEUP_MODE = 1\n");
 					r_mem = kzalloc(sizeof(char) * (10), GFP_KERNEL);
 					*(r_mem+0) = 0x1;
+#if defined(CONFIG_LGE_Z_TOUCHSCREEN) || defined(A1_only)
 					*(r_mem+1) = 0x28;
+#else
+					*(r_mem+1) = 0x14;
+#endif
 #if defined(CONFIG_LGE_Z_TOUCHSCREEN)
 					*(r_mem+2) = 0xa;
-#endif
-#if defined(A1_only)
+#else
 					*(r_mem+2) = 0x3;
 #endif
 					*(r_mem+3) = 0x6;
@@ -1945,6 +1993,17 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 							return -EIO;
 						}
 					}
+
+					if (touch_i2c_read(ts->client, MINIMUM_PEAK_AMPLITUDE_REG,(3), r_mem) < 0) {
+						TOUCH_ERR_MSG("%d bytes read fail!", (3));
+					} else {
+						*(r_mem+2) = 0x28;
+						if(touch_i2c_write(ts->client, MINIMUM_PEAK_AMPLITUDE_REG,(3), r_mem) < 0) {
+							TOUCH_ERR_MSG("Peak_merge_threshold write fail");
+							if(r_mem != NULL) kfree(r_mem);
+							return 0;
+						}
+					}
 #else
 					if (touch_i2c_write(ts->client, WAKEUP_GESTURE_ENABEL_REG, (6), r_mem) < 0) {
 						TOUCH_ERR_MSG("WAKEUP_GESTURE_ENABEL_REG write fail");
@@ -1959,12 +2018,28 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 							kfree(r_mem);
 						return -EIO;
 					}
+#if defined(CONFIG_LGE_Z_TOUCHSCREEN)
+					if(touch_i2c_write_byte(ts->client, 0x10, 20) < 0) {
+						TOUCH_ERR_MSG("DOZE_WAKEUP_TRESHOLD_REG write fail");
+						if(r_mem != NULL)
+							kfree(r_mem);
+						return -EIO;
+					}
+#else
 					if (touch_i2c_write_byte(ts->client, 0x10, 30) < 0) {
 						TOUCH_ERR_MSG("DOZE_WAKEUP_TRESHOLD_REG write fail");
 						if (r_mem != NULL)
 							kfree(r_mem);
 						return -EIO;
 					}
+#endif
+#if defined(CONFIG_LGE_VU3_TOUCHSCREEN)
+					if (unlikely(touch_i2c_write_byte(client, DOZE_HOLDOFF_REG, 1) < 0)) {
+						TOUCH_ERR_MSG("DOZE_HOLDOFF_REG write fail\n");
+						if(r_mem != NULL) kfree(r_mem);
+						return -EIO;
+					}
+#endif
 
 					if (touch_i2c_read(ts->client, REPORT_WAKEUP_GESTURE_ONLY_REG, (3), r_mem) < 0) {
 						TOUCH_ERR_MSG("%d bytes read fail!", (3));
@@ -1977,13 +2052,14 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 					if (get_touch_panel_info(ts) == TOUCH_PANEL_H_PATTERN) { /* resolution = 720*1280 */
 						*(r_mem+0) = 0x4c;
 						*(r_mem+1) = 0x00;
-						*(r_mem+2) = 0x00;
+						*(r_mem+2) = 0x61;
 						*(r_mem+3) = 0x00;
 						*(r_mem+4) = 0x84;
 						*(r_mem+5) = 0x02;
-						*(r_mem+6) = 0x00;
-						*(r_mem+7) = 0x05;
+						*(r_mem+6) = 0x9F;
+						*(r_mem+7) = 0x04;
 						*(r_mem+8) = 60;
+						*(r_mem+9) = 50;
 					} else { /* resolution = 1100*1900 */
 						*(r_mem+0) = 0x82;
 						*(r_mem+1) = 0x0;
@@ -1994,17 +2070,18 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 						*(r_mem+6) = 0x6c;
 						*(r_mem+7) = 0x7;
 						*(r_mem+8) = 60;
+						*(r_mem+9) = 50;
 					}
 #else
 #if defined(CONFIG_LGE_VU3_TOUCHSCREEN)
 					*(r_mem+0) = 0x82;
 					*(r_mem+1) = 0x0;
-					*(r_mem+2) = 0x0;
+					*(r_mem+2) = 0xA5;
 					*(r_mem+3) = 0x0;
 					*(r_mem+4) = 0xB6;
 					*(r_mem+5) = 0x3;
-					*(r_mem+6) = 0x80;
-					*(r_mem+7) = 0x7;
+					*(r_mem+6) = 0xDA;
+					*(r_mem+7) = 0x6;
 					*(r_mem+8) = 60;
 					*(r_mem+9) = 50;
 #endif
@@ -2049,15 +2126,23 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 						TOUCH_ERR_MSG("PAGE_SELECT_REG write fail\n");
 						return -EIO;
 					}
-					if (touch_i2c_read(client, INTERTAP_DISTANCE_REG, 1, r_mem) < 0) {
-						TOUCH_ERR_MSG("INTERTAP_DISTANCE_REG read fail!\n");
+					*(r_mem+0) = 0x64;	//50(5mm) -> 100 (10mm)
+					if (touch_i2c_write(client, MULTITAP_PRESS_RELEASE_DISTANCE, 1, r_mem) < 0) {
+						TOUCH_ERR_MSG("MultiTap Press Release Distance reg(0x04P:0x34) write fail\n");
 						if(r_mem != NULL) kfree(r_mem);
+						return -EIO;
+					} else {
+						TOUCH_INFO_MSG("MultiTap Press Release Distance = 0x%02x\n", *(r_mem+0));
+					}
+					if (touch_i2c_read(client, INTERTAP_DISTANCE_REG, 1, r_mem) < 0) {
+						if(r_mem != NULL) kfree(r_mem);
+						TOUCH_ERR_MSG("INTERTAP_DISTANCE_REG read fail!\n");
 						return -EIO;
 					} else {
 						*(r_mem+0) = 0x0A;
 						if(touch_i2c_write(client, INTERTAP_DISTANCE_REG, 1, r_mem) < 0) {
-							TOUCH_ERR_MSG("Double TAP Maximum InterTap Distance reg(0x04P:0x4B) write fail\n");
 							if(r_mem != NULL) kfree(r_mem);
+							TOUCH_ERR_MSG("Double TAP Maximum InterTap Distance reg(0x04P:0x4B) write fail\n");
 							return -EIO;
 						} else {
 							TOUCH_INFO_MSG("Double TAP Maximum InterTap Distance = 0x%02x\n", *(r_mem+0));
@@ -2086,34 +2171,39 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 #endif
 					if (r_mem != NULL)
 						kfree(r_mem);
-			}
-			break;
+				}
+				break;
 #ifdef CONFIG_LGE_SECURITY_KNOCK_ON
 				case 2: /* touch password tap enable */
 				{
 					TOUCH_INFO_MSG("ic_ctrl: IC_CTRL_DOUBLE_TAP_WAKEUP_MODE = 2, password_tap_count=%d\n", ts->password_tap_count);
 					r_mem = kzalloc(sizeof(char) * (10), GFP_KERNEL);
 					*(r_mem+0) = 0x1;
-					*(r_mem+1) = 0x28;
+#if defined(CONFIG_LGE_Z_TOUCHSCREEN) || defined(A1_only)
+                                        *(r_mem+1) = 0x28;
+#else
+                                        *(r_mem+1) = 0x14;
+#endif
 #if defined(CONFIG_LGE_Z_TOUCHSCREEN)
 					*(r_mem+2) = 0xa;
-#endif
+#else
 #if defined(A1_only)
 					*(r_mem+2) = 0x3;
 #endif
-					*(r_mem+3) = 0x6;
+#endif
+					*(r_mem+3) = 0xA; /* max active duration 3sec(0x6) -> 5sec(0xA) */
 					*(r_mem+4) = 0x2;
 					*(r_mem+5) = 0x2;
 
 #if defined(CONFIG_LGE_Z_TOUCHSCREEN)
 
 					if (get_touch_panel_info(ts) == TOUCH_PANEL_H_PATTERN) { /* H_pattern panel */
-					if (touch_i2c_write(ts->client, WAKEUP_GESTURE_ENABEL_REG, (6), r_mem) < 0) {
-						TOUCH_ERR_MSG("WAKEUP_GESTURE_ENABEL_REG write fail");
-						if (r_mem != NULL)
-							kfree(r_mem);
-						return -EIO;
-					}
+						if (touch_i2c_write(ts->client, WAKEUP_GESTURE_ENABEL_REG, (6), r_mem) < 0) {
+							TOUCH_ERR_MSG("WAKEUP_GESTURE_ENABEL_REG write fail");
+							if (r_mem != NULL)
+								kfree(r_mem);
+							return -EIO;
+						}
 					} else { /* Bar_pattern panel */
 						if (touch_i2c_write(ts->client, WAKEUP_GESTURE_ENABEL_REG, (1), r_mem) < 0) {
 							TOUCH_ERR_MSG("WAKEUP_GESTURE_ENABEL_REG write fail");
@@ -2133,13 +2223,13 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 							return 0;
 						}
 					}
-#endif
+#else
 					if (touch_i2c_write(ts->client, WAKEUP_GESTURE_ENABEL_REG, (6), r_mem) < 0) {
 						TOUCH_ERR_MSG("WAKEUP_GESTURE_ENABEL_REG write fail");
 								if (r_mem != NULL)	kfree(r_mem);
 								return -EIO;
 					}
-
+#endif
 					if (touch_i2c_write_byte(ts->client, DOZE_INTERVAL_REG, 5) < 0) {
 						TOUCH_ERR_MSG("DOZE_INTERVAL_REG write fail");
 						if (r_mem != NULL) kfree(r_mem);
@@ -2190,7 +2280,7 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 						*(r_mem+8) = 60;
 						*(r_mem+9) = 50;
 					}
-#endif
+#else
 #if defined(A1_only)
 						*(r_mem+0) = 0x32;
 						*(r_mem+1) = 0x0;
@@ -2203,6 +2293,7 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 						*(r_mem+8) = 60;
 						*(r_mem+9) = 50;
 #endif
+#endif
 					if (touch_i2c_write(ts->client, DOUBLE_TAP_AREA_REG, (10), r_mem) < 0){
 						TOUCH_ERR_MSG("DOUBLE_TAP_AREA_REG write fail");
 						if(r_mem != NULL) kfree(r_mem);
@@ -2214,28 +2305,36 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 						return -EIO;
 					}
 					if (touch_i2c_read(client, MAX_INTERTAP_TIME_REG, 1, r_mem) < 0) {
-						TOUCH_ERR_MSG("MAX_INTERTAP_TIME_REG read fail!\n");
 						if(r_mem != NULL) kfree(r_mem);
+						TOUCH_ERR_MSG("MAX_INTERTAP_TIME_REG read fail!\n");
 						return -EIO;
 					} else {
 						*(r_mem+0) = 0x46;
 						if (touch_i2c_write(client, MAX_INTERTAP_TIME_REG, 1, r_mem) < 0) {
-							TOUCH_ERR_MSG("MultiTap Maximum InterTap Time reg(0x04P:0x33) write fail\n");
 							if(r_mem != NULL) kfree(r_mem);
+							TOUCH_ERR_MSG("MultiTap Maximum InterTap Time reg(0x04P:0x33) write fail\n");
 							return -EIO;
 						} else {
 							TOUCH_INFO_MSG("MultiTap Maximum InterTap Time = 0x%02x\n", *(r_mem+0));
 						}
 					}
+					*(r_mem+0) = 0x64;
+					if (touch_i2c_write(client, MULTITAP_PRESS_RELEASE_DISTANCE, 1, r_mem) < 0) {
+							TOUCH_ERR_MSG("MultiTap press release distance reg(0x04P:0x33) write fail\n");
+							if(r_mem != NULL) kfree(r_mem);
+							return -EIO;
+					} else {
+							TOUCH_INFO_MSG("MultiTap press release distance = 0x%02x\n", *(r_mem+0));
+					}
 					if (touch_i2c_read(client, INTERTAP_DISTANCE_REG, 1, r_mem) < 0) {
-						TOUCH_ERR_MSG("INTERTAP_DISTANCE_REG read fail!\n");
 						if(r_mem != NULL) kfree(r_mem);
+						TOUCH_ERR_MSG("INTERTAP_DISTANCE_REG read fail!\n");
 						return -EIO;
 					} else {
 						*(r_mem+0) = 0xFF;
 						if (touch_i2c_write(client, INTERTAP_DISTANCE_REG, 1, r_mem) < 0) {
-							TOUCH_ERR_MSG("Multi TAP Maximum InterTap Distance reg(0x04P:0x35) write fail\n");
 							if(r_mem != NULL) kfree(r_mem);
+							TOUCH_ERR_MSG("Multi TAP Maximum InterTap Distance reg(0x04P:0x35) write fail\n");
 							return -EIO;
 						} else {
 							TOUCH_INFO_MSG("Multi TAP Maximum InterTap Distance = 0x%02x\n", *(r_mem+0));
@@ -2249,14 +2348,14 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 						kfree(r_mem);
 					synaptics_ts_lpwg(ts->client, LPWG_TAP_COUNT, ts->password_tap_count, NULL);
 					ts->password_enable = 1;
-			}
-			break;
+				}
+				break;
 #endif
 			}
 			break;
-	default:
-		break;
-}
+		default:
+			break;
+	}
 
 	return buf;
 #ifdef CONFIG_LGE_SECURITY_KNOCK_ON
@@ -2319,18 +2418,17 @@ err_t synaptics_ts_lpwg(struct i2c_client* client, u32 code, u32 value, struct p
     switch (code) {
     case LPWG_READ:
 		if (ts->password_enable) {
-			if( custom_gesture_status == 0) {
+			if (custom_gesture_status == 0) {
 				data[0].x = 1;
 				data[0].y = 1;
 				data[1].x = -1;
 				data[1].y = -1;
 				break;
-}
+			}
 
 			for(i=0;i< ts->password_tap_count;i++) {
 				data[i].x = lpwg_data[4*i+1]<<8 | lpwg_data[4*i];
 				data[i].y = lpwg_data[4*i+3]<<8 | lpwg_data[4*i+2];
-				TOUCH_DEBUG_MSG("TAP Position x:0x%x, y:0x%x\n", data[i].x, data[i].y);
 				// '-1' should be assinged to the last data.
 				// Each data should be converted to LCD-resolution.
 			}
@@ -2354,7 +2452,7 @@ err_t synaptics_ts_lpwg(struct i2c_client* client, u32 code, u32 value, struct p
                 DO_SAFE(touch_i2c_read(client, DEVICE_CONTROL_REG, 1, &buf), error);
                 buf = (buf & 0xFC) | DEVICE_CONTROL_SLEEP;
                 DO_SAFE(touch_i2c_write_byte(client, DEVICE_CONTROL_REG, buf), error);
-}
+            }
         }
         break;
     case LPWG_LCD_X:
@@ -2399,9 +2497,6 @@ error:
 
 struct touch_device_driver synaptics_ts_driver = {
 	.probe		= synaptics_ts_probe,
-#if defined(CONFIG_LGE_Z_TOUCHSCREEN)
-	.resolution = synaptics_ts_resolution,
-#endif
 	.remove		= synaptics_ts_remove,
 	.init  	= synaptics_ts_init,
 	.data  	= synaptics_ts_get_data,
