@@ -42,8 +42,13 @@
 #include "d800_driver/SynaImage_for_G2_LGIT_revB.h"
 #include "d800_driver/SynaImage_for_G2_TPK.h"
 #else
+#if defined(CONFIG_MACH_MSM8974_G2_TMO_US)
+#include "d801_driver/SynaImage_for_G2_LGIT_revB.h"
+#include "d801_driver/SynaImage_for_G2_TPK.h"
+#else
 #include "SynaImage_for_G2_LGIT_revB.h"
 #include "SynaImage_for_G2_TPK.h"
+#endif
 #endif
 #endif
 
@@ -2185,7 +2190,7 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 					TOUCH_INFO_MSG("ic_ctrl: IC_CTRL_DOUBLE_TAP_WAKEUP_MODE = 2, password_tap_count=%d\n", ts->password_tap_count);
 					r_mem = kzalloc(sizeof(char) * (10), GFP_KERNEL);
 					*(r_mem+0) = 0x1;
-#if defined(CONFIG_LGE_Z_TOUCHSCREEN)||defined(A1_only)
+#if defined(CONFIG_LGE_Z_TOUCHSCREEN) || defined(A1_only)
                                         *(r_mem+1) = 0x28;
 #else
                                         *(r_mem+1) = 0x14;
@@ -2424,7 +2429,7 @@ err_t synaptics_ts_lpwg(struct i2c_client* client, u32 code, u32 value, struct p
     switch (code) {
     case LPWG_READ:
 		if (ts->password_enable) {
-			if( custom_gesture_status == 0) {
+			if (custom_gesture_status == 0) {
 				data[0].x = 1;
 				data[0].y = 1;
 				data[1].x = -1;

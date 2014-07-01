@@ -3292,13 +3292,12 @@ static irqreturn_t touch_thread_irq_handler(int irq, void *dev_id)
 		wake_lock_timeout(&touch_wake_lock, msecs_to_jiffies(1000));
 #endif
 		TOUCH_INFO_MSG("gesture wakeup\n");
-#ifdef I2C_SUSPEND_WORKAROUND		
+#ifdef I2C_SUSPEND_WORKAROUND
 		queue_delayed_work(touch_wq, &ts->check_suspended_work, 0);
 #else	
 		queue_delayed_work(touch_wq, &ts->work_gesture_wakeup,
 				msecs_to_jiffies(0));
 #endif
-
 		return IRQ_HANDLED;
 	}
 #endif
@@ -4061,7 +4060,7 @@ static ssize_t show_f54_window_crack(struct lge_touch_data *ts, char *buf)
 	ret = sprintf(buf, "%d\n", f54_window_crack);
 	return ret;
 }
-#if ( defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI)) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
+#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI)) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
 static ssize_t show_ime_drumming_status(struct lge_touch_data *ts, char *buf)
 {
 	int ret = 0;
@@ -4614,17 +4613,7 @@ static void set_wakeup_mode(struct lge_touch_data *ts, int value)
 	cancel_delayed_work_sync(&ts->work_f54);
 
 	mutex_lock(&ts->irq_work_mutex);
-/* 
-#if defined(A1_only)
-	if(ts_suspend && (get_smartcover_status() == 1) && (value==touch_gesture_enable)){
-		if(touch_device_func->ic_ctrl) {
-			if(touch_device_func->ic_ctrl(ts->client, IC_CTRL_DOUBLE_TAP_WAKEUP_MODE, 1) < 0){
-				TOUCH_ERR_MSG("IC_CTRL_DOUBLE_TAP_WAKEUP_MODE handling fail\n");
-			}
-		}
-	}
-#endif
-*/
+
 	if (value == touch_gesture_enable || !ts_suspend){
 		TOUCH_INFO_MSG("[%s] ts_suspend = %d\n", __func__, ts_suspend);
 		goto no_action;
@@ -5321,8 +5310,8 @@ static void touch_multi_tap_wakeup_enable(struct lge_touch_data *ts, int value)
 	TOUCH_INFO_MSG("%s : enable_irq !!\n", __func__);
 	touch_ic_init(ts);
 
-	if(touch_device_func->ic_ctrl) {
-		if(touch_device_func->ic_ctrl(ts->client, IC_CTRL_DOUBLE_TAP_WAKEUP_MODE, value) < 0){
+	if (touch_device_func->ic_ctrl) {
+		if (touch_device_func->ic_ctrl(ts->client, IC_CTRL_DOUBLE_TAP_WAKEUP_MODE, value) < 0) {
 			TOUCH_ERR_MSG("IC_CTRL_DOUBLE_TAP_WAKEUP_MODE handling fail\n");
 			return;
 		}
@@ -5846,9 +5835,9 @@ static int touch_lcd_suspend(struct device *device)
 #if defined(A1_only)
 			if(f54_window_crack)
 				f54_window_crack = 2;
-#endif
 		} else if (lge_get_boot_mode() != LGE_BOOT_MODE_NORMAL) {
 			touch_power_cntl(ts, ts->pdata->role->suspend_pwr);
+#endif
 		} else
 #endif
 #if defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
@@ -5860,8 +5849,7 @@ static int touch_lcd_suspend(struct device *device)
 		queue_delayed_work(touch_wq, &ts->work_f54,
 				msecs_to_jiffies(10));
 #endif
-	}
-	else
+	} else
 		touch_power_cntl(ts, ts->pdata->role->suspend_pwr);
 #endif
 #else
