@@ -3025,11 +3025,7 @@ if ((!strncmp(ts->fw_info.ic_fw_identifier, "PLG208", 6)) || (!strncmp(ts->fw_in
 			goto out;
 		} else{
 			TOUCH_INFO_MSG("SSUNTEL G1F FW-upgrade is checking...\n");
-#if defined (CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_G2_KT)
 			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) >=
-#else
-			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) ==
-#endif
 				 (int)simple_strtoul(&ts->fw_info.syna_img_fw_version[1], NULL, 10))
 				 && !ts->fw_info.fw_upgrade.fw_force_upgrade) {
 				TOUCH_INFO_MSG("SSUNTEL G1F FW-upgrade is not executed\n");
@@ -3049,11 +3045,7 @@ if ((!strncmp(ts->fw_info.ic_fw_identifier, "PLG208", 6)) || (!strncmp(ts->fw_in
 			goto out;
 		} else{
 			TOUCH_INFO_MSG("LGIT G1F FW-upgrade is checking...\n");
-#if defined (CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_G2_KT)
 			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) >=
-#else
-			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) ==
-#endif
 				 (int)simple_strtoul(&ts->fw_info.syna_img_fw_version[1], NULL, 10))
 				 && !ts->fw_info.fw_upgrade.fw_force_upgrade) {
 				TOUCH_INFO_MSG("LGIT G1F FW-upgrade is not executed\n");
@@ -3073,11 +3065,7 @@ if ((!strncmp(ts->fw_info.ic_fw_identifier, "PLG208", 6)) || (!strncmp(ts->fw_in
 			goto out;
 		} else{
 			TOUCH_INFO_MSG("LGIT G2 Hybrid FW-upgrade is checking...\n");
-#if defined (CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_G2_KT)
 			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) >=
-#else
-			if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) ==
-#endif
 				 (int)simple_strtoul(&ts->fw_info.syna_img_fw_version[1], NULL, 10))
 				 && !ts->fw_info.fw_upgrade.fw_force_upgrade) {
 				TOUCH_INFO_MSG("LGIT G1F FW-upgrade is not executed\n");
@@ -3112,11 +3100,7 @@ if ((!strncmp(ts->fw_info.ic_fw_identifier, "PLG208", 6)) || (!strncmp(ts->fw_in
 				TOUCH_INFO_MSG("Panel changed [unknown]!! FW-upgrade is executed\n");
 				break;
 		}
-#if defined (CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_G2_KT)
 	} else if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) >=
-#else
-	} else if( ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10) ==
-#endif
 		 (int)simple_strtoul(&ts->fw_info.syna_img_fw_version[1], NULL, 10))
 		 && !ts->fw_info.fw_upgrade.fw_force_upgrade) {
 		TOUCH_INFO_MSG("FW-upgrade is not executed\n");
