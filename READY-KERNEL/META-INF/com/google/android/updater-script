@@ -19,7 +19,9 @@ set_perm_recursive(0, 0, 0755, 0755, "/tmp/loki");
 
 #run loki flash
 ui_print("Installing kernel");
+ui_print("Detecting panel type and auto configuring!");
 assert(run_program("/tmp/loki.sh") == 0);
+ui_print("Kernel Installed! enjoy :)");
 
 #cleanup
 delete("/tmp/loki.sh");
