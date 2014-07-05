@@ -137,6 +137,15 @@ module_param_named(thermal_limit_low, limit_idx_low, int, 0664);
 
 module_param_named(thermal_debug_mode, debug_mode, int, 0664);
 
+static unsigned int freq_debug = 1;
+module_param_named(freq_limit_debug, freq_debug, uint, 0644);
+
+#define dprintk(msg...)		\
+do {				\
+	if (freq_debug)		\
+		pr_info(msg);	\
+} while (0)
+
 struct rail {
 	const char *name;
 	uint32_t freq_req;
@@ -663,11 +672,11 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq, long temp)
 
 	if (!cpu) {
 		if (max_freq != UINT_MAX)
-			pr_info
+			dprintk
 			    ("%s: Limiting max frequency to %d [Temp %ldC]\n",
 			     KBUILD_MODNAME, max_freq, temp);
 		else
-			pr_info("%s: Max frequency reset [Temp %ldC]\n",
+			dprintk("%s: Max frequency reset [Temp %ldC]\n",
 				KBUILD_MODNAME, temp);
 	}
 	get_online_cpus();
@@ -713,7 +722,7 @@ static void __ref do_core_control(long temp)
 				continue;
 			if (cpus_offlined & BIT(i) && !cpu_online(i))
 				continue;
-			pr_info("%s: Set Offline: CPU%d Temp: %ld\n",
+			dprintk("%s: Set Offline: CPU%d Temp: %ld\n",
 					KBUILD_MODNAME, i, temp);
 			ret = cpu_down(i);
 			if (ret)
@@ -729,7 +738,7 @@ static void __ref do_core_control(long temp)
 			if (!(cpus_offlined & BIT(i)))
 				continue;
 			cpus_offlined &= ~BIT(i);
-			pr_info("%s: Allow Online CPU%d Temp: %ld\n",
+			dprintk("%s: Allow Online CPU%d Temp: %ld\n",
 					KBUILD_MODNAME, i, temp);
 			/*
 			 * If this core is already online, then bring up the
