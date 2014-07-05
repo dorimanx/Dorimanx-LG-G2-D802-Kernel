@@ -1624,11 +1624,13 @@
 			qcom,min-level = <1>; /* No Request */
 		};
 
+/* No such regulator exist.
 		qcom,vdd-apps-rstr{
 			qcom,vdd-rstr-reg = "vdd-apps";
 			qcom,levels = <1728000 1958400 2265600>;
 			qcom,freq-req;
 		};
+*/
 	};
 
 	qcom,bam_dmux@fc834000 {
