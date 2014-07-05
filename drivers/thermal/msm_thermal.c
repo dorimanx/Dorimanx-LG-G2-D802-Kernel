@@ -82,7 +82,6 @@ static struct alarm thermal_rtc;
 static struct kobject *tt_kobj;
 static struct work_struct timer_work;
 
-static int enabled;
 static int intelli_enabled;
 static int rails_cnt;
 static int psm_rails_cnt;
@@ -1256,7 +1255,7 @@ static ssize_t __ref store_cpus_offlined(struct kobject *kobj,
 		goto done_cc;
 	}
 
-	if (enabled) {
+	if (intelli_enabled) {
 		pr_err("%s: Ignoring request; polling thread is enabled.\n",
 				KBUILD_MODNAME);
 		goto done_cc;
