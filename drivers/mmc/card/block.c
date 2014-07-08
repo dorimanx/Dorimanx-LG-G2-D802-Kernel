@@ -1510,10 +1510,10 @@ static int mmc_blk_issue_flush(struct mmc_queue *mq, struct request *req)
 	int ret = 0;
 
 	ret = mmc_flush_cache(card);
-	if (ret == -ETIMEDOUT) {
-		pr_info("%s: %s: requeue flush request after timeout.\n",
-                req->rq_disk->disk_name, __func__);
-
+	if (ret == -ETIMEDOUT &&
+	    (card->quirks & MMC_QUIRK_RETRY_FLUSH_TIMEOUT)) {
+		pr_info("%s: %s: requeue flush request after timeout",
+				req->rq_disk->disk_name, __func__);
 		spin_lock_irq(q->queue_lock);
 		blk_requeue_request(q, req);
 		spin_unlock_irq(q->queue_lock);
@@ -3245,6 +3245,9 @@ static const struct mmc_fixup blk_fixups[] =
 	/* Disable cache for this cards */
 	MMC_FIXUP("H8G2d", CID_MANFID_HYNIX, CID_OEMID_ANY, add_quirk_mmc,
 		  MMC_QUIRK_CACHE_DISABLE),
+	MMC_FIXUP(CID_NAME_ANY, CID_MANFID_HYNIX, CID_OEMID_ANY, add_quirk_mmc,
+		  MMC_QUIRK_RETRY_FLUSH_TIMEOUT),
+
 	END_FIXUP
 };
 
