@@ -22,7 +22,9 @@
 #include <linux/hrtimer.h>
 #include <linux/tick.h>
 #include <linux/ktime.h>
+#include <linux/kthread.h>
 #include <linux/sched.h>
+#include <linux/sched/rt.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 
@@ -107,18 +109,6 @@ static unsigned int min_sampling_rate;
 #define POWERSAVE_BIAS_MINLEVEL			(-1000)
 
 static void do_dbs_timer(struct work_struct *work);
-static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
-				unsigned int event);
-
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND
-static
-#endif
-struct cpufreq_governor cpufreq_gov_ondemand = {
-       .name                   = "ondemand",
-       .governor               = cpufreq_governor_dbs,
-       .max_transition_latency = TRANSITION_LATENCY_LIMIT,
-       .owner                  = THIS_MODULE,
-};
 
 /* Sampling types */
 enum {DBS_NORMAL_SAMPLE, DBS_SUB_SAMPLE};
@@ -170,6 +160,7 @@ struct dbs_work_struct {
 };
 
 static DEFINE_PER_CPU(struct dbs_work_struct, dbs_refresh_work);
+static DEFINE_PER_CPU(struct task_struct *, up_task);
 
 static struct dbs_tuners {
 	unsigned int sampling_rate;
@@ -411,6 +402,7 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 	dbs_tuners_ins.io_is_busy = !!input;
+
 	return count;
 }
 
@@ -774,7 +766,7 @@ static ssize_t store_smart_up(struct kobject *a, struct attribute *b,
 		input = 1;
 	} else if (input < 0 ) {
 		input = 0;
-        }
+	}
 
 	/* buffer reset */
 	for_each_online_cpu(i) {
@@ -850,6 +842,7 @@ static ssize_t store_smart_slow_up_dur(struct kobject *a, struct attribute *b,
 		reset_hist(&hist_load[i]);
 	}
 	dbs_tuners_ins.smart_slow_up_dur = input;
+
 
 	return count;
 }
@@ -1040,6 +1033,10 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 			continue;
 
 		cur_load = 100 * (wall_time - idle_time) / wall_time;
+
+		if (cur_load > max_load)
+			max_load = cur_load;
+
 		j_dbs_info->max_load  = max(cur_load, j_dbs_info->prev_load);
 		j_dbs_info->prev_load = cur_load;
 		freq_avg = __cpufreq_driver_getavg(policy, j);
@@ -1116,7 +1113,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 					int i = 0;
 					for (i = 0; i < dbs_tuners_ins.smart_slow_up_dur; i++)
 						sum_hist_load_freq +=
-						hist_load[core_j].hist_max_load[i];
+							hist_load[core_j].hist_max_load[i];
 
 					avg_hist_load = sum_hist_load_freq
 							/ dbs_tuners_ins.smart_slow_up_dur;
@@ -1183,7 +1180,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 					dbs_tuners_ins.sampling_down_factor;
 
 			dbs_freq_increase(policy, freq_target);
-				return;
+			return;
 		}
 	}
 
@@ -1275,8 +1272,7 @@ static void do_dbs_timer(struct work_struct *work)
 		container_of(work, struct cpu_dbs_info_s, work.work);
 	unsigned int cpu = dbs_info->cpu;
 	int sample_type = dbs_info->sample_type;
-
-	int delay;
+	int delay = msecs_to_jiffies(50);
 
 	mutex_lock(&dbs_info->timer_mutex);
 
@@ -1328,7 +1324,6 @@ static void dbs_refresh_callback(struct work_struct *work)
 	struct cpu_dbs_info_s *this_dbs_info;
 	struct dbs_work_struct *dbs_work;
 	unsigned int cpu;
-	unsigned int target_freq;
 
 	dbs_work = container_of(work, struct dbs_work_struct, work);
 	cpu = dbs_work->cpu;
@@ -1345,20 +1340,17 @@ static void dbs_refresh_callback(struct work_struct *work)
 		goto bail_incorrect_governor;
 	}
 
-	target_freq = policy->max;
-
-	if (policy->cur < target_freq) {
+	if (policy->cur < policy->max) {
 		/*
 		 * Arch specific cpufreq driver may fail.
 		 * Don't update governor frequency upon failure.
 		 */
-		if (__cpufreq_driver_target(policy, target_freq,
+		if (__cpufreq_driver_target(policy, policy->max,
 					CPUFREQ_RELATION_L) >= 0)
-			policy->cur = target_freq;
+				policy->cur = policy->max;
 
 		this_dbs_info->prev_cpu_idle = get_cpu_idle_time(cpu,
-				&this_dbs_info->prev_cpu_wall,
-				dbs_tuners_ins.io_is_busy);
+				&this_dbs_info->prev_cpu_wall, dbs_tuners_ins.io_is_busy);
 	}
 
 bail_incorrect_governor:
@@ -1489,10 +1481,59 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	return 0;
 }
 
+static int cpufreq_gov_dbs_up_task(void *data)
+{
+	struct cpufreq_policy *policy;
+	struct cpu_dbs_info_s *this_dbs_info;
+	unsigned int cpu = smp_processor_id();
+
+	while (1) {
+		set_current_state(TASK_INTERRUPTIBLE);
+		schedule();
+
+		if (kthread_should_stop())
+			break;
+
+		set_current_state(TASK_RUNNING);
+
+		get_online_cpus();
+
+		if (lock_policy_rwsem_write(cpu) < 0)
+			goto bail_acq_sema_failed;
+
+		this_dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
+		policy = this_dbs_info->cur_policy;
+		if (!policy) {
+
+			goto bail_incorrect_governor;
+		}
+
+bail_incorrect_governor:
+		unlock_policy_rwsem_write(cpu);
+
+bail_acq_sema_failed:
+		put_online_cpus();
+	}
+
+	return 0;
+}
+
+#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND
+static
+#endif
+struct cpufreq_governor cpufreq_gov_ondemand = {
+	.name					= "ondemand",
+	.governor				= cpufreq_governor_dbs,
+	.max_transition_latency	= TRANSITION_LATENCY_LIMIT,
+	.owner					= THIS_MODULE,
+};
+
 static int __init cpufreq_gov_dbs_init(void)
 {
 	u64 idle_time;
 	unsigned int i;
+	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
+	struct task_struct *pthread;
 	int cpu = get_cpu();
 
 	idle_time = get_cpu_idle_time_us(cpu, NULL);
@@ -1525,6 +1566,16 @@ static int __init cpufreq_gov_dbs_init(void)
 		struct dbs_work_struct *dbs_work =
 			&per_cpu(dbs_refresh_work, i);
 
+		pthread = kthread_create_on_node(cpufreq_gov_dbs_up_task,
+								NULL, cpu_to_node(i),
+								"kdbs_up/%d", i);
+		if (likely(!IS_ERR(pthread))) {
+			kthread_bind(pthread, i);
+			sched_setscheduler_nocheck(pthread, SCHED_FIFO, &param);
+			get_task_struct(pthread);
+			per_cpu(up_task, i) = pthread;
+		}
+
 		mutex_init(&this_dbs_info->timer_mutex);
 		INIT_WORK(&dbs_work->work, dbs_refresh_callback);
 		dbs_work->cpu = i;
@@ -1544,6 +1595,10 @@ static void __exit cpufreq_gov_dbs_exit(void)
 		struct cpu_dbs_info_s *this_dbs_info =
 			&per_cpu(od_cpu_dbs_info, i);
 		mutex_destroy(&this_dbs_info->timer_mutex);
+		if (per_cpu(up_task, i)) {
+			kthread_stop(per_cpu(up_task, i));
+			put_task_struct(per_cpu(up_task, i));
+		}
 	}
 	destroy_workqueue(dbs_wq);
 }
