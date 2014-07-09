@@ -354,9 +354,12 @@ CC		= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-KERNEL_FLAGS	= -mcpu=cortex-a15 -mtune=cortex-a15 -marm \
-		  -mfpu=neon-vfpv4 -ffast-math \
-		  -mvectorize-with-neon-quad
+KERNEL_FLAGS	= -mtune=cortex-a15 -marm \
+		  -mfpu=neon-vfpv4 -mvectorize-with-neon-quad \
+		  -fgcse-after-reload -fgcse-sm -fgcse-las \
+		  -ftree-loop-im -ftree-loop-ivcanon \
+		  -fivopts -ftree-vectorize -fmodulo-sched \
+		  -ffast-math
 
 CFLAGS_MODULE   = -DMODULE $(KERNEL_FLAGS)
 AFLAGS_MODULE   =
