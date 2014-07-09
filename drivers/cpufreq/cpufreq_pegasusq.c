@@ -36,7 +36,7 @@
  * It helps to keep variable names smaller, simpler
  */
 
-#define DEF_SAMPLING_DOWN_FACTOR		(2)
+#define DEF_SAMPLING_DOWN_FACTOR		(4)
 #define MAX_SAMPLING_DOWN_FACTOR		(100000)
 #define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(5)
 #define DEF_FREQUENCY_UP_THRESHOLD		(70)
