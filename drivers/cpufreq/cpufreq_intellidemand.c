@@ -23,9 +23,7 @@
 #include <linux/hrtimer.h>
 #include <linux/tick.h>
 #include <linux/ktime.h>
-#include <linux/kthread.h>
 #include <linux/sched.h>
-#include <linux/sched/rt.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 
@@ -116,7 +114,6 @@ static history_load_high hist_load_high[SUP_CORE_NUM] = {};
 #define MIN_SAMPLING_RATE_RATIO			(2)
 
 static unsigned int min_sampling_rate;
-static unsigned int skip_intellidemand = 0;
 
 #define LATENCY_MULTIPLIER			(1000)
 #define MIN_LATENCY_MULTIPLIER			(100)
@@ -176,7 +173,6 @@ struct dbs_work_struct {
 };
 
 static DEFINE_PER_CPU(struct dbs_work_struct, dbs_refresh_work);
-static DEFINE_PER_CPU(struct task_struct *, up_task);
 
 static struct dbs_tuners {
 	unsigned int sampling_rate;
@@ -1484,10 +1480,7 @@ static void do_dbs_timer(struct work_struct *work)
 		container_of(work, struct cpu_dbs_info_s, work.work);
 	unsigned int cpu = dbs_info->cpu;
 	int sample_type = dbs_info->sample_type;
-	int delay = msecs_to_jiffies(50);
-
-	if (skip_intellidemand)
-		goto sched_wait;
+	int delay;
 
 	mutex_lock(&dbs_info->timer_mutex);
 
@@ -1509,7 +1502,6 @@ static void do_dbs_timer(struct work_struct *work)
 			dbs_info->freq_lo, CPUFREQ_RELATION_H);
 		delay = dbs_info->freq_lo_jiffies;
 	}
-sched_wait:
 	queue_delayed_work_on(cpu, dbs_wq, &dbs_info->work, delay);
 	mutex_unlock(&dbs_info->timer_mutex);
 }
@@ -1696,43 +1688,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	return 0;
 }
 
-static int cpufreq_gov_dbs_up_task(void *data)
-{
-	struct cpufreq_policy *policy;
-	struct cpu_dbs_info_s *this_dbs_info;
-	unsigned int cpu = smp_processor_id();
-
-	while (1) {
-		set_current_state(TASK_INTERRUPTIBLE);
-		schedule();
-
-		if (kthread_should_stop())
-			break;
-
-		set_current_state(TASK_RUNNING);
-
-		get_online_cpus();
-
-		if (lock_policy_rwsem_write(cpu) < 0)
-			goto bail_acq_sema_failed;
-
-		this_dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
-		policy = this_dbs_info->cur_policy;
-		if (!policy) {
-
-			goto bail_incorrect_governor;
-		}
-
-bail_incorrect_governor:
-		unlock_policy_rwsem_write(cpu);
-
-bail_acq_sema_failed:
-		put_online_cpus();
-	}
-
-	return 0;
-}
-
 #ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_INTELLIDEMAND
 static
 #endif
@@ -1747,8 +1702,6 @@ static int __init cpufreq_gov_dbs_init(void)
 {
 	u64 idle_time;
 	unsigned int i;
-	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
-	struct task_struct *pthread;
 	int cpu = get_cpu();
 
 	idle_time = get_cpu_idle_time_us(cpu, NULL);
@@ -1781,16 +1734,6 @@ static int __init cpufreq_gov_dbs_init(void)
 		struct dbs_work_struct *dbs_work =
 			&per_cpu(dbs_refresh_work, i);
 
-		pthread = kthread_create_on_node(cpufreq_gov_dbs_up_task,
-								NULL, cpu_to_node(i),
-								"kdbs_up/%d", i);
-		if (likely(!IS_ERR(pthread))) {
-			kthread_bind(pthread, i);
-			sched_setscheduler_nocheck(pthread, SCHED_FIFO, &param);
-			get_task_struct(pthread);
-			per_cpu(up_task, i) = pthread;
-		}
-
 		mutex_init(&this_dbs_info->timer_mutex);
 		INIT_WORK(&dbs_work->work, dbs_refresh_callback);
 		dbs_work->cpu = i;
@@ -1810,10 +1753,6 @@ static void __exit cpufreq_gov_dbs_exit(void)
 		struct cpu_dbs_info_s *this_dbs_info =
 			&per_cpu(od_cpu_dbs_info, i);
 		mutex_destroy(&this_dbs_info->timer_mutex);
-		if (per_cpu(up_task, i)) {
-			kthread_stop(per_cpu(up_task, i));
-			put_task_struct(per_cpu(up_task, i));
-		}
 	}
 	destroy_workqueue(dbs_wq);
 }
