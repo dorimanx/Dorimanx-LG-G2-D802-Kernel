@@ -1029,7 +1029,27 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		if (unlikely(!wall_time || wall_time < idle_time))
 			continue;
 
-		cur_load = 100 * (wall_time - idle_time) / wall_time;
+		/*
+		 * If the CPU had gone completely idle, and a task just woke up
+		 * on this CPU now, it would be unfair to calculate 'load' the
+		 * usual way for this elapsed time-window, because it will show
+		 * near-zero load, irrespective of how CPU intensive the new
+		 * task is. This is undesirable for latency-sensitive bursty
+		 * workloads.
+		 *
+		 * To avoid this, we reuse the 'load' from the previous
+		 * time-window and give this task a chance to start with a
+		 * reasonably high CPU frequency.
+		 *
+		 * Detecting this situation is easy: the governor's deferrable
+		 * timer would not have fired during CPU-idle periods. Hence
+		 * an unusually large 'wall_time' indicates this scenario.
+		 */
+		if (unlikely(wall_time > (2 * dbs_tuners_ins.sampling_rate))) {
+			cur_load = j_dbs_info->prev_load;
+		} else {
+			cur_load = 100 * (wall_time - idle_time) / wall_time;
+		}
 
 		if (cur_load > max_load)
 			max_load = cur_load;
@@ -1378,12 +1398,17 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		dbs_enable++;
 		for_each_cpu(j, policy->cpus) {
 			struct cpu_dbs_info_s *j_dbs_info;
+			u64 tmp;
 			j_dbs_info = &per_cpu(od_cpu_dbs_info, j);
 			j_dbs_info->cur_policy = policy;
 
 			j_dbs_info->prev_cpu_idle = get_cpu_idle_time(j,
 						&j_dbs_info->prev_cpu_wall,
 						dbs_tuners_ins.io_is_busy);
+			tmp = j_dbs_info->prev_cpu_wall -
+				j_dbs_info->prev_cpu_idle;
+			do_div(tmp, j_dbs_info->prev_cpu_wall);
+			j_dbs_info->prev_load = 100 * tmp;
 			if (dbs_tuners_ins.ignore_nice)
 				j_dbs_info->prev_cpu_nice =
 						kcpustat_cpu(j).cpustat[CPUTIME_NICE];
