@@ -150,8 +150,6 @@ struct cpu_dbs_info_s {
 	 * when user is changing the governor or limits.
 	 */
 	struct mutex timer_mutex;
-
-	wait_queue_head_t sync_wq;
 };
 static DEFINE_PER_CPU(struct cpu_dbs_info_s, id_cpu_dbs_info);
 
@@ -1763,8 +1761,6 @@ static int __init cpufreq_gov_dbs_init(void)
 		mutex_init(&this_dbs_info->timer_mutex);
 		INIT_WORK(&dbs_work->work, dbs_refresh_callback);
 		dbs_work->cpu = i;
-
-		init_waitqueue_head(&this_dbs_info->sync_wq);
 	}
 
 	return cpufreq_register_governor(&cpufreq_gov_intellidemand);
