@@ -1235,6 +1235,8 @@ static ssize_t store_sync_freq(struct kobject *kobj,
 	ret = kstrtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
+	if (val <= 960000)
+		return count;
 	sync_freq = val;
 	return count;
 }

@@ -49,7 +49,7 @@
 #define DEF_SAMPLING_RATE			(50000)
 
 #define DEF_SYNC_FREQUENCY			(1574400)
-#define DEF_OPTIMAL_FREQUENCY			(960000)
+#define DEF_OPTIMAL_FREQUENCY			(1574400)
 #define DEF_OPTIMAL_MAX_FREQ			(1574400)
 
 /* Kernel tunabble controls */
@@ -360,6 +360,8 @@ static ssize_t store_sync_freq(struct kobject *a, struct attribute *b,
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+	if (input <= 960000)
+		return count;
 	dbs_tuners_ins.sync_freq = input;
 	return count;
 }
@@ -400,6 +402,8 @@ static ssize_t store_optimal_freq(struct kobject *a, struct attribute *b,
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+	if (input <= 960000)
+		return count;
 	dbs_tuners_ins.optimal_freq = input;
 	return count;
 }
@@ -485,6 +489,8 @@ static ssize_t store_optimal_max_freq(struct kobject *a, struct attribute *b,
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+	if (input <= 960000)
+		return count;
 	dbs_tuners_ins.optimal_max_freq = input;
 
 	return count;
