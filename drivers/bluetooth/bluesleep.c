@@ -119,16 +119,16 @@ static void bluesleep_sleep_work(struct work_struct *work);
 DECLARE_DELAYED_WORK(sleep_workqueue, bluesleep_sleep_work);
 
 /* Macros for handling sleep work */
-#define bluesleep_rx_busy()     schedule_delayed_work(&sleep_workqueue, 1000)
-#define bluesleep_tx_busy()     schedule_delayed_work(&sleep_workqueue, 1000)
-#define bluesleep_rx_idle()     schedule_delayed_work(&sleep_workqueue, 500)
-#define bluesleep_tx_idle()     schedule_delayed_work(&sleep_workqueue, 500)
+#define bluesleep_rx_busy()     schedule_delayed_work(&sleep_workqueue, 0)
+#define bluesleep_tx_busy()     schedule_delayed_work(&sleep_workqueue, 0)
+#define bluesleep_rx_idle()     schedule_delayed_work(&sleep_workqueue, 0)
+#define bluesleep_tx_idle()     schedule_delayed_work(&sleep_workqueue, 0)
 
 /*                                                      */
 #ifdef CONFIG_LGE_BLUESLEEP
 /* Fixed power consumtion problem when connected with Samsung stereo headset. */
-/* 10 second timeout */
-#define TX_TIMER_INTERVAL	10
+/* 5 second timeout */
+#define TX_TIMER_INTERVAL	5
 #else /*                      */
 /* 1 second timeout */
 #define TX_TIMER_INTERVAL	1
