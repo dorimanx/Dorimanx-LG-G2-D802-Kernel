@@ -399,25 +399,13 @@ typedef struct dhd_cmn {
 	#define DHD_PM_RESUME_RETURN		do { if (dhd_mmc_suspend) return; } while (0)
 
 	#define DHD_SPINWAIT_SLEEP_INIT(a) DECLARE_WAIT_QUEUE_HEAD(a);
- #if 1
-       #define SPINWAIT_SLEEP(a, exp, us) do { \
-                 uint countdown = (us) + 9999; \
-                 uint jiffies_div = (us)/10000; \
-                 jiffies_div = jiffies_div == 0 ? 1 : jiffies_div; \
-                 while ((exp) && (countdown >= 10000)) { \
-                         wait_event_interruptible_timeout(a, FALSE, HZ/jiffies_div); \
-                         countdown -= 10000; \
-                 } \
-            } while (0)
- #else
-       #define SPINWAIT_SLEEP(a, exp, us) do { \
-               uint countdown = (us) + 9999; \
-               while ((exp) && (countdown >= 10000)) { \
-                       wait_event_interruptible_timeout(a, FALSE, 1); \
-                       countdown -= 10000; \
-               } \
-           } while (0)
- #endif
+	#define SPINWAIT_SLEEP(a, exp, us) do { \
+		uint countdown = (us) + 9999; \
+		while ((exp) && (countdown >= 10000)) { \
+			wait_event_interruptible_timeout(a, FALSE, 1); \
+			countdown -= 10000; \
+		} \
+	} while (0)
 
 	#else
 
