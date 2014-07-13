@@ -6525,6 +6525,7 @@ static void dhd_hang_process(struct work_struct *work)
 		wl_cfg80211_hang(dev, WLAN_REASON_UNSPECIFIED);
 #endif
 	}
+	dhd->pub.hang_was_sent = 0;
 }
 
 int dhd_os_send_hang_message(dhd_pub_t *dhdp)
