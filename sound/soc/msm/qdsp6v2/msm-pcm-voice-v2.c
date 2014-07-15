@@ -524,7 +524,7 @@ static struct snd_kcontrol_new msm_voice_controls[] = {
 	/* Dummy control to expose stereo recording support
 	 * in kernel to user-space
 	 */
-	SOC_SINGLE_EXT("Stereo Recording", SND_SOC_NOPM, 0, VSID_MAX,
+	SOC_SINGLE_EXT("Stereo Recording", SND_SOC_NOPM, 1, VSID_MAX,
 				0, NULL, NULL),
 };
 
