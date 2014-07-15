@@ -1598,6 +1598,16 @@ int adm_get_lowlatency_copp_id(int port_index)
 
 	return atomic_read(&this_adm.copp_low_latency_id[port_index]);
 }
+#else
+int adm_get_copp_id(int port_index)
+{
+	return -EINVAL;
+}
+
+int adm_get_lowlatency_copp_id(int port_index)
+{
+	return -EINVAL;
+}
 #endif /* #ifdef CONFIG_RTAC */
 
 void adm_ec_ref_rx_id(int port_id)
