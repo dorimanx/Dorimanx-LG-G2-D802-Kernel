@@ -25,9 +25,6 @@
  *
  *  NOTES:
  *
- *   - async unlink should be used for avoiding the sleep inside lock.
- *     2.4.22 usb-uhci seems buggy for async unlinking and results in
- *     oops.  in such a cse, pass async_unlink=0 option.
  *   - the linked URBs would be preferred but not used so far because of
  *     the instability of unlinking.
  *   - type II is not supported properly.  there is no device which supports
@@ -84,7 +81,6 @@ static bool enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP;/* Enable this card *
 static int vid[SNDRV_CARDS] = { [0 ... (SNDRV_CARDS-1)] = -1 };
 static int pid[SNDRV_CARDS] = { [0 ... (SNDRV_CARDS-1)] = -1 };
 static int nrpacks = 8;		/* max. number of packets per urb */
-static bool async_unlink = 1;
 static int device_setup[SNDRV_CARDS]; /* device parameter for this card */
 static bool ignore_ctl_error;
 struct switch_dev *usbaudiosdev;
@@ -101,8 +97,6 @@ module_param_array(pid, int, NULL, 0444);
 MODULE_PARM_DESC(pid, "Product ID for the USB audio device.");
 module_param(nrpacks, int, 0644);
 MODULE_PARM_DESC(nrpacks, "Max. number of packets per URB.");
-module_param(async_unlink, bool, 0444);
-MODULE_PARM_DESC(async_unlink, "Use async unlink mode.");
 module_param_array(device_setup, int, NULL, 0444);
 MODULE_PARM_DESC(device_setup, "Specific device setup (if needed).");
 module_param(ignore_ctl_error, bool, 0444);
@@ -133,8 +127,9 @@ static void snd_usb_stream_disconnect(struct list_head *head)
 		subs = &as->substream[idx];
 		if (!subs->num_formats)
 			continue;
-		snd_usb_release_substream_urbs(subs, 1);
 		subs->interface = -1;
+		subs->data_endpoint = NULL;
+		subs->sync_endpoint = NULL;
 	}
 }
 
@@ -296,6 +291,7 @@ static int snd_usb_create_streams(struct snd_usb_audio *chip, int ctrlif)
 
 static int snd_usb_audio_free(struct snd_usb_audio *chip)
 {
+	mutex_destroy(&chip->mutex);
 	kfree(chip);
 	return 0;
 }
@@ -356,18 +352,19 @@ static int snd_usb_audio_create(struct usb_device *dev, int idx,
 		return -ENOMEM;
 	}
 
+	mutex_init(&chip->mutex);
 	init_rwsem(&chip->shutdown_rwsem);
 	chip->index = idx;
 	chip->dev = dev;
 	chip->card = card;
 	chip->setup = device_setup[idx];
 	chip->nrpacks = nrpacks;
-	chip->async_unlink = async_unlink;
 	chip->probing = 1;
 
 	chip->usb_id = USB_ID(le16_to_cpu(dev->descriptor.idVendor),
 			      le16_to_cpu(dev->descriptor.idProduct));
 	INIT_LIST_HEAD(&chip->pcm_list);
+	INIT_LIST_HEAD(&chip->ep_list);
 	INIT_LIST_HEAD(&chip->midi_list);
 	INIT_LIST_HEAD(&chip->mixer_list);
 
@@ -570,7 +567,7 @@ static void snd_usb_audio_disconnect(struct usb_device *dev,
 				     struct snd_usb_audio *chip)
 {
 	struct snd_card *card;
-	struct list_head *p;
+	struct list_head *p, *n;
 
 	if (chip == (void *)-1L)
 		return;
@@ -587,6 +584,10 @@ static void snd_usb_audio_disconnect(struct usb_device *dev,
 		/* release the pcm resources */
 		list_for_each(p, &chip->pcm_list) {
 			snd_usb_stream_disconnect(p);
+		}
+		/* release the endpoint resources */
+		list_for_each_safe(p, n, &chip->ep_list) {
+			snd_usb_endpoint_free(p);
 		}
 		/* release the midi resources */
 		list_for_each(p, &chip->midi_list) {
@@ -653,7 +654,6 @@ void snd_usb_autosuspend(struct snd_usb_audio *chip)
 static int usb_audio_suspend(struct usb_interface *intf, pm_message_t message)
 {
 	struct snd_usb_audio *chip = usb_get_intfdata(intf);
-	struct list_head *p;
 	struct snd_usb_stream *as;
 	struct usb_mixer_interface *mixer;
 
@@ -663,11 +663,12 @@ static int usb_audio_suspend(struct usb_interface *intf, pm_message_t message)
 	if (!PMSG_IS_AUTO(message)) {
 		snd_power_change_state(chip->card, SNDRV_CTL_POWER_D3hot);
 		if (!chip->num_suspended_intf++) {
-			list_for_each(p, &chip->pcm_list) {
-				as = list_entry(p, struct snd_usb_stream, list);
+			list_for_each_entry(as, &chip->pcm_list, list) {
 				snd_pcm_suspend_all(as->pcm);
+				as->substream[0].need_setup_ep =
+					as->substream[1].need_setup_ep = true;
 			}
- 		}
+		}
 	} else {
 		/*
 		 * otherwise we keep the rest of the system in the dark
