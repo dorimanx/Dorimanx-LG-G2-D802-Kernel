@@ -593,7 +593,7 @@ psy_error:
 static irqreturn_t max17048_interrupt_handler(int irq, void *data)
 {
 	struct max17048_chip *chip = data;
-	printk(KERN_ERR "%s : MAX17048 interupt occured\n", __func__);
+	/* printk(KERN_ERR "%s : MAX17048 interupt occured\n", __func__); */
 
 	if (chip == NULL) {
 		printk(KERN_INFO "%s : called before init.\n", __func__);
@@ -1219,21 +1219,21 @@ static int __devinit max17048_probe(struct i2c_client *client,
 #endif
 	}
 
-	/* sysfs path : /sys/bus/i2c/devices/84-0036/voltage */
+	/* sysfs path : /sys/bus/i2c/devices/1-0036/voltage */
 	ret = device_create_file(&client->dev, &dev_attr_voltage);
 	if (ret < 0) {
 		pr_err("%s:File device creation failed: %d\n", __func__, ret);
 		ret = -ENODEV;
 		goto err_create_file_voltage_failed;
 	}
-	/* sysfs path : /sys/bus/i2c/devices/84-0036/capacity */
+	/* sysfs path : /sys/bus/i2c/devices/1-0036/capacity */
 	ret = device_create_file(&client->dev, &dev_attr_capacity);
 	if (ret < 0) {
 		pr_err("%s:File device creation failed: %d\n", __func__, ret);
 		ret = -ENODEV;
 		goto err_create_file_capacity_failed;
 	}
-	/* sysfs path : /sys/bus/i2c/devices/84-0036/fuelrst */
+	/* sysfs path : /sys/bus/i2c/devices/1-0036/fuelrst */
 	ret = device_create_file(&client->dev, &dev_attr_fuelrst);
 	if (ret < 0) {
 		pr_err("%s:File device creation failed: %d\n", __func__, ret);
