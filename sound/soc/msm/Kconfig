@@ -278,20 +278,6 @@ config SND_FM_RADIO
 	help
 		mi2s interface for FM Radio
 
-config SND_VOICE_VOLUME
-	int "Level of voice volume"
-	range 4 256
-	default 9
-	help
-	  Level of voice volume.
-
-config SND_VOIP_VOLUME
-	int "Level of voice volume"
-	range 4 256
-	default 9
-	help
-	  Level of voice volume.
-
 config HIFI_SOUND
 	bool "HIFI 24bit SOUND"
 	default y
