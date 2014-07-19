@@ -34,7 +34,7 @@ verbose=
 while test $# -gt 0; do
   case "$1" in
   --vers | --versi | --versio | --version)
-    echo 'ldd (crosstool-NG hg+default-db3f7ffabdc8 - LINARO CORE) 2.19-2014.06'
+    echo 'ldd (crosstool-NG hg+default-db3f7ffabdc8 - LINARO CORE) 2.19-2014.07'
     printf $"Copyright (C) %s Free Software Foundation, Inc.
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
