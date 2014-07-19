@@ -932,6 +932,8 @@ static ssize_t store_sampling_down_factor(struct kobject *kobj,
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
+	if (val > 3)
+		val = 3;
 	sampling_down_factor = val;
 	return count;
 }
