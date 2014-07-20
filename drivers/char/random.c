@@ -484,7 +484,7 @@ static __u32 const twist_table[8] = {
  * the entropy is concentrated in the low-order bits.
  */
 static void _mix_pool_bytes(struct entropy_store *r, const void *in,
-				   int nbytes, __u8 out[64])
+			    int nbytes, __u8 out[64])
 {
 	unsigned long i, j, tap1, tap2, tap3, tap4, tap5;
 	int input_rotate;
@@ -655,13 +655,12 @@ retry:
 		goto retry;
 
 	r->entropy_total += nbits;
-	if (!r->initialized && nbits > 0) {
-		if (r->entropy_total > 128) {
-			if (r == &nonblocking_pool)
-				pr_notice("random: %s pool is initialized\n",
-					  r->name);
-			r->initialized = 1;
-			r->entropy_total = 0;
+	if (!r->initialized && r->entropy_total > 128) {
+		r->initialized = 1;
+		r->entropy_total = 0;
+		if (r == &nonblocking_pool) {
+			prandom_reseed_late();
+			pr_notice("random: %s pool is initialized\n", r->name);
 		}
 	}
 
@@ -1279,7 +1278,6 @@ static void init_std_data(struct entropy_store *r)
 		    !arch_get_random_long(&rv))
 			rv = random_get_entropy();
 		mix_pool_bytes(r, &rv, sizeof(rv), NULL);
-
 	}
 	mix_pool_bytes(r, utsname(), sizeof(*(utsname())), NULL);
 }
@@ -1294,7 +1292,6 @@ static void init_std_data(struct entropy_store *r)
  * take care not to overwrite the precious per platform data
  * we were given.
  */
-
 static int rand_initialize(void)
 {
 	init_std_data(&input_pool);
