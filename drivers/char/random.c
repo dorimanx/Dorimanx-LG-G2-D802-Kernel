@@ -1297,12 +1297,6 @@ void rand_initialize_disk(struct gendisk *disk)
 static ssize_t
 random_read(struct file *file, char __user *buf, size_t nbytes, loff_t *ppos)
 {
-/*
-random: entropy tweaks are all the rage nowadays
-use nonblocking for all.  Read this web page:
-http://lwn.net/Articles/489734/ - WIP
-*/
-#if 0
 	ssize_t n, retval = 0, count = 0;
 
 	if (nbytes == 0)
@@ -1350,8 +1344,6 @@ http://lwn.net/Articles/489734/ - WIP
 	}
 
 	return (count ? count : retval);
-#endif
-	return extract_entropy_user(&nonblocking_pool, buf, nbytes);
 }
 
 static ssize_t
