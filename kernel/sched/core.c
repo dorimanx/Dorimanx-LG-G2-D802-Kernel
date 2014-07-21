@@ -1067,6 +1067,9 @@ int rq_freq_margin(struct rq *rq)
 	int margin;
 	u64 demand;
 
+	if (!sysctl_sched_enable_hmp_task_placement)
+		return INT_MAX;
+
 	demand = scale_load_to_cpu(rq->prev_runnable_sum, rq->cpu);
 	demand *= 128;
 	demand = div64_u64(demand, max_task_load());
@@ -1322,6 +1325,9 @@ static void init_cpu_efficiency(void)
 	int i, efficiency;
 	unsigned int max = 0, min = UINT_MAX;
 
+	if (!sysctl_sched_enable_hmp_task_placement)
+		return;
+
 	for_each_possible_cpu(i) {
 		efficiency = arch_get_cpu_efficiency(i);
 		cpu_rq(i)->efficiency = efficiency;
@@ -1362,7 +1368,7 @@ static inline void set_window_start(struct rq *rq)
 	int cpu = cpu_of(rq);
 	struct rq *sync_rq = cpu_rq(sync_cpu);
 
-	if (likely(rq->window_start))
+	if (rq->window_start || !sysctl_sched_enable_hmp_task_placement)
 		return;
 
 	if (cpu == sync_cpu) {
@@ -1646,6 +1652,9 @@ static int register_sched_callback(void)
 {
 	int ret;
 
+	if (!sysctl_sched_enable_hmp_task_placement)
+		return 0;
+
 	ret = cpufreq_register_notifier(&notifier_policy_block,
 						CPUFREQ_POLICY_NOTIFIER);
 
@@ -1818,7 +1827,8 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 
 		atomic_notifier_call_chain(&task_migration_notifier, 0, &tmn);
 
-		if (p->on_rq || p->state == TASK_WAKING)
+		if (sysctl_sched_enable_hmp_task_placement &&
+		    (p->on_rq || p->state == TASK_WAKING))
 			fixup_busy_time(p, new_cpu);
 	}
 
@@ -3702,7 +3712,7 @@ static void update_cpu_load_active(struct rq *this_rq)
 	calc_load_account_active(this_rq);
 }
 
-#if defined(CONFIG_SMP) && !defined(CONFIG_SCHED_HMP)
+#if defined(CONFIG_SMP)
 
 /*
  * sched_exec - execve() is a valuable balancing opportunity, because at
@@ -3713,6 +3723,9 @@ void sched_exec(void)
 	struct task_struct *p = current;
 	unsigned long flags;
 	int dest_cpu;
+
+	if (sysctl_sched_enable_hmp_task_placement)
+		return;
 
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
 	dest_cpu = p->sched_class->select_task_rq(p, SD_BALANCE_EXEC, 0);
