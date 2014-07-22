@@ -43,8 +43,8 @@
 #include <linux/mutex.h>
 #include <linux/delay.h>
 #include <linux/swap.h>
-#include <linux/fs.h>
 #include <linux/powersuspend.h>
+#include <linux/fs.h>
 
 #include <trace/events/memkill.h>
 
@@ -56,7 +56,7 @@
 
 static uint32_t lowmem_debug_level = 1;
 static uint32_t lowmem_auto_oom = 1;
-static int lowmem_adj[6] = {
+static short lowmem_adj[6] = {
 	0,
 	1,
 	6,
@@ -102,7 +102,8 @@ static unsigned long lowmem_deathpending_timeout;
 
 static bool avoid_to_kill(uid_t uid)
 {
-	/* uid info
+	/* 
+	 * uid info
 	 * uid == 0 > root
 	 * uid == 1001 > radio
 	 * uid == 1002 > bluetooth
@@ -120,7 +121,8 @@ static bool protected_apps(char *comm)
 {
 	if (strcmp(comm, "d.process.acore") == 0 ||
 			strcmp(comm, "ndroid.systemui") == 0 ||
-			strcmp(comm, "ndroid.contacts") == 0) {
+			strcmp(comm, "ndroid.contacts") == 0 ||
+			strcmp(comm, "system:ui") == 0) {
 		return 1;
 	}
 	return 0;
@@ -527,7 +529,7 @@ static struct shrinker lowmem_shrinker = {
 	.seeks = DEFAULT_SEEKS * 16
 };
 
-static void low_mem_early_suspend(struct power_suspend *handler)
+static void low_mem_power_suspend(struct power_suspend *handler)
 {
 	if (lowmem_auto_oom) {
 		memcpy(lowmem_minfree_screen_on, lowmem_minfree, sizeof(lowmem_minfree));
@@ -542,7 +544,7 @@ static void low_mem_late_resume(struct power_suspend *handler)
 }
 
 static struct power_suspend low_mem_suspend = {
-	.suspend = low_mem_early_suspend,
+	.suspend = low_mem_power_suspend,
 	.resume = low_mem_late_resume,
 };
 
@@ -757,8 +759,8 @@ module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,
 module_param_array_named(minfree_screen_off, lowmem_minfree_screen_off, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
-module_param_named(lmk_fast_run, lmk_fast_run, int, S_IRUGO | S_IWUSR);
 module_param_named(auto_oom, lowmem_auto_oom, uint, S_IRUGO | S_IWUSR);
+module_param_named(lmk_fast_run, lmk_fast_run, int, S_IRUGO | S_IWUSR);
 
 module_init(lowmem_init);
 module_exit(lowmem_exit);
