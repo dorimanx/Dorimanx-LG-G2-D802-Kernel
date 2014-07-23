@@ -52,8 +52,6 @@ struct cpufreq_alucard_cpuinfo {
 	int pump_inc_step;
 	int pump_inc_step_at_min_freq;
 	int pump_dec_step;
-	int init_boostfreq;
-	bool init_boost;
 	int cur_load;
 };
 
@@ -128,10 +126,6 @@ show_pcpu_param(pump_dec_step, 1);
 show_pcpu_param(pump_dec_step, 2);
 show_pcpu_param(pump_dec_step, 3);
 show_pcpu_param(pump_dec_step, 4);
-show_pcpu_param(init_boostfreq, 1);
-show_pcpu_param(init_boostfreq, 2);
-show_pcpu_param(init_boostfreq, 3);
-show_pcpu_param(init_boostfreq, 4);
 
 #define store_pcpu_param(file_name, num_core)		\
 static ssize_t store_##file_name##_##num_core		\
@@ -194,10 +188,6 @@ store_pcpu_pump_param(pump_dec_step, 1);
 store_pcpu_pump_param(pump_dec_step, 2);
 store_pcpu_pump_param(pump_dec_step, 3);
 store_pcpu_pump_param(pump_dec_step, 4);
-store_pcpu_param(init_boostfreq, 1);
-store_pcpu_param(init_boostfreq, 2);
-store_pcpu_param(init_boostfreq, 3);
-store_pcpu_param(init_boostfreq, 4);
 
 define_one_global_rw(pump_inc_step_at_min_freq_1);
 define_one_global_rw(pump_inc_step_at_min_freq_2);
@@ -211,10 +201,6 @@ define_one_global_rw(pump_dec_step_1);
 define_one_global_rw(pump_dec_step_2);
 define_one_global_rw(pump_dec_step_3);
 define_one_global_rw(pump_dec_step_4);
-define_one_global_rw(init_boostfreq_1);
-define_one_global_rw(init_boostfreq_2);
-define_one_global_rw(init_boostfreq_3);
-define_one_global_rw(init_boostfreq_4);
 
 /* sampling_rate */
 static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
@@ -391,10 +377,6 @@ static struct attribute *alucard_attributes[] = {
 	&pump_dec_step_2.attr,
 	&pump_dec_step_3.attr,
 	&pump_dec_step_4.attr,
-	&init_boostfreq_1.attr,
-	&init_boostfreq_2.attr,
-	&init_boostfreq_3.attr,
-	&init_boostfreq_4.attr,
 	NULL
 };
 
@@ -439,7 +421,6 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 	int j;
 	unsigned int cpu;
 	unsigned long flags;
-	bool init_boost = false;
 	unsigned int target_freq;
 	bool boost_cpu_load = (alucard_tuners_ins.boost_cpu_load > 0);
 	
@@ -457,10 +438,6 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 			(cur_idle_time - this_alucard_cpuinfo->prev_cpu_idle);
 	this_alucard_cpuinfo->prev_cpu_idle = cur_idle_time;
 	spin_unlock_irqrestore(&this_alucard_cpuinfo->load_lock, flags);
-
-	if (this_alucard_cpuinfo->init_boost && this_alucard_cpuinfo->init_boostfreq > 0) {
-		init_boost = true;
-	}
 
 	/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",cpu, wall_time, idle_time);*/
 	if (wall_time >= idle_time) { /*if wall_time < idle_time, evaluate cpu load next time*/
@@ -508,20 +485,12 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 				index -= pump_dec_step;
 		}
 
-		if (init_boost == false) {
-			target_freq = this_alucard_cpuinfo->freq_table[index].frequency;
-		} else {
-			this_alucard_cpuinfo->init_boost = false;
-			target_freq = this_alucard_cpuinfo->init_boostfreq > this_alucard_cpuinfo->freq_table[index].frequency ? this_alucard_cpuinfo->init_boostfreq : this_alucard_cpuinfo->freq_table[index].frequency;
-		}
+		target_freq = this_alucard_cpuinfo->freq_table[index].frequency;
 
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, this_alucard_cpuinfo->freq_table[index].frequency, cpu_policy->cur, cpu_policy->min, this_alucard_cpuinfo->freq_table[hi_index].frequency);*/
 		if (target_freq != cpu_policy->cur) {
 			__cpufreq_driver_target(cpu_policy, target_freq, CPUFREQ_RELATION_L);
 		}
-	} else if (init_boost == true) {
-		this_alucard_cpuinfo->init_boost = false;
-		__cpufreq_driver_target(cpu_policy, this_alucard_cpuinfo->init_boostfreq, CPUFREQ_RELATION_L);
 	}
 }
 
@@ -594,7 +563,6 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 				return rc;
 			}
 		}
-		this_alucard_cpuinfo->init_boost = true;
 		mutex_unlock(&alucard_mutex);
 
 		spin_lock_init(&this_alucard_cpuinfo->load_lock);
@@ -624,7 +592,6 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 					   &alucard_attr_group);			
 		}
 		this_alucard_cpuinfo->cur_load = 0;
-		this_alucard_cpuinfo->init_boost = true;
 		mutex_unlock(&alucard_mutex);
 		
 		break;
@@ -687,7 +654,6 @@ static int __init cpufreq_gov_alucard_init(void)
 			this_alucard_cpuinfo->pump_inc_step = 1;
 
 		this_alucard_cpuinfo->pump_dec_step = 1;
-		this_alucard_cpuinfo->init_boostfreq = 0;
 	}
 
 	return cpufreq_register_governor(&cpufreq_gov_alucard);
