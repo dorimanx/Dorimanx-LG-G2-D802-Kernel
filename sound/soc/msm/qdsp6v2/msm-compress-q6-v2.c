@@ -718,9 +718,17 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 		.rampingcurve = SOFT_VOLUME_CURVE_LINEAR,
 	};
 	if (prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S24_LE)
-		bits_per_sample = 24;
+#ifdef CONFIG_HIFI_SOUND
+		prtd->bits_per_sample = 24;
+#else
+		prtd->bits_per_sample = 24;
+#endif
 	if (prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S32_LE)
+#ifdef CONFIG_HIFI_SOUND
+		prtd->bits_per_sample = 32;
+#else
 		bits_per_sample = 32;
+#endif
 
 	pr_debug("%s: stream_id %d\n", __func__, ac->stream_id);
 #ifdef CONFIG_HIFI_SOUND
