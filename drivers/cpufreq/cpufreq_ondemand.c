@@ -90,6 +90,12 @@ struct cpu_dbs_info_s {
 	u64 prev_cpu_iowait;
 	u64 prev_cpu_wall;
 	u64 prev_cpu_nice;
+	unsigned int prev_load;
+	/*
+	 * Flag to ensure that we copy the previous load only once, upon the
+	 * first wake-up from idle.
+	 */
+	bool copy_prev_load;
 	struct cpufreq_policy *cur_policy;
 	struct delayed_work work;
 	struct cpufreq_frequency_table *freq_table;
@@ -97,7 +103,6 @@ struct cpu_dbs_info_s {
 	unsigned int freq_lo_jiffies;
 	unsigned int freq_hi_jiffies;
 	unsigned int rate_mult;
-	unsigned int prev_load;
 	unsigned int max_load;
 	int cpu;
 	unsigned int sample_type:1;
@@ -784,10 +789,13 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	unsigned int max_load_freq;
 	/* Current load across this CPU */
 	unsigned int cur_load = 0;
+
 	unsigned int max_load_other_cpu = 0;
+	unsigned int sampling_rate;
 	struct cpufreq_policy *policy;
 	unsigned int j;
 
+	sampling_rate = dbs_tuners_ins.sampling_rate * this_dbs_info->rate_mult;
 	this_dbs_info->freq_lo = 0;
 	policy = this_dbs_info->cur_policy;
 	if (policy == NULL)
@@ -873,16 +881,26 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		 *
 		 * To avoid this, we reuse the 'load' from the previous
 		 * time-window and give this task a chance to start with a
-		 * reasonably high CPU frequency.
+		 * reasonably high CPU frequency. (However, we shouldn't over-do
+		 * this copy, lest we get stuck at a high load (high frequency)
+		 * for too long, even when the current system load has actually
+		 * dropped down. So we perform the copy only once, upon the
+		 * first wake-up from idle.)
+		 *
 		 *
 		 * Detecting this situation is easy: the governor's deferrable
 		 * timer would not have fired during CPU-idle periods. Hence
-		 * an unusually large 'wall_time' indicates this scenario.
+		 * an unusually large 'wall_time' (as compared to the sampling
+		 * rate) indicates this scenario.
 		 */
-		if (unlikely(wall_time > (2 * dbs_tuners_ins.sampling_rate))) {
+		if (unlikely(wall_time > 2 * sampling_rate) &&
+					j_dbs_info->copy_prev_load) {
 			cur_load = j_dbs_info->prev_load;
+			j_dbs_info->copy_prev_load = false;
 		} else {
 			cur_load = 100 * (wall_time - idle_time) / wall_time;
+			j_dbs_info->prev_load = cur_load;
+			j_dbs_info->copy_prev_load = true;
 		}
 
 		j_dbs_info->max_load  = max(cur_load, j_dbs_info->prev_load);
@@ -1131,17 +1149,21 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		dbs_enable++;
 		for_each_cpu(j, policy->cpus) {
 			struct cpu_dbs_info_s *j_dbs_info;
-			u64 tmp;
+			unsigned int prev_load;
+
 			j_dbs_info = &per_cpu(od_cpu_dbs_info, j);
 			j_dbs_info->cur_policy = policy;
 
 			j_dbs_info->prev_cpu_idle = get_cpu_idle_time(j,
 						&j_dbs_info->prev_cpu_wall,
 						dbs_tuners_ins.io_is_busy);
-			tmp = j_dbs_info->prev_cpu_wall -
-				j_dbs_info->prev_cpu_idle;
-			do_div(tmp, j_dbs_info->prev_cpu_wall);
-			j_dbs_info->prev_load = 100 * tmp;
+
+			prev_load = (unsigned int)
+				(j_dbs_info->prev_cpu_wall - j_dbs_info->prev_cpu_idle);
+			j_dbs_info->prev_load = 100 * prev_load /
+				(unsigned int) j_dbs_info->prev_cpu_wall;
+			j_dbs_info->copy_prev_load = true;
+
 			if (dbs_tuners_ins.ignore_nice)
 				j_dbs_info->prev_cpu_nice =
 						kcpustat_cpu(j).cpustat[CPUTIME_NICE];
