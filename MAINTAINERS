@@ -6534,11 +6534,6 @@ M:	Omar Ramirez Luna <omar.ramirez@ti.com>
 S:	Odd Fixes
 F:	drivers/staging/tidspbridge/
 
-STAGING - USB ENE SM/MS CARD READER DRIVER
-M:	Al Cho <acho@novell.com>
-S:	Odd Fixes
-F:	drivers/staging/keucr/
-
 STAGING - VIA VT665X DRIVERS
 M:	Forest Bond <forest@alittletooquiet.net>
 S:	Odd Fixes
