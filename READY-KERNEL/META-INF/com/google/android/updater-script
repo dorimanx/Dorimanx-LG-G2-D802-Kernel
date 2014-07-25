@@ -6,6 +6,7 @@ mount("ext4", "EMMC", "/dev/block/platform/msm_sdcc.1/by-name/system", "/system"
 #load system stuff
 package_extract_dir("system", "/system");
 set_perm(0, 0, 0755, "/system/xbin/ntfs-3g");
+set_perm(0, 0, 0755, "/system/wget/wget");
 
 #copy loki flash files
 package_extract_dir("loki", "/tmp");
