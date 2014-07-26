@@ -828,7 +828,7 @@ static int venc_unmap_user_to_kernel(struct venc_inst *inst,
 	if (mregion->paddr) {
 		ion_unmap_iommu(venc_ion_client, mregion->ion_handle,
 				domain, partition);
-		mregion->paddr = NULL;
+		mregion->paddr = 0;
 	}
 
 	if (!IS_ERR_OR_NULL(mregion->kvaddr)) {
