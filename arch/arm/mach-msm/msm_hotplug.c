@@ -10,6 +10,10 @@
  *
  */
 
+#ifdef CONFIG_MACH_LGE
+#define CONFIG_LCD_NOTIFY 1
+#endif
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/cpu.h>
@@ -627,9 +631,11 @@ static struct power_suspend msm_hotplug_power_suspend_driver = {
 static struct early_suspend msm_hotplug_early_suspend_driver = {
 	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 10,
 #endif
+#ifndef CONFIG_LCD_NOTIFY
 	.suspend = __msm_hotplug_suspend,
 	.resume = __msm_hotplug_resume,
 };
+#endif
 #endif
 
 static void hotplug_input_event(struct input_handle *handle, unsigned int type,

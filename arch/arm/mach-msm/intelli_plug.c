@@ -10,6 +10,10 @@
  *
  */
 
+#ifdef CONFIG_MACH_LGE
+#define CONFIG_LCD_NOTIFY 1
+#endif
+
 #include <linux/workqueue.h>
 #include <linux/cpu.h>
 #include <linux/sched.h>

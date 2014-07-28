@@ -16,6 +16,10 @@
  *
  */
 
+#ifdef CONFIG_MACH_LGE
+#define CONFIG_LCD_NOTIFY 1
+#endif
+
 #include <linux/module.h>
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
@@ -200,9 +204,11 @@ static struct power_suspend msm_limit_power_suspend_driver = {
 static struct early_suspend msm_limit_early_suspend_driver = {
 	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 10,
 #endif
+#ifndef CONFIG_LCD_NOTIFY
 	.suspend = __msm_limit_suspend,
 	.resume = __msm_limit_resume,
 };
+#endif
 #endif
 
 static int msm_cpufreq_limit_start(void)
