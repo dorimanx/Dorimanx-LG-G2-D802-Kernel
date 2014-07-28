@@ -60,7 +60,7 @@ static uint32_t hist_index = 0;
 static struct msm_thermal_data msm_thermal_info;
 
 static struct msm_thermal_data msm_thermal_info_local = {
-	.sensor_id = 5,
+	.sensor_id = 0,
 	.poll_ms = DEFAULT_POLLING_MS,
 	.limit_temp_degC = 77,
 	.temp_hysteresis_degC = 5,
