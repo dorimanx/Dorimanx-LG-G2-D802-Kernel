@@ -182,6 +182,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 		{false, false},
 		{false, false}
 	};
+	int delay;
 
 	rq_avg = get_nr_run_avg();
 
@@ -304,8 +305,14 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 	if (force_up == true)
 		force_cpu_up = false;
 
+	delay = msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate);
+
+	if (num_online_cpus() > 1) {
+		delay -= jiffies % delay;
+	}
+
 	queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
-							  msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate));
+							  delay);
 }
 
 #if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
