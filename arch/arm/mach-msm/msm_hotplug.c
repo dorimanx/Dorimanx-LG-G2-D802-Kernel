@@ -578,6 +578,8 @@ static void __ref msm_hotplug_resume(struct work_struct *work)
 	/* Resume hotplug workqueue if required */
 	if (required_reschedule)
 		reschedule_hotplug_work();
+
+	dprintk("%s: resumed.\n", MSM_HOTPLUG);
 }
 
 #ifdef CONFIG_LCD_NOTIFY
@@ -591,7 +593,6 @@ static void __msm_hotplug_suspend(struct early_suspend *handler)
 	INIT_DELAYED_WORK(&hotplug.suspend_work, msm_hotplug_suspend);
 	schedule_delayed_work_on(0, &hotplug.suspend_work,
 			msecs_to_jiffies(hotplug.suspend_defer_time * 1000));
-	dprintk("%s: suspended.\n", MSM_HOTPLUG);
 }
 
 #ifdef CONFIG_LCD_NOTIFY
@@ -604,7 +605,6 @@ static void __msm_hotplug_resume(struct early_suspend *handler)
 {
 	cancel_delayed_work_sync(&hotplug.suspend_work);
 	schedule_work_on(0, &hotplug.resume_work);
-	dprintk("%s: resumed.\n", MSM_HOTPLUG);
 }
 
 #ifdef CONFIG_LCD_NOTIFY
