@@ -6346,7 +6346,6 @@ msmsdcc_probe(struct platform_device *pdev)
 	if (host->pdev->id == bcmdhd_id) {
 		plat->register_status_notify = sdc2_status_register;
 		plat->status = sdc2_status;
-		mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
 	}
 }
 #endif
