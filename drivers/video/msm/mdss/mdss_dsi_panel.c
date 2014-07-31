@@ -51,10 +51,6 @@ static struct dsi_panel_cmds lge_ief_off_cmds;
 #endif
 
 #ifdef CONFIG_LGE_LCD_TUNING
-/*             
-                                          
-                                   
- */
 extern int num_cmds;
 extern int tun_len;
 extern char init_buf[TUNING_REGSIZE];
@@ -66,7 +62,7 @@ static int num_of_on_cmds;
 static int num_of_off_cmds;
 static char *on_cmds, *off_cmds;
 
-#endif /*                       */
+#endif /* CONFIG_LGE_LCD_TUNING */
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
@@ -141,13 +137,13 @@ lcd_maker_id get_panel_maker_id(void)
 	return maker_id;
 }
 EXPORT_SYMBOL(get_panel_maker_id);
-/*        
-                                                      
-                                                
- 
-                                                      
- 
-                                                                    
+/*TODO_LGE
+static ssize_t panel_maker_id_show(struct device *dev,
+							struct device_attribute *attr, char *buf)
+{
+    return sprintf(buf, "%d\n", get_panel_maker_id());
+}
+static DEVICE_ATTR(panel_maker_id, 0444, panel_maker_id_show, NULL);
 */
 #endif
 
@@ -314,10 +310,6 @@ void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 				panel_data);
 
 #ifndef CONFIG_MACH_LGE
-	/*             
-                                    
-                                   
-  */
 	if (!gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 		pr_debug("%s:%d, reset line not configured\n",
 			   __func__, __LINE__);
@@ -360,10 +352,6 @@ void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	} else {
 		gpio_set_value((ctrl_pdata->rst_gpio), 0);
 #ifndef CONFIG_MACH_LGE
-		/*             
-                                     
-                                    
-   */
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
 #endif
@@ -510,10 +498,6 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 
 	if (ctrl->on_cmds.cmd_cnt)
 #ifdef CONFIG_LGE_LCD_TUNING
-		/*           
-                                           
-                                     
-   */
 		mdss_dsi_cmds_tx(pdata, &dsi_panel_tx_buf,
 				tun_dsi_panel_on_cmds,
 				num_of_on_cmds);

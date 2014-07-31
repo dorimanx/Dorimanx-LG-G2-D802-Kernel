@@ -40,9 +40,10 @@
 #include "SynaImage_for_G2_LGIT_revA.h"
 #if defined(CONFIG_MACH_MSM8974_G2_ATT) || \
 	defined(CONFIG_MACH_MSM8974_G2_TMO_US) || \
-	defined(CONFIG_MACH_MSM8974_G2_CA)
-#include "d800_801_803_driver/SynaImage_for_G2_LGIT_revB.h"
-#include "d800_801_803_driver/SynaImage_for_G2_TPK.h"
+	defined(CONFIG_MACH_MSM8974_G2_CA) || \
+	defined(CONFIG_MACH_MSM8974_G2_SPR)
+#include "D800_801_803_LS980_driver/SynaImage_for_G2_LGIT_revB.h"
+#include "D800_801_803_LS980_driver/SynaImage_for_G2_TPK.h"
 #else
 #include "SynaImage_for_G2_LGIT_revB.h"
 #include "SynaImage_for_G2_TPK.h"
