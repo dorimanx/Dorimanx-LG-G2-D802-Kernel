@@ -483,11 +483,11 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 			return;
 		}
 		cpufreq_frequency_table_target(cpu_policy, this_nightmare_cpuinfo->freq_table, tmp_freq,
-			CPUFREQ_RELATION_L, &index);
+			CPUFREQ_RELATION_C, &index);
 	 	next_freq = this_nightmare_cpuinfo->freq_table[index].frequency;
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq);*/
 		if (next_freq != cpu_policy->cur) {
-			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
+			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_C);
 		}
 	}
 
