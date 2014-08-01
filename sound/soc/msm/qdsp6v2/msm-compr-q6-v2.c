@@ -1152,10 +1152,6 @@ static int msm_compr_ioctl_shared(struct snd_pcm_substream *substream,
 			}
 			pr_debug("SND_AUDIOCODEC_AC3\n");
 			compr->codec = FORMAT_AC3;
-			if (copy_from_user(params_value, (void *)ddp->params,
-					params_length))
-				pr_err("%s: copy ddp params value, size=%d\n",
-					__func__, params_length);
 			pr_debug("params_length: %d\n", ddp->params_length);
 			for (i = 0; i < params_length/sizeof(int); i++)
 				pr_debug("params_value[%d]: %x\n", i,
@@ -1195,10 +1191,6 @@ static int msm_compr_ioctl_shared(struct snd_pcm_substream *substream,
 			}
 			pr_debug("SND_AUDIOCODEC_EAC3\n");
 			compr->codec = FORMAT_EAC3;
-			if (copy_from_user(params_value, (void *)ddp->params,
-					params_length))
-				pr_err("%s: copy ddp params value, size=%d\n",
-					__func__, params_length);
 			pr_debug("params_length: %d\n", ddp->params_length);
 			for (i = 0; i < ddp->params_length; i++)
 				pr_debug("params_value[%d]: %x\n", i,
@@ -1311,13 +1303,8 @@ struct snd_enc_generic32 {
 	u32 bw;	/* encoder bandwidth */
 	s32 reserved[15];
 };
-struct snd_dec_dts32 {
-	u32 modelIdLength;
-	compat_uptr_t modelId;
-};
 struct snd_dec_ddp32 {
 	u32 params_length;
-	compat_uptr_t params;
 	u32 params_id[18];
 	u32 params_value[18];
 };
@@ -1328,7 +1315,6 @@ union snd_codec_options32 {
 	struct snd_enc_real32 real;
 	struct snd_enc_flac32 flac;
 	struct snd_enc_generic32 generic;
-	struct snd_dec_dts32 dts;
 	struct snd_dec_ddp32 ddp;
 };
 
@@ -1344,8 +1330,6 @@ struct snd_codec32 {
 	u32 ch_mode;
 	u32 format;
 	u32 align;
-	u32 transcode_dts;
-	struct snd_dec_dts32 dts;
 	union snd_codec_options32 options;
 	u32 reserved[3];
 };
@@ -1472,7 +1456,6 @@ static int msm_compr_compat_ioctl(struct snd_pcm_substream *substream,
 		params.codec.ch_mode = params32.codec.ch_mode;
 		params.codec.format = params32.codec.format;
 		params.codec.align = params32.codec.align;
-		params.codec.transcode_dts = params32.codec.transcode_dts;
 
 		switch (params.codec.id) {
 		case SND_AUDIOCODEC_WMA:
@@ -1515,17 +1498,11 @@ static int msm_compr_compat_ioctl(struct snd_pcm_substream *substream,
 		case SND_AUDIOCODEC_DTS_LBR:
 		case SND_AUDIOCODEC_DTS_LBR_PASS_THROUGH:
 		case SND_AUDIOCODEC_DTS_TRANSCODE_LOOPBACK:
-			params.codec.options.dts.modelIdLength =
-			params32.codec.options.dts.modelIdLength;
-			params.codec.options.dts.modelId =
-			compat_ptr(params32.codec.options.dts.modelId);
 		break;
 		case SND_AUDIOCODEC_AC3:
 		case SND_AUDIOCODEC_EAC3:
 			params.codec.options.ddp.params_length =
 			params32.codec.options.ddp.params_length;
-			params.codec.options.ddp.params =
-			compat_ptr(params32.codec.options.ddp.params);
 			memcpy(params.codec.options.ddp.params_value,
 			params32.codec.options.ddp.params_value,
 			sizeof(params32.codec.options.ddp.params_value));
