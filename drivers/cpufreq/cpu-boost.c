@@ -13,10 +13,6 @@
 
 #define pr_fmt(fmt) "cpu-boost: " fmt
 
-#ifdef CONFIG_MACH_LGE
-#define CONFIG_LCD_NOTIFY 1
-#endif
-
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/notifier.h>
@@ -29,9 +25,6 @@
 #include <linux/slab.h>
 #include <linux/input.h>
 #include <linux/time.h>
-#ifdef CONFIG_LCD_NOTIFY
-#include <linux/lcd_notify.h>
-#endif
 
 struct cpu_sync {
 	struct delayed_work boost_rem;
@@ -52,10 +45,6 @@ static DEFINE_PER_CPU(struct task_struct *, thread);
 static struct workqueue_struct *cpu_boost_wq;
 
 static struct work_struct input_boost_work;
-
-#ifdef CONFIG_LCD_NOTIFY
-static struct notifier_block notif;
-#endif
 
 static struct work_struct plug_boost_work;
 
@@ -82,11 +71,6 @@ module_param(plug_boost_freq, uint, 0644);
 
 static unsigned int plug_boost_ms = 0;
 module_param(plug_boost_ms, uint, 0644);
-
-#ifdef CONFIG_LCD_NOTIFY
-static bool wakeup_boost = 1;
-module_param(wakeup_boost, bool, 0644);
-#endif
 
 static u64 last_input_time;
 #define MIN_INPUT_INTERVAL (150 * USEC_PER_MSEC)
@@ -459,29 +443,6 @@ static struct notifier_block __refdata cpu_nblk = {
         .notifier_call = cpuboost_cpu_callback,
 };
 
-#ifdef CONFIG_LCD_NOTIFY
-static int lcd_notifier_callback(struct notifier_block *nb,
-				unsigned long event, void *data)
-{
-	switch (event) {
-	case LCD_EVENT_OFF_START:
-		break;
-	case LCD_EVENT_ON_END:
-		if (!wakeup_boost || !input_boost_freq ||
-		     work_pending(&input_boost_work))
-			break;
-		pr_info("Wakeup boost for LCD on event.\n");
-		queue_work(cpu_boost_wq, &input_boost_work);
-		last_input_time = ktime_to_us(ktime_get());
-		break;
-	default:
-		break;
-	}
-
-	return NOTIFY_OK;
-}
-#endif
-
 static int cpu_boost_init(void)
 {
 	int cpu, ret;
@@ -517,13 +478,6 @@ static int cpu_boost_init(void)
 	ret = register_hotcpu_notifier(&cpu_nblk);
 	if (ret)
 		pr_err("Cannot register cpuboost hotplug handler.\n");
-
-#ifdef CONFIG_LCD_NOTIFY
-	notif.notifier_call = lcd_notifier_callback;
-	ret = lcd_register_client(&notif);
-        if (ret != 0)
-                pr_err("Failed to register hotplug LCD notifier callback.\n");
-#endif
 
 	return ret;
 }
