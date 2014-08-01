@@ -110,10 +110,6 @@ static void msm_limit_suspend(struct work_struct *work)
 	/* Save current instance */
 	limit.resume_max_freq = limited_max_freq;
 
-	/* Do not suspend if suspend freq is not available */
-	if (limit.suspend_max_freq == 0)
-		return;
-
 	mutex_lock(&limit.msm_limiter_mutex);
 	limit.suspended = 1;
 	mutex_unlock(&limit.msm_limiter_mutex);
@@ -132,8 +128,8 @@ static void __ref msm_limit_resume(struct work_struct *work)
 {
 	int cpu = 0, ret = 0;
 
-	/* Do not resume if suspend freq is not available */
-	if (limit.suspend_max_freq == 0 || !limit.suspended)
+	/* Do not resume if didnt suspended */
+	if (!limit.suspended)
 		return;
 
 	mutex_lock(&limit.msm_limiter_mutex);
@@ -159,6 +155,10 @@ static void __msm_limit_suspend(struct power_suspend *handler)
 static void __msm_limit_suspend(struct early_suspend *handler)
 #endif
 {
+	/* Do not suspend if suspend freq is not available */
+	if (limit.suspend_max_freq == 0)
+		return;
+
 	INIT_DELAYED_WORK(&limit.suspend_work, msm_limit_suspend);
 	queue_delayed_work_on(0, limiter_wq, &limit.suspend_work,
 			msecs_to_jiffies(limit.suspend_defer_time * 1000));
@@ -172,6 +172,10 @@ static void __msm_limit_resume(struct power_suspend *handler)
 static void __msm_limit_resume(struct early_suspend *handler)
 #endif
 {
+	/* Do not resume if suspend freq is not available */
+	if (limit.suspend_max_freq == 0)
+		return;
+
 	flush_workqueue(limiter_wq);
 	cancel_delayed_work_sync(&limit.suspend_work);
 	queue_work_on(0, limiter_wq, &limit.resume_work);
