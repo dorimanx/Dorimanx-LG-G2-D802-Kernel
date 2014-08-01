@@ -13,6 +13,10 @@
 
 #define pr_fmt(fmt) "cpu-boost: " fmt
 
+#ifdef CONFIG_MACH_LGE
+#define CONFIG_LCD_NOTIFY 1
+#endif
+
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/notifier.h>
@@ -456,19 +460,17 @@ static struct notifier_block __refdata cpu_nblk = {
 };
 
 #ifdef CONFIG_LCD_NOTIFY
-static int lcd_notifier_callback(struct notifier_block *this,
+static int lcd_notifier_callback(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
 	switch (event) {
-	case LCD_EVENT_ON_START:
-	case LCD_EVENT_OFF_END:
 	case LCD_EVENT_OFF_START:
 		break;
 	case LCD_EVENT_ON_END:
 		if (!wakeup_boost || !input_boost_freq ||
 		     work_pending(&input_boost_work))
 			break;
-		pr_debug("Wakeup boost for LCD on event.\n");
+		pr_info("Wakeup boost for LCD on event.\n");
 		queue_work(cpu_boost_wq, &input_boost_work);
 		last_input_time = ktime_to_us(ktime_get());
 		break;

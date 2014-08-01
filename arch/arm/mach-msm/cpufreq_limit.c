@@ -182,9 +182,6 @@ static int lcd_notifier_callback(struct notifier_block *nb,
                                  unsigned long event, void *data)
 {
 	switch (event) {
-	case LCD_EVENT_ON_END:
-	case LCD_EVENT_OFF_START:
-		break;
 	case LCD_EVENT_ON_START:
 		__msm_limit_resume();
 		break;
