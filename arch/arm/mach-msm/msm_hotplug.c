@@ -10,10 +10,6 @@
  *
  */
 
-#ifdef CONFIG_MACH_LGE
-#define CONFIG_LCD_NOTIFY 1
-#endif
-
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/cpu.h>
