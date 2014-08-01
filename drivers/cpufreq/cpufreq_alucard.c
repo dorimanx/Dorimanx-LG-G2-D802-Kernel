@@ -461,10 +461,10 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 
 		/* Maximum increasing frequency possible */
 		cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, max(cur_load * (cpu_policy->max / 100), cpu_policy->min),
-				CPUFREQ_RELATION_L, &hi_index);
+				CPUFREQ_RELATION_C, &hi_index);
 
 		cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, cpu_policy->cur,
-				CPUFREQ_RELATION_L, &index);
+				CPUFREQ_RELATION_C, &index);
 	
 		/* CPUs Online Scale Frequency*/
 		if (cpu_policy->cur < freq_responsiveness) {
@@ -491,7 +491,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, this_alucard_cpuinfo->freq_table[index].frequency, cpu_policy->cur, cpu_policy->min, this_alucard_cpuinfo->freq_table[hi_index].frequency);*/
 		if (target_freq != cpu_policy->cur) {
-			__cpufreq_driver_target(cpu_policy, target_freq, CPUFREQ_RELATION_L);
+			__cpufreq_driver_target(cpu_policy, target_freq, CPUFREQ_RELATION_C);
 		}
 	}
 }
