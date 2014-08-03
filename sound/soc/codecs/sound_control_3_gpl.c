@@ -409,6 +409,9 @@ static ssize_t headphone_pa_gain_store(struct kobject *kobj,
 	sscanf(buf, "%u %u %u", &lval, &rval, &chksum);
 
 	if (calc_checksum(lval, rval, chksum)) {
+#ifdef CONFIG_MACH_LGE
+		lg_snd_ctrl_locked = 0;
+#endif
 		gain = taiko_read(fauxsound_codec_ptr, TAIKO_A_RX_HPH_L_GAIN);
 		out = (gain & 0xf0) | lval;
 		taiko_write(fauxsound_codec_ptr, TAIKO_A_RX_HPH_L_GAIN, out);
@@ -424,11 +427,24 @@ static ssize_t headphone_pa_gain_store(struct kobject *kobj,
 		status = taiko_read(fauxsound_codec_ptr, TAIKO_A_RX_HPH_R_STATUS);
 		out = (status & 0x0f) | (rval << 4);
 		taiko_write(fauxsound_codec_ptr, TAIKO_A_RX_HPH_R_STATUS, out);
+#ifdef CONFIG_MACH_LGE
+		lg_snd_ctrl_locked = 1;
+#endif
 	}
 	return count;
 }
 
 static unsigned int selected_reg = 0xdeadbeef;
+
+static ssize_t sound_reg_read_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	if (selected_reg == 0xdeadbeef)
+		return -1;
+	else
+		return sprintf(buf, "%u\n",
+			taiko_read(fauxsound_codec_ptr, selected_reg));
+}
 
 static ssize_t sound_reg_select_store(struct kobject *kobj,
                 struct kobj_attribute *attr, const char *buf, size_t count)
@@ -436,16 +452,6 @@ static ssize_t sound_reg_select_store(struct kobject *kobj,
         sscanf(buf, "%u", &selected_reg);
 
 	return count;
-}
-
-static ssize_t sound_reg_read_show(struct kobject *kobj,
-                struct kobj_attribute *attr, char *buf)
-{
-	if (selected_reg == 0xdeadbeef)
-		return -1;
-	else
-		return sprintf(buf, "%u\n",
-			taiko_read(fauxsound_codec_ptr, selected_reg));
 }
 
 static ssize_t sound_reg_write_store(struct kobject *kobj,
