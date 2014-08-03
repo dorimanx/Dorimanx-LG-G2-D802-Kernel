@@ -43,7 +43,7 @@ int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
 
 #ifdef CONFIG_MACH_LGE
 static unsigned int cached_regs[] = {6, 6, 0, 0, 0, 0, 0, 0, 0, 0,
-			    0, 0, 0, 0, 0, 0, 10, 10, 0, 0,
+			    1, 0, 0, 0, 0, 0, 10, 10, 0, 0,
 			    0 };
 #else
 static unsigned int cached_regs[] = {6, 6, 0, 0, 0, 0, 0, 0, 0, 0,
