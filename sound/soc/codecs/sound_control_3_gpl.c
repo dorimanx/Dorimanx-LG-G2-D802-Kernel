@@ -146,9 +146,19 @@ int snd_hax_reg_access(unsigned int reg)
 	switch (reg) {
 		case TAIKO_A_RX_HPH_L_GAIN:
 		case TAIKO_A_RX_HPH_R_GAIN:
+#ifdef CONFIG_MACH_LGE
+			if (lg_snd_ctrl_locked > 0)
+				ret = 0;
+			break;
+#endif
 		case TAIKO_A_RX_HPH_L_STATUS:
 		case TAIKO_A_RX_HPH_R_STATUS:
+#ifdef CONFIG_MACH_LGE
+			if ((snd_ctrl_locked > 1) ||
+					(lg_snd_ctrl_locked > 0))
+#else
 			if (snd_ctrl_locked > 1)
+#endif
 				ret = 0;
 			break;
 		case TAIKO_A_CDC_RX1_VOL_CTL_B2_CTL:
