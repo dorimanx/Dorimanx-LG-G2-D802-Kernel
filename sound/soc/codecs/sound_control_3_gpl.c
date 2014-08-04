@@ -32,7 +32,11 @@ static int lg_snd_ctrl_locked = 1;
 #endif
 
 extern struct snd_soc_codec *fauxsound_codec_ptr;
+#ifdef CONFIG_MACH_LGE
+static int wcd9xxx_hw_revision = 1;
+#else
 extern int wcd9xxx_hw_revision;
+#endif
 
 static int snd_ctrl_locked = 0;
 static int snd_rec_ctrl_locked = 0;
