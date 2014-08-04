@@ -2052,8 +2052,10 @@ char *touch_wakeup_gesture[2] = { "TOUCH_GESTURE_WAKEUP=WAKEUP", NULL };
 static void touch_gesture_wakeup_func(struct work_struct *work_gesture_wakeup)
 {
 	u8 buf= 0;
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
 #if defined(A1_only)
 	int A1_vendor = 0;
+#endif
 #endif
 	struct lge_touch_data *ts =
 		container_of(to_delayed_work(work_gesture_wakeup), struct lge_touch_data, work_gesture_wakeup);
