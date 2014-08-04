@@ -26,6 +26,18 @@
 #include <linux/input.h>
 #include <linux/time.h>
 
+/*
+ * debug = 1 will print all
+ */
+static unsigned int debug = 0;
+module_param_named(debug_mask, debug, uint, 0644);
+
+#define dprintk(msg...)		\
+do {				\
+	if (debug)		\
+		pr_info(msg);	\
+} while (0)
+
 struct cpu_sync {
 	struct delayed_work boost_rem;
 	struct delayed_work input_boost_rem;
@@ -99,13 +111,13 @@ static int boost_adjust_notify(struct notifier_block *nb, unsigned long val,
 
 	min = max(max(b_min, ib_min), pb_min);
 
-	pr_debug("CPU%u policy min before boost: %u kHz\n",
+	dprintk("CPU%u policy min before boost: %u kHz\n",
 		 cpu, policy->min);
-	pr_debug("CPU%u boost min: %u kHz\n", cpu, min);
+	dprintk("CPU%u boost min: %u kHz\n", cpu, min);
 
 	cpufreq_verify_within_limits(policy, min, UINT_MAX);
 
-	pr_debug("CPU%u policy min after boost: %u kHz\n",
+	dprintk("CPU%u policy min after boost: %u kHz\n",
 		 cpu, policy->min);
 
 	return NOTIFY_OK;
@@ -120,7 +132,7 @@ static void do_boost_rem(struct work_struct *work)
 	struct cpu_sync *s = container_of(work, struct cpu_sync,
 						boost_rem.work);
 
-	pr_debug("Removing boost for CPU%d\n", s->cpu);
+	dprintk("Removing boost for CPU%d\n", s->cpu);
 	s->boost_min = 0;
 	/* Force policy re-evaluation to trigger adjust notifier. */
 	cpufreq_update_policy(s->cpu);
@@ -131,7 +143,7 @@ static void do_input_boost_rem(struct work_struct *work)
 	struct cpu_sync *s = container_of(work, struct cpu_sync,
 						input_boost_rem.work);
 
-	pr_debug("Removing input boost for CPU%d\n", s->cpu);
+	dprintk("Removing input boost for CPU%d\n", s->cpu);
 	s->input_boost_min = 0;
 	/* Force policy re-evaluation to trigger adjust notifier. */
 	cpufreq_update_policy(s->cpu);
@@ -142,7 +154,7 @@ static void do_plug_boost_rem(struct work_struct *work)
 	struct cpu_sync *s = container_of(work, struct cpu_sync,
 						plug_boost_rem.work);
 
-	pr_debug("Removing plug boost for CPU%d\n", s->cpu);
+	dprintk("Removing plug boost for CPU%d\n", s->cpu);
 	s->plug_boost_min = 0;
 	/* Force policy re-evaluation to trigger adjust notifier. */
 	cpufreq_update_policy(s->cpu);
@@ -183,7 +195,7 @@ static void run_boost_migration(unsigned int cpu)
 						src_policy.cur;
 
 	if (req_freq <= dest_policy.cpuinfo.min_freq) {
-			pr_debug("No sync. Sync Freq:%u\n", req_freq);
+			dprintk("No sync. Sync Freq:%u\n", req_freq);
 		return;
 	}
 
@@ -268,7 +280,7 @@ static int boost_migration_notify(struct notifier_block *nb,
 	if (thread == current)
 		return NOTIFY_OK;
 
-	pr_debug("Migration: CPU%d --> CPU%d\n", mnd->src_cpu, mnd->dest_cpu);
+	dprintk("Migration: CPU%d --> CPU%d\n", mnd->src_cpu, mnd->dest_cpu);
 	spin_lock_irqsave(&s->lock, flags);
 	s->pending = true;
 	s->src_cpu = mnd->src_cpu;
@@ -410,7 +422,7 @@ static void do_plug_boost(struct work_struct *work)
 			continue;
 
 		cancel_delayed_work_sync(&i_sync_info->plug_boost_rem);
-		pr_debug("Applying plug boost for CPU%u %u --> %u\n",
+		dprintk("Applying plug boost for CPU%u %u --> %u\n",
 			 i, policy.cur, plug_boost_freq);
 		i_sync_info->plug_boost_min = plug_boost_freq;
 		cpufreq_update_policy(i);
