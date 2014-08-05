@@ -55,9 +55,6 @@ static unsigned long long notrace cyc_to_sched_clock(u32 cyc, u32 mask)
 	if (cd.suspended)
 		return cd.epoch_ns;
 
-	if (cd.suspended)
-		return cd.epoch_ns;
-
 	/*
 	 * Load the epoch_cyc and epoch_ns atomically.  We do this by
 	 * ensuring that we always write epoch_cyc, epoch_ns and
