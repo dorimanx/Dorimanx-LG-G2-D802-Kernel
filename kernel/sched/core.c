@@ -1203,8 +1203,10 @@ compute_demand:
 		if (p->sched_class == &fair_sched_class)
 			inc_nr_big_small_task(rq, p);
 	}
+#ifdef TRACE_CRAP
 	trace_sched_update_history(rq, p, runtime, samples, update_sum,
 				   new_window, event);
+#endif
 }
 
 static int __init set_sched_ravg_window(char *str)
@@ -1346,7 +1348,9 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 	if (event == PICK_NEXT_TASK && !p->ravg.sum)
 		rq->curr_runnable_sum += p->ravg.partial_demand;
 
+#ifdef TRACE_CRAP
 	trace_sched_update_task_ravg(p, rq, event, wallclock);
+#endif
 
 	p->ravg.mark_start = wallclock;
 }
@@ -1766,8 +1770,10 @@ static void fixup_busy_time(struct task_struct *p, int new_cpu)
 	BUG_ON((int)src_rq->prev_runnable_sum < 0);
 	BUG_ON((int)src_rq->curr_runnable_sum < 0);
 
+#ifdef TRACE_CRAP
 	trace_sched_migration_update_sum(src_rq);
 	trace_sched_migration_update_sum(dest_rq);
+#endif
 
 	if (p->state == TASK_WAKING)
 		double_rq_unlock(src_rq, dest_rq);
