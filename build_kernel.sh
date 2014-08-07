@@ -250,6 +250,10 @@ if [ -e "$KERNELDIR"/arch/arm/boot/zImage ]; then
 
 	cp arch/arm/boot/zImage READY-KERNEL/boot
 
+	# strip not needed debugs from modules.
+	android-toolchain/bin/arm-LG-linux-gnueabi-strip --strip-unneeded ../ramdisk-tmp/lib/modules/* 2>/dev/null
+	android-toolchain/bin/arm-LG-linux-gnueabi-strip --strip-debug ../ramdisk-tmp/lib/modules/* 2>/dev/null
+
 	# create the ramdisk and move it to the output working directory
 	echo "Create ramdisk..............."
 	scripts/mkbootfs ../ramdisk-tmp | gzip > ramdisk.gz 2>/dev/null
