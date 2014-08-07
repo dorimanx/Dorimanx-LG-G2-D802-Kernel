@@ -377,19 +377,6 @@ EXPORT_SYMBOL_GPL(device_set_wakeup_enable);
 static void wakeup_source_activate(struct wakeup_source *ws)
 {
 	unsigned int cec;
-#if 1 /* Boost CPU When wakeup */
-	extern int boost_freq;
-	extern bool suspend_marker_entry;
-	unsigned int cnt, inpr;
-	bool wakeup_pending = true;
-
-	if (suspend_marker_entry) {
-		split_counters(&cnt, &inpr);
-		if (cnt == saved_count && inpr == 0) {
-			wakeup_pending = false;
-		}
-	}
-#endif
 
 	/*
 	 * active wakeup source should bring the system
@@ -408,19 +395,6 @@ static void wakeup_source_activate(struct wakeup_source *ws)
 
 	trace_wakeup_source_activate(ws->name, cec);
 
-#if 1 /* Boost CPU When wakeup */
-	if (suspend_marker_entry) {
-		if (!wakeup_pending) {
-			if (boost_freq == 1) {
-				if (!strcmp(ws->name, "touch_irq") || !strcmp(ws->name, "hall_ic_wakeups")){
-					printk(KERN_ERR "ws->name=%s, boost_Freq=%d\n", ws->name, boost_freq);
-					boost_freq++;
-					printk(KERN_ERR "ws->name=%s, boost_Freq=%d\n", ws->name, boost_freq);
-				}
-			}
-		}
-	}
-#endif
 }
 
 /**
