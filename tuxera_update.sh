@@ -9,11 +9,9 @@ Usage: tuxera_update.sh [OPTION...]
   This script only assembles the kernel headers package
   (kheaders.tar.bz2) by default. Use -a to invoke Autobuild.
 
-  --source-dir SRCDIR [--output-dir OUTDIR]
+  --output-dir OUTDIR
 
-      Specify kernel source and optionally, kernel build output
-      directories. This is necessary if kernel headers package assembly
-      is performed.
+      Specify kernel build output directory.
 
   --no-excludes
 
@@ -21,15 +19,18 @@ Usage: tuxera_update.sh [OPTION...]
       fails (some of the excluded files are needed). This significantly
       grows the headers package size.
 
-  --user USER [--pass PASSWD]
+  --user USER [--pass PASSWD] [--admin ADMIN]
       If remote connectivity is needed (-a or --latest), username and
       password are required. If missing, they will be read from stdin.
 
       NOTE: Using --pass can be dangerous as local users see it in 'ps'.
 
+      The --admin option lets you log in using the password of the given
+      ADMIN user.
+
   --use-cache [--cache-dir CACHEDIR] [--latest] [--max-cache-entries N]
       Obtain modules from local cache if kernel dependencies are not
-      modified. You must provide --source-dir (optionally --output-dir) to
+      modified. You must provide --output-dir to
       use the cache. Modules are relinked on cache hit, ensure the
       toolchain is in PATH. If -a is specified, Autobuild is invoked
       on a cache miss, and the cache is updated. Otherwise, kernel headers
@@ -46,21 +47,17 @@ Usage: tuxera_update.sh [OPTION...]
       The optional --max-cache-entries can be used to limit the maximum
       cache size to N recently used entries. The default is 10.
 
-  -a [--target TARGET] [MODE] [OPTIONS]
+  -a [--target TARGET] [OPTIONS]
 
       Start Autobuild against TARGET. If target was not specified, uses
       the default target. Use '--target list' to show available targets.
 
-      Autobuild starts with fresh .tar.bz2 assembly by default, but in MODE
-      you can optionally specify another operating mode:
+      The following extra options are supported:
 
         --use-package PACKAGE
-          Start Autobuild by uploading a pre-built .tar.bz2 file PACKAGE.
-
-        --use-remote-package PACKAGE
-          Start Autobuild with a previously uploaded .tar.bz2 file PACKAGE.
-
-      The following extra options are supported:
+          Autobuild starts with fresh .tar.bz2 assembly by default, but
+          you can use this option to start Autobuild by uploading a pre-built
+          .tar.bz2 file PACKAGE.
 
         --ignore-cert
           If up/download fails due to certificate issues, this option can
@@ -68,8 +65,7 @@ Usage: tuxera_update.sh [OPTION...]
 
         --use-curl
         --use-wget
-          Force the use of 'curl' or 'wget' for remote communication. Due
-          to 'wget' limitations, 'sftp' is required with 'wget'.
+          Force the use of 'curl' or 'wget' for remote communication.
 
         --version SOFTWARE=VERSION[,...]
           Example: --version NTFS=3012.4.2,EXFAT=3012.4.9
@@ -107,12 +103,72 @@ EOF
   exit 1
 }
 
+archs="alpha arc arm arm64 avr32 blackfin c6x cris frv h8300 hexagon ia64 m32r \
+    m68k metag microblaze mips mn10300 openrisc parisc ppc s390 score \
+    superh sparc tile unicore32 x86 xtensa ubicom32 csky"
+
+#
+# Detect required architecture directories based on autoconf.h
+#
+detect_arch_dirs() {
+    # Simplify conditionals, if output_dir not set
+    dir1="$source_dir"
+    [ -n "$output_dir" ] && dir2="$output_dir" || dir2="$dir1"
+
+    # autoconf.h must be present
+    ac="${dir2}/include/generated/autoconf.h"
+    [ -e "$ac" ] || ac="${dir2}/include/linux/autoconf.h"
+    [ -e "$ac" ] || ac="${dir1}/include/generated/autoconf.h"
+    [ -e "$ac" ] || ac="${dir1}/include/linux/autoconf.h"
+    [ -e "$ac" ] || { echo "Unable to detect kernel architecture: autoconf.h not found."; exit 1; }
+
+    pattern=""
+    # Compute grep pattern
+    for arch in $archs; do
+        [ -n "$pattern" ] && separ="\|" || separ=""
+        pattern="${pattern}${separ}^#define CONFIG_$(echo $arch | tr '[:lower:]' '[:upper:]')[[:space:]]"
+    done
+
+    # Find architecture from autoconf.h
+    def=$(grep -e "$pattern" "$ac") || { echo "Unable to detect kernel architecture: no macro found in autoconf.h."; exit 1; }
+    archdirs=$(echo "$def" | head -n 1 | sed -n 's/#define CONFIG_\(.*\)[[:space:]].*/\1/p' | tr '[:upper:]' '[:lower:]')
+
+    # Fix some architecture names to get the correct directory
+    [ "$archdirs" == "ppc" ] && archdirs="powerpc"
+    [ "$archdirs" == "superh" ] && archdirs="sh"
+
+    if [ "$archdirs" == "x86" ] ; then
+        # Older kernels don't have x86 dir at all.
+        # Some x86 builds require 2 directories. This is very rare.
+        grep -q '^#define CONFIG_X86_32' "$ac" && archdirs="$archdirs i386"
+        grep -q '^#define CONFIG_X86_64' "$ac" && archdirs="$archdirs x86_64"
+    fi
+
+    # Realtek RLX fix
+    [ "$archdirs" == "mips" ] && grep -q '^#define CONFIG_CPU_RLX' "$ac" && archdirs="rlx"
+
+    # Only select existing directories.
+    existing=''
+    for d in $archdirs ; do
+        [ -e "$dir1/arch/$d" ] || [ -e "$dir2/arch/$d" ] && existing="$existing $d"
+    done
+
+    # Don't continue if there is no arch directory.
+    [ -z "$existing" ] && { echo "No arch directories found. Cannot continue."; exit 1; }
+    archdirs="$existing"
+    echo "Kernel architecture directories: $archdirs"
+}
+
+#
+# Assemble kernel headers package.
+#
 build_package() {
-    if [ -z "$1" ] ; then
-        echo "You must specify --source-dir for headers package assembly."
+    if [ -z "$source_dir" ] ; then
+        echo "You must specify --output-dir for headers package assembly."
         usage
     fi
 
+    # Temporary directory that will contain links to kernel and output directories.
     LINK_DIR=$(mktemp -d)
 
     if [ $? -ne 0 ] ; then
@@ -122,9 +178,15 @@ build_package() {
 
     KERNEL_LINK="${LINK_DIR}"/kernel
     OUTPUT_LINK="${LINK_DIR}"/output
+    MEDIATEK_LINK="${LINK_DIR}"/mediatek
+    [ -d "$source_dir"/../mediatek ] && have_mediatek=1
 
-    ln -sf "$(readlink -f "$1")" "${KERNEL_LINK}" && \
-        if [ -n "$2" ]; then ln -sf "$(readlink -f "$2")" "${OUTPUT_LINK}"; fi
+    # Create kernel and output links to LINK_DIR. Only create link to output
+    # dir if output directory was specified. Note that absolute paths
+    # must be used!
+    ln -sf "$(readlink -f "$source_dir")" "${KERNEL_LINK}" && \
+	if [ -n "$output_dir" ]; then ln -sf "$(readlink -f "$output_dir")" "${OUTPUT_LINK}"; fi && \
+	if [ -n "$have_mediatek" ] ; then ln -sf "$(readlink -f "$source_dir")"/../mediatek "${MEDIATEK_LINK}"; fi
 
     if [ $? -ne 0 ] ; then
         echo "Symlinking (ln -s) failed. Unable to continue."
@@ -132,35 +194,36 @@ build_package() {
         exit 1
     fi
 
-    if [ "$1" = "$2" ] ; then
-        echo "  WARNING: You should not use the same --source-dir and --output-dir."
-        echo "           Will not use --output-dir. Please see the user manual."
+    if [ "$source_dir" = "$output_dir" ] ; then
         rm "$OUTPUT_LINK"
     fi
 
-    if test ! -e "${KERNEL_LINK}/COPYING"; then
-        echo "  ERROR: Kernel source code directory is invalid (no COPYING found).";
-        echo "         To fix it, set the --source-dir parameter correctly.";
+    if test ! -e "${KERNEL_LINK}/Makefile"; then
+        echo "  ERROR: Kernel source code directory is invalid (no Makefile found).";
+        echo "         To fix it, set the --output-dir parameter correctly.";
 
         rm -rf "${LINK_DIR}"
         exit 1
-    fi
+    else
+        if grep -q "VERSION" ${KERNEL_LINK}/Makefile && grep -q "PATCHLEVEL" ${KERNEL_LINK}/Makefile && grep -q "SUBLEVEL" ${KERNEL_LINK}/Makefile
+        then
+            echo "Found valid Linux kernel Makefile at ${KERNEL_LINK}/Makefile"
+        else
+            echo "  ERROR: Kernel source code directory is invalid.";
+            echo "         Makefile doesn't have VERSION, PATCHLEVEL and SUBLEVEL."
+            echo "         To fix it, set the --output-dir parameter correctly.";
 
-    if test ! -e "${KERNEL_LINK}/include/config/auto.conf" -a ! -e "${OUTPUT_LINK}/include/config/auto.conf"; then
-            echo "  ERROR: Invalid kernel configuration:";
-            echo "         include/config/auto.conf is missing.";
-            echo "         To fix it run 'make oldconfig && make modules_prepare' and ";
-            echo "         'make sure ARCH= and CROSS_COMPILE= are correctly set and exported.";
-
-        rm -rf "${LINK_DIR}"
-        exit 1
+            rm -rf "${LINK_DIR}"
+            exit 1
+        fi
     fi
 
     if test ! -e "${KERNEL_LINK}/Module.symvers" -a ! -e "${OUTPUT_LINK}/Module.symvers"; then
-            echo "  ERROR: Invalid kernel configuration:";
-            echo "         Module.symvers is missing.";
-            echo "         To fix it run 'make oldconfig && make modules_prepare && make' and ";
-            echo "         'make sure ARCH= and CROSS_COMPILE= are correctly set and exported.";
+        echo "  ERROR: Invalid kernel configuration:";
+        echo "         Module.symvers is missing.";
+        echo "         Either the kernel was not compiled yet, or the kernel output directory is not correct.";
+        echo "         Please make sure the kernel has been compiled, then use that directory for the --output-dir";
+        echo "         argument where the Module.symvers file can be found."
 
         rm -rf "${LINK_DIR}"
         exit 1
@@ -175,18 +238,23 @@ build_package() {
         exit 1
     fi
 
-    SEARCHPATHS="${KERNEL_LINK}/include ${KERNEL_LINK}/arch ${KERNEL_LINK}/scripts"
+    detect_arch_dirs
+
+    SEARCHPATHS="$(for d in $archdirs; do echo "${KERNEL_LINK}/arch/$d"; done) ${KERNEL_LINK}/include ${KERNEL_LINK}/scripts ${KERNEL_LINK}/mediatek/Makefile ${KERNEL_LINK}/mediatek/platform ${MEDIATEK_LINK}/config ${MEDIATEK_LINK}/platform ${MEDIATEK_LINK}/build/libs ${MEDIATEK_LINK}/build/Makefile ${MEDIATEK_LINK}/build/kernel ${MEDIATEK_LINK}/kernel/include/linux ${MEDIATEK_LINK}/kernel/Makefile ${KERNEL_LINK}/KMC ${KERNEL_LINK}/init/secureboot ${KERNEL_LINK}/mvl-avb-version"
+
     if [ -L "${OUTPUT_LINK}" ] ; then
-        SEARCHPATHS="${SEARCHPATHS} ${OUTPUT_LINK}/include ${OUTPUT_LINK}/arch ${OUTPUT_LINK}/scripts"
+        SEARCHPATHS="${SEARCHPATHS} $(for d in $archdirs; do echo "${OUTPUT_LINK}/arch/$d"; done) ${OUTPUT_LINK}/include ${OUTPUT_LINK}/scripts ${OUTPUT_LINK}/KMC ${OUTPUT_LINK}/init/secureboot ${OUTPUT_LINK}/mvl-avb-version"
     fi
 
+    # Not all of the directories always exist, so check for them first to avoid an error message
+    # from 'find' if the directory is not found.
     for P in ${SEARCHPATHS}; do
-        if [ ! -e ${P} ]; then continue; fi
+        if [ ! -e "${P}" ]; then continue; fi
         if [ -n "$no_excludes" ] ; then
-            find -L ${P} ! -type l >> "${INCLUDEFILE}"
+            find -L "${P}" ! -type l >> "${INCLUDEFILE}"
         else
-            find -L ${P} \
-            \( ! -type l -a ! -name \*.c -a ! -name \*.o -a ! -name \*.S -a ! -path \*/arch/\*/boot/\* -a ! -path \*/.svn/\* -a ! -path \*/.git/\* \) \
+            find -L "${P}" \
+            \( ! -type l -a ! -name \*.c -a ! -name \*.o -a ! -name \*.S -a ! -path \*/arch/\*/boot/\* -a ! -path \*/.svn/\* -a ! -path \*/.git/\* ! -path \*mediatek/platform/Android.mk ! -path \*mediatek/platform/README ! -path \*mediatek/platform/common\* ! -path \*mediatek/platform/rules.mk ! -path \*mediatek/platform/\*/Trace\* ! -path \*mediatek/platform/\*/external\* ! -path \*mediatek/platform/\*/hardware\* ! -path \*mediatek/platform/\*/lk\* ! -path \*mediatek/platform/\*/preloader\* ! -path \*mediatek/platform/\*/uboot\* ! -path \*mediatek/platform/\*/kernel/core/Makefile ! -path \*mediatek/platform/\*/kernel/core/Makefile.boot  ! -path \*mediatek/platform/\*/kernel/core/modules.builtin ! -path \*mediatek/platform/\*/kernel/drivers\* ! -path \*mediatek/platform/\*/kernel/Kconfig\* ! -path \*mediatek/config/a830\* ! -path \*mediatek/config/banyan_addon\* ! -path \*mediatek/config/out\* ! -path \*mediatek/config/prada\* ! -path \*mediatek/config/s820\* ! -path \*mediatek/config/seine\* \) \
             >> ${INCLUDEFILE}
         fi
     done
@@ -197,21 +265,31 @@ build_package() {
     if [ -e "${OUTPUT_LINK}/Module.symvers" ]; then echo "${OUTPUT_LINK}/Module.symvers" >> ${INCLUDEFILE}; fi
     if [ -e "${KERNEL_LINK}/.config" ]; then echo "${KERNEL_LINK}/.config" >> ${INCLUDEFILE}; fi
     if [ -e "${OUTPUT_LINK}/.config" ]; then echo "${OUTPUT_LINK}/.config" >> ${INCLUDEFILE}; fi
+    if [ -e "${OUTPUT_LINK}/arch/powerpc/lib/crtsavres.o" ]; then echo "${OUTPUT_LINK}/arch/powerpc/lib/crtsavres.o" >> ${INCLUDEFILE}; fi
+    if [ -e "${KERNEL_LINK}/arch/powerpc/lib/crtsavres.o" ]; then echo "${KERNEL_LINK}/arch/powerpc/lib/crtsavres.o" >> ${INCLUDEFILE}; fi
+    if [ -e "${OUTPUT_LINK}/scripts/recordmcount.c" ]; then echo "${OUTPUT_LINK}/scripts/recordmcount.c" >> ${INCLUDEFILE}; fi
+    if [ -e "${KERNEL_LINK}/scripts/recordmcount.c" ]; then echo "${KERNEL_LINK}/scripts/recordmcount.c" >> ${INCLUDEFILE}; fi
+    if [ -e "${OUTPUT_LINK}/scripts/recordmcount.h" ]; then echo "${OUTPUT_LINK}/scripts/recordmcount.h" >> ${INCLUDEFILE}; fi
+    if [ -e "${KERNEL_LINK}/scripts/recordmcount.h" ]; then echo "${KERNEL_LINK}/scripts/recordmcount.h" >> ${INCLUDEFILE}; fi
+
 
     echo "Packing kernel headers ..."
-    tar cjf "${3}" --dereference --no-recursion --files-from "${INCLUDEFILE}"
+    tar cjf "${1}" --dereference --no-recursion --files-from "${INCLUDEFILE}"
 
     if [ $? -ne 0 ] ; then
-        echo "'tar cjf ${3} ...' failed. I will now exit."
+        echo "tar packaging failed. I will now exit."
         rm -rf "${LINK_DIR}"
         exit 1
     fi
 
     rm ${INCLUDEFILE}
     rm -rf "${LINK_DIR}"
-    echo "Headers package assembly succeeded. You could now use --use-package ${3}."
+    echo "Headers package assembly succeeded. You could now use --use-package ${1}."
 }
 
+#
+# Upload kernel headers package using curl.
+#
 upload_package_curl() {
     echo "Uploading the following package:"
     ls -lh "${1}"
@@ -232,49 +310,54 @@ upload_package_curl() {
 
     remote_package=$(echo "$reply" | head -n 2 | tail -n 1)
 
-    echo "Upload succeeded. You could now use --use-remote-package ${remote_package}."
+    echo "Upload succeeded."
 }
 
-upload_package_sftp() {
-    echo "Downloading SFTP key..."
+#
+# Upload kernel headers package using wget.
+# Package needs to be urlencoded.
+#
+upload_package_wget() {
+    encoded="$(mktemp)"
+    echo "urlencoding $1 to $encoded ..."
 
-    keyfile=$(mktemp)
+    echo -n "file=" > "$encoded"
+    perl -pe 's/([^-_.~A-Za-z0-9])/sprintf("%%%02X", ord($1))/seg' < "$1" >> "$encoded"
 
     if [ $? -ne 0 ] ; then
-        echo "mktemp failed. Unable to continue."
+        echo "urlencoding failed. Unable to continue."
         exit 1
     fi
 
-    $wget -O "$keyfile" https://${server}/id.php
+    echo "Uploading package..."
+
+    reply=$($wget --post-file="$encoded" -O - https://${server}/upload.php)
 
     if [ $? -ne 0 ] ; then
-        echo "Failed to download SFTP key. Unable to continue."
-        echo "Check connectivity and username/password."
-        exit 1
+        echo "wget failed. Unable to continue. Check connectivity and username/password."
+        rm "$encoded"; exit 1
     fi
 
-    chmod 400 "$keyfile"
-    
-    echo "Uploading kheaders package:"
-    ls -lh ${1}
+    status=$(echo "$reply" | head -n 1)
 
-    remote_package="$(basename ${1})"
-    sftp_path="kernels/${remote_package}"
-
-    printf "put \"${1}\" \"${sftp_path}\"\nchmod 0770 \"${sftp_path}\"" | \
-        sftp -oStrictHostKeyChecking=no -oIdentityFile="$keyfile" -b- "${username}@${server}"
-
-    if [ $? -ne 0 ] ; then
-        rm -f "$keyfile"
+    if [ "$status" != "OK" ] ; then
+        echo "$reply"
         echo "Upload failed. Unable to continue."
         exit 1
     fi
 
-    rm -f "$keyfile"
-    echo "Upload succeeded. You could now use --use-remote-package ${1}."
+    remote_package=$(echo "$reply" | head -n 2 | tail -n 1)
+    rm "$encoded"
+
+    echo "Upload succeeded."
 }
 
+#
+# Find headers that were used during dependency module compilation from
+# the *.i files. Compute their checksums.
+#
 calc_header_checksums() {
+    # Holds initial list of header files.
     DEPENDENCY=$(mktemp)
 
     if [ $? -ne 0 ] ; then
@@ -282,6 +365,7 @@ calc_header_checksums() {
         return 1
     fi
 
+    # Find header files from the *.i files.
     egrep '^#.*".*\.h".*' "$1"/*.i | awk -F '"' '{print $2}' | sort | uniq >> $DEPENDENCY
 
     if [ $? -ne 0 ] ; then
@@ -290,33 +374,34 @@ calc_header_checksums() {
         return 1
     fi
 
+    # Make sure the destination file doesn't exist.
     rm -f "$2"
     dirlen=$(readlink -f "${source_dir}" | wc -c)
 
-    while read line; do 
-        echo $line | grep ^include > /dev/null 2>&1
+    # Loop through all headers.
+    while read line; do
+        echo "$line" | grep ^/ > /dev/null 2>&1
 
-        # Common Headers
-        if [ $? -ne 0 ]; then
+        # Absolute path?
+        if [ $? -eq 0 ] ; then
             echo "$line" | grep ^"$(readlink -f "${source_dir}")" > /dev/null 2>&1
 
-            if [ $? -ne 0 ]; then
-                continue
+            # Common Headers
+            if [ $? -eq 0 ]; then
+                path_end=$(echo $line | tail -c +$dirlen)
+                sum=$(md5sum "${line}" | cut -d ' ' -f 1 2>/dev/null)
+
+                if [ $? -ne 0 ] ; then
+                        echo "Failed to get checksum for file: ${linkfile}"
+                        echo "Unable to continue."
+                        rm -f "${DEPENDENCY}"
+                        return 1
+                fi
+
+                echo "${sum} source${path_end}" >> "$2"
             fi
 
-            path_end=$(echo $line | tail -c +$dirlen)
-            sum=$(md5sum "${line}" | cut -d ' ' -f 1 2>/dev/null)
-
-            if [ $? -ne 0 ] ; then
-                    echo "Failed to get checksum for file: ${linkfile}"
-                    echo "Unable to continue."
-                    rm -f "${DEPENDENCY}"
-                    return 1
-            fi
-
-            echo "${sum} source/${path_end}" >> "$2"
-
-        # Generated Headers
+        # Generated Headers (not absolute path)
         else
             sum=$(md5sum "${kernel}/${line}" | cut -d ' ' -f 1 2>/dev/null)
 
@@ -335,6 +420,10 @@ calc_header_checksums() {
     return 0
 }
 
+#
+# Build dependency module and produce header checksums
+# based on the build output .i file.
+#
 gen_header_checksums() {
     if [ -f "${cache_dir}/pkgtmp/dependency_mod/env" ] ; then
         . "${cache_dir}/pkgtmp/dependency_mod/env"
@@ -359,10 +448,14 @@ gen_header_checksums() {
         return 1
     fi
 
+    # Compute checksums from headers present in the depmod.i file.
     calc_header_checksums "${cache_dir}/pkgtmp/dependency_mod" "$1"
     return $?
 }
 
+#
+# Match kernel symbol CRCs.
+#
 check_symvers() {
     searchdir="$1"
     symvers="$2"
@@ -383,17 +476,24 @@ check_symvers() {
     return $ret
 }
 
+#
+# Remove files related to given cache entry.
+#
 destroy_cache_entry() {
     echo "Destroying cache entry: ${1}"
     rm "${cache_dir}/${pkg}".{pkg,md5sum,target,pkgname}
 }
 
+#
+# Match cache entries against given --source-dir/--output-dir
+#
 lookup_cache() {
     if [ ! -f "${kernel}/Module.symvers" ] ; then
         echo "${kernel}/Module.symvers does not exist. Unable to lookup cache."
         return 1
     fi
 
+    # All cache entries. Prioritize recently used entries.
     cachefiles=$(cd "${cache_dir}"; ls -t *.pkg 2>/dev/null)
 
     if [ $? -ne 0 ] ; then
@@ -423,9 +523,13 @@ lookup_cache() {
             continue
         fi
 
+        # Prepare to match kernel symbol CRCs and header checksums.
+
         rm -rf "${cache_dir}/pkgtmp"
         mkdir "${cache_dir}/pkgtmp"
         tar xf "${cache_dir}/${pkg}.pkg" --strip-components=1 -C "${cache_dir}/pkgtmp"
+
+        # Match symbol CRCs
 
         check_symvers "${cache_dir}/pkgtmp" "${kernel}/Module.symvers"
         if [ $? -ne 0 ] ; then
@@ -433,6 +537,8 @@ lookup_cache() {
             rm -rf "${cache_dir}/pkgtmp"
             continue
         fi
+
+        # Build dependency module and compute header checksums.
 
         tmpsums=$(mktemp)
         gen_header_checksums "$tmpsums"
@@ -442,6 +548,8 @@ lookup_cache() {
             rm -f "$tmpsums"
             continue
         fi
+
+        # Match header checksums.
 
         diff "$tmpsums" "${cache_dir}/${pkg}.md5sum" > /dev/null
         if [ $? -ne 0 ] ; then
@@ -454,6 +562,8 @@ lookup_cache() {
         rm -f "$tmpsums"
 
         echo "Cache hit! Relinking modules..."
+
+        # Relink all kernel modules against currently used kernel.
 
         if [ -z "$(find "${cache_dir}/pkgtmp/" -name \*.ko)" ] ; then
             require_relink="yes"
@@ -499,6 +609,7 @@ lookup_cache() {
             continue
         fi
 
+        # Produce a package like the ones from the server.
         echo "Packaging ${pkgname}..."
         pkgcontents=$(tar tf "${cache_dir}/${pkg}.pkg")
         origname=$(echo "${pkgcontents}" | head -n 1 | awk -F '/' '{print $1}')
@@ -507,6 +618,7 @@ lookup_cache() {
         tar czf "$(pwd)/${pkgname}" -C "${cache_dir}" "${origname}/"
         rm -rf "${cache_dir}/${origname}"
 
+        # Update cache entry timestamp.
         touch "${cache_dir}/${pkg}.pkg"
         return 0
     done
@@ -515,13 +627,18 @@ lookup_cache() {
     return 1
 }
 
+#
+# Start remote build. Headers package must be uploaded
+# first.
+#
 do_remote_build() {
     echo "Starting remote build against target ${target}..."
 
+    # Start build
     if [ "$http_client" = "wget" ] ; then
-        reply=$($wget --post-data="terminal=1&filename=${remote_package}&target-config=${target}&tags=${tags}&extraargs=${extraargs}&use-cache=${using_cache}&script-version=${script_version}&cache-lookup-time=${cache_lookup_time}&start-build=1" -O - https://${server})
+        reply=$($wget --post-data="terminal=1&filename=${remote_package}&target-config=${target}&tags=${tags}&extraargs=${extraargs}&use-cache=${using_cache}&script-version=${script_version}&cache-lookup-time=${cache_lookup_time}&suid=${suid}&start-build=1" -O - https://${server})
     else
-        reply=$($curl -d terminal=1 -d filename="$remote_package" -d target-config="$target" -d tags="$tags" -d extraargs="$extraargs" -d use-cache="$using_cache" -d script-version="$script_version" -d cache-lookup-time="$cache_lookup_time" -d start-build=1 https://${server})
+        reply=$($curl -d terminal=1 -d filename="$remote_package" -d target-config="$target" -d tags="$tags" -d extraargs="$extraargs" -d use-cache="$using_cache" -d script-version="$script_version" -d cache-lookup-time="$cache_lookup_time" -d suid="$suid" -d start-build=1 https://${server})
     fi
 
     if [ $? -ne 0 ] ; then
@@ -532,6 +649,7 @@ do_remote_build() {
     
     status=$(echo "$reply" | head -n 1)
 
+    # If status is OK, build ID should be included as well
     if [ "$status" != "OK" ] ; then
         echo "Starting the build failed. Unable to continue."
         echo "The server reported:"
@@ -539,6 +657,7 @@ do_remote_build() {
         exit 1
     fi
     
+    # ID of this build is given in the reply
     build_id=$(echo "$reply" | head -n 2 | tail -n 1)
     
     echo "Build started, id ${build_id}"
@@ -546,7 +665,7 @@ do_remote_build() {
     
     statusurl="https://${server}/builds/${build_id}/.status"
 
-    while [ 1 ]
+    for i in `seq $max_polls`
     do
         if [ "$http_client" = "wget" ] ; then
             reply=$($wget_quiet -O - "$statusurl")
@@ -555,6 +674,13 @@ do_remote_build() {
         fi
         
         if [ $? -ne 0 ] ; then
+            if [ $i -eq $max_polls ] ; then
+                echo "Maximum attempts exceeded. Build process"
+                echo "died or hung. Please notify Tuxera if the"
+                echo "problem persists."
+                exit 1
+            fi
+
             echo "Not finished yet; waiting..."
             sleep 10
             continue
@@ -564,7 +690,8 @@ do_remote_build() {
     done
     
     echo "Build finished."
-    
+
+    # Downloadable filename given in the reply
     status=$(echo "$reply" | head -n 1)
     
     if [ "$status" != "OK" ] ; then
@@ -591,6 +718,7 @@ do_remote_build() {
     
     echo "Download finished."
 
+    # Create cache entry.
     if [ -n "$use_cache" ] ; then
         echo "Updating cache..."
 
@@ -599,8 +727,12 @@ do_remote_build() {
         echo "$target" > "${cache_dir}/${pkgprefix}.target"
         echo "$filename" > "${cache_dir}/${pkgprefix}.pkgname"
 
+        # Prepare to compute checksums.
+
         mkdir "${cache_dir}/pkgtmp"
         tar xf "${cache_dir}/${pkgprefix}.pkg" --strip-components=1 -C "${cache_dir}/pkgtmp"
+
+        # Build dependency module and compute checksums.
 
         gen_header_checksums "${cache_dir}/${pkgprefix}.md5sum"
         if [ $? -ne 0 ] ; then
@@ -611,6 +743,7 @@ do_remote_build() {
 
         rm -rf "${cache_dir}/pkgtmp"
 
+        # Purge cache entries if there are more than max_cache_entries.
         cachefiles=$(cd "${cache_dir}"; ls -t *.pkg 2>/dev/null | tail -n +$((${max_cache_entries}+1)))
 
         for pkg in ${cachefiles} ; do
@@ -620,13 +753,16 @@ do_remote_build() {
     fi
 }
 
+#
+# Request a list of available targets on the server.
+#
 list_targets() {
     echo "Connecting..."
 
     if [ "$http_client" = "wget" ] ; then
-        reply=$($wget -O - https://${server}/targets.php)
+        reply=$($wget --post-data="suid=${suid}" -O - https://${server}/targets.php)
     else
-        reply=$($curl https://${server}/targets.php)
+        reply=$($curl -d suid="$suid" https://${server}/targets.php)
     fi
 
     if [ $? -ne 0 ] ; then
@@ -640,11 +776,15 @@ list_targets() {
     echo
 }
 
+#
+# Request the latest package name from the server, for a given
+# target. Used to validate cache entry freshness.
+#
 get_latest() {
     echo "Checking for latest release..."
 
     if [ "$http_client" = "wget" ] ; then
-        latest_pkg=$($wget --post-data="target-config=${target}" -O - https://${server}/latest.php)
+        latest_pkg=$($wget --post-data="target-config=${target}&suid=${suid}" -O - https://${server}/latest.php)
     else
         latest_pkg=$($curl -d target-config="$target" https://${server}/latest.php)
     fi
@@ -663,6 +803,37 @@ get_latest() {
     echo "Latest release is ${latest_pkg}"
 }
 
+#
+# Randomly pick a live Autobuild server to use.
+#
+select_server() {
+    # for addr in `shuf -e $autobuild_addrs`; do
+    for addr in $autobuild_addrs; do
+        echo "Trying $addr ..."
+
+        if [ "$http_client" = "wget" ] ; then
+            addr=$($wget -O - --connect-timeout=15 "https://${addr}/node_select.php")
+        else
+            addr=$($curl --connect-timeout 15 "https://${addr}/node_select.php")
+        fi
+
+        if [ $? -eq 0 ] ; then
+            echo "OK, using $addr"
+            server="$addr"
+            return 0
+        fi
+    done
+
+    echo "Unable to contact Autobuild."
+    echo "Check connectivity and username/password."
+    exit 1
+}
+
+#
+# Find out if wget or curl is available, and ask for
+# credentials if they haven't been supplied.
+# Pick a live Autobuild server to use.
+#
 check_http_client() {
     while [ -z "$username" ] ; do
         echo -n "Please enter your username: "
@@ -678,7 +849,12 @@ check_http_client() {
         echo
     done
 
-    curl_quiet="curl -f -u ${username}:${password}"
+    suid=${username}
+    [ -z "${admin}" ] || username="${admin}"
+
+    curl_quiet="curl --retry ${retry} --retry-delay ${retry_delay}"
+    curl_quiet=${curl_quiet}" --retry-max-time ${retry_max_time}"
+    curl_quiet=${curl_quiet}" -f -u ${username}:${password}"
     wget="wget --user ${username} --password ${password}"
     wget_quiet=${wget}
 
@@ -698,28 +874,36 @@ check_http_client() {
 
     if [ -n "$http_client" ] ; then
         echo "HTTP client forced to ${http_client}"
-        return
-    fi
-    
-    http_client="curl"
-    echo -n "Checking for 'curl'... "
-    command -v curl > /dev/null
+    else
+        http_client="curl"
+        echo -n "Checking for 'curl'... "
+        command -v curl > /dev/null
 
-    if [ $? -ne 0 ] ; then
-        echo "no."
-        http_client="wget"
-        echo -n "Checking for 'wget'... "
-        command -v wget > /dev/null
+        if [ $? -ne 0 ] ; then
+            echo "no."
+            http_client="wget"
+            echo -n "Checking for 'wget'... "
+            command -v wget > /dev/null
+        fi
+
+        if [ $? -ne 0 ] ; then
+            echo "no. Unable to continue."
+            exit 1
+        fi
+
+        echo "yes."
     fi
 
-    if [ $? -ne 0 ] ; then
-        echo "no. Unable to continue."
-        exit 1
+    if [ -n "$server" ] ; then
+        echo "Server forced to $server"
+    else
+        select_server
     fi
-
-    echo "yes."
 }
 
+#
+# Check if given commands (in parameters) exist
+#
 check_cmds() {
     echo -n "Checking for: "
 
@@ -738,13 +922,17 @@ check_cmds() {
     return 0
 }
 
+#
+# Check if required commands exist for Autobuild
+#
 check_autobuild_prerequisites() {
     check_cmds date stty mktemp chmod tail head md5sum basename
 
+    # perl is needed with wget for urlencode
     if [ "$http_client" = "wget" ] ; then
-        echo -n "Checking for 'sftp'... "
+        echo -n "Checking for 'perl'... "
 
-        command -v sftp > /dev/null
+        command -v perl > /dev/null
 
         if [ $? -ne 0 ] ; then
             echo "no. Unable to continue."
@@ -755,20 +943,18 @@ check_autobuild_prerequisites() {
     fi
 
     if [ -n "$use_cache" ] ; then
-        check_cmds egrep sed awk touch uniq sort tr diff make \
+        check_cmds egrep awk touch uniq sort tr diff make \
             dirname wc
-
-        kernel="$source_dir"
-
-        if [ -n "$output_dir" ] ; then
-            kernel="$output_dir"
-        fi
     fi
 }
 
+#
+# Upgrade to latest script
+#
 upgrade() {
     check_http_client
     check_cmds mktemp
+    upgrade_url="https://$server/tuxera_update.sh"
 
     tmpscript=$(mktemp)
 
@@ -789,17 +975,58 @@ upgrade() {
     echo "After upgrade: $(sh $0 -v)"
 }
 
-script_version="12.11.27"
+#
+# Decide on a value for source_dir
+#
+set_source_dir() {
+    if [ -n "$output_dir" -a -z "$source_dir" ] ; then
+        if [ ! -e "${output_dir}/Makefile" ] ; then
+            echo "Can't find ${output_dir}/Makefile - this is not a valid kernel build directory."
+            exit 1
+        fi
+
+        source_dir=$(sed -n 's/^\s*MAKEARGS\s*:=.*-C\s*\(\S\+\).*/\1/p' "${output_dir}/Makefile" 2>/dev/null)
+
+        if [ -z "$source_dir" ]; then
+            source_dir="$output_dir"
+        else
+            if [ ! -e "$source_dir" ]; then
+                echo "Unable to parse kernel source directory from --output-dir Makefile."
+                echo "You must specify --source-dir."
+                exit 1
+            fi
+        fi
+
+        echo "Using ${source_dir} as kernel source directory (based on --output-dir Makefile)"
+        echo "Use --source-dir to override this."
+    fi
+
+    # This variable will be used like make -C $kernel
+    kernel="$source_dir"
+
+    if [ -n "$output_dir" ] ; then
+        kernel="$output_dir"
+    fi
+}
+
+#
+# Script start
+#
+
+script_version="14.6.4"
 cache_dir=".tuxera_update_cache"
-server="autobuild.tuxera.com"
-upgrade_url="https://$server/tuxera_update.sh"
 dbgdev="/dev/null"
 cache_lookup_time="none"
 max_cache_entries=10
+max_polls=30
+autobuild_addrs="autobuild-1.tuxera.com autobuild-2.tuxera.com"
+retry=5
+retry_delay=2
+retry_max_time=120
 
 echo "tuxera_update.sh version $script_version"
 
-if ! options=$(getopt -o pahuv -l target:,user:,pass:,use-package:,use-remote-package:,source-dir:,output-dir:,version:,cache-dir:,server:,extraargs:,max-cache-entries:,upgrade,help,ignore-cert,no-check-certificate,use-curl,use-wget,no-excludes,use-cache,verbose,latest -- "$@")
+if ! options=$(getopt -o pahuv -l target:,user:,pass:,use-package:,source-dir:,output-dir:,version:,cache-dir:,server:,extraargs:,max-cache-entries:,admin:,upgrade,help,ignore-cert,no-check-certificate,use-curl,use-wget,no-excludes,use-cache,verbose,latest -- "$@")
 then
     usage
 fi
@@ -816,7 +1043,6 @@ do
     --user) username="$2" ; shift;;
     --pass) password="$2" ; shift;;
     --use-package) local_package="$2" ; shift;;
-    --use-remote-package) remote_package="$2" ; shift;;
     --source-dir) source_dir="$2" ; shift;;
     --output-dir) output_dir="$2" ; shift;;
     --ignore-cert) ignore_certificates="yes" ;;
@@ -834,6 +1060,10 @@ do
     --verbose) verbose="yes"; dbgdev="/dev/stdout" ;;
     --latest) check_latest="yes" ;;
     --max-cache-entries) max_cache_entries="$2" ; shift;;
+    --retry) retry="$2" ; shift;;
+    --retry-delay) retry_delay="$2" ; shift;;
+    --retry-max-time) retry_max_time="$2" ; shift;;
+    --admin) admin="$2" ; shift;;
     (--) shift; break;;
     (-*) echo "$0: error - unrecognized option $1" 1>&2; usage;;
     (*) break;;
@@ -850,27 +1080,28 @@ if [ -z "$target" ] ; then
     target="default"
 fi
 
-check_cmds tar find grep readlink
+check_cmds tar find grep readlink cut sed
+
+set_source_dir
 
 if [ -n "$pkgonly" ] && [ -n "$autobuild" -o -n "$use_cache" ] ; then
     echo "You cannot specify -p with -a or --use-cache."
     usage
 fi
 
-if [ -n "$local_package" -a -n "$remote_package" ] ; then
-    echo "You cannot specify both local and remote packages."
+if [ -n "$local_package" ] && [ -n "$use_cache" ] ; then
+    echo "You cannot specify --use-package with --use-cache."
     usage
 fi
 
-if [ -n "$local_package" -o -n "$remote_package" ] && [ -n "$use_cache" ] ; then
-    echo "You cannot specify --use-package/--use-remote-package with --use-cache."
-    usage
-fi
-
+# Do cache lookup now unless only listing is requested
 if [ -n "$use_cache" -a "$target" != "list" ] ; then
     check_autobuild_prerequisites
 
+    # Directory may or may not exist
     mkdir -p "${cache_dir}"
+
+    # Absolute path to cache_dir. Needed by kernel build system.
     cache_dir=$(readlink -f "$cache_dir")
 
     if [ $(echo $cache_dir | wc -w) != "1" ] ; then
@@ -879,57 +1110,57 @@ if [ -n "$use_cache" -a "$target" != "list" ] ; then
     fi
 
     if [ -z "$source_dir" ] ; then
-        echo "You must specify kernel source (optionally output) dir to use the cache."
+        echo "You must specify kernel output (and source, if needed) dir to use the cache."
         usage
     fi
 
-    if [ -d "$cache_dir" ] ; then
-        if [ -n "$check_latest" ] ; then
-            check_http_client
-            get_latest
-        fi
+    # Request latest version from server
+    if [ -n "$check_latest" ] ; then
+        check_http_client
+        get_latest
+    fi
 
-        cache_lookup_start=$(date '+%s')
-        lookup_cache
+    cache_lookup_start=$(date '+%s')
+    lookup_cache
 
-        if [ $? -eq 0 ] ; then
-            exit 0
-        else
-            cache_lookup_time=$(($(date '+%s') - $cache_lookup_start))
-
-            if [ -n "$autobuild" ] ; then
-                echo "Proceeding with remote build..."
-            else
-                echo "No cache hit found, assembling headers to kheaders.tar.bz2 for manual build..."
-            fi
-        fi
+    # Exit on cache hit
+    if [ $? -eq 0 ] ; then
+        exit 0
     else
-        echo "Local cache does not exist (yet)."
+        cache_lookup_time=$(($(date '+%s') - $cache_lookup_start))
+
+        if [ -n "$autobuild" ] ; then
+            echo "Proceeding with remote build..."
+        else
+            echo "No cache hit found. Exiting with status 2."
+            exit 2
+        fi
     fi
 fi
 
 if [ -n "$autobuild" ] ; then
+    # Prerequisites may already have been checked
     [ -n "$use_cache" ] || check_autobuild_prerequisites
-    [ -n "$check_latest" ] || check_http_client
+    [ -n "$use_cache"  -a -n "$check_latest" ] || check_http_client
 
     if [ "$target" = "list" ] ; then
         list_targets
         exit 0
     fi
 
-    if [ -z "$local_package" -a -z "$remote_package" ] ; then
+    # Assemble package with generated name if no local_package set
+    if [ -z "$local_package" ] ; then
         local_package="kheaders_$(date +%Y-%m-%d-%H-%M-%S-$(head -c 8 /dev/urandom | md5sum | head -c 4)).tar.bz2"
-        build_package "$source_dir" "$output_dir" "$local_package"
+        build_package "$local_package"
     fi
 
-    if [ -z "$remote_package" ] ; then
-        if [ "$http_client" = "wget" ] ; then
-            upload_package_sftp "$local_package"
-        else
-            upload_package_curl "$local_package"
-        fi
+    if [ "$http_client" = "wget" ] ; then
+        upload_package_wget "$local_package"
+    else
+        upload_package_curl "$local_package"
     fi
 
+    # Note: use_cache must remain empty in case of 'no'
     using_cache=$use_cache
     if [ -z "$use_cache" ] ; then
         using_cache="no"
@@ -939,5 +1170,5 @@ if [ -n "$autobuild" ] ; then
     exit 0
 fi
 
-build_package "$source_dir" "$output_dir" "kheaders.tar.bz2"
+build_package "kheaders.tar.bz2"
 exit 0
