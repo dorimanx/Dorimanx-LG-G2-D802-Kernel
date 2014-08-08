@@ -80,12 +80,6 @@ struct synaptics_ts_fw_info {
 
 struct synaptics_ts_data {
 	u8	is_probed;
-#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
-	u8  lpwg_mode;
-	u8  double_tap_enable;
-	u8  password_enable;
-	u8  password_tap_count;
-#endif
 	struct regulator	*regulator_vdd;
 	struct regulator	*regulator_vio;
 	struct i2c_client *client;
@@ -100,11 +94,6 @@ struct synaptics_ts_data {
 	struct ts_ic_function	flash_fc;
 	struct cur_touch_data	ts_data;
 	struct synaptics_ts_fw_info	fw_info;
-#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
-	struct lge_touch_data *lge_touch_ts;
-	struct hrtimer		multi_tap_timer;
-	struct work_struct	multi_tap_work;
-#endif
 };
 
 /* extern function */

@@ -80,23 +80,14 @@ obj-$(CONFIG_TOUCHSCREEN_TPS6507X)	+= tps6507x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_MSM_LEGACY)		+= msm_touch.o
 obj-$(CONFIG_TOUCHSCREEN_CY8C_TS)	+= cy8c_ts.o
 obj-$(CONFIG_TOUCHSCREEN_CYTTSP_I2C_QC)       += cyttsp-i2c-qc.o
-ifdef CONFIG_MACH_MSM8974_G2_KR
-obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_RMI4_I2C) +=f320_driver/synaptics/
-else
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_RMI4_I2C) +=synaptics/
-endif
 ifdef CONFIG_MACH_LGE
 ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_VU3EVB
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_VU3EVB) += lge_touch_core_vu3evb.o
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_VU3EVB) += touch_synaptics_vu3evb.o
 else
-ifdef CONFIG_MACH_MSM8974_G2_KR
-obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4) += f320_driver/lge_touch_core.o
-obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4) += f320_driver/touch_synaptics.o
-else
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4) += lge_touch_core.o
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4) += touch_synaptics.o
-endif
 endif
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4) += touch_synaptics_ds5_fw_upgrade.o
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4) += DS5/
