@@ -265,13 +265,14 @@ static void __ref cpu_up_down_work(struct work_struct *work)
 
 		update_per_cpu_stat();
 		for_each_online_cpu(cpu) {
-			l_nr_threshold =
-				cpu_nr_run_threshold << 1 / (num_online_cpus());
 			if (cpu == 0)
 				continue;
+			if (check_down_lock(cpu) || check_cpuboost(cpu))
+				break;
+			l_nr_threshold =
+				cpu_nr_run_threshold << 1 / (num_online_cpus());
 			l_ip_info = &per_cpu(ip_info, cpu);
-			if (!check_down_lock(cpu) &&
-			    l_ip_info->cpu_nr_running < l_nr_threshold)
+			if (l_ip_info->cpu_nr_running < l_nr_threshold)
 				cpu_down(cpu);
 			if (target >= num_online_cpus())
 				break;
