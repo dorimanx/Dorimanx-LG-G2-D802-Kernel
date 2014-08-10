@@ -520,6 +520,7 @@ static void msm_hotplug_suspend(struct work_struct *work)
 		hotplug.min_cpus_online_res = hotplug.min_cpus_online;
 		hotplug.min_cpus_online = 1;
 		hotplug.max_cpus_online_res = hotplug.max_cpus_online;
+		hotplug.max_cpus_online = 4;
 		mutex_unlock(&hotplug.msm_hotplug_mutex);
 
 		/* Flush hotplug workqueue */
@@ -532,7 +533,9 @@ static void msm_hotplug_suspend(struct work_struct *work)
 				continue;
 			cpu_down(cpu);
 		}
+		mutex_lock(&hotplug.msm_hotplug_mutex);
 		hotplug.need_boost = 1;
+		mutex_unlock(&hotplug.msm_hotplug_mutex);
 		dprintk("%s: suspended.\n", MSM_HOTPLUG);
 	}
 }
@@ -547,7 +550,8 @@ static void __ref msm_hotplug_resume(struct work_struct *work)
 		hotplug.min_cpus_online = hotplug.min_cpus_online_res;
 		hotplug.max_cpus_online = hotplug.max_cpus_online_res;
 		mutex_unlock(&hotplug.msm_hotplug_mutex);
-		/* Initiate hotplug work if it was cancelled */
+
+		/* Initiate hotplug work */
 		INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
 
 		/* Fire up all CPUs */
@@ -561,15 +565,21 @@ static void __ref msm_hotplug_resume(struct work_struct *work)
 
 		dprintk("%s: resumed.\n", MSM_HOTPLUG);
 	} else {
-		/* Fire up all CPUs */
-		for_each_cpu_not(cpu, cpu_online_mask) {
-			hotplug.need_boost = 0;
-			if (cpu == 0) {
-				hotplug.need_boost = 1;
-				continue;
+		if (hotplug.need_boost) {
+			/* Fire up all CPUs */
+			for_each_cpu_not(cpu, cpu_online_mask) {
+				mutex_lock(&hotplug.msm_hotplug_mutex);
+				hotplug.need_boost = 0;
+				mutex_unlock(&hotplug.msm_hotplug_mutex);
+				if (cpu == 0) {
+					mutex_lock(&hotplug.msm_hotplug_mutex);
+					hotplug.need_boost = 1;
+					mutex_unlock(&hotplug.msm_hotplug_mutex);
+					continue;
+				}
+				cpu_up(cpu);
+				apply_down_lock(cpu);
 			}
-			cpu_up(cpu);
-			apply_down_lock(cpu);
 		}
 		dprintk("%s: resume was not needed.\n", MSM_HOTPLUG);
 	}
@@ -603,8 +613,7 @@ static void __msm_hotplug_resume(struct early_suspend *handler)
 		return;
 
 	cancel_delayed_work_sync(&hotplug.suspend_work);
-	if (hotplug.need_boost)
-		schedule_work_on(0, &hotplug.resume_work);
+	schedule_work_on(0, &hotplug.resume_work);
 }
 
 #ifdef CONFIG_LCD_NOTIFY

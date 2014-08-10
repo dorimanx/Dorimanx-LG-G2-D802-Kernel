@@ -318,6 +318,7 @@ static void intelli_plug_suspend(struct work_struct *work)
 		min_cpus_online_res = min_cpus_online;
 		min_cpus_online = 1;
 		max_cpus_online_res = max_cpus_online;
+		max_cpus_online = 4;
 		mutex_unlock(&intelli_plug_mutex);
 
 		/* Flush hotplug workqueue */
@@ -330,7 +331,9 @@ static void intelli_plug_suspend(struct work_struct *work)
 				continue;
 			cpu_down(cpu);
 		}
+		mutex_lock(&intelli_plug_mutex);
 		need_boost = 1;
+		mutex_unlock(&intelli_plug_mutex);
 		dprintk("%s: suspended!\n", INTELLI_PLUG);
 	}
 }
@@ -364,9 +367,13 @@ static void __ref intelli_plug_resume(struct work_struct *work)
 		/* Fire up all CPUs */
 		if (need_boost) {
 			for_each_cpu_not(cpu, cpu_online_mask) {
+				mutex_lock(&intelli_plug_mutex);
 				need_boost = 0;
+				mutex_unlock(&intelli_plug_mutex);
 				if (cpu == 0) {
+					mutex_lock(&intelli_plug_mutex);
 					need_boost = 1;
+					mutex_unlock(&intelli_plug_mutex);
 					continue;
 				}
 				cpu_up(cpu);
@@ -405,8 +412,7 @@ static void __intelli_plug_resume(struct early_suspend *handler)
 		return;
 
 	cancel_delayed_work_sync(&suspend_work);
-	if (need_boost)
-		schedule_work_on(0, &resume_work);
+	schedule_work_on(0, &resume_work);
 }
 
 #ifdef CONFIG_LCD_NOTIFY
