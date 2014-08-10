@@ -7,7 +7,7 @@
 
 /* Main header file for the bfd library -- portable access to object files.
 
-   Copyright 1990-2013 Free Software Foundation, Inc.
+   Copyright (C) 1990-2014 Free Software Foundation, Inc.
 
    Contributed by Cygnus Support.
 
@@ -687,19 +687,21 @@ extern int bfd_get_elf_phdrs
   (bfd *abfd, void *phdrs);
 
 /* Create a new BFD as if by bfd_openr.  Rather than opening a file,
-   reconstruct an ELF file by reading the segments out of remote memory
-   based on the ELF file header at EHDR_VMA and the ELF program headers it
-   points to.  If not null, *LOADBASEP is filled in with the difference
-   between the VMAs from which the segments were read, and the VMAs the
-   file headers (and hence BFD's idea of each section's VMA) put them at.
+   reconstruct an ELF file by reading the segments out of remote
+   memory based on the ELF file header at EHDR_VMA and the ELF program
+   headers it points to.  If non-zero, SIZE is the known extent of the
+   object.  If not null, *LOADBASEP is filled in with the difference
+   between the VMAs from which the segments were read, and the VMAs
+   the file headers (and hence BFD's idea of each section's VMA) put
+   them at.
 
-   The function TARGET_READ_MEMORY is called to copy LEN bytes from the
-   remote memory at target address VMA into the local buffer at MYADDR; it
-   should return zero on success or an `errno' code on failure.  TEMPL must
-   be a BFD for an ELF target with the word size and byte order found in
-   the remote memory.  */
+   The function TARGET_READ_MEMORY is called to copy LEN bytes from
+   the remote memory at target address VMA into the local buffer at
+   MYADDR; it should return zero on success or an `errno' code on
+   failure.  TEMPL must be a BFD for a target with the word size and
+   byte order found in the remote memory.  */
 extern bfd *bfd_elf_bfd_from_remote_memory
-  (bfd *templ, bfd_vma ehdr_vma, bfd_vma *loadbasep,
+  (bfd *templ, bfd_vma ehdr_vma, bfd_size_type size, bfd_vma *loadbasep,
    int (*target_read_memory) (bfd_vma vma, bfd_byte *myaddr,
 			      bfd_size_type len));
 
@@ -884,15 +886,19 @@ extern bfd_boolean bfd_elf32_arm_get_bfd_for_interworking
 extern bfd_boolean bfd_elf32_arm_add_glue_sections_to_bfd
   (bfd *, struct bfd_link_info *);
 
-/* ELF ARM mapping symbol support */
+/* ELF ARM mapping symbol support.  */
 #define BFD_ARM_SPECIAL_SYM_TYPE_MAP	(1 << 0)
 #define BFD_ARM_SPECIAL_SYM_TYPE_TAG	(1 << 1)
 #define BFD_ARM_SPECIAL_SYM_TYPE_OTHER  (1 << 2)
 #define BFD_ARM_SPECIAL_SYM_TYPE_ANY	(~0)
-extern bfd_boolean bfd_is_arm_special_symbol_name
-  (const char * name, int type);
 
-extern void bfd_elf32_arm_set_byteswap_code (struct bfd_link_info *, int);
+extern bfd_boolean bfd_is_arm_special_symbol_name
+  (const char *, int);
+
+extern void bfd_elf32_arm_set_byteswap_code
+  (struct bfd_link_info *, int);
+
+extern void bfd_elf32_arm_use_long_plt (void);
 
 /* ARM Note section processing.  */
 extern bfd_boolean bfd_arm_merge_machines
@@ -1437,6 +1443,7 @@ typedef struct bfd_section
 #define SEC_INFO_TYPE_MERGE     2
 #define SEC_INFO_TYPE_EH_FRAME  3
 #define SEC_INFO_TYPE_JUST_SYMS 4
+#define SEC_INFO_TYPE_TARGET    5
 
   /* Nonzero if this section uses RELA relocations, rather than REL.  */
   unsigned int use_rela_p:1;
@@ -1899,7 +1906,9 @@ enum bfd_architecture
 #define bfd_mach_i960_jx        7
 #define bfd_mach_i960_hx        8
 
-  bfd_arch_or32,      /* OpenRISC 32 */
+  bfd_arch_or1k,      /* OpenRISC 1000 */
+#define bfd_mach_or1k           1
+#define bfd_mach_or1knd         2
 
   bfd_arch_sparc,     /* SPARC */
 #define bfd_mach_sparc                 1
@@ -1958,8 +1967,12 @@ enum bfd_architecture
 #define bfd_mach_mips_xlr              887682   /* decimal 'XLR'  */
 #define bfd_mach_mipsisa32             32
 #define bfd_mach_mipsisa32r2           33
+#define bfd_mach_mipsisa32r3           34
+#define bfd_mach_mipsisa32r5           36
 #define bfd_mach_mipsisa64             64
 #define bfd_mach_mipsisa64r2           65
+#define bfd_mach_mipsisa64r3           66
+#define bfd_mach_mipsisa64r5           68
 #define bfd_mach_mips_micromips        96
   bfd_arch_i386,      /* Intel 386 */
 #define bfd_mach_i386_intel_syntax     (1 << 0)
@@ -2211,7 +2224,6 @@ enum bfd_architecture
   bfd_arch_score,     /* Sunplus score */
 #define bfd_mach_score3         3
 #define bfd_mach_score7         7
-  bfd_arch_openrisc,  /* OpenRISC */
   bfd_arch_mmix,      /* Donald Knuth's educational processor.  */
   bfd_arch_xstormy16,
 #define bfd_mach_xstormy16     1
@@ -3254,6 +3266,7 @@ instruction.  */
   BFD_RELOC_PPC64_PLTGOT16_LO_DS,
   BFD_RELOC_PPC64_ADDR16_HIGH,
   BFD_RELOC_PPC64_ADDR16_HIGHA,
+  BFD_RELOC_PPC64_ADDR64_LOCAL,
 
 /* PowerPC and PowerPC64 thread-local storage relocations.  */
   BFD_RELOC_PPC_TLS,
@@ -4452,6 +4465,16 @@ in .byte hi8(symbol)  */
 in .byte hlo8(symbol)  */
   BFD_RELOC_AVR_8_HLO,
 
+/* AVR relocations to mark the difference of two local symbols.
+These are only needed to support linker relaxation and can be ignored
+when not relaxing.  The field is set to the value of the difference
+assuming no relaxation.  The relocation encodes the position of the
+second symbol so the linker can determine whether to adjust the field
+value.  */
+  BFD_RELOC_AVR_DIFF8,
+  BFD_RELOC_AVR_DIFF16,
+  BFD_RELOC_AVR_DIFF32,
+
 /* Renesas RL78 Relocations.  */
   BFD_RELOC_RL78_NEG8,
   BFD_RELOC_RL78_NEG16,
@@ -5115,9 +5138,31 @@ a matching LO8XG part.  */
   BFD_RELOC_860_HIGOT,
   BFD_RELOC_860_HIGOTOFF,
 
-/* OpenRISC Relocations.  */
-  BFD_RELOC_OPENRISC_ABS_26,
-  BFD_RELOC_OPENRISC_REL_26,
+/* OpenRISC 1000 Relocations.  */
+  BFD_RELOC_OR1K_REL_26,
+  BFD_RELOC_OR1K_GOTPC_HI16,
+  BFD_RELOC_OR1K_GOTPC_LO16,
+  BFD_RELOC_OR1K_GOT16,
+  BFD_RELOC_OR1K_PLT26,
+  BFD_RELOC_OR1K_GOTOFF_HI16,
+  BFD_RELOC_OR1K_GOTOFF_LO16,
+  BFD_RELOC_OR1K_COPY,
+  BFD_RELOC_OR1K_GLOB_DAT,
+  BFD_RELOC_OR1K_JMP_SLOT,
+  BFD_RELOC_OR1K_RELATIVE,
+  BFD_RELOC_OR1K_TLS_GD_HI16,
+  BFD_RELOC_OR1K_TLS_GD_LO16,
+  BFD_RELOC_OR1K_TLS_LDM_HI16,
+  BFD_RELOC_OR1K_TLS_LDM_LO16,
+  BFD_RELOC_OR1K_TLS_LDO_HI16,
+  BFD_RELOC_OR1K_TLS_LDO_LO16,
+  BFD_RELOC_OR1K_TLS_IE_HI16,
+  BFD_RELOC_OR1K_TLS_IE_LO16,
+  BFD_RELOC_OR1K_TLS_LE_HI16,
+  BFD_RELOC_OR1K_TLS_LE_LO16,
+  BFD_RELOC_OR1K_TLS_TPOFF,
+  BFD_RELOC_OR1K_TLS_DTPOFF,
+  BFD_RELOC_OR1K_TLS_DTPMOD,
 
 /* H8 elf Relocations.  */
   BFD_RELOC_H8_DIR16A8,
@@ -5225,6 +5270,11 @@ a matching LO8XG part.  */
   BFD_RELOC_NIOS2_JUMP_SLOT,
   BFD_RELOC_NIOS2_RELATIVE,
   BFD_RELOC_NIOS2_GOTOFF,
+  BFD_RELOC_NIOS2_CALL26_NOAT,
+  BFD_RELOC_NIOS2_GOT_LO,
+  BFD_RELOC_NIOS2_GOT_HA,
+  BFD_RELOC_NIOS2_CALL_LO,
+  BFD_RELOC_NIOS2_CALL_HA,
 
 /* IQ2000 Relocations.  */
   BFD_RELOC_IQ2000_OFFSET_16,
