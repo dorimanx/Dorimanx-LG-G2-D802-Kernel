@@ -35,6 +35,7 @@ modules.builtin
 *.rej
 *.orig
 patch-3.*
+usr/initramfs_data.cpio.lz4
 
 #
 # Top-level generic files
