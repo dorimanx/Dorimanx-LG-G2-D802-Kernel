@@ -21,7 +21,7 @@ clear
 #------ramdisk-tmp/			(ramdisk tmp store without .git)
 #--------lib/modules/			(modules dir, will be added to system on boot)
 #------dorimanx-LG-G2-D802-Kernel/	(kernel source goes here)
-#--------READY-RELEASES/		(When using build all selector all models ready kernels will go o this folder)
+#--------READY-RELEASES/		(When using all selector, all models ready kernels will go to this folder)
 #--------READY-KERNEL/			(output directory, where the final boot.img is placed)
 #----------meta-inf/			(meta-inf folder for your flashable zip)
 #----------system/
