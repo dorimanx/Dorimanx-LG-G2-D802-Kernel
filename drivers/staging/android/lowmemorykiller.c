@@ -562,7 +562,7 @@ static struct shrinker lowmem_shrinker = {
 
 static void low_mem_power_suspend(struct power_suspend *handler)
 {
-	if (lowmem_auto_oom) {
+	if (lowmem_auto_oom && lowmem_minfree != lowmem_minfree_screen_off) {
 		memcpy(lowmem_minfree_screen_on, lowmem_minfree, sizeof(lowmem_minfree));
 		memcpy(lowmem_minfree, lowmem_minfree_screen_off, sizeof(lowmem_minfree_screen_off));
 	}
@@ -570,7 +570,7 @@ static void low_mem_power_suspend(struct power_suspend *handler)
 
 static void low_mem_late_resume(struct power_suspend *handler)
 {
-	if (lowmem_auto_oom)
+	if (lowmem_auto_oom && lowmem_minfree != lowmem_minfree_screen_off)
 		memcpy(lowmem_minfree, lowmem_minfree_screen_on, sizeof(lowmem_minfree_screen_on));
 }
 
