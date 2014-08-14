@@ -31,7 +31,7 @@ static int laziness;
 int simple_gpu_algorithm(int level,
 			struct devfreq_msm_adreno_tz_data *priv)
 {
-	int val;
+	int val = 0;
 
 	/* it's currently busy */
 	if (priv->bin.busy_time > ramp_up_threshold) {
