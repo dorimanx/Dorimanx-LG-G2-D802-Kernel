@@ -354,12 +354,10 @@ CC		= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-KERNEL_FLAGS	= -mtune=cortex-a15 -marm \
-		  -mfpu=neon-vfpv4 -mvectorize-with-neon-quad \
-		  -fgcse-after-reload -fgcse-sm -fgcse-las \
-		  -ftree-loop-im -ftree-loop-ivcanon \
-		  -fivopts -ftree-vectorize -fmodulo-sched \
-		  -ffast-math
+KERNEL_FLAGS	= -marm -mtune=cortex-a15 -mtune=cortex-a15 -mfpu=neon-vfpv4 \
+		  -mvectorize-with-neon-quad -fgcse-after-reload -fgcse-sm \
+		  -fgcse-las -ftree-loop-im -ftree-loop-ivcanon -fivopts \
+		  -ftree-vectorize -fmodulo-sched -ffast-math
 
 CFLAGS_MODULE   = -DMODULE $(KERNEL_FLAGS)
 AFLAGS_MODULE   =
@@ -382,8 +380,6 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
-		   -Wno-maybe-uninitialized \
-		   -Wno-sizeof-pointer-memaccess \
 		   -fno-delete-null-pointer-checks \
 		   $(KERNEL_FLAGS)
 

@@ -2285,7 +2285,7 @@ static void smb349_irq_worker(struct work_struct *work)
 
 #ifdef CONFIG_FORCE_FAST_CHARGE
 	int batt_temp_check;
-	int new_thermal_mitigation;
+	int new_thermal_mitigation = 500;
 #endif
 
 	struct smb349_struct *smb349_chg =
