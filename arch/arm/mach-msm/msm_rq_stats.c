@@ -194,20 +194,18 @@ static int cpu_hotplug_handler(struct notifier_block *nb,
 static int system_suspend_handler(struct notifier_block *nb,
 				unsigned long val, void *data)
 {
-	if (rq_info.hotplug_disabled)
+	if (lock_hotplug_disabled)
 		return NOTIFY_OK;
 
 	switch (val) {
 	case PM_POST_HIBERNATION:
 	case PM_POST_SUSPEND:
 	case PM_POST_RESTORE:
-		if (!lock_hotplug_disabled)
-			rq_info.hotplug_disabled = 0;
+		rq_info.hotplug_disabled = 0;
 		break;
 	case PM_HIBERNATION_PREPARE:
 	case PM_SUSPEND_PREPARE:
-		if (!lock_hotplug_disabled)
-			rq_info.hotplug_disabled = 1;
+		rq_info.hotplug_disabled = 1;
 		break;
 	default:
 		return NOTIFY_DONE;
