@@ -650,6 +650,7 @@ int cfg80211_mlme_register_mgmt(struct wireless_dev *wdev, u32 snd_pid,
 	}
 
 	if (err) {
+		err = 0;
 		kfree(nreg);
 		goto out;
 	}
