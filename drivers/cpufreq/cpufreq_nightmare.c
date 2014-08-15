@@ -79,6 +79,8 @@ static struct nightmare_tuners {
 	int freq_step;
 	int freq_step_dec;
 	int freq_step_dec_at_max_freq;
+	unsigned int io_is_busy;
+	
 } nightmare_tuners_ins = {
 	.sampling_rate = 60000,
 	.inc_cpu_load_at_min_freq = 40,
@@ -92,6 +94,7 @@ static struct nightmare_tuners {
 	.freq_up_brake = 30,
 	.freq_step_dec = 10,
 	.freq_step_dec_at_max_freq = 10,
+	.io_is_busy = 0,
 };
 
 /************************** sysfs interface ************************/
@@ -115,6 +118,7 @@ show_one(freq_up_brake_at_min_freq, freq_up_brake_at_min_freq);
 show_one(freq_up_brake, freq_up_brake);
 show_one(freq_step_dec, freq_step_dec);
 show_one(freq_step_dec_at_max_freq, freq_step_dec_at_max_freq);
+show_one(io_is_busy, io_is_busy);
 
 /* sampling_rate */
 static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
@@ -369,6 +373,37 @@ static ssize_t store_freq_step_dec_at_max_freq(struct kobject *a, struct attribu
 	return count;
 }
 
+/* io_is_busy */
+static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned int input, j;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (input > 1)
+		input = 1;
+
+	if (input == nightmare_tuners_ins.io_is_busy)
+		return count;
+
+	nightmare_tuners_ins.io_is_busy = !!input;
+
+	/* we need to re-evaluate prev_cpu_idle */
+	for_each_online_cpu(j) {
+		struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
+
+		j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
+
+		j_nightmare_cpuinfo->prev_cpu_idle = get_cpu_idle_time(j,
+			&j_nightmare_cpuinfo->prev_cpu_wall, nightmare_tuners_ins.io_is_busy);
+	}
+	return count;
+}
+
 define_one_global_rw(sampling_rate);
 define_one_global_rw(inc_cpu_load_at_min_freq);
 define_one_global_rw(inc_cpu_load);
@@ -381,6 +416,7 @@ define_one_global_rw(freq_up_brake_at_min_freq);
 define_one_global_rw(freq_up_brake);
 define_one_global_rw(freq_step_dec);
 define_one_global_rw(freq_step_dec_at_max_freq);
+define_one_global_rw(io_is_busy);
 
 static struct attribute *nightmare_attributes[] = {
 	&sampling_rate.attr,
@@ -395,6 +431,7 @@ static struct attribute *nightmare_attributes[] = {
 	&freq_up_brake.attr,
 	&freq_step_dec.attr,
 	&freq_step_dec_at_max_freq.attr,
+	&io_is_busy.attr,
 	NULL
 };
 
@@ -442,11 +479,12 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	unsigned int next_freq = 0;
 	int cur_load = -1;
 	unsigned int cpu;
+	int io_busy = nightmare_tuners_ins.io_is_busy;
 
 	cpu = this_nightmare_cpuinfo->cpu;
 	cpu_policy = this_nightmare_cpuinfo->cur_policy;
 
-	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, 0);
+	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, io_busy);
 
 	wall_time = (unsigned int)
 			(cur_wall_time - this_nightmare_cpuinfo->prev_cpu_wall);
@@ -529,8 +567,10 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 	unsigned int cpu;
 	struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo;
 	int rc, delay;
+	int io_busy;
 
 	cpu = policy->cpu;
+	io_busy = nightmare_tuners_ins.io_is_busy;
 	this_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, cpu);
 
 	switch (event) {
@@ -542,7 +582,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		this_nightmare_cpuinfo->cur_policy = policy;
 
-		this_nightmare_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_nightmare_cpuinfo->prev_cpu_wall, 0);
+		this_nightmare_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_nightmare_cpuinfo->prev_cpu_wall, io_busy);
 
 		this_nightmare_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
 		this_nightmare_cpuinfo->cpu = cpu;
