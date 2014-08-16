@@ -30,7 +30,7 @@
 #include <linux/earlysuspend.h>
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
-static struct hotplug_cpuinfo {
+struct hotplug_cpuinfo {
 #ifndef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
 	u64 prev_cpu_wall;
 	u64 prev_cpu_idle;
@@ -69,7 +69,7 @@ static struct hotplug_tuners {
 #define DOWN_INDEX		(0)
 #define UP_INDEX		(1)
 
-static struct runqueue_data {
+struct runqueue_data {
 	unsigned int nr_run_avg;
 	int64_t last_time;
 	int64_t total_time;
@@ -83,8 +83,6 @@ static void init_rq_avg_stats(void)
 	rq_data->nr_run_avg = 0;
 	rq_data->last_time = 0;
 	rq_data->total_time = 0;
-
-	return;
 }
 
 static int __init init_rq_avg(void)
@@ -99,11 +97,9 @@ static int __init init_rq_avg(void)
 	return 0;
 }
 
-static int __exit exit_rq_avg(void)
+static void exit_rq_avg(void)
 {
 	kfree(rq_data);
-
-	return 0;
 }
 
 static unsigned int get_nr_run_avg(void)
@@ -170,7 +166,7 @@ static unsigned int hotplug_rate[NR_CPUS][2] = {
 	{4, 1}
 };
 
-static void __cpuinit hotplug_work_fn(struct work_struct *work)
+static void __ref hotplug_work_fn(struct work_struct *work)
 {
 	int upmaxcoreslimit = 0;
 	unsigned int min_cpus_online = hotplug_tuners_ins.min_cpus_online;
@@ -335,9 +331,9 @@ static void __ref alucard_hotplug_early_suspend(struct early_suspend *handler)
 }
 
 #ifdef CONFIG_POWERSUSPEND
-static void __cpuinit alucard_hotplug_resume(struct power_suspend *handler)
+static void __ref alucard_hotplug_resume(struct power_suspend *handler)
 #else
-static void __cpuinit alucard_hotplug_late_resume(
+static void __ref alucard_hotplug_late_resume(
 				struct early_suspend *handler)
 #endif
 {
@@ -399,7 +395,7 @@ static int hotplug_start(void)
 	}
 	put_online_cpus();
 
-	init_rq_avg_stats;
+	init_rq_avg_stats();
 	INIT_DELAYED_WORK(&alucard_hotplug_work, hotplug_work_fn);
 	queue_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
 						msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate));
@@ -423,7 +419,7 @@ static void hotplug_stop(void)
 
 	cancel_delayed_work_sync(&alucard_hotplug_work);
 
-	exit_rq_avg;
+	exit_rq_avg();
 
 	destroy_workqueue(alucardhp_wq);
 }
@@ -856,4 +852,3 @@ MODULE_DESCRIPTION("'alucard_hotplug' - A cpu hotplug driver for "
 MODULE_LICENSE("GPL");
 
 late_initcall(alucard_hotplug_init);
-late_initexit(alucard_hotplug_exit);
