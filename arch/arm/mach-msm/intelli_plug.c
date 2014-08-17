@@ -98,6 +98,11 @@ static bool hotplug_suspended = false;
 unsigned int suspend_defer_time = DEFAULT_SUSPEND_DEFER_TIME;
 static unsigned int min_cpus_online_res = DEFAULT_MIN_CPUS_ONLINE;
 static unsigned int max_cpus_online_res = DEFAULT_MAX_CPUS_ONLINE;
+/*
+ * suspend mode, if set = 1 hotplug will sleep,
+ * if set = 0, then hoplug will be active all the time.
+ */
+static unsigned int hotplug_suspend = 0;
 #endif
 
 /* HotPlug Driver Tuning */
@@ -107,7 +112,6 @@ static unsigned int def_sampling_ms = DEF_SAMPLING_MS;
 static unsigned int nr_fshift = DEFAULT_NR_FSHIFT;
 static unsigned int nr_run_hysteresis = DEFAULT_MAX_CPUS_ONLINE * 2;
 static unsigned int debug_intelli_plug = 1;
-static unsigned int need_boost = 1;
 
 #define dprintk(msg...)		\
 do { 				\
@@ -331,9 +335,6 @@ static void intelli_plug_suspend(struct work_struct *work)
 				continue;
 			cpu_down(cpu);
 		}
-		mutex_lock(&intelli_plug_mutex);
-		need_boost = 1;
-		mutex_unlock(&intelli_plug_mutex);
 		dprintk("%s: suspended!\n", INTELLI_PLUG);
 	}
 }
@@ -363,24 +364,6 @@ static void __ref intelli_plug_resume(struct work_struct *work)
 
 		queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
 				      msecs_to_jiffies(RESUME_SAMPLING_MS));
-	} else {
-		/* Fire up all CPUs */
-		if (need_boost) {
-			for_each_cpu_not(cpu, cpu_online_mask) {
-				mutex_lock(&intelli_plug_mutex);
-				need_boost = 0;
-				mutex_unlock(&intelli_plug_mutex);
-				if (cpu == 0) {
-					mutex_lock(&intelli_plug_mutex);
-					need_boost = 1;
-					mutex_unlock(&intelli_plug_mutex);
-					continue;
-				}
-				cpu_up(cpu);
-				apply_down_lock(cpu);
-			}
-		}
-		dprintk("%s: resume was not needed.\n", INTELLI_PLUG);
 	}
 }
 
@@ -393,6 +376,9 @@ static void __intelli_plug_suspend(struct early_suspend *handler)
 #endif
 {
 	if (atomic_read(&intelli_plug_active) == 0)
+		return;
+
+	if (!hotplug_suspend)
 		return;
 
 	INIT_DELAYED_WORK(&suspend_work, intelli_plug_suspend);
@@ -409,6 +395,9 @@ static void __intelli_plug_resume(struct early_suspend *handler)
 #endif
 {
 	if (atomic_read(&intelli_plug_active) == 0)
+		return;
+
+	if (!hotplug_suspend)
 		return;
 
 	cancel_delayed_work_sync(&suspend_work);
@@ -680,6 +669,7 @@ show_one(max_cpus_online, max_cpus_online);
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
 show_one(suspend_defer_time, suspend_defer_time);
+show_one(hotplug_suspend, hotplug_suspend);
 #endif
 show_one(full_mode_profile, full_mode_profile);
 show_one(cpu_nr_run_threshold, cpu_nr_run_threshold);
@@ -712,6 +702,7 @@ store_one(cpus_boosted, cpus_boosted);
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
 store_one(suspend_defer_time, suspend_defer_time);
+store_one(hotplug_suspend, hotplug_suspend);
 #endif
 store_one(full_mode_profile, full_mode_profile);
 store_one(cpu_nr_run_threshold, cpu_nr_run_threshold);
@@ -830,6 +821,7 @@ KERNEL_ATTR_RW(max_cpus_online);
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
 KERNEL_ATTR_RW(suspend_defer_time);
+KERNEL_ATTR_RW(hotplug_suspend);
 #endif
 KERNEL_ATTR_RW(full_mode_profile);
 KERNEL_ATTR_RW(cpu_nr_run_threshold);
@@ -849,6 +841,7 @@ static struct attribute *intelli_plug_attrs[] = {
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
 	&suspend_defer_time_attr.attr,
+	&hotplug_suspend_attr.attr,
 #endif
 	&full_mode_profile_attr.attr,
 	&cpu_nr_run_threshold_attr.attr,

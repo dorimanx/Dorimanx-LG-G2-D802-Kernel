@@ -54,12 +54,14 @@ static struct hotplug_tuners {
 	unsigned int min_cpus_online;
 	unsigned int maxcoreslimit;
 	unsigned int maxcoreslimit_sleep;
+	unsigned int hotplug_suspend;
 } hotplug_tuners_ins = {
 	.hotplug_sampling_rate = 60,
 	.hotplug_enable = 0,
 	.min_cpus_online = 1,
 	.maxcoreslimit = NR_CPUS,
 	.maxcoreslimit_sleep = 1,
+	.hotplug_suspend = 0,
 };
 
 #define DOWN_INDEX		(0)
@@ -322,8 +324,11 @@ static void __ref alucard_hotplug_suspend(struct power_suspend *handler)
 static void __ref alucard_hotplug_early_suspend(struct early_suspend *handler)
 #endif
 {
-	if (hotplug_tuners_ins.hotplug_enable > 0)
-		suspended = true;
+	if ((hotplug_tuners_ins.hotplug_enable > 0) &&
+			hotplug_tuners_ins.hotplug_suspend == 1) {
+		if (suspended == false)
+			suspended = true;
+	}
 }
 
 #ifdef CONFIG_POWERSUSPEND
@@ -333,10 +338,13 @@ static void __cpuinit alucard_hotplug_late_resume(
 				struct early_suspend *handler)
 #endif
 {
-	if (hotplug_tuners_ins.hotplug_enable > 0) {
-		/* wake up everyone */
-		suspended = false;
-		force_cpu_up = true;
+	if ((hotplug_tuners_ins.hotplug_enable > 0) &&
+			hotplug_tuners_ins.hotplug_suspend == 1) {
+		if (suspended = true) {
+			/* wake up everyone */
+			suspended = false;
+			force_cpu_up = true;
+		}
 	}
 }
 
@@ -430,6 +438,7 @@ show_one(hotplug_enable, hotplug_enable);
 show_one(min_cpus_online, min_cpus_online);
 show_one(maxcoreslimit, maxcoreslimit);
 show_one(maxcoreslimit_sleep, maxcoreslimit_sleep);
+show_one(hotplug_suspend, hotplug_suspend);
 
 #define show_hotplug_param(file_name, num_core, up_down)		\
 static ssize_t show_##file_name##_##num_core##_##up_down		\
@@ -692,11 +701,41 @@ static ssize_t store_maxcoreslimit_sleep(struct kobject *a,
 	return count;
 }
 
+/*
+ * hotplug_suspend control
+ * if set = 1 hotplug will sleep,
+ * if set = 0, then hoplug will be active all the time.
+ */
+static ssize_t store_hotplug_suspend(struct kobject *a,
+				struct attribute *b,
+				const char *buf, size_t count)
+{
+	int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	input = input > 0;
+
+	if (hotplug_tuners_ins.hotplug_suspend == input)
+		return count;
+
+	if (input > 0)
+		hotplug_tuners_ins.hotplug_suspend = 1;
+	else
+		hotplug_tuners_ins.hotplug_suspend = 0;
+
+	return count;
+}
+
 define_one_global_rw(hotplug_sampling_rate);
 define_one_global_rw(hotplug_enable);
 define_one_global_rw(min_cpus_online);
 define_one_global_rw(maxcoreslimit);
 define_one_global_rw(maxcoreslimit_sleep);
+define_one_global_rw(hotplug_suspend);
 
 static struct attribute *alucard_hotplug_attributes[] = {
 	&hotplug_sampling_rate.attr,
@@ -736,6 +775,7 @@ static struct attribute *alucard_hotplug_attributes[] = {
 	&min_cpus_online.attr,
 	&maxcoreslimit.attr,
 	&maxcoreslimit_sleep.attr,
+	&hotplug_suspend.attr,
 	NULL
 };
 
