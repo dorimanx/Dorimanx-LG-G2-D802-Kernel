@@ -60,6 +60,13 @@
 static unsigned int debug = 2;
 module_param_named(debug_mask, debug, uint, 0644);
 
+/*
+ * suspend mode, if set = 1 hotplug will sleep,
+ * if set = 0, then hoplug will be active all the time.
+ */
+static unsigned int hotplug_suspend = 0;
+module_param_named(hotplug_suspend, hotplug_suspend, uint, 0644);
+
 #define dprintk(msg...)		\
 do { 				\
 	if (debug)		\
@@ -75,7 +82,6 @@ static struct cpu_hotplug {
 	unsigned int suspend_defer_time;
 	unsigned int min_cpus_online_res;
 	unsigned int max_cpus_online_res;
-	unsigned int need_boost;
 #endif
 	unsigned int target_cpus;
 	unsigned int min_cpus_online;
@@ -110,7 +116,6 @@ static struct cpu_hotplug {
 	.suspend_defer_time = DEFAULT_SUSPEND_DEFER_TIME,
 	.min_cpus_online_res = DEFAULT_MIN_CPUS_ONLINE,
 	.max_cpus_online_res = DEFAULT_MAX_CPUS_ONLINE,
-	.need_boost = 1,
 #endif
 	.cpus_boosted = DEFAULT_NR_CPUS_BOOSTED,
 	.down_lock_dur = DEFAULT_DOWN_LOCK_DUR,
@@ -533,9 +538,6 @@ static void msm_hotplug_suspend(struct work_struct *work)
 				continue;
 			cpu_down(cpu);
 		}
-		mutex_lock(&hotplug.msm_hotplug_mutex);
-		hotplug.need_boost = 1;
-		mutex_unlock(&hotplug.msm_hotplug_mutex);
 		dprintk("%s: suspended.\n", MSM_HOTPLUG);
 	}
 }
@@ -564,24 +566,6 @@ static void __ref msm_hotplug_resume(struct work_struct *work)
 		reschedule_hotplug_work();
 
 		dprintk("%s: resumed.\n", MSM_HOTPLUG);
-	} else {
-		if (hotplug.need_boost) {
-			/* Fire up all CPUs */
-			for_each_cpu_not(cpu, cpu_online_mask) {
-				mutex_lock(&hotplug.msm_hotplug_mutex);
-				hotplug.need_boost = 0;
-				mutex_unlock(&hotplug.msm_hotplug_mutex);
-				if (cpu == 0) {
-					mutex_lock(&hotplug.msm_hotplug_mutex);
-					hotplug.need_boost = 1;
-					mutex_unlock(&hotplug.msm_hotplug_mutex);
-					continue;
-				}
-				cpu_up(cpu);
-				apply_down_lock(cpu);
-			}
-		}
-		dprintk("%s: resume was not needed.\n", MSM_HOTPLUG);
 	}
 }
 
@@ -594,6 +578,9 @@ static void __msm_hotplug_suspend(struct early_suspend *handler)
 #endif
 {
 	if (!hotplug.msm_enabled)
+		return;
+
+	if (!hotplug_suspend)
 		return;
 
 	INIT_DELAYED_WORK(&hotplug.suspend_work, msm_hotplug_suspend);
@@ -610,6 +597,9 @@ static void __msm_hotplug_resume(struct early_suspend *handler)
 #endif
 {
 	if (!hotplug.msm_enabled)
+		return;
+
+	if (!hotplug_suspend)
 		return;
 
 	cancel_delayed_work_sync(&hotplug.suspend_work);
