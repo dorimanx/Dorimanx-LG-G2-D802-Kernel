@@ -36,6 +36,7 @@ modules.builtin
 *.orig
 patch-3.*
 usr/initramfs_data.cpio.lz4
+READY-RELEASES/*.zip
 
 #
 # Top-level generic files
