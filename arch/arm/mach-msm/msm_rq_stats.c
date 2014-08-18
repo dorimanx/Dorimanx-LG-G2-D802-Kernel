@@ -65,6 +65,8 @@ static DEFINE_PER_CPU(struct cpu_load_data, cpuload);
 static int io_is_busy = 0;
 #endif
 
+static unsigned int hotplug_suspend = 0;
+
 static int update_average_load(unsigned int freq, unsigned int cpu)
 {
 	struct cpu_load_data *pcpu = &per_cpu(cpuload, cpu);
@@ -193,11 +195,14 @@ static int system_suspend_handler(struct notifier_block *nb,
 	case PM_POST_HIBERNATION:
 	case PM_POST_SUSPEND:
 	case PM_POST_RESTORE:
-		rq_info.hotplug_disabled = 0;
+		if (hotplug_suspend == 1  
+				|| rq_info.hotplug_disabled == 1)
+			rq_info.hotplug_disabled = 0;
 		break;
 	case PM_HIBERNATION_PREPARE:
 	case PM_SUSPEND_PREPARE:
-		rq_info.hotplug_disabled = 1;
+		if (hotplug_suspend == 1)
+			rq_info.hotplug_disabled = 1;
 		break;
 	default:
 		return NOTIFY_DONE;
@@ -308,6 +313,36 @@ static struct kobj_attribute io_is_busy_attr =
 	__ATTR(io_is_busy, S_IWUSR | S_IRUSR, show_io_is_busy,
 	       store_io_is_busy);
 #endif
+
+static ssize_t store_hotplug_suspend(struct kobject *kobj,
+				     struct kobj_attribute *attr,
+				     const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+
+	ret = sscanf(buf, "%u", &val);
+	if (ret != 1)
+		return -EINVAL;
+
+	val = (val > 0);
+
+	if (val == hotplug_suspend)
+		return count;
+ 
+	hotplug_suspend = val;
+
+	return count;
+}
+static ssize_t show_hotplug_suspend(struct kobject *kobj,
+				    struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", hotplug_suspend);
+}
+
+static struct kobj_attribute hotplug_suspend_attr =
+	__ATTR(hotplug_suspend, S_IWUSR | S_IRUSR, show_hotplug_suspend,
+	       store_hotplug_suspend);
 
 static void def_work_fn(struct work_struct *work)
 {
@@ -421,6 +456,7 @@ static struct attribute *rq_attrs[] = {
 #ifndef CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL
 	&io_is_busy_attr.attr,
 #endif
+	&hotplug_suspend_attr.attr,
 	NULL,
 };
 
