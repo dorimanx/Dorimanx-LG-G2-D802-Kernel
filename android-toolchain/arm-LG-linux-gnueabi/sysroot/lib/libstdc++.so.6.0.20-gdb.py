@@ -19,7 +19,7 @@ import gdb
 import os
 import os.path
 
-pythondir = '/android-kernel/crosstool-ng/builds/arm-LG-linux-gnueabi/share/gcc-4.9.1/python'
+pythondir = '/android-kernel/crosstool-ng/builds/arm-LG-linux-gnueabi/share/gcc-4.9.2/python'
 libdir = '/android-kernel/crosstool-ng/builds/arm-LG-linux-gnueabi/arm-LG-linux-gnueabi/lib'
 
 # This file might be loaded when there is no current objfile.  This
