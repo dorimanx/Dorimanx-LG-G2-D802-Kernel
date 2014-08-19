@@ -234,7 +234,9 @@ static ssize_t store_hotplug_disable(struct kobject *kobj,
 	int ret;
 	unsigned int val;
 	unsigned long flags = 0;
+#ifndef CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL
 	unsigned int i;
+#endif
 
 	spin_lock_irqsave(&rq_lock, flags);
 	ret = sscanf(buf, "%u", &val);
@@ -246,6 +248,7 @@ static ssize_t store_hotplug_disable(struct kobject *kobj,
 		return count;
 	}
 
+#ifndef CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL
 	if (!val) {
 		for_each_possible_cpu(i) {
 			struct cpu_load_data *pcpu = &per_cpu(cpuload, i);
@@ -255,6 +258,7 @@ static ssize_t store_hotplug_disable(struct kobject *kobj,
 			mutex_unlock(&pcpu->cpu_load_mutex);
 		}
 	}
+#endif
 
 	rq_info.hotplug_disabled = val;
 	lock_hotplug_disabled = val;
