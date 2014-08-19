@@ -195,7 +195,7 @@ static int system_suspend_handler(struct notifier_block *nb,
 	case PM_POST_HIBERNATION:
 	case PM_POST_SUSPEND:
 	case PM_POST_RESTORE:
-		if (hotplug_suspend == 1  
+		if (hotplug_suspend == 1
 				|| rq_info.hotplug_disabled == 1)
 			rq_info.hotplug_disabled = 0;
 		break;
@@ -292,7 +292,7 @@ static ssize_t store_io_is_busy(struct kobject *kobj,
 
 	if (val == io_is_busy)
 		return count;
- 
+
 	io_is_busy = !!val;
 
 	if (!lock_hotplug_disabled) {
@@ -333,7 +333,7 @@ static ssize_t store_hotplug_suspend(struct kobject *kobj,
 
 	if (val == hotplug_suspend)
 		return count;
- 
+
 	hotplug_suspend = val;
 
 	return count;
@@ -448,8 +448,8 @@ static ssize_t show_cpu_normalized_load(struct kobject *kobj,
 }
 
 static struct kobj_attribute cpu_normalized_load_attr =
-	__ATTR(cpu_normalized_load, S_IWUSR | S_IRUSR, show_cpu_normalized_load,
-			NULL);
+	__ATTR(cpu_normalized_load, S_IWUSR | S_IRUSR,
+			show_cpu_normalized_load, NULL);
 
 static struct attribute *rq_attrs[] = {
 	&cpu_normalized_load_attr.attr,
