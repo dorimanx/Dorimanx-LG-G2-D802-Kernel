@@ -12,7 +12,7 @@
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- * 
+ *
  * Created by Alucard_24@xda
  */
 
@@ -105,7 +105,7 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 		return -EINVAL;
 
 	input = max(input,10000);
-	
+
 	if (input == darkness_tuners_ins.sampling_rate)
 		return count;
 
@@ -218,7 +218,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	int io_busy = darkness_tuners_ins.io_is_busy;
 
 	cpu = this_darkness_cpuinfo->cpu;
-	cpu_policy = this_darkness_cpuinfo->cur_policy;	
+	cpu_policy = this_darkness_cpuinfo->cur_policy;
 
 	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, io_busy);
 
@@ -263,7 +263,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		} else {
 			return;
 		}
-		
+
 		next_freq = this_darkness_cpuinfo->freq_table[index].frequency;
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq);*/
 		if (next_freq != cpu_policy->cur) {
@@ -371,11 +371,11 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		darkness_enable--;
 		if (!darkness_enable) {
 			sysfs_remove_group(cpufreq_global_kobject,
-					   &darkness_attr_group);			
+					   &darkness_attr_group);
 		}
 		this_darkness_cpuinfo->cur_load = 0;
 		mutex_unlock(&darkness_mutex);
-		
+
 		break;
 
 	case CPUFREQ_GOV_LIMITS:

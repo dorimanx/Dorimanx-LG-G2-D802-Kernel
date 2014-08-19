@@ -12,7 +12,7 @@
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- * 
+ *
  * Created by Alucard_24@xda
  */
 
@@ -222,7 +222,7 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 		return -EINVAL;
 
 	input = max(input,10000);
-	
+
 	if (input == alucard_tuners_ins.sampling_rate)
 		return count;
 
@@ -466,7 +466,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 	unsigned int max_freq = 0;
 	unsigned int boost_cpus = alucard_tuners_ins.boost_cpus;
 	int io_busy = alucard_tuners_ins.io_is_busy;
-	
+
 	cpu = this_alucard_cpuinfo->cpu;
 	cpu_policy = this_alucard_cpuinfo->cur_policy;
 
@@ -507,14 +507,14 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 
 		cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, cpu_policy->cur,
 				CPUFREQ_RELATION_C, &index);
-	
+
 		/* CPUs Online Scale Frequency*/
 		if (cpu_policy->cur < freq_responsiveness) {
 			inc_cpu_load = alucard_tuners_ins.inc_cpu_load_at_min_freq;
 			dec_cpu_load = alucard_tuners_ins.dec_cpu_load_at_min_freq;
 			pump_inc_step = this_alucard_cpuinfo->pump_inc_step_at_min_freq;
 			hi_index = this_alucard_cpuinfo->max_index;
-		}		
+		}
 		/* Check for frequency increase or for frequency decrease */
 		if (cur_load >= inc_cpu_load && index < hi_index) {
 			if ((index + pump_inc_step) >= hi_index)
@@ -648,11 +648,11 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 		alucard_enable--;
 		if (!alucard_enable) {
 			sysfs_remove_group(cpufreq_global_kobject,
-					   &alucard_attr_group);			
+					   &alucard_attr_group);
 		}
 		this_alucard_cpuinfo->cur_freq = 0;
 		mutex_unlock(&alucard_mutex);
-		
+
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
