@@ -29,7 +29,7 @@
 
 #define INTELLI_PLUG			"intelli_plug"
 #define INTELLI_PLUG_MAJOR_VERSION	5
-#define INTELLI_PLUG_MINOR_VERSION	1
+#define INTELLI_PLUG_MINOR_VERSION	2
 
 #define DEF_SAMPLING_MS			268
 #define RESUME_SAMPLING_MS		HZ / 10
@@ -344,7 +344,7 @@ static void intelli_plug_suspend(struct work_struct *work)
 
 static void __ref intelli_plug_resume(struct work_struct *work)
 {
-	int cpu;
+	int cpu, required_reschedule = 0, required_wakeup = 0;
 
 	if (hotplug_suspended == true) {
 		mutex_lock(&intelli_plug_mutex);
@@ -352,11 +352,19 @@ static void __ref intelli_plug_resume(struct work_struct *work)
 		min_cpus_online = min_cpus_online_res;
 		max_cpus_online = max_cpus_online_res;
 		mutex_unlock(&intelli_plug_mutex);
+		required_wakeup = 1;
 		/* Initiate hotplug work if it was cancelled */
+		required_reschedule = 1;
 		INIT_DELAYED_WORK(&intelli_plug_work,
 				intelli_plug_work_fn);
 		dprintk("%s: resumed.\n", INTELLI_PLUG);
+	}
 
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_MACH_LGE)
+	if (wakeup_boost || required_wakeup) {
+#else
+	if (required_wakeup) {
+#endif
 		/* Fire up all CPUs */
 		for_each_cpu_not(cpu, cpu_online_mask) {
 			if (cpu == 0)
@@ -364,10 +372,13 @@ static void __ref intelli_plug_resume(struct work_struct *work)
 			cpu_up(cpu);
 			apply_down_lock(cpu);
 		}
+		dprintk("%s: wakeup boosted.\n", INTELLI_PLUG);
+	}
 
+	/* Resume hotplug workqueue if required */
+	if (required_reschedule)
 		queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
 				      msecs_to_jiffies(RESUME_SAMPLING_MS));
-	}
 }
 
 #ifdef CONFIG_LCD_NOTIFY
@@ -390,18 +401,33 @@ static void __intelli_plug_suspend(struct early_suspend *handler)
 }
 
 #ifdef CONFIG_LCD_NOTIFY
-static void __intelli_plug_resume(void)
+static void __ref __intelli_plug_resume(void)
 #elif defined(CONFIG_POWERSUSPEND)
-static void __intelli_plug_resume(struct power_suspend *handler)
+static void __ref __intelli_plug_resume(struct power_suspend *handler)
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
-static void __intelli_plug_resume(struct early_suspend *handler)
+static void __ref __intelli_plug_resume(struct early_suspend *handler)
 #endif
 {
+	int cpu;
+
 	if (atomic_read(&intelli_plug_active) == 0)
 		return;
 
-	if (!hotplug_suspend)
+	if (!hotplug_suspend) {
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_MACH_LGE)
+		if (wakeup_boost) {
+			/* Fire up all CPUs */
+			for_each_cpu_not(cpu, cpu_online_mask) {
+				if (cpu == 0)
+					continue;
+				cpu_up(cpu);
+				apply_down_lock(cpu);
+			}
+			dprintk("%s: wakeup boosted.\n", INTELLI_PLUG);
+		}
+#endif
 		return;
+	}
 
 	flush_workqueue(susp_wq);
 	cancel_delayed_work_sync(&suspend_work);
