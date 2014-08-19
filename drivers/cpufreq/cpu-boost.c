@@ -85,7 +85,7 @@ static bool hotplug_boost = 1;
 module_param(hotplug_boost, bool, 0644);
 
 #if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_MACH_LGE)
-bool wakeup_boost;
+bool wakeup_boost = 1;
 module_param(wakeup_boost, bool, 0644);
 #endif
 
