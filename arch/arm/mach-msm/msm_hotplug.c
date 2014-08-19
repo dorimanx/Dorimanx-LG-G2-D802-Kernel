@@ -27,7 +27,6 @@
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
 #endif
-
 #include <linux/mutex.h>
 #include <linux/input.h>
 #include <linux/math64.h>
@@ -125,6 +124,11 @@ static struct cpu_hotplug {
 };
 
 static struct workqueue_struct *hotplug_wq;
+#if defined(CONFIG_LCD_NOTIFY) || \
+	defined(CONFIG_POWERSUSPEND) || \
+	defined(CONFIG_HAS_EARLYSUSPEND)
+static struct workqueue_struct *susp_wq;
+#endif
 static struct delayed_work hotplug_work;
 
 static u64 last_boost_time;
@@ -584,7 +588,7 @@ static void __msm_hotplug_suspend(struct early_suspend *handler)
 		return;
 
 	INIT_DELAYED_WORK(&hotplug.suspend_work, msm_hotplug_suspend);
-	schedule_delayed_work_on(0, &hotplug.suspend_work,
+	queue_delayed_work_on(0, susp_wq, &hotplug.suspend_work,
 			msecs_to_jiffies(hotplug.suspend_defer_time * 1000));
 }
 
@@ -602,8 +606,9 @@ static void __msm_hotplug_resume(struct early_suspend *handler)
 	if (!hotplug_suspend)
 		return;
 
+	flush_workqueue(susp_wq);
 	cancel_delayed_work_sync(&hotplug.suspend_work);
-	schedule_work_on(0, &hotplug.resume_work);
+	queue_work_on(0, susp_wq, &hotplug.resume_work);
 }
 
 #ifdef CONFIG_LCD_NOTIFY
@@ -746,6 +751,19 @@ static int __ref msm_hotplug_start(void)
 		goto err_out;
 	}
 
+#if defined(CONFIG_LCD_NOTIFY) || \
+	defined(CONFIG_POWERSUSPEND) || \
+	defined(CONFIG_HAS_EARLYSUSPEND)
+	susp_wq =
+		alloc_workqueue("susp_wq", WQ_FREEZABLE, 0);
+	if (!susp_wq) {
+		pr_err("%s: Failed to allocate suspend workqueue\n",
+				MSM_HOTPLUG);
+		ret = -ENOMEM;
+		goto err_out;
+	}
+#endif
+
 #ifdef CONFIG_LCD_NOTIFY
 	hotplug.notif.notifier_call = lcd_notifier_callback;
         if (lcd_register_client(&hotplug.notif) != 0) {
@@ -782,17 +800,16 @@ static int __ref msm_hotplug_start(void)
 	INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
 	INIT_WORK(&hotplug.up_work, cpu_up_work);
 	INIT_WORK(&hotplug.down_work, cpu_down_work);
+	for_each_possible_cpu(cpu) {
+		dl = &per_cpu(lock_info, cpu);
+		INIT_DELAYED_WORK(&dl->lock_rem, remove_down_lock);
+	}
 #if defined(CONFIG_LCD_NOTIFY) || \
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
 	INIT_DELAYED_WORK(&hotplug.suspend_work, msm_hotplug_suspend);
 	INIT_WORK(&hotplug.resume_work, msm_hotplug_resume);
 #endif
-
-	for_each_possible_cpu(cpu) {
-		dl = &per_cpu(lock_info, cpu);
-		INIT_DELAYED_WORK(&dl->lock_rem, remove_down_lock);
-	}
 
 	/* Fire up all CPUs */
 	for_each_cpu_not(cpu, cpu_online_mask) {
@@ -818,20 +835,20 @@ static void msm_hotplug_stop(void)
 	int cpu;
 	struct down_lock *dl;
 
+#if defined(CONFIG_LCD_NOTIFY) || \
+	defined(CONFIG_POWERSUSPEND) || \
+	defined(CONFIG_HAS_EARLYSUSPEND)
+	flush_workqueue(susp_wq);
+	cancel_work_sync(&hotplug.resume_work);
+	cancel_delayed_work_sync(&hotplug.suspend_work);
+#endif
+	flush_workqueue(hotplug_wq);
 	for_each_possible_cpu(cpu) {
 		dl = &per_cpu(lock_info, cpu);
 		cancel_delayed_work_sync(&dl->lock_rem);
 	}
-#if defined(CONFIG_LCD_NOTIFY) || \
-	defined(CONFIG_POWERSUSPEND) || \
-	defined(CONFIG_HAS_EARLYSUSPEND)
-	cancel_work_sync(&hotplug.resume_work);
-	cancel_delayed_work_sync(&hotplug.suspend_work);
-#endif
 	cancel_work_sync(&hotplug.down_work);
 	cancel_work_sync(&hotplug.up_work);
-
-	flush_workqueue(hotplug_wq);
 	cancel_delayed_work_sync(&hotplug_work);
 
 #if defined(CONFIG_LCD_NOTIFY) || \
@@ -852,6 +869,11 @@ static void msm_hotplug_stop(void)
 #endif
 	input_unregister_handler(&hotplug_input_handler);
 
+#if defined(CONFIG_LCD_NOTIFY) || \
+	defined(CONFIG_POWERSUSPEND) || \
+	defined(CONFIG_HAS_EARLYSUSPEND)
+	destroy_workqueue(susp_wq);
+#endif
 	destroy_workqueue(hotplug_wq);
 
 	/* Put all sibling cores to sleep */
