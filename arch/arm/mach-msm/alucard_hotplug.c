@@ -834,17 +834,13 @@ static int __init alucard_hotplug_init(void)
 	return ret;
 }
 
-static int __exit alucard_hotplug_exit(void)
+static void __exit alucard_hotplug_exit(void)
 {
-	int ret;
-
 	if (hotplug_tuners_ins.hotplug_enable > 0) {
 		hotplug_stop();
 	}
 
 	sysfs_remove_group(kernel_kobj, &alucard_hotplug_attr_group);
-
-	return ret;
 }
 MODULE_AUTHOR("Alucard_24@XDA");
 MODULE_DESCRIPTION("'alucard_hotplug' - A cpu hotplug driver for "
