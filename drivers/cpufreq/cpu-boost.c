@@ -25,7 +25,6 @@
 #include <linux/slab.h>
 #include <linux/input.h>
 #include <linux/time.h>
-
 #if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_MACH_LGE)
 #include <linux/lcd_notify.h>
 #endif
@@ -45,14 +44,12 @@ do {				\
 struct cpu_sync {
 	struct delayed_work boost_rem;
 	struct delayed_work input_boost_rem;
-	struct delayed_work plug_boost_rem;
 	int cpu;
 	spinlock_t lock;
 	bool pending;
 	int src_cpu;
 	unsigned int boost_min;
 	unsigned int input_boost_min;
-	unsigned int plug_boost_min;
 	unsigned int task_load;
 };
 
@@ -66,8 +63,6 @@ static struct work_struct input_boost_work;
 static struct notifier_block notif;
 #endif
 
-static struct work_struct plug_boost_work;
-
 static unsigned int boost_ms = 30;
 module_param(boost_ms, uint, 0644);
 
@@ -80,17 +75,14 @@ module_param(input_boost_freq, uint, 0644);
 static unsigned int input_boost_ms = 30;
 module_param(input_boost_ms, uint, 0644);
 
-static unsigned int migration_load_threshold = 15;
+static unsigned int migration_load_threshold = 30;
 module_param(migration_load_threshold, uint, 0644);
 
 static bool load_based_syncs = 1;
 module_param(load_based_syncs, bool, 0644);
 
-static unsigned int plug_boost_freq = 0;
-module_param(plug_boost_freq, uint, 0644);
-
-static unsigned int plug_boost_ms = 0;
-module_param(plug_boost_ms, uint, 0644);
+static bool hotplug_boost = 1;
+module_param(hotplug_boost, bool, 0644);
 
 #if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_MACH_LGE)
 bool wakeup_boost;
@@ -113,16 +105,15 @@ static int boost_adjust_notify(struct notifier_block *nb, unsigned long val,
 	struct cpu_sync *s = &per_cpu(sync_info, cpu);
 	unsigned int b_min = s->boost_min;
 	unsigned int ib_min = s->input_boost_min;
-	unsigned int pb_min = s->plug_boost_min;
 	unsigned int min;
 
 	if (val != CPUFREQ_ADJUST)
 		return NOTIFY_OK;
 
-	if (!b_min && !ib_min && !pb_min)
+	if (!b_min && !ib_min)
 		return NOTIFY_OK;
 
-	min = max(max(b_min, ib_min), pb_min);
+	min = max(b_min, ib_min);
 
 	dprintk("CPU%u policy min before boost: %u kHz\n",
 		 cpu, policy->min);
@@ -156,19 +147,8 @@ static void do_input_boost_rem(struct work_struct *work)
 	struct cpu_sync *s = container_of(work, struct cpu_sync,
 						input_boost_rem.work);
 
-	dprintk("Removing input boost for CPU%d\n", s->cpu);
+	dprintk("Removing input/hotplug boost for CPU%d\n", s->cpu);
 	s->input_boost_min = 0;
-	/* Force policy re-evaluation to trigger adjust notifier. */
-	cpufreq_update_policy(s->cpu);
-}
-
-static void do_plug_boost_rem(struct work_struct *work)
-{
-	struct cpu_sync *s = container_of(work, struct cpu_sync,
-						plug_boost_rem.work);
-
-	dprintk("Removing plug boost for CPU%d\n", s->cpu);
-	s->plug_boost_min = 0;
 	/* Force policy re-evaluation to trigger adjust notifier. */
 	cpufreq_update_policy(s->cpu);
 }
@@ -348,6 +328,8 @@ static void cpuboost_input_event(struct input_handle *handle,
 	if (work_pending(&input_boost_work))
 		return;
 
+	dprintk("Input boost for input event.\n");
+
 	queue_work(cpu_boost_wq, &input_boost_work);
 	last_input_time = ktime_to_us(ktime_get());
 }
@@ -428,34 +410,6 @@ static struct input_handler cpuboost_input_handler = {
 	.id_table       = cpuboost_ids,
 };
 
-static void do_plug_boost(struct work_struct *work)
-{
-	unsigned int i, ret;
-	struct cpu_sync *i_sync_info;
-	struct cpufreq_policy policy;
-
-	get_online_cpus();
-	for_each_online_cpu(i) {
-
-		i_sync_info = &per_cpu(sync_info, i);
-		ret = cpufreq_get_policy(&policy, i);
-		if (ret)
-			continue;
-		if (policy.cur >= plug_boost_freq)
-			continue;
-
-		cancel_delayed_work_sync(&i_sync_info->plug_boost_rem);
-		dprintk("Applying plug boost for CPU%u %u --> %u\n",
-			 i, policy.cur, plug_boost_freq);
-		i_sync_info->plug_boost_min = plug_boost_freq;
-		cpufreq_update_policy(i);
-		queue_delayed_work_on(0, cpu_boost_wq,
-			&i_sync_info->plug_boost_rem,
-			msecs_to_jiffies(plug_boost_ms));
-	}
-	put_online_cpus();
-}
-
 static int cpuboost_cpu_callback(struct notifier_block *cpu_nb,
 				 unsigned long action, void *hcpu)
 {
@@ -465,8 +419,12 @@ static int cpuboost_cpu_callback(struct notifier_block *cpu_nb,
 	case CPU_UP_CANCELED:
 		break;
 	case CPU_ONLINE:
-		if (plug_boost_freq && !work_pending(&plug_boost_work))
-			queue_work(cpu_boost_wq, &plug_boost_work);
+		if (!hotplug_boost || !input_boost_freq ||
+			work_pending(&input_boost_work))
+			break;
+		dprintk("Hotplug boost for CPU%d\n", (int)hcpu);
+		queue_work(cpu_boost_wq, &input_boost_work);
+		last_input_time = ktime_to_us(ktime_get());
 		break;
 	default:
 		break;
@@ -491,7 +449,7 @@ static int lcd_notifier_callback(struct notifier_block *this,
 		if (!wakeup_boost || !input_boost_freq ||
 		     work_pending(&input_boost_work))
 			break;
-		pr_debug("Wakeup boost for LCD on event.\n");
+		dprintk("Wakeup boost for LCD on event.\n");
 		queue_work(cpu_boost_wq, &input_boost_work);
 		last_input_time = ktime_to_us(ktime_get());
 		break;
@@ -513,7 +471,6 @@ static int cpu_boost_init(void)
 		return -EFAULT;
 
 	INIT_WORK(&input_boost_work, do_input_boost);
-	INIT_WORK(&plug_boost_work, do_plug_boost);
 
 	for_each_possible_cpu(cpu) {
 		s = &per_cpu(sync_info, cpu);
@@ -521,7 +478,6 @@ static int cpu_boost_init(void)
 		spin_lock_init(&s->lock);
 		INIT_DELAYED_WORK(&s->boost_rem, do_boost_rem);
 		INIT_DELAYED_WORK(&s->input_boost_rem, do_input_boost_rem);
-		INIT_DELAYED_WORK(&s->plug_boost_rem, do_plug_boost_rem);
 	}
 	cpufreq_register_notifier(&boost_adjust_nb, CPUFREQ_POLICY_NOTIFIER);
 	atomic_notifier_chain_register(&migration_notifier_head,
