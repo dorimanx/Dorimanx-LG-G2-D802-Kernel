@@ -408,7 +408,9 @@ static void __ref __intelli_plug_resume(struct power_suspend *handler)
 static void __ref __intelli_plug_resume(struct early_suspend *handler)
 #endif
 {
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_MACH_LGE)
 	int cpu;
+#endif
 
 	if (atomic_read(&intelli_plug_active) == 0)
 		return;
