@@ -615,7 +615,7 @@ static void do_alucard_timer(struct work_struct *work)
 #endif
 		alucard_check_cpu(alucard_cpuinfo);
 
-	queue_delayed_work_on(cpu, alucard_wq, &alucard_cpuinfo->work, delay);
+	mod_delayed_work_on(cpu, alucard_wq, &alucard_cpuinfo->work, delay);
 
 	mutex_unlock(&alucard_cpuinfo->timer_mutex);
 }
@@ -684,7 +684,7 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 		}
 
 		INIT_DEFERRABLE_WORK(&this_alucard_cpuinfo->work, do_alucard_timer);
-		queue_delayed_work_on(this_alucard_cpuinfo->cpu, alucard_wq, &this_alucard_cpuinfo->work, delay);
+		mod_delayed_work_on(this_alucard_cpuinfo->cpu, alucard_wq, &this_alucard_cpuinfo->work, delay);
 
 		break;
 
