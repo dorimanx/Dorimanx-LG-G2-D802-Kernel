@@ -345,12 +345,12 @@ extern struct workqueue_struct *system_freezable_wq;
 extern struct workqueue_struct *system_power_efficient_wq;
 extern struct workqueue_struct *system_freezable_power_efficient_wq;
 
-static inline struct workqueue_struct *__system_nrt_wq(void)
+static inline struct workqueue_struct * __deprecated __system_nrt_wq(void)
 {
 	return system_wq;
 }
 
-static inline struct workqueue_struct *__system_nrt_freezable_wq(void)
+static inline struct workqueue_struct * __deprecated __system_nrt_freezable_wq(void)
 {
 	return system_freezable_wq;
 }
@@ -469,7 +469,7 @@ extern unsigned int work_busy(struct work_struct *work);
  * if it returns 0 the timer function may be running and the queueing is in
  * progress.
  */
-static inline bool __cancel_delayed_work(struct delayed_work *work)
+static inline bool __deprecated __cancel_delayed_work(struct delayed_work *work)
 {
 	bool ret;
 
@@ -480,13 +480,13 @@ static inline bool __cancel_delayed_work(struct delayed_work *work)
 }
 
 /* used to be different but now identical to flush_work(), deprecated */
-static inline bool flush_work_sync(struct work_struct *work)
+static inline bool __deprecated flush_work_sync(struct work_struct *work)
 {
 	return flush_work(work);
 }
 
 /* used to be different but now identical to flush_delayed_work(), deprecated */
-static inline bool flush_delayed_work_sync(struct delayed_work *dwork)
+static inline bool __deprecated flush_delayed_work_sync(struct delayed_work *dwork)
 {
 	return flush_delayed_work(dwork);
 }

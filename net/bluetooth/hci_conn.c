@@ -607,7 +607,7 @@ int hci_conn_del(struct hci_conn *conn)
 	del_timer(&conn->idle_timer);
 	del_timer(&conn->disc_timer);
 	del_timer(&conn->smp_timer);
-	__cancel_delayed_work(&conn->rssi_update_work);
+	cancel_delayed_work(&conn->rssi_update_work);
 	del_timer(&conn->encrypt_pause_timer);
 
 	if (conn->type == ACL_LINK) {
@@ -1086,7 +1086,7 @@ static inline void hci_conn_start_rssi_timer(struct hci_conn *conn,
 	BT_DBG("conn %p, pending %d", conn,
 			delayed_work_pending(&conn->rssi_update_work));
 	if (!delayed_work_pending(&conn->rssi_update_work)) {
-		queue_delayed_work(hdev->workqueue, &conn->rssi_update_work,
+		mod_delayed_work(hdev->workqueue, &conn->rssi_update_work,
 				msecs_to_jiffies(interval));
 	}
 }
