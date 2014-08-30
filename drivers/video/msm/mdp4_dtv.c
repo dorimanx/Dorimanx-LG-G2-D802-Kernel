@@ -168,7 +168,7 @@ static int dtv_on(struct platform_device *pdev)
 	unsigned long panel_pixclock_freq , pm_qos_rate;
 
 	/* If a power down is already underway, wait for it to finish */
-	flush_work_sync(&dtv_off_work);
+	flush_work(&dtv_off_work);
 
 	mfd = platform_get_drvdata(pdev);
 	panel_pixclock_freq = mfd->fbi->var.pixclock;

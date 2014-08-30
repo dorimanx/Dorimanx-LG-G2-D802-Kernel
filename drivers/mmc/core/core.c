@@ -416,7 +416,7 @@ void mmc_start_delayed_bkops(struct mmc_card *card)
 	 * it was removed from the queue work but not started yet
 	 */
 	card->bkops_info.cancel_delayed_work = false;
-	queue_delayed_work(system_nrt_wq, &card->bkops_info.dw,
+	schedule_delayed_work(&card->bkops_info.dw,
 			   msecs_to_jiffies(
 				   card->bkops_info.delay_ms));
 }
@@ -2907,7 +2907,7 @@ static void mmc_clk_scale_work(struct work_struct *work)
 	mmc_rpm_hold(host, &host->card->dev);
 	if (!mmc_try_claim_host(host)) {
 		/* retry after a timer tick */
-		queue_delayed_work(system_nrt_wq, &host->clk_scaling.work, 1);
+		schedule_delayed_work(&host->clk_scaling.work, 1);
 		goto out;
 	}
 
@@ -3070,8 +3070,7 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq)
 			 * work, so delay atleast one timer tick to release
 			 * host and re-claim while scaling down the clocks.
 			 */
-			queue_delayed_work(system_nrt_wq,
-					&host->clk_scaling.work, 1);
+			schedule_delayed_work(&host->clk_scaling.work, 1);
 			goto no_reset_stats;
 		}
 	}
