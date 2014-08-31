@@ -177,6 +177,8 @@ static int lm3630_write_reg(struct i2c_client *client, unsigned char reg, unsign
 
 static int exp_min_value = 150;
 static int cal_value;
+static int min_backlight_reducer = 0;
+static int min_backlight_set = 50;
 
 static void lm3630_set_main_current_level(struct i2c_client *client, int level)
 {
@@ -188,6 +190,9 @@ static void lm3630_set_main_current_level(struct i2c_client *client, int level)
 		level = dev->default_brightness;
 
 	cur_main_lcd_level = level;
+	if (min_backlight_reducer)
+		if (cur_main_lcd_level <= 90)
+			cur_main_lcd_level = min_backlight_set;
 	dev->bl_dev->props.brightness = cur_main_lcd_level;
 
 	store_level_used = 0;
@@ -365,6 +370,63 @@ static int bl_get_intensity(struct backlight_device *bd)
 	return (int)val;
 }
 
+static ssize_t min_backlight_reducer_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int r = 0;
+
+	r = snprintf(buf, PAGE_SIZE, "min_backlight_reducer : %d\n",
+			min_backlight_reducer);
+
+	return r;
+}
+
+static ssize_t min_backlight_reducer_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+
+	ret = sscanf(buf, "%u", &val);
+	if (ret != 1 || val < 0)
+		return -EINVAL;
+
+	if (min_backlight_reducer != val)
+		min_backlight_reducer = val;
+
+	return count;
+}
+
+static ssize_t min_backlight_set_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int r = 0;
+
+	r = snprintf(buf, PAGE_SIZE, "min_backlight_set : %d\n",
+			min_backlight_set);
+
+	return r;
+}
+
+static ssize_t min_backlight_set_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+
+	ret = sscanf(buf, "%u", &val);
+	if (ret != 1 || val < 30 || val > 90)
+		return -EINVAL;
+
+	if (min_backlight_set != val)
+		min_backlight_set = val;
+
+	return count;
+}
+
+
 static ssize_t lcd_backlight_show_level(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -513,6 +575,10 @@ DEVICE_ATTR(lm3630_backlight_on_off, 0644, lcd_backlight_show_on_off,
 		lcd_backlight_store_on_off);
 DEVICE_ATTR(lm3630_exp_min_value, 0644, lcd_backlight_show_exp_min_value,
 		lcd_backlight_store_exp_min_value);
+DEVICE_ATTR(lm3630_min_backlight_reducer, 0644, min_backlight_reducer_show,
+		min_backlight_reducer_store);
+DEVICE_ATTR(lm3630_min_backlight_set, 0644, min_backlight_set_show,
+		min_backlight_set_store);
 #if defined(CONFIG_BACKLIGHT_CABC_DEBUG_ENABLE)
 DEVICE_ATTR(lm3630_pwm, 0644, lcd_backlight_show_pwm, lcd_backlight_store_pwm);
 #endif
@@ -679,6 +745,10 @@ static int lm3630_probe(struct i2c_client *i2c_dev,
 			&dev_attr_lm3630_backlight_on_off);
 	err = device_create_file(&i2c_dev->dev,
 			&dev_attr_lm3630_exp_min_value);
+	err = device_create_file(&i2c_dev->dev,
+			&dev_attr_lm3630_min_backlight_reducer);
+	err = device_create_file(&i2c_dev->dev,
+			&dev_attr_lm3630_min_backlight_set);
 #if defined(CONFIG_BACKLIGHT_CABC_DEBUG_ENABLE)
 	err = device_create_file(&i2c_dev->dev,
 			&dev_attr_lm3630_pwm);
@@ -698,6 +768,10 @@ static int lm3630_remove(struct i2c_client *i2c_dev)
 
 	device_remove_file(&i2c_dev->dev, &dev_attr_lm3630_level);
 	device_remove_file(&i2c_dev->dev, &dev_attr_lm3630_backlight_on_off);
+	device_remove_file(&i2c_dev->dev,
+			&dev_attr_lm3630_min_backlight_reducer);
+	device_remove_file(&i2c_dev->dev,
+			&dev_attr_lm3630_min_backlight_set);
 	dev = (struct lm3630_device *)i2c_get_clientdata(i2c_dev);
 	backlight_device_unregister(dev->bl_dev);
 	i2c_set_clientdata(i2c_dev, NULL);
