@@ -190,9 +190,6 @@ static void lm3630_set_main_current_level(struct i2c_client *client, int level)
 		level = dev->default_brightness;
 
 	cur_main_lcd_level = level;
-	if (min_backlight_reducer)
-		if (cur_main_lcd_level <= 100)
-			cur_main_lcd_level = min_backlight_set;
 	dev->bl_dev->props.brightness = cur_main_lcd_level;
 
 	store_level_used = 0;
@@ -214,9 +211,17 @@ static void lm3630_set_main_current_level(struct i2c_client *client, int level)
 
 		if (dev->blmap) {
 			if (level < dev->blmap_size) {
-				cal_value = dev->blmap[level];
-				lm3630_write_reg(client, 0x03,
-						cal_value);
+				if (min_backlight_reducer && level <= 100) {
+					cal_value = dev->blmap[min_backlight_set];
+					dev->bl_dev->props.brightness =
+						min_backlight_set;
+					lm3630_write_reg(client, 0x03,
+							cal_value);
+				} else {
+					cal_value = dev->blmap[level];
+					lm3630_write_reg(client, 0x03,
+							cal_value);
+				}
 			} else
 				dev_warn(&client->dev, "invalid index %d:%d\n",
 						dev->blmap_size,
@@ -414,14 +419,17 @@ static ssize_t min_backlight_set_store(struct device *dev,
 		const char *buf, size_t count)
 {
 	int ret;
-	unsigned int val;
+	unsigned int level;
+	struct i2c_client *client = to_i2c_client(dev);
 
-	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val < 30 || val > 100)
+	ret = sscanf(buf, "%u", &level);
+	if (ret != 1 || level < 30 || level > 100)
 		return -EINVAL;
 
-	if (min_backlight_set != val)
-		min_backlight_set = val;
+	if (min_backlight_set != level)
+		min_backlight_set = level;
+
+	lm3630_set_main_current_level(client, level);
 
 	return count;
 }
