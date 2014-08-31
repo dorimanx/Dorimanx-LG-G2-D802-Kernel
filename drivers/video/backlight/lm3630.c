@@ -178,7 +178,7 @@ static int lm3630_write_reg(struct i2c_client *client, unsigned char reg, unsign
 static int exp_min_value = 150;
 static int cal_value;
 static int min_backlight_reducer = 0;
-static int min_backlight_set = 50;
+static int min_backlight_set = 80;
 
 static void lm3630_set_main_current_level(struct i2c_client *client, int level)
 {
@@ -191,7 +191,7 @@ static void lm3630_set_main_current_level(struct i2c_client *client, int level)
 
 	cur_main_lcd_level = level;
 	if (min_backlight_reducer)
-		if (cur_main_lcd_level <= 90)
+		if (cur_main_lcd_level <= 100)
 			cur_main_lcd_level = min_backlight_set;
 	dev->bl_dev->props.brightness = cur_main_lcd_level;
 
@@ -417,7 +417,7 @@ static ssize_t min_backlight_set_store(struct device *dev,
 	unsigned int val;
 
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val < 30 || val > 90)
+	if (ret != 1 || val < 30 || val > 100)
 		return -EINVAL;
 
 	if (min_backlight_set != val)
