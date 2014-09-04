@@ -11,6 +11,8 @@
 #include "cpupri.h"
 #include "cpudeadline.h"
 
+struct cpuidle_state;
+
 extern __read_mostly int scheduler_running;
 
 /*
@@ -678,6 +680,10 @@ struct rq {
 #endif
 
 	struct sched_avg avg;
+#ifdef CONFIG_CPU_IDLE
+	/* Must be inspected within a rcu lock section */
+	struct cpuidle_state *idle_state;
+#endif
 };
 
 static inline int cpu_of(struct rq *rq)
@@ -1312,6 +1318,30 @@ static inline void idle_balance(int cpu, struct rq *rq)
 {
 }
 
+#endif
+
+#ifdef CONFIG_CPU_IDLE
+static inline void idle_set_state(struct rq *rq,
+				  struct cpuidle_state *idle_state)
+{
+	rq->idle_state = idle_state;
+}
+
+static inline struct cpuidle_state *idle_get_state(struct rq *rq)
+{
+	WARN_ON(!rcu_read_lock_held());
+	return rq->idle_state;
+}
+#else
+static inline void idle_set_state(struct rq *rq,
+				  struct cpuidle_state *idle_state)
+{
+}
+
+static inline struct cpuidle_state *idle_get_state(struct rq *rq)
+{
+	return NULL;
+}
 #endif
 
 #ifdef CONFIG_SYSRQ_SCHED_DEBUG
