@@ -421,6 +421,9 @@ static ssize_t min_backlight_set_store(struct device *dev,
 	int ret;
 	unsigned int level;
 	struct i2c_client *client = to_i2c_client(dev);
+	struct lm3630_device *_dev;
+
+	_dev = (struct lm3630_device *)i2c_get_clientdata(client);
 
 	ret = sscanf(buf, "%u", &level);
 	if (ret != 1 || level < 10 || level > 100)
@@ -429,7 +432,7 @@ static ssize_t min_backlight_set_store(struct device *dev,
 	if (min_backlight_set != level)
 		min_backlight_set = level;
 
-	if (min_backlight_reducer)
+	if (min_backlight_reducer && _dev->bl_dev->props.brightness <= 100)
 		lm3630_set_main_current_level(client, level);
 
 	return count;
