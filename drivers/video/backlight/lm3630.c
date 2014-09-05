@@ -423,17 +423,17 @@ static ssize_t min_backlight_set_store(struct device *dev,
 	struct i2c_client *client = to_i2c_client(dev);
 
 	ret = sscanf(buf, "%u", &level);
-	if (ret != 1 || level < 30 || level > 100)
+	if (ret != 1 || level < 10 || level > 100)
 		return -EINVAL;
 
 	if (min_backlight_set != level)
 		min_backlight_set = level;
 
-	lm3630_set_main_current_level(client, level);
+	if (min_backlight_reducer)
+		lm3630_set_main_current_level(client, level);
 
 	return count;
 }
-
 
 static ssize_t lcd_backlight_show_level(struct device *dev,
 		struct device_attribute *attr, char *buf)
