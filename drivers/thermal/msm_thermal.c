@@ -867,8 +867,8 @@ static void __ref do_freq_control(long temp)
 	uint32_t max_freq = thermal_limited_max_freq;
 
 	if (safety == 0) {
-		if (msm_thermal_info_local.limit_temp_degC > 85)
-			msm_thermal_info_local.limit_temp_degC = 85;
+		if (msm_thermal_info_local.limit_temp_degC > 83)
+			msm_thermal_info_local.limit_temp_degC = 83;
 	} else {
 		if (msm_thermal_info_local.limit_temp_degC > 78)
 			msm_thermal_info_local.limit_temp_degC = 78;
