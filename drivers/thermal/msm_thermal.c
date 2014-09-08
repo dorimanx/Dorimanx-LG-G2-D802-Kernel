@@ -136,6 +136,9 @@ module_param_named(thermal_limit_low, limit_idx_low, int, 0664);
 
 module_param_named(thermal_debug_mode, debug_mode, int, 0664);
 
+static unsigned int safety = 1;
+module_param_named(temp_safety, safety, int, 0664);
+
 static unsigned int freq_debug = 1;
 module_param_named(freq_limit_debug, freq_debug, uint, 0644);
 
@@ -863,9 +866,14 @@ static void __ref do_freq_control(long temp)
 	int cpu = 0;
 	uint32_t max_freq = thermal_limited_max_freq;
 
-	if (msm_thermal_info_local.limit_temp_degC > 78)
-		msm_thermal_info_local.limit_temp_degC = 78;
-
+	if (safety == 0) {
+		if (msm_thermal_info_local.limit_temp_degC > 85)
+			msm_thermal_info_local.limit_temp_degC = 85;
+	} else {
+		if (msm_thermal_info_local.limit_temp_degC > 78)
+			msm_thermal_info_local.limit_temp_degC = 78;
+	}
+	
 	if (debug_mode == 1)
 		printk(KERN_ERR "pre-check do_freq_control temp[%ld], \
 				limit_idx[%d], limit_idx_low[%d], \
