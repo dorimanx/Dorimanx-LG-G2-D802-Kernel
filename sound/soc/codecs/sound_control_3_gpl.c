@@ -23,9 +23,7 @@
 #include <linux/mfd/wcd9xxx/wcd9320_registers.h>
 
 #define SOUND_CONTROL_MAJOR_VERSION	3
-#define SOUND_CONTROL_MINOR_VERSION	5
-
-#define REG_SZ	21
+#define SOUND_CONTROL_MINOR_VERSION	6
 
 #ifdef CONFIG_MACH_LGE
 static int lg_snd_ctrl_locked = 1;
@@ -45,14 +43,16 @@ unsigned int taiko_read(struct snd_soc_codec *codec, unsigned int reg);
 int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
 		unsigned int value);
 
+#define REG_SZ  25
+
 #ifdef CONFIG_MACH_LGE
 static int cached_regs[] = {6, 6, -1, -1, 0, 0, -1, -1, -1, -1,
 			1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-			-1};
+			-1, -1, -1, -1, -1};
 #else
 static int cached_regs[] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 			-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-			-1};
+			-1 -1, -1, -1, -1};
 #endif
 
 void snd_hax_cache_write(unsigned int reg, unsigned int value)
@@ -120,6 +120,18 @@ void snd_hax_cache_write(unsigned int reg, unsigned int value)
 			break;
                 case TAIKO_A_CDC_TX10_VOL_CTL_GAIN:
 			cached_regs[20] = value;
+			break;
+		case TAIKO_A_RX_LINE_1_GAIN:
+			cached_regs[21] = value;
+			break;
+		case TAIKO_A_RX_LINE_2_GAIN:
+			cached_regs[22] = value;
+			break;
+		case TAIKO_A_RX_LINE_3_GAIN:
+			cached_regs[23] = value;
+			break;
+		case TAIKO_A_RX_LINE_4_GAIN:
+			cached_regs[24] = value;
 			break;
 		default:
 			break;
@@ -196,6 +208,18 @@ int snd_hax_cache_read(unsigned int reg)
 		case TAIKO_A_CDC_TX10_VOL_CTL_GAIN:
 			out = cached_regs[20];
 			break;
+		case TAIKO_A_RX_LINE_1_GAIN:
+			out = cached_regs[21];
+			break;
+		case TAIKO_A_RX_LINE_2_GAIN:
+			out = cached_regs[22];
+			break;
+		case TAIKO_A_RX_LINE_3_GAIN:
+			out = cached_regs[23];
+			break;
+		case TAIKO_A_RX_LINE_4_GAIN:
+			out = cached_regs[24];
+			break;
 		default:
 			break;
         }
@@ -222,6 +246,10 @@ int snd_hax_reg_access(unsigned int reg)
 		case TAIKO_A_CDC_RX5_VOL_CTL_B2_CTL:
 		case TAIKO_A_CDC_RX6_VOL_CTL_B2_CTL:
 		case TAIKO_A_CDC_RX7_VOL_CTL_B2_CTL:
+		case TAIKO_A_RX_LINE_1_GAIN:
+		case TAIKO_A_RX_LINE_2_GAIN:
+		case TAIKO_A_RX_LINE_3_GAIN:
+		case TAIKO_A_RX_LINE_4_GAIN:
 #ifdef CONFIG_MACH_LGE
 			if (lg_snd_ctrl_locked > 0)
 				ret = 0;
