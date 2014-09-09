@@ -115,13 +115,15 @@ static DEFINE_MUTEX(psm_mutex);
 module_param_named(poll_ms, msm_thermal_info_local.poll_ms, uint, 0664);
 module_param_named(limit_temp_degC, msm_thermal_info_local.limit_temp_degC,
 			int, 0664);
-module_param_named(temp_hysteresis_degC, msm_thermal_info_local.temp_hysteresis_degC,
+module_param_named(temp_hysteresis_degC,
+			msm_thermal_info_local.temp_hysteresis_degC,
 			int, 0664);
 module_param_named(freq_step, msm_thermal_info_local.freq_step,
 			int, 0664);
 module_param_named(immediately_limit_stop, immediately_limit_stop,
 			bool, 0664);
-module_param_named(core_limit_temp_degC, msm_thermal_info_local.core_limit_temp_degC,
+module_param_named(core_limit_temp_degC,
+			msm_thermal_info_local.core_limit_temp_degC,
 			int, 0664);
 module_param_named(core_temp_hysteresis_degC,
 			msm_thermal_info_local.core_temp_hysteresis_degC,
@@ -495,7 +497,8 @@ static ssize_t vdd_rstr_reg_level_store(struct kobject *kobj,
 			ret = vdd_restriction_apply_voltage(reg, val);
 			if (ret) {
 				pr_err( \
-				"Set vdd restriction for regulator %s failed\n",
+				"Set vdd restriction for regulator \
+				%s failed\n",
 				reg->name);
 				goto done_store_level;
 			}
@@ -720,7 +723,8 @@ static void __ref do_core_control(long temp)
 	if (msm_thermal_info_local.core_control_mask &&
 		temp >= msm_thermal_info_local.core_limit_temp_degC) {
 		for (i = num_possible_cpus(); i > 0; i--) {
-			if (!(msm_thermal_info_local.core_control_mask & BIT(i)))
+			if (!(msm_thermal_info_local.core_control_mask &
+					BIT(i)))
 				continue;
 			if (cpus_offlined & BIT(i) && !cpu_online(i))
 				continue;
@@ -873,7 +877,7 @@ static void __ref do_freq_control(long temp)
 		if (msm_thermal_info_local.limit_temp_degC > 78)
 			msm_thermal_info_local.limit_temp_degC = 78;
 	}
-	
+
 	if (debug_mode == 1)
 		printk(KERN_ERR "pre-check do_freq_control temp[%ld], \
 				limit_idx[%d], limit_idx_low[%d], \
@@ -925,8 +929,8 @@ static void __ref do_freq_control(long temp)
 		 */
 		struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
 		max_idx = msm_cpufreq_get_index(policy, policy->max);
-		max_freq =
-		    table[max_idx - msm_thermal_info_local.freq_step].frequency;
+		max_freq = table[max_idx -
+				msm_thermal_info_local.freq_step].frequency;
 		throttled = 1;
 	} else if (throttled && max_freq < 0)
 		throttled = 0;
@@ -980,8 +984,8 @@ static void __ref check_temp(struct work_struct *work)
 
 reschedule:
 	if (intelli_enabled)
-		schedule_delayed_work(&check_temp_work,
-				msecs_to_jiffies(msm_thermal_info_local.poll_ms));
+		schedule_delayed_work(&check_temp_work, msecs_to_jiffies(
+					msm_thermal_info_local.poll_ms));
 }
 
 static int __ref msm_thermal_cpu_callback(struct notifier_block *nfb,
@@ -991,9 +995,8 @@ static int __ref msm_thermal_cpu_callback(struct notifier_block *nfb,
 
 	if (action == CPU_UP_PREPARE || action == CPU_UP_PREPARE_FROZEN) {
 		if (core_control_enabled &&
-			(msm_thermal_info_local.core_control_mask & BIT(cpu)) &&
-			(cpus_offlined & BIT(cpu))) {
-
+			(msm_thermal_info_local.core_control_mask & BIT(cpu))
+					&& (cpus_offlined & BIT(cpu))) {
 			if (debug_mode == 1)
 				pr_info(
 				"%s: Preventing cpu%d from coming online.\n",
@@ -1083,7 +1086,9 @@ static int __ref set_enabled(const char *val, const struct kernel_param *kp)
 					msecs_to_jiffies(10000));
 			pr_info("msm_thermal: rescheduling...\n");
 		} else
-			pr_info("msm_thermal: already running. if you wish to disable echo N > intelli_enabled\n");
+			pr_info("msm_thermal: already running. \
+				if you wish to disable echo N > \
+				intelli_enabled\n");
 	}
 	pr_info("%s: intelli_enabled = %d\n", KBUILD_MODNAME, intelli_enabled);
 	ret = param_set_bool(val, kp);
@@ -1560,14 +1565,16 @@ static int msm_thermal_add_vdd_rstr_nodes(void)
 
 	vdd_rstr_kobj = kobject_create_and_add("vdd_restriction", module_kobj);
 	if (!vdd_rstr_kobj) {
-		pr_err("%s: cannot create vdd_restriction kobject\n", __func__);
+		pr_err("%s: cannot create vdd_restriction kobject\n",
+				__func__);
 		rc = -ENOMEM;
 		goto thermal_sysfs_add_exit;
 	}
 
 	rc = sysfs_create_group(vdd_rstr_kobj, &vdd_rstr_en_attribs_gp);
 	if (rc) {
-		pr_err("%s: cannot create kobject attribute group\n", __func__);
+		pr_err("%s: cannot create kobject attribute group\n",
+				__func__);
 		rc = -ENOMEM;
 		goto thermal_sysfs_add_exit;
 	}
@@ -1582,8 +1589,8 @@ static int msm_thermal_add_vdd_rstr_nodes(void)
 			goto thermal_sysfs_add_exit;
 		}
 
-		rails[i].attr_gp.attrs = kzalloc(sizeof(struct attribute *) * 3,
-					GFP_KERNEL);
+		rails[i].attr_gp.attrs = kzalloc(sizeof(
+					struct attribute *) * 3, GFP_KERNEL);
 		if (!rails[i].attr_gp.attrs) {
 			rc = -ENOMEM;
 			goto thermal_sysfs_add_exit;
@@ -1666,7 +1673,8 @@ static int msm_thermal_add_psm_nodes(void)
 		PSM_RW_ATTRIB(psm_rails[i], psm_rails[i].mode_attr, 0, mode);
 		psm_rails[i].attr_gp.attrs[1] = NULL;
 
-		rc = sysfs_create_group(psm_reg_kobj[i], &psm_rails[i].attr_gp);
+		rc = sysfs_create_group(psm_reg_kobj[i],
+				&psm_rails[i].attr_gp);
 		if (rc) {
 			pr_err("%s: cannot create attribute group for %s\n",
 					KBUILD_MODNAME, psm_rails[i].name);
@@ -1768,8 +1776,8 @@ static int probe_vdd_rstr(struct device_node *node,
 	if (rails_cnt) {
 		ret = vdd_restriction_reg_init(pdev);
 		if (ret) {
-			pr_info("%s:Failed to get regulators. KTM continues.\n",
-				__func__);
+			pr_info("%s:Failed to get regulators. \
+					KTM continues.\n", __func__);
 			goto read_node_fail;
 		}
 		vdd_rstr_enabled = true;
@@ -1812,7 +1820,8 @@ static int probe_psm(struct device_node *node, struct msm_thermal_data *data,
 	psm_rails = kzalloc(sizeof(struct psm_rail) * psm_rails_cnt,
 			GFP_KERNEL);
 	if (!psm_rails) {
-		pr_err("%s: Fail to allocate memory for psm rails\n", __func__);
+		pr_err("%s: Fail to allocate memory for psm rails\n",
+				__func__);
 		psm_rails_cnt = 0;
 		return -ENOMEM;
 	}
@@ -1827,8 +1836,8 @@ static int probe_psm(struct device_node *node, struct msm_thermal_data *data,
 	if (psm_rails_cnt) {
 		ret = psm_reg_init(pdev);
 		if (ret) {
-			pr_info("%s:Failed to get regulators. KTM continues.\n",
-					__func__);
+			pr_info("%s:Failed to get regulators. \
+					KTM continues.\n", __func__);
 			goto read_node_fail;
 		}
 		psm_enabled = true;
