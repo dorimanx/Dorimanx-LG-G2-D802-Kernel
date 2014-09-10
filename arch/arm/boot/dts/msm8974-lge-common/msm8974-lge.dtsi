@@ -19,11 +19,11 @@
 
 /* BLSP QUP I2C clock on V1 */
 &i2c_0 {
-	qcom,i2c-src-freq = <24000000>;
+	qcom,i2c-src-freq = <19200000>;
 };
 
 &i2c_1 {
-	qcom,i2c-src-freq = <24000000>;
+	qcom,i2c-src-freq = <19200000>;
 };
 
 &i2c_2 {

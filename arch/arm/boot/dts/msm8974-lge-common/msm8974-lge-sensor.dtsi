@@ -24,7 +24,7 @@
 		interrupts = <0 97 0>;
 		interrupt-names = "qup_err_intr";
 		qcom,i2c-bus-freq = <100000>;
-		qcom,i2c-src-freq = <24000000>;
+		qcom,i2c-src-freq = <19200000>;
 	};
 	*/
 	i2c@f9968000 {
@@ -37,7 +37,7 @@
 		interrupts = <0 106 0>;
 		interrupt-names = "qup_err_intr";
 		qcom,i2c-bus-freq = <100000>;
-		qcom,i2c-src-freq = <24000000>;
+		qcom,i2c-src-freq = <19200000>;
 	};
 	/* I2C device */
 	i2c@f9968000 {
