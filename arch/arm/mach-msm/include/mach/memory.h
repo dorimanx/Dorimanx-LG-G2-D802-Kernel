@@ -28,7 +28,15 @@
 #elif defined(CONFIG_MACH_MSM8974_HAMMERHEAD)
 #define KEXEC_HB_PAGE_ADDR		UL(0x10100000)
 #define KEXEC_HB_KERNEL_LOC		UL(0x3208000)
-#elif defined (CONFIG_MACH_MSM8974_G2_OPEN_COM)
+#elif defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || \
+		defined(CONFIG_MACH_MSM8974_G2_ATT) || \
+		defined(CONFIG_MACH_MSM8974_G2_TMO_US) || \
+		defined(CONFIG_MACH_MSM8974_G2_CA) || \
+		defined(CONFIG_MACH_MSM8974_G2_TLS) || \
+		defined(CONFIG_MACH_MSM8974_G2_KR) || \
+		defined(CONFIG_MACH_MSM8974_G2_KT) || \
+		defined(CONFIG_MACH_MSM8974_G2_SPR) || \
+		defined(CONFIG_MACH_MSM8974_G2_VZW)
 #define KEXEC_HB_PAGE_ADDR		UL(0x07b00000)
 #else
 #error "Adress for kexec hardboot page not defined"
