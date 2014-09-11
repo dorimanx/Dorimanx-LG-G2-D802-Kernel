@@ -46,8 +46,8 @@ int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
 #define REG_SZ  25
 
 #ifdef CONFIG_MACH_LGE
-static int cached_regs[] = {6, 6, -1, -1, 0, 0, -1, -1, -1, -1,
-			1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+static int cached_regs[] = {6, 6, 0, 0, 0, 0, -1, -1, -1, -1,
+			0, -1, -1, -1, -1, -1, 10, 10, -1, -1,
 			-1, -1, -1, -1, -1};
 #else
 static int cached_regs[] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
@@ -232,6 +232,7 @@ int snd_hax_reg_access(unsigned int reg)
 	int ret = 1;
 
 	switch (reg) {
+		/* Analog Power Amp (PA) */
 		case TAIKO_A_RX_HPH_L_GAIN:
 		case TAIKO_A_RX_HPH_R_GAIN:
 		case TAIKO_A_RX_HPH_L_STATUS:
@@ -239,13 +240,18 @@ int snd_hax_reg_access(unsigned int reg)
 			if (snd_ctrl_locked > 1)
 				ret = 0;
 			break;
+		/* Digital Headphones Gain */
 		case TAIKO_A_CDC_RX1_VOL_CTL_B2_CTL:
 		case TAIKO_A_CDC_RX2_VOL_CTL_B2_CTL:
+#ifndef CONFIG_MACH_LGE
 		case TAIKO_A_CDC_RX3_VOL_CTL_B2_CTL:
 		case TAIKO_A_CDC_RX4_VOL_CTL_B2_CTL:
 		case TAIKO_A_CDC_RX5_VOL_CTL_B2_CTL:
 		case TAIKO_A_CDC_RX6_VOL_CTL_B2_CTL:
+#endif
+		/* Loud Speaker Gain */
 		case TAIKO_A_CDC_RX7_VOL_CTL_B2_CTL:
+		/* Line out gain */
 		case TAIKO_A_RX_LINE_1_GAIN:
 		case TAIKO_A_RX_LINE_2_GAIN:
 		case TAIKO_A_RX_LINE_3_GAIN:
@@ -258,22 +264,22 @@ int snd_hax_reg_access(unsigned int reg)
 				ret = 0;
 #endif
 			break;
-/*
+#ifndef CONFIG_MACH_LGE
 		case TAIKO_A_CDC_TX1_VOL_CTL_GAIN:
 		case TAIKO_A_CDC_TX2_VOL_CTL_GAIN:
 		case TAIKO_A_CDC_TX3_VOL_CTL_GAIN:
 		case TAIKO_A_CDC_TX4_VOL_CTL_GAIN:
 		case TAIKO_A_CDC_TX5_VOL_CTL_GAIN:
-*/
-#ifdef CONFIG_MACH_LGE
-		case TAIKO_A_CDC_TX6_VOL_CTL_GAIN:
-		case TAIKO_A_CDC_TX7_VOL_CTL_GAIN:
 #endif
-/*
+		/* Incall MIC Gain */
+		case TAIKO_A_CDC_TX6_VOL_CTL_GAIN:
+		/* Camera MIC Gain */
+		case TAIKO_A_CDC_TX7_VOL_CTL_GAIN:
+#ifndef CONFIG_MACH_LGE
 		case TAIKO_A_CDC_TX8_VOL_CTL_GAIN:
 		case TAIKO_A_CDC_TX9_VOL_CTL_GAIN:
 		case TAIKO_A_CDC_TX10_VOL_CTL_GAIN:
-*/
+#endif
 #ifdef CONFIG_MACH_LGE
 			if (lg_snd_ctrl_locked > 0)
 				ret = 0;
