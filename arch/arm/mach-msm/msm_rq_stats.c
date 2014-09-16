@@ -65,7 +65,7 @@ static DEFINE_PER_CPU(struct cpu_load_data, cpuload);
 static int io_is_busy = 0;
 #endif
 
-static unsigned int hotplug_suspend = 0;
+static unsigned int hotplug_suspend = 1;
 
 static int update_average_load(unsigned int freq, unsigned int cpu)
 {
@@ -222,21 +222,20 @@ static int cpu_hotplug_handler(struct notifier_block *nb,
 static int system_suspend_handler(struct notifier_block *nb,
 				unsigned long val, void *data)
 {
-	if (!rq_info.hotplug_enabled)
+	if (!hotplug_suspend)
 		return NOTIFY_OK;
 
 	switch (val) {
 	case PM_POST_HIBERNATION:
 	case PM_POST_SUSPEND:
 	case PM_POST_RESTORE:
-		if (hotplug_suspend == 1
-				|| rq_info.hotplug_disabled == 1)
-			rq_info.hotplug_disabled = 0;
+		if (rq_info.hotplug_disabled == 0)
+			rq_info.hotplug_enabled = 1;
 		break;
 	case PM_HIBERNATION_PREPARE:
 	case PM_SUSPEND_PREPARE:
-		if (hotplug_suspend == 1)
-			rq_info.hotplug_disabled = 1;
+		if (rq_info.hotplug_disabled == 0)
+			rq_info.hotplug_enabled = 0;
 		break;
 	default:
 		return NOTIFY_DONE;
