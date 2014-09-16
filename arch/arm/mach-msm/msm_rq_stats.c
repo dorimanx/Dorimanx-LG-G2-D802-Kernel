@@ -57,15 +57,18 @@ struct cpu_load_data {
 	struct mutex cpu_load_mutex;
 };
 
+#if !defined(CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL) && \
+        !defined(CONFIG_MSM_RUN_QUEUE_STATS_BE_CONSERVATIVE)
 static unsigned int lock_hotplug_disabled;
+#endif
 
 static DEFINE_PER_CPU(struct cpu_load_data, cpuload);
 
-#ifndef CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL
+#if !defined(CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL) && \
+	!defined(CONFIG_MSM_RUN_QUEUE_STATS_BE_CONSERVATIVE)
 static int io_is_busy = 0;
 #endif
 
-static unsigned int hotplug_suspend = 1;
 
 static int update_average_load(unsigned int freq, unsigned int cpu)
 {
@@ -222,20 +225,18 @@ static int cpu_hotplug_handler(struct notifier_block *nb,
 static int system_suspend_handler(struct notifier_block *nb,
 				unsigned long val, void *data)
 {
-	if (!hotplug_suspend)
+	if (!rq_info.hotplug_enabled)
 		return NOTIFY_OK;
 
 	switch (val) {
 	case PM_POST_HIBERNATION:
 	case PM_POST_SUSPEND:
 	case PM_POST_RESTORE:
-		if (rq_info.hotplug_disabled == 0)
-			rq_info.hotplug_enabled = 1;
+		rq_info.hotplug_disabled = 0;
 		break;
 	case PM_HIBERNATION_PREPARE:
 	case PM_SUSPEND_PREPARE:
-		if (rq_info.hotplug_disabled == 0)
-			rq_info.hotplug_enabled = 0;
+		rq_info.hotplug_disabled = 1;
 		break;
 	default:
 		return NOTIFY_DONE;
@@ -273,7 +274,8 @@ static ssize_t store_hotplug_enable(struct kobject *kobj,
 	int ret;
 	unsigned int val;
 	unsigned long flags = 0;
-#ifndef CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL
+#if !defined(CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL) && \
+        !defined(CONFIG_MSM_RUN_QUEUE_STATS_BE_CONSERVATIVE)
 	unsigned int i;
 #endif
 
@@ -287,7 +289,8 @@ static ssize_t store_hotplug_enable(struct kobject *kobj,
 		return count;
 	}
 
-#ifndef CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL
+#if !defined(CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL) && \
+        !defined(CONFIG_MSM_RUN_QUEUE_STATS_BE_CONSERVATIVE)
 	if (!val) {
 		for_each_possible_cpu(i) {
 			struct cpu_load_data *pcpu = &per_cpu(cpuload, i);
@@ -302,10 +305,16 @@ static ssize_t store_hotplug_enable(struct kobject *kobj,
 	rq_info.hotplug_enabled = val;
 	if (rq_info.hotplug_enabled) {
 		rq_info.hotplug_disabled = 0;
+#if !defined(CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL) && \
+        !defined(CONFIG_MSM_RUN_QUEUE_STATS_BE_CONSERVATIVE)
 		lock_hotplug_disabled = 0;
+#endif
 	} else {
 		rq_info.hotplug_disabled = 1;
+#if !defined(CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL) && \
+        !defined(CONFIG_MSM_RUN_QUEUE_STATS_BE_CONSERVATIVE)
 		lock_hotplug_disabled = 1;
+#endif
 	}
 
 	spin_unlock_irqrestore(&rq_lock, flags);
@@ -325,7 +334,8 @@ static struct kobj_attribute hotplug_enabled_attr =
 	__ATTR(hotplug_enable, S_IWUSR | S_IRUSR, show_hotplug_enable,
 	       store_hotplug_enable);
 
-#ifndef CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL
+#if !defined(CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL) && \
+        !defined(CONFIG_MSM_RUN_QUEUE_STATS_BE_CONSERVATIVE)
 static ssize_t store_io_is_busy(struct kobject *kobj,
 				     struct kobj_attribute *attr,
 				     const char *buf, size_t count)
@@ -365,36 +375,6 @@ static struct kobj_attribute io_is_busy_attr =
 	__ATTR(io_is_busy, S_IWUSR | S_IRUSR, show_io_is_busy,
 	       store_io_is_busy);
 #endif
-
-static ssize_t store_hotplug_suspend(struct kobject *kobj,
-				     struct kobj_attribute *attr,
-				     const char *buf, size_t count)
-{
-	int ret;
-	unsigned int val;
-
-	ret = sscanf(buf, "%u", &val);
-	if (ret != 1)
-		return -EINVAL;
-
-	val = (val > 0);
-
-	if (val == hotplug_suspend)
-		return count;
-
-	hotplug_suspend = val;
-
-	return count;
-}
-static ssize_t show_hotplug_suspend(struct kobject *kobj,
-				    struct kobj_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%u\n", hotplug_suspend);
-}
-
-static struct kobj_attribute hotplug_suspend_attr =
-	__ATTR(hotplug_suspend, S_IWUSR | S_IRUSR, show_hotplug_suspend,
-	       store_hotplug_suspend);
 
 static void def_work_fn(struct work_struct *work)
 {
@@ -510,10 +490,10 @@ static struct attribute *rq_attrs[] = {
 	&run_queue_avg_attr.attr,
 	&run_queue_poll_ms_attr.attr,
 	&hotplug_disabled_attr.attr,
-#ifndef CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL
+#if !defined(CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL) && \
+        !defined(CONFIG_MSM_RUN_QUEUE_STATS_BE_CONSERVATIVE)
 	&io_is_busy_attr.attr,
 #endif
-	&hotplug_suspend_attr.attr,
 	&hotplug_enabled_attr.attr,
 	NULL,
 };
@@ -565,7 +545,10 @@ static int __init msm_rq_stats_init(void)
 	rq_info.def_timer_last_jiffy = 0;
 	rq_info.hotplug_disabled = 0;
 	rq_info.hotplug_enabled = 1;
+#if !defined(CONFIG_MSM_RUN_QUEUE_STATS_USE_CPU_UTIL) && \
+        !defined(CONFIG_MSM_RUN_QUEUE_STATS_BE_CONSERVATIVE)
 	lock_hotplug_disabled = 0;
+#endif
 	ret = init_rq_attribs();
 
 	rq_info.init = 1;
