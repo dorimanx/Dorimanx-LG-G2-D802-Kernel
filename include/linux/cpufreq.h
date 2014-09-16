@@ -204,6 +204,7 @@ extern int __cpufreq_driver_target(struct cpufreq_policy *policy,
 				   unsigned int target_freq,
 				   unsigned int relation);
 
+/* This function is used in MSM_THERMAL DRIVER */
 extern int msm_cpufreq_get_index(struct cpufreq_policy *policy,
 				 unsigned int freq);
 

@@ -340,6 +340,7 @@ int msm_cpufreq_set_freq_limits(uint32_t cpu, uint32_t min, uint32_t max)
 }
 EXPORT_SYMBOL(msm_cpufreq_set_freq_limits);
 
+/* This function is used in MSM_THERMAL DRIVER */
 int msm_cpufreq_get_index(struct cpufreq_policy *policy, unsigned int freq)
 {
 	int index;
