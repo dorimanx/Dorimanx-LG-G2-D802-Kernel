@@ -18,7 +18,9 @@
 #include <linux/device.h>
 #include <linux/notifier.h>
 #include <linux/regulator/consumer.h>
+#ifdef CONFIG_REGULATOR_PROXY_CONSUMER
 #include <linux/regulator/proxy-consumer.h>
+#endif
 
 struct regulator_dev;
 struct regulator_init_data;
@@ -209,8 +211,9 @@ struct regulator_dev {
 	void *reg_data;		/* regulator_dev data */
 
 	struct dentry *debugfs;
-
+#ifdef CONFIG_REGULATOR_PROXY_CONSUMER
 	struct proxy_consumer *proxy_consumer;
+#endif
 };
 
 struct regulator_dev *regulator_register(struct regulator_desc *regulator_desc,
