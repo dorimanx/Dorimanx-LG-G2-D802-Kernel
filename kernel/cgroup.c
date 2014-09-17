@@ -3986,7 +3986,7 @@ static int cgroup_css_sets_empty(struct cgroup *cgrp)
 	read_lock(&css_set_lock);
 	list_for_each_entry(link, &cgrp->css_sets, cgrp_link_list) {
 		struct css_set *cg = link->cg;
-		if (atomic_read(&cg->refcount) > 0) {
+		if (cg && (atomic_read(&cg->refcount) > 0)) {
 			retval = 0;
 			break;
 		}
