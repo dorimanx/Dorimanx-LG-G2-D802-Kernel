@@ -5032,7 +5032,7 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 
 #ifdef CONFIG_MACH_LGE
 	if (!mbhc_enabled)
-		goto skip;
+		goto skip_lg;
 #endif
 	if (is_mbhc_disabled())
 		goto skip;
@@ -5099,7 +5099,7 @@ skip :
 					     1 << WCD9XXX_COND_HPH);
 
 #ifdef CONFIG_MACH_LGE
-skip:
+skip_lg:
 #endif
 
 	pr_debug("%s: leave ret %d\n", __func__, ret);
