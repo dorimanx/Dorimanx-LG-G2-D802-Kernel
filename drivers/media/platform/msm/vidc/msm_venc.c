@@ -840,12 +840,12 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		if (*num_buffers < MIN_NUM_CAPTURE_BUFFERS)
 			*num_buffers = MIN_NUM_CAPTURE_BUFFERS;
 
-		if (*num_buffers > VB2_MAX_FRAME) {
+		if (*num_buffers > VIDEO_MAX_FRAME) {
 			dprintk(VIDC_ERR,
 				"Changing buffers requested, from %d to max"\
 				" supported (%d) best effort encoding\n",
-				*num_buffers, VB2_MAX_FRAME);
-			*num_buffers = VB2_MAX_FRAME;
+				*num_buffers, VIDEO_MAX_FRAME);
+			*num_buffers = VIDEO_MAX_FRAME;
 		}
 		ctrl = v4l2_ctrl_find(&inst->ctrl_handler,
 				V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
