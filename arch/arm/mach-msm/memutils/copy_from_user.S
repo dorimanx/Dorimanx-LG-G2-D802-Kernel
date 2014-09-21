@@ -87,6 +87,17 @@
 	str1w \ptrw, \reg8, \abort
 	.endm
 
+#ifdef CONFIG_USE_LDRDSTRD_OVER_LDMSTM
+	.macro cpy8w dst src reg1 reg2 abort
+	.irp offset, #0, #8, #16, #24
+	ldr1w \src, \reg1, \abort
+	ldr1w \src, \reg2, \abort
+	strd \reg1, \reg2, [\dst, \offset]
+	.endr
+	add \dst, \dst, #32
+	.endm
+#endif
+
 	.macro str1b ptr reg cond=al abort
 	str\cond\()b \reg, [\ptr], #1
 	.endm
