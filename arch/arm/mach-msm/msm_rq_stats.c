@@ -84,7 +84,11 @@ static int update_average_load(unsigned int freq, unsigned int cpu)
 
 	cur_load = cpufreq_quick_get_util(cpu);
 #else
+#ifndef CONFIG_MSM_RUN_QUEUE_STATS_BE_CONSERVATIVE
 	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, io_is_busy);
+#else
+	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, 0);
+#endif
 
 	wall_time = (unsigned int) (cur_wall_time - pcpu->prev_cpu_wall);
 	pcpu->prev_cpu_wall = cur_wall_time;
