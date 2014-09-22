@@ -2947,7 +2947,25 @@ int __devinit dwc3_gadget_init(struct dwc3 *dwc)
 
 	dev_set_name(&dwc->gadget.dev, "gadget");
 
+	switch (dwc->maximum_speed) {
+		case DWC3_DCFG_SUPERSPEED:
+			dwc->gadget.max_speed = USB_SPEED_SUPER;
+			break;
+		case DWC3_DCFG_HIGHSPEED:
+			dwc->gadget.max_speed = USB_SPEED_HIGH;
+			break;
+		case DWC3_DCFG_FULLSPEED1:
+			dwc->gadget.max_speed = USB_SPEED_FULL;
+			break;
+		case DWC3_DCFG_LOWSPEED:
+			dwc->gadget.max_speed = USB_SPEED_LOW;
+			break;
+		default:
+			dwc->gadget.max_speed = USB_SPEED_SUPER;
+			break;
+	}
 	dwc->gadget.ops			= &dwc3_gadget_ops;
+/* switch to DTS config as SPEED HIGH
 #if defined(CONFIG_MACH_MSM8974_G2_DCM)\
 	|| defined(CONFIG_MACH_MSM8974_G2_KDDI)\
 	|| defined(CONFIG_MACH_MSM8974_G2_OPEN_AME)\
@@ -2959,6 +2977,7 @@ int __devinit dwc3_gadget_init(struct dwc3 *dwc)
 #else
 	dwc->gadget.max_speed		= USB_SPEED_SUPER;
 #endif
+*/
 	dwc->gadget.speed		= USB_SPEED_UNKNOWN;
 	dwc->gadget.dev.parent		= dwc->dev;
 	dwc->gadget.sg_supported	= true;
