@@ -1058,6 +1058,12 @@ static ssize_t store_boost(struct kobject *kobj, struct attribute *attr,
 
 define_one_global_rw(boost);
 
+static ssize_t show_boostpulse(struct kobject *kobj, struct attribute *attr,
+			  char *buf)
+{
+	return sprintf(buf, "%u\n", (unsigned)boostpulse_endtime);
+}
+
 static ssize_t store_boostpulse(struct kobject *kobj, struct attribute *attr,
 				const char *buf, size_t count)
 {
@@ -1074,7 +1080,7 @@ static ssize_t store_boostpulse(struct kobject *kobj, struct attribute *attr,
 }
 
 static struct global_attr boostpulse =
-	__ATTR(boostpulse, 0200, NULL, store_boostpulse);
+	__ATTR(boostpulse, 0644, show_boostpulse, store_boostpulse);
 
 static ssize_t show_boostpulse_duration(
 	struct kobject *kobj, struct attribute *attr, char *buf)
