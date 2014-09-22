@@ -93,7 +93,6 @@ static int max_idx;
 static int max_tsens_num;
 static bool immediately_limit_stop = false;
 static struct cpufreq_frequency_table *table;
-static int *tsens_id_map;
 
 struct cpu_info {
 	uint32_t cpu;
@@ -175,26 +174,6 @@ static void update_cpu_freq(int cpu)
 		if (cpufreq_update_policy(cpu))
 			pr_err("Unable to update policy for cpu:%d\n", cpu);
 	}
-}
-
-static int check_sensor_id(int sensor_id)
-{
-	int i = 0;
-	bool hw_id_found = false;
-	int ret = 0;
-
-	for (i = 0; i < max_tsens_num; i++) {
-		if (sensor_id == tsens_id_map[i]) {
-			hw_id_found = true;
-			break;
-		}
-	}
-	if (!hw_id_found) {
-		pr_err("%s: Invalid sensor hw id :%d\n", __func__, sensor_id);
-		return -EINVAL;
-	}
-
-	return ret;
 }
 
 static int msm_thermal_get_freq_table(void)
@@ -858,9 +837,6 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 	BUG_ON(!pdata);
 	tsens_get_max_sensor_num(&max_tsens_num);
 	memcpy(&msm_thermal_info, pdata, sizeof(struct msm_thermal_data));
-
-	if (check_sensor_id(msm_thermal_info_local.sensor_id))
-		return -EINVAL;
 
 	pr_info("%s: polling enabled!\n", KBUILD_MODNAME);
 
