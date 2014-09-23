@@ -2543,7 +2543,7 @@ config MSM_RUN_QUEUE_STATS_USE_CPU_UTIL
 
 config MSM_RUN_QUEUE_STATS_BE_CONSERVATIVE
 	bool "Use a more conservative computation for RQ Stats"
-	depends on MSM_RUN_QUEUE_STATS
+	depends on MSM_RUN_QUEUE_STATS && !MSM_RUN_QUEUE_STATS_USE_CPU_UTIL
 	default n
 	help
 	  Enable more conservative computation of load and size of the run
