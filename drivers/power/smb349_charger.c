@@ -1732,10 +1732,10 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 					break;
 			}
 			if (usb_power_curr_now == 500)
-				new_thermal_mitigation = 500;
+				new_thermal_mitigation = 370;
 		} else if (force_fast_charge == 1) {
 			if (usb_power_curr_now == 500)
-				new_thermal_mitigation = 500;
+				new_thermal_mitigation = 370;
 			else
 				new_thermal_mitigation = 1200;
 		} else if (!force_fast_charge)
@@ -1746,9 +1746,11 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 		else if (batt_state_check == 2)
 			new_thermal_mitigation = 300;
 
-		pr_info("thermal-engine: thermal mitigation=%d, battery temp=%d, battery capacity=%d, usb_power_curr_now=%d, charge current=%d\n",
+		pr_info("thermal-engine: requested_thermal mitigation %d, new_thermal mitigation=%d, battery temp=%d, battery capacity=%d\n",
+				smb349_thermal_mitigation,
 				new_thermal_mitigation, batt_temp,
-				smb349_get_prop_batt_capacity(the_smb349_chg),
+				smb349_get_prop_batt_capacity(the_smb349_chg));
+		pr_info("thermal-engine: usb_power_curr_now=%d, charge current=%d\n",
 				usb_power_curr_now,
 				req.current_now);
 
@@ -1820,12 +1822,12 @@ int smb349_thermal_mitigation_update(int value)
 					break;
 			}
 			if (value == 500)
-				new_thermal_mitigation = 500;
+				new_thermal_mitigation = 370;
 			else if (value == 300)
 				new_thermal_mitigation = 300;
 		} else if (force_fast_charge == 1) {
 			if (value == 500)
-				new_thermal_mitigation = 500;
+				new_thermal_mitigation = 370;
 			else if (value == 300)
 				new_thermal_mitigation = 300;
 		} else if (!force_fast_charge)
