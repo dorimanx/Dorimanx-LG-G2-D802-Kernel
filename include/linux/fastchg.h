@@ -21,6 +21,7 @@
 extern int force_fast_charge;
 extern int fast_charge_level;
 extern int fake_charge_ac;
+extern int usb_power_curr_now;
 
 #define FAST_CHARGE_DISABLED		0	/* default */
 #define FAST_CHARGE_FORCE_AC		1

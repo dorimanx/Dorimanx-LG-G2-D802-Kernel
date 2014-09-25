@@ -39,7 +39,7 @@
  * and allow max charge!
  */
 
-#define FAST_CHARGE_VERSION	"Version 1.5"
+#define FAST_CHARGE_VERSION	"Version 1.6"
 
 int force_fast_charge;
 int fast_charge_level;
