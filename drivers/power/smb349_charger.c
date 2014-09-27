@@ -1731,12 +1731,16 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 				default:
 					break;
 			}
+#ifndef CONFIG_SMB349_VZW_FAST_CHG
 			if (usb_power_curr_now == 500)
 				new_thermal_mitigation = 370;
+#endif
 		} else if (force_fast_charge == 1) {
+#ifndef CONFIG_SMB349_VZW_FAST_CHG
 			if (usb_power_curr_now == 500)
 				new_thermal_mitigation = 370;
 			else
+#endif
 				new_thermal_mitigation = 1200;
 		} else if (!force_fast_charge)
 			new_thermal_mitigation = smb349_thermal_mitigation;
@@ -1750,9 +1754,11 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 				smb349_thermal_mitigation,
 				new_thermal_mitigation, batt_temp,
 				smb349_get_prop_batt_capacity(the_smb349_chg));
+#ifndef CONFIG_SMB349_VZW_FAST_CHG
 		pr_info("thermal-engine: usb_power_curr_now=%d, charge current=%d\n",
 				usb_power_curr_now,
 				req.current_now);
+#endif
 
 		if (new_thermal_mitigation != the_smb349_chg->chg_current_te) {
 			the_smb349_chg->chg_current_te = new_thermal_mitigation;
@@ -1775,7 +1781,7 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 module_param_call(smb349_thermal_mitigation, smb349_set_thermal_chg_current_set,
 	param_get_uint, &smb349_thermal_mitigation, 0644);
 
-#ifdef CONFIG_FORCE_FAST_CHARGE
+#if defined(CONFIG_FORCE_FAST_CHARGE) && !defined(CONFIG_SMB349_VZW_FAST_CHG)
 int smb349_thermal_mitigation_update(int value)
 {
 	int ret;

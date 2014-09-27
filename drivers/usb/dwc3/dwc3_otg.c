@@ -630,7 +630,7 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 		return 0;
 
 	dev_info(phy->dev, "Avail curr from USB = %u\n", mA);
-#ifdef CONFIG_FORCE_FAST_CHARGE
+#if defined(CONFIG_FORCE_FAST_CHARGE) && !defined(CONFIG_SMB349_VZW_FAST_CHG)
 	usb_power_curr_now = mA;
 	if (mA > 300)
 		smb349_thermal_mitigation_update(mA);
