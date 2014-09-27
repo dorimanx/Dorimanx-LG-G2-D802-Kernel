@@ -1907,7 +1907,7 @@ EXPORT_SYMBOL(cpufreq_get_policy);
 static int __cpufreq_set_policy(struct cpufreq_policy *data,
 				struct cpufreq_policy *policy)
 {
-	int ret = 0, failed = 1;
+	int ret = 0;
 #ifdef CONFIG_UNI_CPU_POLICY_LIMIT
 	struct cpufreq_policy *cpu0_policy = NULL;
 #endif
