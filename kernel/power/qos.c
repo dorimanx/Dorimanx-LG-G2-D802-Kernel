@@ -268,6 +268,7 @@ static struct pm_qos_constraints dvfs_lat_constraints = {
 static struct pm_qos_object dvfs_lat_pm_qos = {
 	.constraints = &dvfs_lat_constraints,
 	.name = "dvfs_latency",
+};
 
 static struct pm_qos_object *pm_qos_array[] = {
 	&null_pm_qos,
