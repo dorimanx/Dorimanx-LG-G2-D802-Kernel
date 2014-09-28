@@ -885,7 +885,7 @@ Retry_Sense:
 			for (i = 0; i < 5; i++) {
 				temp_result = us->transport(us->srb, us);
 				if (temp_result != USB_STOR_TRANSPORT_GOOD) {
-					US_DEBUGP("TUR failed %d %d\n",
+					usb_stor_dbg(us, "TUR failed %d %d\n",
 							i, temp_result);
 					break;
 				}
