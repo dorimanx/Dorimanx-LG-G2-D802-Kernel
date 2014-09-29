@@ -632,10 +632,20 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 	dev_info(phy->dev, "Avail curr from USB = %u\n", mA);
 #if defined(CONFIG_FORCE_FAST_CHARGE) && !defined(CONFIG_SMB349_VZW_FAST_CHG)
 	usb_power_curr_now = mA;
-	if (mA > 300)
+	if (mA > 300) {
+		if (force_fast_charge != force_fast_charge_temp)
+			force_fast_charge = force_fast_charge_temp;
+		dev_info(phy->dev, "Power plugged, FFC is set to = %d\n",
+				force_fast_charge);
 		smb349_thermal_mitigation_update(mA);
-	else
+	} else {
+		if (force_fast_charge != 0)
+			force_fast_charge_temp = force_fast_charge;
+		force_fast_charge = 0;
+		dev_info(phy->dev, "Power Unplugged, FFC is set to = %d\n",
+				force_fast_charge);
 		smb349_thermal_mitigation_update(300);
+	}
 #endif
 
 /*                                                             */

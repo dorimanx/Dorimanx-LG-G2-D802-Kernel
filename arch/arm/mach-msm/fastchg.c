@@ -39,9 +39,10 @@
  * and allow max charge!
  */
 
-#define FAST_CHARGE_VERSION	"Version 1.6"
+#define FAST_CHARGE_VERSION	"Version 1.7"
 
 int force_fast_charge;
+int force_fast_charge_temp;
 int fast_charge_level;
 int fake_charge_ac;
 
@@ -66,6 +67,7 @@ static ssize_t force_fast_charge_store(struct kobject *kobj,
 		case FAST_CHARGE_FORCE_AC:
 		case FAST_CHARGE_FORCE_CUSTOM_MA:
 			force_fast_charge = new_force_fast_charge;
+			force_fast_charge_temp = new_force_fast_charge;
 			return count;
 		default:
 			return -EINVAL;
@@ -186,6 +188,7 @@ int force_fast_charge_init(void)
 
 	 /* Forced fast charge disabled by default */
 	force_fast_charge = FAST_CHARGE_DISABLED;
+	force_fast_charge_temp = FAST_CHARGE_DISABLED;
 
 	fake_charge_ac = FAKE_CHARGE_AC_DISABLE;
 
