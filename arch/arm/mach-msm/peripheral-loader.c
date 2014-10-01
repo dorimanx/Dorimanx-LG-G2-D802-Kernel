@@ -809,7 +809,7 @@ int pil_desc_init(struct pil_desc *desc)
 		ret = request_threaded_irq(desc->proxy_unvote_irq,
 				  NULL,
 				  proxy_unvote_intr_handler,
-				  IRQF_TRIGGER_RISING,
+				  IRQF_TRIGGER_RISING|IRQF_ONESHOT,
 				  desc->name, desc);
 		if (ret < 0) {
 			dev_err(desc->dev,

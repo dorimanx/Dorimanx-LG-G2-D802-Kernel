@@ -615,7 +615,8 @@ static int lge_hsd_probe(struct platform_device *pdev)
 		goto error_06;
 	}
 	ret = request_threaded_irq(hi->irq_key, NULL, button_irq_handler,
-			IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING, pdev->name, hi);
+			IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING|IRQF_ONESHOT,
+			pdev->name, hi);
 	if (ret) {
 		HSD_ERR("failed to request button irq\n");
 		goto error_06;
@@ -636,7 +637,8 @@ static int lge_hsd_probe(struct platform_device *pdev)
 		goto error_07;
 	}
 	ret = request_threaded_irq(hi->irq_detect, NULL, earjack_det_irq_handler,
-			IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING, pdev->name, hi);
+			IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING|IRQF_ONESHOT,
+			pdev->name, hi);
 
 	if (ret) {
 		HSD_ERR("failed to request button irq\n");
