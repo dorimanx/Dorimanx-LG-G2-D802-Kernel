@@ -118,9 +118,6 @@ void put_files_struct(struct files_struct *fs);
 void reset_files_struct(struct files_struct *);
 int unshare_files(struct files_struct **);
 struct files_struct *dup_fd(struct files_struct *, int *);
-int iterate_fd(struct files_struct *, unsigned,
-		int (*)(const void *, struct file *, unsigned),
-		const void *);
 void do_close_on_exec(struct files_struct *);
 int iterate_fd(struct files_struct *, unsigned,
 		int (*)(const void *, struct file *, unsigned),
