@@ -36,16 +36,17 @@
 #define MSM_HOTPLUG			"msm_hotplug"
 #define HOTPLUG_ENABLED			1
 #define DEFAULT_UPDATE_RATE		HZ / 10
-#define START_DELAY			HZ * 20
+#define START_DELAY			HZ * 5
 #define MIN_INPUT_INTERVAL		150 * 1000L
 #define DEFAULT_HISTORY_SIZE		10
 #define DEFAULT_DOWN_LOCK_DUR		1000
-#define DEFAULT_BOOST_LOCK_DUR		2500 * 1000L
-#define DEFAULT_NR_CPUS_BOOSTED		1
+#define DEFAULT_BOOST_LOCK_DUR		500 * 1000L
+#define DEFAULT_NR_CPUS_BOOSTED		2
 #define DEFAULT_MIN_CPUS_ONLINE		1
 #define DEFAULT_MAX_CPUS_ONLINE		NR_CPUS
-#define DEFAULT_FAST_LANE_LOAD		99
-#define DEFAULT_FAST_LANE_MIN_FREQ	2265600
+/* cur_avg_load can be > 200! */
+#define DEFAULT_FAST_LANE_LOAD		180
+#define DEFAULT_FAST_LANE_MIN_FREQ	1574400
 #if defined(CONFIG_LCD_NOTIFY) || \
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
@@ -55,6 +56,7 @@
 /*
  * debug = 1 will print all
  * debug = 2 will print suspend/resume only
+ * debug = 3 will print suspend/resume and fast lane boost
  */
 static unsigned int debug = 2;
 module_param_named(debug_mask, debug, uint, 0644);
@@ -145,7 +147,6 @@ static struct cpu_stats {
 	unsigned int total_cpus;
 	unsigned int online_cpus;
 	unsigned int cur_avg_load;
-	unsigned int cur_max_load;
 	struct mutex stats_mutex;
 } stats = {
 	.update_rates = default_update_rates,
@@ -240,7 +241,6 @@ static unsigned int load_at_max_freq(void)
 		max_load = max(max_load, pcpu->avg_load_maxfreq);
 		pcpu->avg_load_maxfreq = 0;
 	}
-	stats.cur_max_load = max_load;
 
 	return total_load;
 }
@@ -471,10 +471,12 @@ static void msm_hotplug_work(struct work_struct *work)
 
 	update_load_stats();
 
-	if ((stats.cur_max_load >= hotplug.fast_lane_load) &&
+	if ((stats.cur_avg_load >= hotplug.fast_lane_load) &&
 			(cpufreq_quick_get(0) >= hotplug.fast_lane_min_freq)) {
 		/* Enter the fast lane */
 		online_cpu(hotplug.max_cpus_online);
+		if (debug == 3)
+			pr_info("%s: fast lane GO GO GO!\n", MSM_HOTPLUG);
 		goto reschedule;
 	}
 
@@ -543,7 +545,8 @@ static void msm_hotplug_suspend(struct work_struct *work)
 				continue;
 			cpu_down(cpu);
 		}
-		dprintk("%s: suspended.\n", MSM_HOTPLUG);
+		if (debug >= 2)
+			dprintk("%s: suspended.\n", MSM_HOTPLUG);
 	}
 }
 
@@ -561,7 +564,8 @@ static void __ref msm_hotplug_resume(struct work_struct *work)
 		/* Initiate hotplug work */
 		required_reschedule = 1;
 		INIT_DELAYED_WORK(&hotplug_work, msm_hotplug_work);
-		dprintk("%s: resumed.\n", MSM_HOTPLUG);
+		if (debug >= 2)
+			dprintk("%s: resumed.\n", MSM_HOTPLUG);
 	}
 
 #if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_MACH_LGE)
