@@ -85,40 +85,17 @@ static spinlock_t speedchange_cpumask_lock;
 /*
  * Tunables start
  */
-
-#define DEFAULT_TIMER_RATE (20 * USEC_PER_MSEC)
-static unsigned long timer_rate;
-
-#define DEFAULT_UP_THRESHOLD 70
-static unsigned long up_threshold;
-
-#define DEFAULT_DOWN_DIFFERENTIAL 20
-static unsigned long down_differential;
-
-#define DEFAULT_MIN_FREQ 300000
-static u64 allowed_min;
-
-#define DEFAULT_MAX_FREQ 2803200
-static u64 allowed_max;
-
-#define DEFAULT_INTER_HIFREQ 2265600
-static u64 inter_hifreq;
-
-#define DEFAULT_INTER_LOFREQ 300000
-static u64 inter_lofreq;
-
-#define SUSPEND_FREQ 300000
-static u64 suspend_frequency;
-
-#define DEFAULT_INTER_STAYCYCLES 2
-static unsigned long inter_staycycles;
-
-#define DEFAULT_STAYCYCLES_RESETFREQ 960000
-static u64 staycycles_resetfreq;
-
-#define DEFAULT_IO_IS_BUSY 0
-unsigned int io_is_busy;
-
+static unsigned long timer_rate = (20 * USEC_PER_MSEC);
+static unsigned long up_threshold = 70;
+static unsigned long down_differential = 20;
+static u64 allowed_min = 300000;
+static u64 allowed_max = 2803200;
+static u64 inter_hifreq = 2265600;
+static u64 inter_lofreq = 300000;
+static u64 suspend_frequency = 300000;
+static unsigned long inter_staycycles = 2;
+static u64 staycycles_resetfreq = 960000;
+unsigned int io_is_busy = 0;
 /*
  * Tunables end
  */
@@ -623,16 +600,10 @@ static ssize_t store_inter_hifreq(struct kobject *kobj,
         u64 val;
         struct cpufreq_ondemandplus_cpuinfo *pcpu =
                 &per_cpu(cpuinfo, smp_processor_id());
-        unsigned int index;
 
         ret = strict_strtoull(buf, 0, &val);
         if (ret < 0)
                 return ret;
-
-        index = 0;
-        cpufreq_frequency_table_target(pcpu->policy, pcpu->freq_table, val,
-                CPUFREQ_RELATION_L, &index);
-        val = pcpu->freq_table[index].frequency;
 
         if (val > pcpu->policy->max)
                 val = pcpu->policy->max;
@@ -661,16 +632,10 @@ static ssize_t store_inter_lofreq(struct kobject *kobj,
         u64 val;
         struct cpufreq_ondemandplus_cpuinfo *pcpu =
                 &per_cpu(cpuinfo, smp_processor_id());
-        unsigned int index;
 
         ret = strict_strtoull(buf, 0, &val);
         if (ret < 0)
                 return ret;
-
-        index = 0;
-        cpufreq_frequency_table_target(pcpu->policy, pcpu->freq_table, val,
-                        CPUFREQ_RELATION_H, &index);
-        val = pcpu->freq_table[index].frequency;
 
         if (val > pcpu->policy->max)
                 val = pcpu->policy->max;
@@ -887,18 +852,6 @@ static int __init cpufreq_ondemandplus_init(void)
         unsigned int i;
         struct cpufreq_ondemandplus_cpuinfo *pcpu;
         struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
-
-        timer_rate = DEFAULT_TIMER_RATE;
-        up_threshold = DEFAULT_UP_THRESHOLD;
-        down_differential = DEFAULT_DOWN_DIFFERENTIAL;
-        inter_hifreq = DEFAULT_INTER_HIFREQ;
-        allowed_min = DEFAULT_MIN_FREQ;
-        allowed_max = DEFAULT_MAX_FREQ;
-        suspend_frequency = SUSPEND_FREQ;
-        inter_lofreq = DEFAULT_INTER_LOFREQ;
-        inter_staycycles = DEFAULT_INTER_STAYCYCLES;
-        staycycles_resetfreq = DEFAULT_STAYCYCLES_RESETFREQ;
-        io_is_busy = DEFAULT_IO_IS_BUSY;
 
         /* Initalize per-cpu timers */
         for_each_possible_cpu(i) {
