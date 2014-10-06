@@ -37,10 +37,6 @@
 
 #include <trace/events/power.h>
 
-#ifdef CONFIG_CPU_FREQ_GOV_ONDEMANDPLUS
-extern unsigned int io_is_busy;
-#endif
-
 /**
  * The "cpufreq driver" - the arch- or hardware-dependent low
  * level driver of CPUFreq support, and its spinlock. This lock
@@ -179,10 +175,6 @@ u64 get_cpu_idle_time(unsigned int cpu, u64 *wall, int io_busy)
 
 	if (idle_time == -1ULL)
 		return get_cpu_idle_time_jiffy(cpu, wall);
-#ifdef CONFIG_CPU_FREQ_GOV_ONDEMANDPLUS
-	else if (io_is_busy == 2)
-		idle_time += (get_cpu_iowait_time_us(cpu, wall) / 2);
-#endif
 	else if (!io_busy)
 		idle_time += get_cpu_iowait_time_us(cpu, wall);
 
@@ -432,7 +424,6 @@ static int cpufreq_parse_governor(char *str_governor, unsigned int *policy,
 out:
 	return err;
 }
-
 
 /**
  * cpufreq_per_cpu_attr_read() / show_##file_name() -
@@ -790,15 +781,17 @@ static ssize_t store_scaling_governor_all_cpus(struct kobject *a, struct attribu
 			continue;
 		}
 #endif
-		cpu_policy = __cpufreq_cpu_get(cpu, 0);
+		cpu_policy = __cpufreq_cpu_get(cpu, 1);
 		if (!cpu_policy)
 			continue;
 
 		ret = store_scaling_governor(cpu_policy, buf, count);
 
-		__cpufreq_cpu_put(cpu_policy, 0);
+		__cpufreq_cpu_put(cpu_policy, 1);
 	}
 	put_online_cpus();
+
+	return count;
 }
 
 #define store_pcpu_scaling_governor(num_core)					\
@@ -1023,11 +1016,11 @@ cpufreq_freq_attr_rw(scaling_min_freq);
 cpufreq_freq_attr_rw(scaling_max_freq);
 cpufreq_freq_attr_rw(scaling_governor);
 cpufreq_freq_attr_rw(scaling_setspeed);
+cpufreq_freq_attr_ro(policy_min_freq);
+cpufreq_freq_attr_ro(policy_max_freq);
 #ifdef CONFIG_CPU_VOLTAGE_TABLE
 define_one_global_rw(vdd_levels);
 #endif
-cpufreq_freq_attr_ro(policy_min_freq);
-cpufreq_freq_attr_ro(policy_max_freq);
 #ifdef CONFIG_MULTI_CPU_POLICY_LIMIT
 define_one_global_rw(scaling_min_freq_all_cpus);
 define_one_global_rw(scaling_max_freq_all_cpus);
@@ -2202,7 +2195,6 @@ int cpufreq_get_policy(struct cpufreq_policy *policy, unsigned int cpu)
 }
 EXPORT_SYMBOL(cpufreq_get_policy);
 
-
 /*
  * data   : current policy.
  * policy : policy to be set.
@@ -2621,9 +2613,7 @@ static int cpu_freq_notify(struct notifier_block *b,
 static int __init cpufreq_core_init(void)
 {
 	int cpu;
-#if defined(CONFIG_CPU_VOLTAGE_TABLE) || defined(CONFIG_MULTI_CPU_POLICY_LIMIT)
 	int rc;
-#endif /* CONFIG_CPU_VOLTAGE_TABLE || CONFIG_MULTI_CPU_POLICY_LIMIT*/
 
 	if (cpufreq_disabled())
 		return -ENODEV;
