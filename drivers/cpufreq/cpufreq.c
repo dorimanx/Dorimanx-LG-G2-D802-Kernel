@@ -532,8 +532,10 @@ static ssize_t show_##file_name##num_core				\
 		freq = per_cpu(cpufreq_policy_save, num_core).object;	\
 	} else {													\
 		cpu_policy = __cpufreq_cpu_get(num_core, 1);			\
-		if (!cpu_policy)										\
+		if (!cpu_policy) {										\
+			put_online_cpus();									\
 			return -EINVAL;									\
+		}													\
 		freq = cpu_policy->object; 						\
 		__cpufreq_cpu_put(cpu_policy, 1);			\
 	}											\
@@ -601,8 +603,10 @@ static ssize_t store_##file_name##num_core									\
 		per_cpu(cpufreq_policy_save, num_core).object = freq;	\
 	} else {														\
 		cpu_policy = __cpufreq_cpu_get(num_core, 1);				\
-		if (!cpu_policy)											\
+		if (!cpu_policy) {										\
+			put_online_cpus();									\
 			return -EINVAL;											\
+		}															\
 		ret = store_##ref_store_name(cpu_policy, buf, count);	\
 		__cpufreq_cpu_put(cpu_policy, 1);					\
 	}													\
@@ -737,8 +741,10 @@ static ssize_t show_scaling_governor_cpu##num_core				\
 				CPUFREQ_NAME_LEN);												\
 	} else {																	\
 		cpu_policy = __cpufreq_cpu_get(num_core, 1);					\
-		if (!cpu_policy)											\
+		if (!cpu_policy) {										\
+			put_online_cpus();									\
 			return -EINVAL;											\
+		}															\
 																\
 		if (cpu_policy->policy == CPUFREQ_POLICY_POWERSAVE)		\
 			sprintf(str_governor, "powersave\n");					\
@@ -813,9 +819,10 @@ static ssize_t store_scaling_governor_cpu##num_core					\
 			CPUFREQ_NAME_LEN);												\
 	} else {															\
 		cpu_policy = __cpufreq_cpu_get(num_core, 1);				\
-		if (!cpu_policy)										\
+		if (!cpu_policy) {										\
+			put_online_cpus();									\
 			return -EINVAL;											\
-																	\
+		}															\
 		ret = store_scaling_governor(cpu_policy, buf, count);	\
 																\
 		__cpufreq_cpu_put(cpu_policy, 1);						\
