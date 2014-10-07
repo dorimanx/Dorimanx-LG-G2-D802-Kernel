@@ -242,7 +242,8 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 		/* if cur_load < 0, evaluate cpu load next time */
 		if (cur_load >= 0) {
 			/* get the cpu current frequency */
-			cur_freq = acpuclk_get_rate(cpu);
+			/* cur_freq = acpuclk_get_rate(cpu); */
+			cur_freq = cpufreq_quick_get(cpu);
 
 			if (pcpu_info->cpu_up_rate > up_rate)
 				pcpu_info->cpu_up_rate = 1;
