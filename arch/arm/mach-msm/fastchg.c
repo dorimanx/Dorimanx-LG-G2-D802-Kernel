@@ -37,9 +37,11 @@
  * Now we can use Intelli Thermal and get full power charge, this was controlled by
  * default ROM thermal engine, not any more, code will check if battery if not above 50c
  * and allow max charge!
+ * version 1.5/6/7/8 trying to perfect fast charge auto on/off and auto tune based on connection type
+ * and battery heat.
  */
 
-#define FAST_CHARGE_VERSION	"Version 1.7"
+#define FAST_CHARGE_VERSION	"Version 1.8"
 
 int force_fast_charge;
 int force_fast_charge_temp;
@@ -90,10 +92,11 @@ static ssize_t charge_level_store(struct kobject *kobj,
 	sscanf(buf, "%du", &new_charge_level);
 
 	switch (new_charge_level) {
+		case FAST_CHARGE_300:
 		case FAST_CHARGE_500:
 		case FAST_CHARGE_900:
 		case FAST_CHARGE_1200:
-		case FAST_CHARGE_1500:
+		case FAST_CHARGE_1600:
 		case FAST_CHARGE_1800:
 		case FAST_CHARGE_2000:
 			fast_charge_level = new_charge_level;
