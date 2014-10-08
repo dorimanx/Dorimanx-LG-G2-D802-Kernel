@@ -72,7 +72,11 @@ static struct msm_thermal_data_intelli msm_thermal_info_local = {
 };
 
 static struct delayed_work check_temp_work;
-static bool core_control_enabled;
+static bool core_control;
+
+/* dummy parameter for rom thermal and apps */
+static bool enabled = 1;
+
 static unsigned int debug_mode = 0;
 static uint32_t cpus_offlined;
 static DEFINE_MUTEX(core_control_mutex);
@@ -700,7 +704,7 @@ static void __ref do_core_control(long temp)
 	int i = 0;
 	int ret = 0;
 
-	if (!core_control_enabled)
+	if (!core_control)
 		return;
 
 	if (msm_thermal_info_local.limit_temp_degC <
@@ -999,7 +1003,7 @@ static int __ref msm_thermal_cpu_callback(struct notifier_block *nfb,
 	uint32_t cpu = (uint32_t)hcpu;
 
 	if (action == CPU_UP_PREPARE || action == CPU_UP_PREPARE_FROZEN) {
-		if (core_control_enabled && (
+		if (core_control && (
 				msm_thermal_info_local.core_control_mask &
 				BIT(cpu)) && (cpus_offlined & BIT(cpu))) {
 			if (debug_mode == 1)
@@ -1193,7 +1197,7 @@ static int __ref update_offline_cores(int val)
 	int ret = 0;
 
 	cpus_offlined = msm_thermal_info_local.core_control_mask & val;
-	if (!core_control_enabled)
+	if (!core_control)
 		return 0;
 
 	for_each_possible_cpu(cpu) {
@@ -1215,10 +1219,39 @@ static int update_offline_cores(int val)
 }
 #endif
 
+static ssize_t show_cc_enabled_dummy(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", enabled);
+}
+
+static ssize_t __ref store_cc_enabled_dummy(struct kobject *kobj,
+                struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int ret = 0;
+	int val = 0;
+
+	mutex_lock(&core_control_mutex);
+	ret = kstrtoint(buf, 10, &val);
+	if (ret) {
+		pr_err("%s: Invalid input %s\n", KBUILD_MODNAME, buf);
+		goto done_store_cc;
+	}
+
+	if (enabled == !!val)
+		goto done_store_cc;
+
+	enabled = !!val;
+
+done_store_cc:
+	mutex_unlock(&core_control_mutex);
+	return count;
+}
+
 static ssize_t show_cc_enabled(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%d\n", core_control_enabled);
+	return snprintf(buf, PAGE_SIZE, "%d\n", core_control);
 }
 
 static ssize_t __ref store_cc_enabled(struct kobject *kobj,
@@ -1234,11 +1267,11 @@ static ssize_t __ref store_cc_enabled(struct kobject *kobj,
 		goto done_store_cc;
 	}
 
-	if (core_control_enabled == !!val)
+	if (core_control == !!val)
 		goto done_store_cc;
 
-	core_control_enabled = !!val;
-	if (core_control_enabled) {
+	core_control = !!val;
+	if (core_control) {
 		pr_info("%s: Core control enabled\n", KBUILD_MODNAME);
 		register_cpu_notifier(&msm_thermal_cpu_notifier);
 		update_offline_cores(cpus_offlined);
@@ -1287,13 +1320,17 @@ done_cc:
 }
 
 static __refdata struct kobj_attribute cc_enabled_attr =
-__ATTR(core_control_enabled, 0664, show_cc_enabled, store_cc_enabled);
+__ATTR(core_control, 0664, show_cc_enabled, store_cc_enabled);
+
+static __refdata struct kobj_attribute cc_enabled_dummy_attr =
+__ATTR(enabled, 0664, show_cc_enabled_dummy, store_cc_enabled_dummy);
 
 static __refdata struct kobj_attribute cpus_offlined_attr =
 __ATTR(cpus_offlined, 0664, show_cpus_offlined, store_cpus_offlined);
 
 static __refdata struct attribute *cc_attrs[] = {
 	&cc_enabled_attr.attr,
+	&cc_enabled_dummy_attr.attr,
 	&cpus_offlined_attr.attr,
 	NULL,
 };
@@ -1442,7 +1479,7 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 	pr_info("%s: polling enabled!\n", KBUILD_MODNAME);
 
 	if (num_possible_cpus() > 1)
-		core_control_enabled = 1;
+		core_control = 1;
 
 	ret = cpufreq_register_notifier(&msm_thermal_cpufreq_notifier,
 			CPUFREQ_POLICY_NOTIFIER);
