@@ -33,20 +33,25 @@
  * version 1.1 Added 1800ma limit to table by Dorimanx
  * version 1.2 Added Fake AC interface by Mankindtw@xda and Dorimanx
  * version 1.3 Misc fixes to force AC and allowed real 1800mA max.
+ *
+ * Next versions depend on code for LG G2 Device!!! (Dorimanx)
  * version 1.4 Added usage of custom mA value for max charging power,
  * Now we can use Intelli Thermal and get full power charge, this was controlled by
  * default ROM thermal engine, not any more, code will check if battery if not above 50c
  * and allow max charge!
  * version 1.5/6/7/8 trying to perfect fast charge auto on/off and auto tune based on connection type
  * and battery heat.
+ * version 1.9 Added Auto fast charge on/off based on battery %, if above 95% then fast charge is OFF
+ * when battery is below 95% and fast charge was ON by user before, then it's enabled again.
  */
 
-#define FAST_CHARGE_VERSION	"Version 1.8"
+#define FAST_CHARGE_VERSION	"Version 1.9"
 
 int force_fast_charge;
 int force_fast_charge_temp;
 int fast_charge_level;
 int fake_charge_ac;
+int force_fast_charge_on_off;
 
 /* sysfs interface for "force_fast_charge" */
 static ssize_t force_fast_charge_show(struct kobject *kobj,
@@ -70,6 +75,7 @@ static ssize_t force_fast_charge_store(struct kobject *kobj,
 		case FAST_CHARGE_FORCE_CUSTOM_MA:
 			force_fast_charge = new_force_fast_charge;
 			force_fast_charge_temp = new_force_fast_charge;
+			force_fast_charge_on_off = new_force_fast_charge;
 			return count;
 		default:
 			return -EINVAL;
@@ -192,9 +198,8 @@ int force_fast_charge_init(void)
 	 /* Forced fast charge disabled by default */
 	force_fast_charge = FAST_CHARGE_DISABLED;
 	force_fast_charge_temp = FAST_CHARGE_DISABLED;
-
+	force_fast_charge_on_off = FAST_CHARGE_DISABLED;
 	fake_charge_ac = FAKE_CHARGE_AC_DISABLE;
-
 	fast_charge_level = FAST_CHARGE_1800;
 
 	force_fast_charge_kobj

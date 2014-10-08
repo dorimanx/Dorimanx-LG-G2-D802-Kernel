@@ -1674,6 +1674,7 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 #ifdef CONFIG_FORCE_FAST_CHARGE
 	int batt_state_check = 0;
 	int batt_temp;
+	int batt_charge;
 	int new_thermal_mitigation = 300;
 	struct charging_info req;
 	union power_supply_propval pwr = {0,};
@@ -1697,13 +1698,25 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 	} else {
 #ifdef CONFIG_FORCE_FAST_CHARGE
 		batt_temp = smb349_get_prop_batt_temp(the_smb349_chg);
+		batt_charge = smb349_get_prop_batt_capacity(the_smb349_chg);
 
 		the_smb349_chg->batt_psy.get_property(&(the_smb349_chg->batt_psy),
 				POWER_SUPPLY_PROP_CURRENT_NOW, &pwr);
 		req.current_now = pwr.intval / 1000;
 
-		if (smb349_get_prop_batt_capacity(the_smb349_chg) >= 98)
+		if (batt_charge >= 95) {
 			batt_state_check = 1;
+			if (force_fast_charge != 0) {
+				force_fast_charge_on_off = force_fast_charge;
+				force_fast_charge = 0;
+				pr_info("thermal-engine: FFC disabled! battery is above 95 percent\n");
+			}
+		} else {
+			if (force_fast_charge != force_fast_charge_on_off)
+				force_fast_charge = force_fast_charge_on_off;
+			if (force_fast_charge != 0)
+				pr_info("thermal-engine: FFC active! battery is below 95 percent\n");
+		}
 
 		if (batt_temp >= 550)
 			batt_state_check = 2;
@@ -1791,21 +1804,22 @@ module_param_call(smb349_thermal_mitigation, smb349_set_thermal_chg_current_set,
 #if defined(CONFIG_FORCE_FAST_CHARGE) && !defined(CONFIG_SMB349_VZW_FAST_CHG)
 int smb349_thermal_mitigation_update(int value)
 {
-	int ret;
 	int batt_state_check = 0;
 	int batt_temp;
+	int batt_charge;
 	int new_thermal_mitigation = 300;
 
 	if (!the_smb349_chg)
-		return ret;
+		return 0;
 
 #ifdef CONFIG_LGE_THERMALE_CHG_CONTROL
 	if (is_factory_cable())
 		return 0;
 	else {
 		batt_temp = smb349_get_prop_batt_temp(the_smb349_chg);
+		batt_charge = smb349_get_prop_batt_capacity(the_smb349_chg);
 
-		if (smb349_get_prop_batt_capacity(the_smb349_chg) >= 98)
+		if (batt_charge >= 95)
 			batt_state_check = 1;
 
 		if (batt_temp >= 550)
@@ -4317,6 +4331,9 @@ static void smb349_status_print(struct smb349_struct *smb349_chg)
 static int temp_before = 0;
 static void smb349_monitor_batt_temp(struct work_struct *work)
 {
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	int batt_charge = 0;
+#endif
 	struct smb349_struct *smb349_chg =
 		container_of(work, struct smb349_struct, battemp_work.work);
 	struct charging_info req;
@@ -4372,6 +4389,26 @@ static void smb349_monitor_batt_temp(struct work_struct *work)
 #endif
 
 	req.is_charger = smb349_is_charger_present(smb349_chg->client);
+
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	/*
+	 * Update force fast charge auto on/off status
+	 * every time temp check is running when not in suspend.
+	 */
+	if (usb_power_curr_now > 300) {
+		batt_charge = smb349_get_prop_batt_capacity(the_smb349_chg);
+		if (batt_charge >= 95) {
+			if (force_fast_charge != 0) {
+				force_fast_charge_on_off = force_fast_charge;
+				force_fast_charge = 0;
+				pr_info("thermal-engine: FFC disabled! battery is above 95 percent\n");
+			}
+		} else {
+			if (force_fast_charge != force_fast_charge_on_off)
+				force_fast_charge = force_fast_charge_on_off;
+		}
+	}
+#endif
 
 	lge_monitor_batt_temp(req, &res);
 
