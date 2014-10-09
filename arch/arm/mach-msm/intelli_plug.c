@@ -314,27 +314,19 @@ static void intelli_plug_work_fn(struct work_struct *work)
 	defined(CONFIG_HAS_EARLYSUSPEND)
 static void intelli_plug_suspend(struct work_struct *work)
 {
-	int cpu = 0;
-
 	if (hotplug_suspended == false) {
 		mutex_lock(&intelli_plug_mutex);
 		hotplug_suspended = true;
 		min_cpus_online_res = min_cpus_online;
 		min_cpus_online = 1;
 		max_cpus_online_res = max_cpus_online;
-		max_cpus_online = 4;
+		max_cpus_online = 2;
 		mutex_unlock(&intelli_plug_mutex);
 
 		/* Flush hotplug workqueue */
 		flush_workqueue(intelliplug_wq);
 		cancel_delayed_work_sync(&intelli_plug_work);
 
-		/* Put all sibling cores to sleep */
-		for_each_online_cpu(cpu) {
-			if (cpu == 0)
-				continue;
-			cpu_down(cpu);
-		}
 		dprintk("%s: suspended!\n", INTELLI_PLUG);
 	}
 }
