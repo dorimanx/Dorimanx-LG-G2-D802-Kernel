@@ -787,10 +787,13 @@ static struct syscore_ops timekeeping_syscore_ops = {
 ktime_t ktime_get(void)
 {
 	unsigned int seq;
+	int timekeeping_state_now = 0;
 	s64 secs, nsecs;
 
-	if (timekeeping_suspended)
+	if (timekeeping_suspended) {
 		timekeeping_resume();
+		timekeeping_state_now = 1;
+	}
 
 	WARN_ON(timekeeping_suspended);
 
@@ -805,10 +808,15 @@ ktime_t ktime_get(void)
 		nsecs += arch_gettimeoffset();
 
 	} while (read_seqretry(&timekeeper.lock, seq));
+
+	if (timekeeping_state_now)
+		timekeeping_suspend();
+
 	/*
 	 * Use ktime_set/ktime_add_ns to create a proper ktime on
 	 * 32-bit architectures without CONFIG_KTIME_SCALAR.
 	 */
+
 	return ktime_add_ns(ktime_set(secs, 0), nsecs);
 }
 EXPORT_SYMBOL_GPL(ktime_get);

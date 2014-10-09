@@ -101,9 +101,6 @@ static void wakelocks_gc(void)
 	if (++wakelocks_gc_count <= WL_GC_COUNT_MAX)
 		return;
 
-	if (timekeeping_suspended)
-		return;
-
 	now = ktime_get();
 	list_for_each_entry_safe_reverse(wl, aux, &wakelocks_lru_list, lru) {
 		u64 idle_time_ns;
