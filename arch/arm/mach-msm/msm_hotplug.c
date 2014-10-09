@@ -524,27 +524,19 @@ reschedule:
 	defined(CONFIG_HAS_EARLYSUSPEND)
 static void msm_hotplug_suspend(struct work_struct *work)
 {
-	int cpu;
-
 	if (!hotplug.suspended) {
 		mutex_lock(&hotplug.msm_hotplug_mutex);
 		hotplug.suspended = 1;
 		hotplug.min_cpus_online_res = hotplug.min_cpus_online;
 		hotplug.min_cpus_online = 1;
 		hotplug.max_cpus_online_res = hotplug.max_cpus_online;
-		hotplug.max_cpus_online = 4;
+		hotplug.max_cpus_online = 2;
 		mutex_unlock(&hotplug.msm_hotplug_mutex);
 
 		/* Flush hotplug workqueue */
 		flush_workqueue(hotplug_wq);
 		cancel_delayed_work_sync(&hotplug_work);
 
-		/* Put all sibling cores to sleep */
-		for_each_online_cpu(cpu) {
-			if (cpu == 0)
-				continue;
-			cpu_down(cpu);
-		}
 		if (debug >= 2)
 			dprintk("%s: suspended.\n", MSM_HOTPLUG);
 	}
@@ -585,7 +577,8 @@ static void __ref msm_hotplug_resume(struct work_struct *work)
 
 	/* Resume hotplug workqueue if required */
 	if (required_reschedule)
-		reschedule_hotplug_work();
+		queue_delayed_work_on(0, hotplug_wq, &hotplug_work,
+				msecs_to_jiffies(10));
 }
 
 #ifdef CONFIG_LCD_NOTIFY
