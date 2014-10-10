@@ -1231,20 +1231,15 @@ static ssize_t __ref store_cc_enabled_dummy(struct kobject *kobj,
 	int ret = 0;
 	int val = 0;
 
-	mutex_lock(&core_control_mutex);
 	ret = kstrtoint(buf, 10, &val);
-	if (ret) {
+	if (ret)
 		pr_err("%s: Invalid input %s\n", KBUILD_MODNAME, buf);
-		goto done_store_cc;
-	}
 
-	if (enabled == !!val)
-		goto done_store_cc;
+	if (enabled == val)
+		return count;
 
-	enabled = !!val;
+	enabled = val;
 
-done_store_cc:
-	mutex_unlock(&core_control_mutex);
 	return count;
 }
 
