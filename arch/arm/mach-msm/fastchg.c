@@ -43,9 +43,10 @@
  * and battery heat.
  * version 1.9 Added Auto fast charge on/off based on battery %, if above 95% then fast charge is OFF
  * when battery is below 95% and fast charge was ON by user before, then it's enabled again.
+ * version 2.0 Guard with mutex all functions that use values from other code to prevent race and bug.
  */
 
-#define FAST_CHARGE_VERSION	"Version 1.9"
+#define FAST_CHARGE_VERSION	"Version 2.0"
 
 int force_fast_charge;
 int force_fast_charge_temp;
