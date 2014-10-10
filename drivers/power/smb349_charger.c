@@ -66,6 +66,7 @@
 
 #ifdef CONFIG_FORCE_FAST_CHARGE
 #include <linux/fastchg.h>
+struct mutex smb349_fast_charge_lock;
 #endif
 
 /* Register definitions */
@@ -1697,12 +1698,14 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 		return 0;
 	} else {
 #ifdef CONFIG_FORCE_FAST_CHARGE
+		mutex_lock(&smb349_fast_charge_lock);
 		batt_temp = smb349_get_prop_batt_temp(the_smb349_chg);
 		batt_charge = smb349_get_prop_batt_capacity(the_smb349_chg);
 
 		the_smb349_chg->batt_psy.get_property(&(the_smb349_chg->batt_psy),
 				POWER_SUPPLY_PROP_CURRENT_NOW, &pwr);
 		req.current_now = pwr.intval / 1000;
+		mutex_unlock(&smb349_fast_charge_lock);
 
 		if (batt_charge >= 95) {
 			batt_state_check = 1;
@@ -1816,8 +1819,10 @@ int smb349_thermal_mitigation_update(int value)
 	if (is_factory_cable())
 		return 0;
 	else {
+		mutex_lock(&smb349_fast_charge_lock);
 		batt_temp = smb349_get_prop_batt_temp(the_smb349_chg);
 		batt_charge = smb349_get_prop_batt_capacity(the_smb349_chg);
+		mutex_unlock(&smb349_fast_charge_lock);
 
 		if (batt_charge >= 95)
 			batt_state_check = 1;
@@ -4395,6 +4400,7 @@ static void smb349_monitor_batt_temp(struct work_struct *work)
 	 * Update force fast charge auto on/off status
 	 * every time temp check is running when not in suspend.
 	 */
+	mutex_lock(&smb349_fast_charge_lock);
 	if (usb_power_curr_now > 300) {
 		batt_charge = smb349_get_prop_batt_capacity(the_smb349_chg);
 		if (batt_charge >= 95) {
@@ -4408,6 +4414,7 @@ static void smb349_monitor_batt_temp(struct work_struct *work)
 				force_fast_charge = force_fast_charge_on_off;
 		}
 	}
+	mutex_unlock(&smb349_fast_charge_lock);
 #endif
 
 	lge_monitor_batt_temp(req, &res);
@@ -5257,12 +5264,18 @@ static struct i2c_driver smb349_driver = {
 
 static int __init smb349_init(void)
 {
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	mutex_init(&smb349_fast_charge_lock);
+#endif
 	return i2c_add_driver(&smb349_driver);
 }
 module_init(smb349_init);
 
 static void __exit smb349_exit(void)
 {
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	mutex_destroy(&smb349_fast_charge_lock);
+#endif
 	return i2c_del_driver(&smb349_driver);
 }
 module_exit(smb349_exit);
