@@ -16,8 +16,6 @@
  *
  *  v1.5 - Remove hybrid mode! as it's calling too early wakeup and mdss stuck!
  *         screen may not turn on for LG G2 kernel in random cases.
- *  v1.6 - Export suspend_mode to MDSS to prevent calling hooks if PANNEL
- *         Hook is not used for powersuspend.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -36,7 +34,7 @@
 #include <linux/workqueue.h>
 
 #define MAJOR_VERSION	1
-#define MINOR_VERSION	6
+#define MINOR_VERSION	5
 
 /*
  * debug = 1 will print all
@@ -63,7 +61,7 @@ static DEFINE_SPINLOCK(state_lock);
 /* Yank555.lu : Current powersave state (screen on / off) */
 static int state;
 /* Yank555.lu : Current powersave suspend_mode  (kernel / userspace / panel) */
-int suspend_mode;
+static int suspend_mode;
 
 void register_power_suspend(struct power_suspend *handler)
 {

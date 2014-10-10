@@ -37,8 +37,6 @@
 #define POWER_SUSPEND_USERSPACE	1	// Use fauxclock as trigger
 #define POWER_SUSPEND_PANEL	2	// Use display panel state as hook
 
-extern int suspend_mode;
-
 struct power_suspend {
         struct list_head link;
         void (*suspend)(struct power_suspend *h);
