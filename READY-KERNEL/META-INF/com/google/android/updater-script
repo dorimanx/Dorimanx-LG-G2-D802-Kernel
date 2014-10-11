@@ -9,11 +9,6 @@ package_extract_dir("system", "/system");
 package_extract_dir("data", "/data");
 set_perm(0, 0, 0755, "/system/xbin/ntfs-3g");
 set_perm(0, 0, 0755, "/system/wget/wget");
-set_metadata("/system/etc/thermal-engine-8974.conf", "uid", 0, "gid", 0, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
-set_metadata("/system/etc/thermal-engine-8974-default.conf", "uid", 0, "gid", 0, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
-set_metadata("/system/etc/thermal-engine-8974-ftm.conf", "uid", 0, "gid", 0, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
-set_metadata("/system/etc/audio_policy.conf", "uid", 0, "gid", 0, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
-
 
 #copy loki flash files
 package_extract_dir("loki", "/tmp");
@@ -23,6 +18,7 @@ package_extract_file("boot.img", "/tmp/loki/boot.img");
 
 #set loki permissions
 set_perm(0, 0, 0755, "/tmp/loki.sh");
+set_perm(0, 0, 0755, "/tmp/permfix.sh");
 set_perm(0, 0, 0755, "/tmp/cleaner.sh");
 set_perm_recursive(0, 0, 0755, 0755, "/tmp/loki");
 
@@ -31,10 +27,10 @@ ui_print("Installing kernel");
 ui_print("Detecting panel type and auto configuring!");
 assert(run_program("/tmp/loki.sh") == 0);
 assert(run_program("/tmp/cleaner.sh") == 0);
+assert(run_program("/tmp/permfix.sh") == 0);
 ui_print("Kernel Installed! enjoy :)");
 
 #cleanup
-delete("/tmp/loki.sh");
 unmount("/system");
 unmount("/data");
 show_progress(0.100000, 0);
