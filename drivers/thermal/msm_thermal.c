@@ -67,8 +67,8 @@ static struct msm_thermal_data_intelli msm_thermal_info_local = {
 	.temp_hysteresis_degC = 10,
 	.freq_step = 2,
 	.freq_control_mask = 0xf,
-	.core_limit_temp_degC = 74,
-	.core_temp_hysteresis_degC = 10,
+	.core_limit_temp_degC = 80,
+	.core_temp_hysteresis_degC = 5,
 	.core_control_mask = 0xe,
 };
 
@@ -641,6 +641,7 @@ fail:
 	return ret;
 }
 
+#if 0
 /* 1:enable, 0:disable */
 static int vdd_restriction_apply_all(int en)
 {
@@ -682,6 +683,7 @@ static int vdd_restriction_apply_all(int en)
 		return -EFAULT;
 	return ret;
 }
+#endif
 
 static int msm_thermal_get_freq_table(void)
 {
@@ -711,10 +713,6 @@ static void __ref do_core_control(long temp)
 	int ret = 0;
 
 	if (!core_control)
-		return;
-
-	if (msm_thermal_info_local.limit_temp_degC <
-			msm_thermal_info_local.core_limit_temp_degC)
 		return;
 
 	/**
@@ -777,6 +775,7 @@ static void do_core_control(long temp)
 }
 #endif
 
+#if 0
 static int do_vdd_restriction(void)
 {
 	struct tsens_device tsens_dev;
@@ -825,6 +824,7 @@ exit:
 	mutex_unlock(&vdd_rstr_mutex);
 	return ret;
 }
+#endif
 
 static int do_psm(void)
 {
@@ -993,7 +993,9 @@ static void __ref check_temp(struct work_struct *work)
 	}
 
 	do_core_control(temp);
+#if 0 /* we dont need this */
 	do_vdd_restriction();
+#endif
 	do_psm();
 	do_freq_control(temp);
 
