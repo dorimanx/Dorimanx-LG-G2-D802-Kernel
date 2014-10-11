@@ -31,7 +31,7 @@
 #endif
 #include <mach/cpufreq.h>
 
-#define MSM_CPUFREQ_LIMIT_MAJOR		2
+#define MSM_CPUFREQ_LIMIT_MAJOR		3
 #define MSM_CPUFREQ_LIMIT_MINOR		0
 
 #define MSM_LIMIT			"msm_cpufreq_limit"
@@ -386,6 +386,114 @@ out:
 	return count;
 }
 
+static ssize_t msm_cpufreq_limit_cpu0_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int cpu = 0;
+	return sprintf(buf, "%u\n", get_max_lock(cpu));
+}
+
+static ssize_t msm_cpufreq_limit_cpu0_store(struct kobject *kobj,
+				      struct kobj_attribute *attr,
+				      const char *buf, size_t count)
+{
+	unsigned int cpu = 0;
+	unsigned int val;
+	int ret;
+
+	ret = sscanf(buf, "%u\n", &val);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (val < 300000 || val > 2803200)
+		val = 0;
+
+	set_max_lock(cpu, val);
+
+	return count;
+}
+
+static ssize_t msm_cpufreq_limit_cpu1_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int cpu = 1;
+	return sprintf(buf, "%u\n", get_max_lock(cpu));
+}
+
+static ssize_t msm_cpufreq_limit_cpu1_store(struct kobject *kobj,
+				      struct kobj_attribute *attr,
+				      const char *buf, size_t count)
+{
+	unsigned int cpu = 1;
+	unsigned int val;
+	int ret;
+
+	ret = sscanf(buf, "%u\n", &val);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (val < 300000 || val > 2803200)
+		val = 0;
+
+	set_max_lock(cpu, val);
+
+	return count;
+}
+
+static ssize_t msm_cpufreq_limit_cpu2_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int cpu = 2;
+	return sprintf(buf, "%u\n", get_max_lock(cpu));
+}
+
+static ssize_t msm_cpufreq_limit_cpu2_store(struct kobject *kobj,
+				      struct kobj_attribute *attr,
+				      const char *buf, size_t count)
+{
+	unsigned int cpu = 2;
+	unsigned int val;
+	int ret;
+
+	ret = sscanf(buf, "%u\n", &val);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (val < 300000 || val > 2803200)
+		val = 0;
+
+	set_max_lock(cpu, val);
+
+	return count;
+}
+
+static ssize_t msm_cpufreq_limit_cpu3_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int cpu = 3;
+	return sprintf(buf, "%u\n", get_max_lock(cpu));
+}
+
+static ssize_t msm_cpufreq_limit_cpu3_store(struct kobject *kobj,
+				      struct kobj_attribute *attr,
+				      const char *buf, size_t count)
+{
+	unsigned int cpu = 3;
+	unsigned int val;
+	int ret;
+
+	ret = sscanf(buf, "%u\n", &val);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (val < 300000 || val > 2803200)
+		val = 0;
+
+	set_max_lock(cpu, val);
+
+	return count;
+}
+
 static ssize_t msm_cpufreq_limit_version_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
@@ -397,6 +505,26 @@ static struct kobj_attribute msm_cpufreq_limit_attribute =
 	__ATTR(cpufreq_limit, 0666,
 		msm_cpufreq_limit_show,
 		msm_cpufreq_limit_store);
+
+static struct kobj_attribute msm_cpufreq_limit_cpu0_attribute =
+	__ATTR(cpufreq_limit_cpu0, 0666,
+		msm_cpufreq_limit_cpu0_show,
+		msm_cpufreq_limit_cpu0_store);
+
+static struct kobj_attribute msm_cpufreq_limit_cpu1_attribute =
+	__ATTR(cpufreq_limit_cpu1, 0666,
+		msm_cpufreq_limit_cpu1_show,
+		msm_cpufreq_limit_cpu1_store);
+
+static struct kobj_attribute msm_cpufreq_limit_cpu2_attribute =
+	__ATTR(cpufreq_limit_cpu2, 0666,
+		msm_cpufreq_limit_cpu2_show,
+		msm_cpufreq_limit_cpu2_store);
+
+static struct kobj_attribute msm_cpufreq_limit_cpu3_attribute =
+	__ATTR(cpufreq_limit_cpu3, 0666,
+		msm_cpufreq_limit_cpu3_show,
+		msm_cpufreq_limit_cpu3_store);
 
 static struct kobj_attribute msm_cpufreq_limit_version_attribute =
 	__ATTR(msm_cpufreq_limit_version, 0444,
@@ -420,6 +548,10 @@ static struct kobj_attribute suspend_max_freq_attribute =
 static struct attribute *msm_cpufreq_limit_attrs[] =
 	{
 		&msm_cpufreq_limit_attribute.attr,
+		&msm_cpufreq_limit_cpu0_attribute.attr,
+		&msm_cpufreq_limit_cpu1_attribute.attr,
+		&msm_cpufreq_limit_cpu2_attribute.attr,
+		&msm_cpufreq_limit_cpu3_attribute.attr,
 		&msm_cpufreq_limit_version_attribute.attr,
 #if defined(CONFIG_LCD_NOTIFY) || \
 	defined(CONFIG_POWERSUSPEND) || \

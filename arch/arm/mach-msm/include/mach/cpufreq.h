@@ -31,9 +31,24 @@
  */
 extern int msm_cpufreq_set_freq_limits(
 		uint32_t cpu, uint32_t min, uint32_t max);
+extern unsigned int get_max_lock(
+		unsigned int cpu);
+extern void set_max_lock(
+		unsigned int cpu, unsigned int freq);
+
 #else
 static inline int msm_cpufreq_set_freq_limits(
 		uint32_t cpu, uint32_t min, uint32_t max)
+{
+	return -ENOSYS;
+}
+static unsigned int get_max_lock(
+		unsigned int cpu);
+{
+	return -ENOSYS;
+}
+static void set_max_lock(
+		unsigned int cpu, unsigned int freq);
 {
 	return -ENOSYS;
 }
