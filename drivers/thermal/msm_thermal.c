@@ -930,7 +930,7 @@ static void __ref do_freq_control(long temp)
 	if (max_freq == cpus[cpu].limited_max_freq)
 		return;
 
-	if (!throttled && max_freq > 0) {
+	if (!throttled && max_freq > 0 && max_freq != MSM_CPUFREQ_NO_LIMIT) {
 		/*
 		 * We're about to throttle cpu maximum freq. Save
 		 * current policy->max frequency table index and
@@ -941,7 +941,8 @@ static void __ref do_freq_control(long temp)
 		max_freq = table[max_idx -
 				msm_thermal_info_local.freq_step].frequency;
 		throttled = 1;
-	} else if (throttled && max_freq < 0)
+	} else if (throttled && (max_freq < 0 ||
+				max_freq == MSM_CPUFREQ_NO_LIMIT))
 		throttled = 0;
 
 	/* Update new limits */
