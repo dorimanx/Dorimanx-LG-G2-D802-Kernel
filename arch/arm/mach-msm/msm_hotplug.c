@@ -54,9 +54,10 @@
 #endif
 
 /*
- * debug = 1 will print all
- * debug = 2 will print suspend/resume only
- * debug = 3 will print suspend/resume and fast lane boost
+ * debug = 1 will print info with dprintk.
+ * debug = 2 will print suspend/resume only.
+ * debug = 3 will print suspend/resume and fast lane boost.
+ * debug = 4 will print suspend/resume and hotplug work delay for debug.
  */
 static unsigned int debug = 2;
 module_param_named(debug_mask, debug, uint, 0644);
@@ -456,6 +457,9 @@ static void reschedule_hotplug_work(void)
 	delay = load_to_update_rate(stats.cur_avg_load);
 	queue_delayed_work_on(0, hotplug_wq, &hotplug_work,
 			      msecs_to_jiffies(delay));
+	if (debug == 4)
+		pr_info("%s: reschedule_hotplug delay %u\n",
+				MSM_HOTPLUG, delay);
 }
 
 static void msm_hotplug_work(struct work_struct *work)
@@ -577,8 +581,7 @@ static void __ref msm_hotplug_resume(struct work_struct *work)
 
 	/* Resume hotplug workqueue if required */
 	if (required_reschedule)
-		queue_delayed_work_on(0, hotplug_wq, &hotplug_work,
-				msecs_to_jiffies(10));
+		reschedule_hotplug_work();
 }
 
 #ifdef CONFIG_LCD_NOTIFY
