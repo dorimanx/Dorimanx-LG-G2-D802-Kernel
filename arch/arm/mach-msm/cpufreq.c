@@ -94,7 +94,7 @@ unsigned int get_max_lock(unsigned int cpu)
 	if (cpu >= 0 && cpu <= NR_CPUS)
 		return upper_limit_freq[cpu];
 	else
-		return -EINVAL;
+		return 0;
 }
 EXPORT_SYMBOL(get_max_lock);
 
