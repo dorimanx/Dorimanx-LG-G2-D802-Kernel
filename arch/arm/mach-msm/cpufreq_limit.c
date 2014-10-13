@@ -32,11 +32,9 @@
 #include <mach/cpufreq.h>
 
 #define MSM_CPUFREQ_LIMIT_MAJOR		3
-#define MSM_CPUFREQ_LIMIT_MINOR		0
+#define MSM_CPUFREQ_LIMIT_MINOR		1
 
 #define MSM_LIMIT			"msm_cpufreq_limit"
-
-uint32_t limited_max_freq = 2265600;
 
 static struct workqueue_struct *limiter_wq;
 
@@ -48,7 +46,7 @@ static struct workqueue_struct *limiter_wq;
 #define DEFAULT_SUSPEND_FREQUENCY	0
 #define DEFAULT_RESUME_FREQUENCY	2265600
 
-static unsigned int debug = 0;
+static unsigned int debug = 1;
 module_param_named(debug_mask, debug, uint, 0644);
 
 #define dprintk(msg...)		\
@@ -71,59 +69,34 @@ static struct cpu_limit {
 } limit = {
 	.suspend_max_freq = DEFAULT_SUSPEND_FREQUENCY,
 	.resume_max_freq = DEFAULT_RESUME_FREQUENCY,
-	.suspended = 1,
+	.suspended = 0,
 	.suspend_defer_time = DEFAULT_SUSPEND_DEFER_TIME,
 };
 #endif
-
-static int update_cpu_max_freq(int cpu, uint32_t max_freq)
-{
-	int ret = 0;
-
-	ret = msm_cpufreq_set_freq_limits(cpu, MSM_CPUFREQ_NO_LIMIT, max_freq);
-	if (ret)
-		return ret;
-
-	limited_max_freq = max_freq;
-	if (max_freq != MSM_CPUFREQ_NO_LIMIT)
-		dprintk("%s: Limiting cpu%d max frequency to %d\n",
-			__func__, cpu, max_freq);
-	else
-		dprintk("%s: Max frequency reset for cpu%d\n",
-			__func__, cpu);
-	ret = cpufreq_update_policy(cpu);
-
-	return ret;
-}
 
 #if defined(CONFIG_LCD_NOTIFY) || \
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
 static void msm_limit_suspend(struct work_struct *work)
 {
-	int cpu = 0, ret = 0;
-
 	/* Save current instance */
-	limit.resume_max_freq = limited_max_freq;
+	limit.resume_max_freq = get_max_lock(0);
+
+	if (!limit.resume_max_freq)
+		return;
 
 	mutex_lock(&limit.msm_limiter_mutex);
 	limit.suspended = 1;
 	mutex_unlock(&limit.msm_limiter_mutex);
 
-	for_each_possible_cpu(cpu) {
-		ret = update_cpu_max_freq(cpu, limit.suspend_max_freq);
-		if (ret)
-			dprintk("can't limit cpu%d max freq to %d\n",
-				cpu, limit.suspend_max_freq);
-	}
-	if (!ret)
-		limited_max_freq = limit.suspend_max_freq;
+	set_max_lock(0, limit.suspend_max_freq);
+
+	dprintk("Limit cpu0 max freq to %d\n",
+		limit.suspend_max_freq);
 }
 
 static void __ref msm_limit_resume(struct work_struct *work)
 {
-	int cpu = 0, ret = 0;
-
 	/* Do not resume if didnt suspended */
 	if (!limit.suspended)
 		return;
@@ -132,15 +105,10 @@ static void __ref msm_limit_resume(struct work_struct *work)
 	limit.suspended = 0;
 	mutex_unlock(&limit.msm_limiter_mutex);
 
-	/* Restore max allowed freq */
-	for_each_possible_cpu(cpu) {
-		ret = update_cpu_max_freq(cpu, limit.resume_max_freq);
-		if (ret)
-			dprintk("can't restore cpu%d max freq to %d\n",
-				cpu, limit.resume_max_freq);
-	}
-	if (!ret)
-		limited_max_freq = limit.resume_max_freq;
+	set_max_lock(0, limit.resume_max_freq);
+
+	dprintk("Restore cpu0 max freq to %d\n",
+		limit.resume_max_freq);
 }
 
 #ifdef CONFIG_LCD_NOTIFY
@@ -347,45 +315,6 @@ out:
 }
 #endif
 
-static ssize_t msm_cpufreq_limit_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%u\n", limited_max_freq);
-}
-
-static ssize_t msm_cpufreq_limit_store(struct kobject *kobj,
-				      struct kobj_attribute *attr,
-				      const char *buf, size_t count)
-{
-	int cpu = 0, update = 0, ret;
-	unsigned int val;
-	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
-
-	ret = sscanf(buf, "%u\n", &val);
-	if (ret != 1)
-		return -EINVAL;
-
-	if (val == limited_max_freq)
-		goto out;
-
-	if (val < policy->cpuinfo.min_freq)
-		val = policy->cpuinfo.min_freq;
-	else if (val > policy->cpuinfo.max_freq)
-		val = policy->cpuinfo.max_freq;
-
-	for_each_possible_cpu(cpu) {
-		update = update_cpu_max_freq(cpu, val);
-		if (update)
-			dprintk("can't limit cpu%d max freq to %d\n",
-				cpu, val);
-	}
-out:
-	if (!update)
-		limited_max_freq = val;
-
-	return count;
-}
-
 static ssize_t msm_cpufreq_limit_cpu0_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
@@ -501,11 +430,6 @@ static ssize_t msm_cpufreq_limit_version_show(struct kobject *kobj,
 			MSM_CPUFREQ_LIMIT_MAJOR, MSM_CPUFREQ_LIMIT_MINOR);
 }
 
-static struct kobj_attribute msm_cpufreq_limit_attribute =
-	__ATTR(cpufreq_limit, 0666,
-		msm_cpufreq_limit_show,
-		msm_cpufreq_limit_store);
-
 static struct kobj_attribute msm_cpufreq_limit_cpu0_attribute =
 	__ATTR(cpufreq_limit_cpu0, 0666,
 		msm_cpufreq_limit_cpu0_show,
@@ -547,7 +471,6 @@ static struct kobj_attribute suspend_max_freq_attribute =
 
 static struct attribute *msm_cpufreq_limit_attrs[] =
 	{
-		&msm_cpufreq_limit_attribute.attr,
 		&msm_cpufreq_limit_cpu0_attribute.attr,
 		&msm_cpufreq_limit_cpu1_attribute.attr,
 		&msm_cpufreq_limit_cpu2_attribute.attr,
