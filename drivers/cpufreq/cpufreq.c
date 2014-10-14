@@ -528,6 +528,7 @@ static ssize_t store_scaling_max_freq
 	unsigned int limited_cpu_freq;
 #ifdef CONFIG_MULTI_CPU_POLICY_LIMIT
 	bool apply_limit = false;
+	unsigned int old_max_freq = 0;
 #endif
 #endif
 	struct cpufreq_policy new_policy;
@@ -539,6 +540,7 @@ static ssize_t store_scaling_max_freq
 #ifdef CONFIG_MSM_CPUFREQ_LIMITER
 	cpu = policy->cpu;
 	limited_cpu_freq = get_max_lock(cpu);
+	old_max_freq = new_policy.user_policy.max;
 #endif
 
 	new_policy.min = new_policy.user_policy.min;
@@ -554,7 +556,7 @@ static ssize_t store_scaling_max_freq
 
 #ifdef CONFIG_MSM_CPUFREQ_LIMITER
 	if (limited_cpu_freq > 0) {
-		if (new_policy.max >= limited_cpu_freq) {
+		if (new_policy.max > old_max_freq) {
 			new_policy.max = limited_cpu_freq;
 #ifdef CONFIG_MULTI_CPU_POLICY_LIMIT
 			if (cpu == 0)
