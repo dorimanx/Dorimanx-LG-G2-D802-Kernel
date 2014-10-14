@@ -14,6 +14,7 @@ set_metadata("/system/etc/thermal-engine-8974-default.conf", "uid", 0, "gid", 10
 set_metadata("/system/etc/thermal-engine-8974-ftm.conf", "uid", 0, "gid", 1000, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
 set_metadata("/system/etc/audio_policy.conf", "uid", 0, "gid", 1000, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
 set_metadata("/system/xbin/sqlite3", "uid", 0, "gid", 1000, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
+set_metadata("/system/xbin/zip", "uid", 0, "gid", 1000, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
 set_metadata("/system/wget/wget", "uid", 0, "gid", 1000, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
 
 #copy loki flash files
