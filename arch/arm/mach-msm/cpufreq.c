@@ -88,10 +88,31 @@ struct cpu_freq {
 static DEFINE_PER_CPU(struct cpu_freq, cpu_freq_info);
 
 static unsigned int upper_limit_freq[NR_CPUS] = {0, 0, 0, 0};
+static unsigned int lower_limit_freq[NR_CPUS];
+
+unsigned int get_cpu_min_lock(unsigned int cpu)
+{
+	if (cpu >= 0 && cpu < NR_CPUS)
+		return lower_limit_freq[cpu];
+	else
+		return 0;
+}
+EXPORT_SYMBOL(get_cpu_min_lock);
+
+void set_cpu_min_lock(unsigned int cpu, int freq)
+{
+	if (cpu >= 0 && cpu < NR_CPUS) {
+		if (freq <= 300000 || freq > 2803200)
+			lower_limit_freq[cpu] = 0;
+		else
+			lower_limit_freq[cpu] = freq;
+	}
+}
+EXPORT_SYMBOL(set_cpu_min_lock);
 
 unsigned int get_max_lock(unsigned int cpu)
 {
-	if (cpu >= 0 && cpu <= NR_CPUS)
+	if (cpu >= 0 && cpu < NR_CPUS)
 		return upper_limit_freq[cpu];
 	else
 		return 0;
@@ -101,7 +122,7 @@ EXPORT_SYMBOL(get_max_lock);
 void set_max_lock(unsigned int cpu, unsigned int freq)
 {
 	if (cpu >= 0 && cpu <= NR_CPUS) {
-		if (freq < 300000 || freq > 2803200)
+		if (freq <= 300000 || freq > 2803200)
 			upper_limit_freq[cpu] = 0;
 		else
 			upper_limit_freq[cpu] = freq;
@@ -166,13 +187,17 @@ static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq,
 	struct cpu_freq *limit = &per_cpu(cpu_freq_info, policy->cpu);
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
 	struct cpufreq_frequency_table *table;
-	unsigned int limited_cpu_freq = upper_limit_freq[policy->cpu];
+	unsigned int ll_freq = lower_limit_freq[policy->cpu];
+	unsigned int ul_freq = upper_limit_freq[policy->cpu];
 
-	if (limited_cpu_freq) {
+	if (ll_freq || ul_freq) {
 		unsigned int t_freq = new_freq;
 
-		if (limited_cpu_freq && new_freq > limited_cpu_freq)
-			t_freq = limited_cpu_freq;
+		if (ll_freq && new_freq < ll_freq)
+			t_freq = ll_freq;
+
+		if (ul_freq && new_freq > ul_freq)
+			t_freq = ul_freq;
 
 		new_freq = t_freq;
 
