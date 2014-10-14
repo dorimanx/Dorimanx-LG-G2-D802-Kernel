@@ -349,11 +349,7 @@ static void __ref intelli_plug_resume(struct work_struct *work)
 		dprintk("%s: resumed.\n", INTELLI_PLUG);
 	}
 
-#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_MACH_LGE)
-	if (wakeup_boost || required_wakeup) {
-#else
 	if (required_wakeup) {
-#endif
 		/* Fire up all CPUs */
 		for_each_cpu_not(cpu, cpu_online_mask) {
 			if (cpu == 0)
@@ -397,26 +393,21 @@ static void __ref __intelli_plug_resume(struct power_suspend *handler)
 static void __ref __intelli_plug_resume(struct early_suspend *handler)
 #endif
 {
-#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_MACH_LGE)
 	int cpu;
-#endif
 
 	if (atomic_read(&intelli_plug_active) == 0)
 		return;
 
 	if (!hotplug_suspend) {
-#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_MACH_LGE)
-		if (wakeup_boost) {
-			/* Fire up all CPUs */
-			for_each_cpu_not(cpu, cpu_online_mask) {
-				if (cpu == 0)
-					continue;
-				cpu_up(cpu);
-				apply_down_lock(cpu);
-			}
-			dprintk("%s: wakeup boosted.\n", INTELLI_PLUG);
+		/* Fire up all CPUs */
+		for_each_cpu_not(cpu, cpu_online_mask) {
+			if (cpu == 0)
+				continue;
+			cpu_up(cpu);
+			apply_down_lock(cpu);
 		}
-#endif
+		dprintk("%s: wakeup boosted.\n", INTELLI_PLUG);
+
 		return;
 	}
 

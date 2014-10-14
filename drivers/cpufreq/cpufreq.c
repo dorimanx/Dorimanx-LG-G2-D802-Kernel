@@ -458,19 +458,16 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 /**
  * cpufreq_per_cpu_attr_write() / store_##file_name() - sysfs write access
  */
-#define store_one(file_name, object)			\
+#define store_one(file_name, object)					\
 static ssize_t store_##file_name					\
 (struct cpufreq_policy *policy, const char *buf, size_t count)		\
 {									\
-	unsigned int ret, cpu, limited_cpu_freq;			\
+	unsigned int ret;						\
 	struct cpufreq_policy new_policy;				\
 									\
 	ret = cpufreq_get_policy(&new_policy, policy->cpu);		\
 	if (ret)							\
 		return -EINVAL;						\
-									\
-	cpu = policy->cpu;						\
-	limited_cpu_freq = get_max_lock(cpu);				\
 									\
 	new_policy.min = new_policy.user_policy.min;			\
 	new_policy.max = new_policy.user_policy.max;			\
@@ -483,11 +480,6 @@ static ssize_t store_##file_name					\
 	if (ret)							\
 		pr_err("cpufreq: Frequency verification failed\n");	\
 									\
-	if (limited_cpu_freq > 0) {					\
-		if (new_policy.max > limited_cpu_freq)			\
-			new_policy.max = limited_cpu_freq;		\
-	}								\
-									\
 	policy->user_policy.max = new_policy.max;			\
 	policy->user_policy.min = new_policy.min;			\
 									\
@@ -498,7 +490,94 @@ static ssize_t store_##file_name					\
 }
 
 store_one(scaling_min_freq, min);
-store_one(scaling_max_freq, max);
+
+#ifdef CONFIG_MULTI_CPU_POLICY_LIMIT
+static int apply_max_freq_cpus_limit(unsigned int src_freq)
+{
+	unsigned int cpu, tgt_freq = 0, ret = 0;
+
+	get_online_cpus();
+	for_each_possible_cpu(cpu) {
+		if (cpu == 0)
+			continue;
+
+		if (!cpu_online(cpu)) {
+			tgt_freq = get_max_lock(cpu);
+
+			if (tgt_freq == 0)
+				tgt_freq = src_freq;
+
+			if (tgt_freq == 0)
+				continue;
+
+			per_cpu(cpufreq_policy_save, cpu).max = tgt_freq;
+			continue;
+		}
+	}
+	put_online_cpus();
+
+	return ret;
+}
+#endif
+
+static ssize_t store_scaling_max_freq
+(struct cpufreq_policy *policy, const char *buf, size_t count)
+{
+	unsigned int ret, cpu;
+#ifdef CONFIG_MSM_CPUFREQ_LIMITER
+	unsigned int limited_cpu_freq;
+#ifdef CONFIG_MULTI_CPU_POLICY_LIMIT
+	bool apply_limit = false;
+#endif
+#endif
+	struct cpufreq_policy new_policy;
+
+	ret = cpufreq_get_policy(&new_policy, policy->cpu);
+	if (ret)
+		return -EINVAL;
+
+#ifdef CONFIG_MSM_CPUFREQ_LIMITER
+	cpu = policy->cpu;
+	limited_cpu_freq = get_max_lock(cpu);
+#endif
+
+	new_policy.min = new_policy.user_policy.min;
+	new_policy.max = new_policy.user_policy.max;
+
+	ret = sscanf(buf, "%u", &new_policy.max);
+	if (ret != 1)
+		return -EINVAL;
+
+	ret = cpufreq_driver->verify(&new_policy);
+	if (ret)
+		pr_err("cpufreq: Frequency verification failed\n");
+
+#ifdef CONFIG_MSM_CPUFREQ_LIMITER
+	if (limited_cpu_freq > 0) {
+		if (new_policy.max >= limited_cpu_freq) {
+			new_policy.max = limited_cpu_freq;
+#ifdef CONFIG_MULTI_CPU_POLICY_LIMIT
+			if (cpu == 0)
+				apply_limit = true;
+#endif
+		}
+	}
+#endif
+
+	policy->user_policy.max = new_policy.max;
+	policy->user_policy.min = new_policy.min;
+
+	ret = __cpufreq_set_policy(policy, &new_policy);
+	policy->user_policy.max = new_policy.max;
+
+#if defined(CONFIG_MULTI_CPU_POLICY_LIMIT) && \
+		defined(CONFIG_MSM_CPUFREQ_LIMITER)
+	if (apply_limit)
+		apply_max_freq_cpus_limit(limited_cpu_freq);
+#endif
+
+	return ret ? ret : count;
+}
 
 #ifdef CONFIG_MULTI_CPU_POLICY_LIMIT
 #define show_scaling_freq(file_name, object)			\
