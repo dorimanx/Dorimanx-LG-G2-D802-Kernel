@@ -2929,7 +2929,7 @@ static int taiko_codec_config_mad(struct snd_soc_codec *codec)
 		pr_err("Failed to acquire MAD firwmare data %s: %d\n", filename,
 		       ret);
 		ret = -ENODEV;
-		goto out;
+		goto relax;
 	}
 
 	if (fw->size < sizeof(struct mad_audio_cal)) {
@@ -3002,6 +3002,7 @@ static int taiko_codec_config_mad(struct snd_soc_codec *codec)
 
 out:
 	release_firmware(fw);
+relax:
 	__pm_relax(&taiko->mad_wakeup_source);
 
 	pr_debug("%s: leave ret %d\n", __func__, ret);
