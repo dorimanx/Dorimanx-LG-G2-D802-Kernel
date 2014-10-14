@@ -725,8 +725,10 @@ static ssize_t store_hotplug_suspend(struct kobject *a,
 
 	if (input > 0)
 		hotplug_tuners_ins.hotplug_suspend = 1;
-	else
+	else {
 		hotplug_tuners_ins.hotplug_suspend = 0;
+		suspended = false;
+	}
 
 	return count;
 }
