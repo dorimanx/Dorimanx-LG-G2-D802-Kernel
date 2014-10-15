@@ -464,12 +464,12 @@ static void cpufreq_interactive_timer(unsigned long data)
 	spin_lock_irqsave(&pcpu->target_freq_lock, flags);
 	do_div(cputime_speedadj, delta_time);
 	loadadjfreq = (unsigned int)cputime_speedadj * 100;
-	cpu_load = loadadjfreq / pcpu->target_freq;
+	cpu_load = loadadjfreq / pcpu->policy->cur;
 	boosted = boost_val || now < boostpulse_endtime;
 	boosted_freq = max(hispeed_freq, pcpu->policy->min);
 
 	if (cpu_load >= go_hispeed_load || boosted) {
-		if (pcpu->target_freq < boosted_freq) {
+		if (pcpu->policy->cur < boosted_freq) {
 			new_freq = boosted_freq;
 		} else {
 			new_freq = choose_freq(pcpu, loadadjfreq);
@@ -491,10 +491,10 @@ static void cpufreq_interactive_timer(unsigned long data)
 	pcpu->timer_slack_val = freq_to_timer_slack(new_freq);
 	pcpu->min_sample_time = freq_to_min_sample_time(new_freq);
 
-	if (pcpu->target_freq >= boosted_freq &&
-	    new_freq > pcpu->target_freq &&
+	if (pcpu->policy->cur >= boosted_freq &&
+	    new_freq > pcpu->policy->cur &&
 	    now - pcpu->hispeed_validate_time <
-	    freq_to_above_hispeed_delay(pcpu->target_freq)) {
+	    freq_to_above_hispeed_delay(pcpu->policy->cur)) {
 #ifdef TRACE_CRAP
 		trace_cpufreq_interactive_notyet(
 			data, cpu_load, pcpu->target_freq,
@@ -503,8 +503,6 @@ static void cpufreq_interactive_timer(unsigned long data)
 		spin_unlock_irqrestore(&pcpu->target_freq_lock, flags);
 		goto rearm;
 	}
-
-	pcpu->hispeed_validate_time = now;
 
 	if (cpufreq_frequency_table_target(pcpu->policy, pcpu->freq_table,
 					   new_freq, CPUFREQ_RELATION_H,
@@ -706,6 +704,7 @@ static int cpufreq_interactive_speedchange_task(void *data)
 		for_each_cpu(cpu, &tmp_mask) {
 			unsigned int j;
 			unsigned int max_freq = 0;
+			struct cpufreq_interactive_cpuinfo *pjcpu;
 
 			pcpu = &per_cpu(cpuinfo, cpu);
 			if (!down_read_trylock(&pcpu->enable_sem))
@@ -716,17 +715,23 @@ static int cpufreq_interactive_speedchange_task(void *data)
 			}
 
 			for_each_cpu(j, pcpu->policy->cpus) {
-				struct cpufreq_interactive_cpuinfo *pjcpu =
-					&per_cpu(cpuinfo, j);
+				pjcpu = &per_cpu(cpuinfo, j);
 
 				if (pjcpu->target_freq > max_freq)
 					max_freq = pjcpu->target_freq;
 			}
 
-			if (max_freq != pcpu->policy->cur)
+			if (max_freq != pcpu->policy->cur) {
+				u64 now;
 				__cpufreq_driver_target(pcpu->policy,
 							max_freq,
 							CPUFREQ_RELATION_H);
+				now = ktime_to_us(ktime_get());
+				for_each_cpu(j, pcpu->policy->cpus) {
+					pjcpu = &per_cpu(cpuinfo, j);
+					pjcpu->hispeed_validate_time = now;
+				}
+			}
 #ifdef TRACE_CRAP
 			trace_cpufreq_interactive_setspeed(cpu,
 						     pcpu->target_freq,
