@@ -141,22 +141,22 @@ static unsigned int get_nr_run_avg(void)
 }
 
 static unsigned int hotplug_freq[NR_CPUS][2] = {
-	{0, 1267200},
-	{960000, 1497600},
-	{1036800, 1728000},
-	{1190400, 0}
+	{0, 1728000},
+	{960000, 1267200},
+	{960000, 1267200},
+	{960000, 0}
 };
 static int hotplug_load[NR_CPUS][2] = {
 	{0, 60},
-	{30, 65},
-	{30, 65},
-	{30, 0}
+	{30, 60},
+	{30, 40},
+	{20, 0}
 };
 static unsigned int hotplug_rq[NR_CPUS][2] = {
-	{0, 100},
+	{0, 200},
 	{100, 200},
-	{200, 300},
-	{300, 0}
+	{100, 100},
+	{100, 0}
 };
 
 static unsigned int hotplug_rate[NR_CPUS][2] = {
@@ -253,6 +253,11 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 
 			check_up = (pcpu_info->cpu_up_rate % up_rate == 0);
 			check_down = (pcpu_info->cpu_down_rate % down_rate == 0);
+
+			/* for debug only
+			pr_info("CPU[%u], cur_freq[%u], cur_load[%u], rq_avg[%u], up_freq[%u], up_load[%u], up_rq[%u]\n",
+				cpu, cur_freq, cur_load, rq_avg, up_freq, up_load, up_rq);
+			*/
 
 			if (cpu > 0 
 				&& ((online_cpus - offline_cpu) > upmaxcoreslimit)) {
