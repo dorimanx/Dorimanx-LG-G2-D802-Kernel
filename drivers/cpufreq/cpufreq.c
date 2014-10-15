@@ -470,7 +470,6 @@ static ssize_t store_##file_name					\
 		return -EINVAL;						\
 									\
 	new_policy.min = new_policy.user_policy.min;			\
-	new_policy.max = new_policy.user_policy.max;			\
 									\
 	ret = sscanf(buf, "%u", &new_policy.object);			\
 	if (ret != 1)							\
@@ -480,7 +479,6 @@ static ssize_t store_##file_name					\
 	if (ret)							\
 		pr_err("cpufreq: Frequency verification failed\n");	\
 									\
-	policy->user_policy.max = new_policy.max;			\
 	policy->user_policy.min = new_policy.min;			\
 									\
 	ret = __cpufreq_set_policy(policy, &new_policy);		\
@@ -543,7 +541,6 @@ static ssize_t store_scaling_max_freq
 	old_max_freq = new_policy.user_policy.max;
 #endif
 
-	new_policy.min = new_policy.user_policy.min;
 	new_policy.max = new_policy.user_policy.max;
 
 	ret = sscanf(buf, "%u", &new_policy.max);
@@ -567,7 +564,6 @@ static ssize_t store_scaling_max_freq
 #endif
 
 	policy->user_policy.max = new_policy.max;
-	policy->user_policy.min = new_policy.min;
 
 	ret = __cpufreq_set_policy(policy, &new_policy);
 	policy->user_policy.max = new_policy.max;

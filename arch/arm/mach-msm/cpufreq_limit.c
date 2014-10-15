@@ -32,7 +32,7 @@
 #include <mach/cpufreq.h>
 
 #define MSM_CPUFREQ_LIMIT_MAJOR		4
-#define MSM_CPUFREQ_LIMIT_MINOR		1
+#define MSM_CPUFREQ_LIMIT_MINOR		2
 
 #define MSM_LIMIT			"msm_cpufreq_limit"
 
