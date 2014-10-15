@@ -2,13 +2,12 @@ exfat-nofuse
 ============
 
 Linux non-fuse read/write kernel driver for the exFAT, FAT12, FAT16 and vfat (FAT32) file systems.<br />
-Originally ported from android kernel v3.0.
-
+Originally ported from Android kernel v3.0.
 
 Kudos to ksv1986 for the mutex patch!<br />
 Thanks to JackNorris for being awesome and providing the clear_inode() patch.<br />
 <br />
-Big thanks to lqs for completing the driver!
+Big thanks to lqs for completing the driver!<br />
 Big thanks to benpicco for fixing 3.11.y compatibility!
 
 
@@ -39,12 +38,12 @@ Let's take [linux] as the path to your kernel source dir...
 edit [linux]/fs/Kconfig
 ```
  menu "DOS/FAT/NT Filesystems"
-  
+
   source "fs/fat/Kconfig"
  +source "fs/exfat/Kconfig"
   source "fs/ntfs/Kconfig"
 ```
-  
+
   endmenu
 
 edit [linux]/fs/Makefile
