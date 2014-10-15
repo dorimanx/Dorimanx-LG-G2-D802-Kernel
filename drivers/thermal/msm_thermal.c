@@ -280,15 +280,20 @@ static int check_freq_table(void)
 	return ret;
 }
 
-static int update_cpu_max_freq(int cpu, uint32_t max_freq)
+static int update_cpu_freq(int cpu, uint32_t cpu_freq)
 {
 	int ret = 0;
+	struct cpufreq_policy policy;
 
-	ret = msm_cpufreq_set_freq_limits(cpu, MSM_CPUFREQ_NO_LIMIT, max_freq);
+	ret = msm_cpufreq_set_freq_limits(cpu,
+			MSM_CPUFREQ_NO_LIMIT,
+			cpu_freq);
 	if (ret)
 		return ret;
 
-	ret = cpufreq_update_policy(cpu);
+	policy.cpu = cpu;
+
+	cpufreq_driver_target(&policy, cpu_freq, CPUFREQ_RELATION_L);
 
 	return ret;
 }
@@ -311,7 +316,7 @@ static int update_cpu_min_freq_all(uint32_t min)
 	get_online_cpus();
 	for_each_possible_cpu(cpu) {
 		cpus[cpu].limited_min_freq = min;
-		update_cpu_max_freq(cpu, min);
+		update_cpu_freq(cpu, min);
 	}
 	put_online_cpus();
 
@@ -951,11 +956,7 @@ static void __ref do_freq_control(long temp)
 		if (!(msm_thermal_info_local.freq_control_mask & BIT(cpu)))
 			continue;
 		cpus[cpu].limited_max_freq = max_freq;
-#ifdef CONFIG_MACH_LGE
-		if (cpus[cpu].limited_min_freq > 960000)
-			cpus[cpu].limited_min_freq = 300000;
-#endif
-		update_cpu_max_freq(cpu, max_freq);
+		update_cpu_freq(cpu, max_freq);
 	}
 	put_online_cpus();
 }
@@ -1081,12 +1082,8 @@ static void __ref disable_msm_thermal(void)
 				cpus[cpu].limited_min_freq == 0)
 			continue;
 		cpus[cpu].limited_max_freq = MSM_CPUFREQ_NO_LIMIT;
-#ifdef CONFIG_MACH_LGE
-		cpus[cpu].limited_min_freq = 300000;
-#else
 		cpus[cpu].limited_min_freq = 0;
-#endif
-		update_cpu_max_freq(cpu, MSM_CPUFREQ_NO_LIMIT);
+		update_cpu_freq(cpu, MSM_CPUFREQ_NO_LIMIT);
 	}
 	put_online_cpus();
 }
