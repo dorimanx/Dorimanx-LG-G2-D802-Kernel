@@ -78,7 +78,7 @@ static struct alucard_tuners {
 	int dec_cpu_load_at_min_freq;
 	int dec_cpu_load;
 	int freq_responsiveness;
-	unsigned int boost_cpus;
+	unsigned int normalize_cpu_load;
 	unsigned int io_is_busy;
 } alucard_tuners_ins = {
 	.sampling_rate = 60000,
@@ -91,7 +91,7 @@ static struct alucard_tuners {
 #else
 	.freq_responsiveness = 1134000,
 #endif
-	.boost_cpus = 0,
+	.normalize_cpu_load = 0,
 	.io_is_busy = 0,
 };
 
@@ -110,7 +110,7 @@ show_one(inc_cpu_load, inc_cpu_load);
 show_one(dec_cpu_load_at_min_freq, dec_cpu_load_at_min_freq);
 show_one(dec_cpu_load, dec_cpu_load);
 show_one(freq_responsiveness, freq_responsiveness);
-show_one(boost_cpus, boost_cpus);
+show_one(normalize_cpu_load, normalize_cpu_load);
 show_one(io_is_busy, io_is_busy);
 
 #define show_pcpu_param(file_name, num_core)		\
@@ -336,8 +336,8 @@ static ssize_t store_freq_responsiveness(struct kobject *a, struct attribute *b,
 	return count;
 }
 
-/* boost_cpus */
-static ssize_t store_boost_cpus(struct kobject *a, struct attribute *b,
+/* normalize_cpu_load */
+static ssize_t store_normalize_cpu_load(struct kobject *a, struct attribute *b,
 					const char *buf, size_t count)
 {
 	int input;
@@ -347,12 +347,12 @@ static ssize_t store_boost_cpus(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(min(input,2),0);
+	input = max(min(input,1),0);
 
-	if (input == (int)alucard_tuners_ins.boost_cpus)
+	if (input == (int)alucard_tuners_ins.normalize_cpu_load)
 		return count;
 
-	alucard_tuners_ins.boost_cpus = (unsigned int)input;
+	alucard_tuners_ins.normalize_cpu_load = (unsigned int)input;
 
 	return count;
 }
@@ -394,7 +394,7 @@ define_one_global_rw(inc_cpu_load);
 define_one_global_rw(dec_cpu_load_at_min_freq);
 define_one_global_rw(dec_cpu_load);
 define_one_global_rw(freq_responsiveness);
-define_one_global_rw(boost_cpus);
+define_one_global_rw(normalize_cpu_load);
 define_one_global_rw(io_is_busy);
 
 static struct attribute *alucard_attributes[] = {
@@ -404,7 +404,7 @@ static struct attribute *alucard_attributes[] = {
 	&dec_cpu_load_at_min_freq.attr,
 	&dec_cpu_load.attr,
 	&freq_responsiveness.attr,
-	&boost_cpus.attr,
+	&normalize_cpu_load.attr,
 	&io_is_busy.attr,
 	&pump_inc_step_at_min_freq_1.attr,
 	&pump_inc_step_at_min_freq_2.attr,
@@ -460,11 +460,9 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 	unsigned int hi_index = 0;
 	int cur_load = -1;
 	int j;
-	int onlines = 0;
 	unsigned int cpu;
 	unsigned int avg_freq = 0;
-	unsigned int max_freq = 0;
-	unsigned int boost_cpus = alucard_tuners_ins.boost_cpus;
+	bool normalize_cpu_load = (alucard_tuners_ins.normalize_cpu_load > 0);
 	int io_busy = alucard_tuners_ins.io_is_busy;
 
 	cpu = this_alucard_cpuinfo->cpu;
@@ -484,19 +482,17 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 	if (wall_time >= idle_time) { /*if wall_time < idle_time, evaluate cpu load next time*/
 		cur_load = wall_time > idle_time ? (100 * (wall_time - idle_time)) / wall_time : 1;/*if wall_time is equal to idle_time cpu_load is equal to 1*/
 
-		if (boost_cpus > 0) {
+		if (normalize_cpu_load == true) {
 			for_each_cpu(j, cpu_policy->cpus) {
 				struct cpufreq_alucard_cpuinfo *j_alucard_cpuinfo;
 
 				j_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, j);
-				if (j != cpu && j_alucard_cpuinfo->cur_freq > 0) {
-					if (j_alucard_cpuinfo->cur_freq > max_freq)
-						max_freq = j_alucard_cpuinfo->cur_freq;
-					avg_freq += j_alucard_cpuinfo->cur_freq;
-					++onlines;
-				}
+
+				avg_freq = __cpufreq_driver_getavg(cpu_policy, j);
+				if (avg_freq <= 0)
+					avg_freq = cpu_policy->cur;
 			}
-			avg_freq = (avg_freq / onlines);
+			cur_load = (cur_load * avg_freq) / cpu_policy->cur;
 		}
 
 		cpufreq_notify_utilization(cpu_policy, cur_load);
@@ -529,15 +525,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 				index -= pump_dec_step;
 		}
 
-		if (boost_cpus == 1 &&	avg_freq > this_alucard_cpuinfo->freq_table[index].frequency) {
-			cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, avg_freq,
-				CPUFREQ_RELATION_C, &index);
-			this_alucard_cpuinfo->cur_freq = this_alucard_cpuinfo->freq_table[index].frequency;
-		} else if (boost_cpus == 2 && max_freq > this_alucard_cpuinfo->freq_table[index].frequency) {
-			this_alucard_cpuinfo->cur_freq = max_freq;
-		} else {
-			this_alucard_cpuinfo->cur_freq = this_alucard_cpuinfo->freq_table[index].frequency;
-		}
+		this_alucard_cpuinfo->cur_freq = this_alucard_cpuinfo->freq_table[index].frequency;
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, this_alucard_cpuinfo->freq_table[index].frequency, cpu_policy->cur, cpu_policy->min, this_alucard_cpuinfo->freq_table[hi_index].frequency);*/
 		if (this_alucard_cpuinfo->cur_freq != cpu_policy->cur) {
 			__cpufreq_driver_target(cpu_policy, this_alucard_cpuinfo->cur_freq, CPUFREQ_RELATION_C);

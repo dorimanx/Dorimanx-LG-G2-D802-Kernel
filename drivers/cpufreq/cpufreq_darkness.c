@@ -73,11 +73,11 @@ static struct workqueue_struct *darkness_wq;
 static struct darkness_tuners {
 	unsigned int sampling_rate;
 	unsigned int io_is_busy;
-	int boost_cpu_load;
+	int normalize_cpu_load;
 } darkness_tuners_ins = {
 	.sampling_rate = 60000,
 	.io_is_busy = 0,
-	.boost_cpu_load = 0,
+	.normalize_cpu_load = 0,
 };
 
 /************************** sysfs interface ************************/
@@ -90,7 +90,7 @@ static ssize_t show_##file_name						\
 	return sprintf(buf, "%d\n", darkness_tuners_ins.object);		\
 }
 show_one(sampling_rate, sampling_rate);
-show_one(boost_cpu_load, boost_cpu_load);
+show_one(normalize_cpu_load, normalize_cpu_load);
 show_one(io_is_busy, io_is_busy);
 
 /* sampling_rate */
@@ -145,8 +145,8 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 	return count;
 }
 
-/* boost_cpu_load */
-static ssize_t store_boost_cpu_load(struct kobject *a, struct attribute *b,
+/* normalize_cpu_load */
+static ssize_t store_normalize_cpu_load(struct kobject *a, struct attribute *b,
 					const char *buf, size_t count)
 {
 	int input;
@@ -158,22 +158,22 @@ static ssize_t store_boost_cpu_load(struct kobject *a, struct attribute *b,
 
 	input = max(min(input,1),0);
 
-	if (input == darkness_tuners_ins.boost_cpu_load)
+	if (input == darkness_tuners_ins.normalize_cpu_load)
 		return count;
 
-	darkness_tuners_ins.boost_cpu_load = input;
+	darkness_tuners_ins.normalize_cpu_load = input;
 
 	return count;
 }
 
 define_one_global_rw(sampling_rate);
-define_one_global_rw(boost_cpu_load);
+define_one_global_rw(normalize_cpu_load);
 define_one_global_rw(io_is_busy);
 
 static struct attribute *darkness_attributes[] = {
 	&sampling_rate.attr,
 	&io_is_busy.attr,
-	&boost_cpu_load.attr,
+	&normalize_cpu_load.attr,
 	NULL
 };
 
@@ -214,7 +214,8 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	int cur_load = -1;
 	int j;
 	unsigned int cpu;
-	bool boost_cpu_load = (darkness_tuners_ins.boost_cpu_load > 0);
+	unsigned int avg_freq = 0;
+	bool normalize_cpu_load = (darkness_tuners_ins.normalize_cpu_load > 0);
 	int io_busy = darkness_tuners_ins.io_is_busy;
 
 	cpu = this_darkness_cpuinfo->cpu;
@@ -237,14 +238,17 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 
 		this_darkness_cpuinfo->cur_load = cur_load;
 
-		if (boost_cpu_load == true) {
+		if (normalize_cpu_load == true) {
 			for_each_cpu(j, cpu_policy->cpus) {
-			   struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
-			   j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
-			   if (j_darkness_cpuinfo->cur_load > cur_load && j != cpu)
-			       cur_load = j_darkness_cpuinfo->cur_load;
-			   /*pr_info("POLICY->CPUS[%u], CUR_LOAD[%d]\n", j, j_darkness_cpuinfo->cur_load);*/
+				struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
+
+				j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
+
+				avg_freq = __cpufreq_driver_getavg(cpu_policy, j);
+				if (avg_freq <= 0)
+					avg_freq = cpu_policy->cur;
 			}
+			cur_load = (cur_load * avg_freq) / cpu_policy->cur;
 		}
 
 		cpufreq_notify_utilization(cpu_policy, cur_load);
