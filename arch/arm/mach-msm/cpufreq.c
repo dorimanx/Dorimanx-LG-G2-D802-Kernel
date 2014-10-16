@@ -87,6 +87,7 @@ struct cpu_freq {
 
 static DEFINE_PER_CPU(struct cpu_freq, cpu_freq_info);
 
+#ifdef CONFIG_MSM_CPUFREQ_LIMITER
 static unsigned int upper_limit_freq[NR_CPUS] = {0, 0, 0, 0};
 static unsigned int lower_limit_freq[NR_CPUS];
 
@@ -129,6 +130,7 @@ void set_max_lock(unsigned int cpu, unsigned int freq)
 	}
 }
 EXPORT_SYMBOL(set_max_lock);
+#endif
 
 static int speed_bin, pvs_bin;
 void set_speed_pvs_bin(int speed, int pvs)
@@ -187,6 +189,7 @@ static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq,
 	struct cpu_freq *limit = &per_cpu(cpu_freq_info, policy->cpu);
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
 	struct cpufreq_frequency_table *table;
+#ifdef CONFIG_MSM_CPUFREQ_LIMITER
 	unsigned int ll_freq = lower_limit_freq[policy->cpu];
 	unsigned int ul_freq = upper_limit_freq[policy->cpu];
 
@@ -206,6 +209,7 @@ static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq,
 		if (new_freq > policy->max)
 			new_freq = policy->max;
 	}
+#endif
 
 	if (limit->limits_init) {
 		if (new_freq > limit->allowed_max) {
