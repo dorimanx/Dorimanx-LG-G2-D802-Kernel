@@ -1122,4 +1122,11 @@ config TOUCHSCREEN_SWEEP2WAKE
 	tristate "Sweep2Wake for touchscreens"
 	default y
 
+config ALUCARD_TOUCHSCREEN_BOOST
+	tristate "Touchscreen boost"
+	depends on MSM_CPUFREQ_LIMITER
+	default y
+	help
+	  Alucard touchscreen boost.
+
 endif
