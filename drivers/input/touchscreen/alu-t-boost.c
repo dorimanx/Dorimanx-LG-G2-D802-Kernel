@@ -56,11 +56,10 @@ module_param(input_boost_ms, uint, 0644);
 static unsigned int nr_boost_cpus = 4;
 module_param(nr_boost_cpus, uint, 0644);
 
-static unsigned int hotplug_boost = 1;
-module_param(hotplug_boost, uint, 0644);
-
 static u64 last_input_time;
-#define MIN_INPUT_INTERVAL (150 * USEC_PER_MSEC)
+
+static unsigned int min_input_interval = 150;
+module_param(min_input_interval, uint, 0644);
 
 static void do_input_boost_rem(struct work_struct *work)
 {
@@ -117,7 +116,7 @@ static void touchboost_input_event(struct input_handle *handle,
 		return;
 
 	now = ktime_to_us(ktime_get());
-	if (now - last_input_time < MIN_INPUT_INTERVAL)
+	if ((now - last_input_time) < (min_input_interval * USEC_PER_MSEC))
 		return;
 
 	if (work_pending(&input_boost_work))
@@ -206,52 +205,6 @@ static struct input_handler touchboost_input_handler = {
 	.id_table       = touchboost_ids,
 };
 
-static int touchboost_cpu_callback(struct notifier_block *cpu_nb,
-				 unsigned long action, void *hcpu)
-{
-	struct cpufreq_policy policy;
-	unsigned int cur = 0;
-	unsigned int nr_cpus = nr_boost_cpus;
-
-	switch (action & ~CPU_TASKS_FROZEN) {
-	case CPU_UP_PREPARE:
-	case CPU_DEAD:
-	case CPU_UP_CANCELED:
-		break;
-	case CPU_ONLINE:
-		if (!hotplug_boost || !input_boost_freq)
-			break;
-
-		if (work_pending(&input_boost_work)) {
-			if (nr_cpus <= 0)
-				nr_cpus = 1;
-			if (nr_cpus > NR_CPUS)
-				nr_cpus = NR_CPUS;
-
-			policy.cpu = (int)hcpu;
-			if (policy.cpu >= nr_cpus)
-				break;
-
-			cur = cpufreq_quick_get(policy.cpu);
-
-			if (cur < input_boost_freq && cur > 0) {
-				cpufreq_driver_target(&policy,
-					input_boost_freq, CPUFREQ_RELATION_L);
-				dprintk("Hotplug boost for CPU%d\n",
-						policy.cpu);
-			}
-		}
-		break;
-	default:
-		break;
-	}
-	return NOTIFY_OK;
-}
-
-static struct notifier_block __refdata cpu_nblk = {
-        .notifier_call = touchboost_cpu_callback,
-};
-
 static int touch_boost_init(void)
 {
 	int ret;
@@ -266,10 +219,6 @@ static int touch_boost_init(void)
 	ret = input_register_handler(&touchboost_input_handler);
 	if (ret)
 		pr_err("Cannot register touchboost input handler.\n");
-
-	ret = register_hotcpu_notifier(&cpu_nblk);
-	if (ret)
-		pr_err("Cannot register touchboost hotplug handler.\n");
 
 	return ret;
 }
