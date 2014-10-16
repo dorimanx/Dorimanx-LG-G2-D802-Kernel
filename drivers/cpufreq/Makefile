@@ -1,6 +1,8 @@
 # CPUfreq core
-#obj-$(CONFIG_CPU_FREQ)			+= cpufreq.o cpu-boost.o
-obj-$(CONFIG_CPU_FREQ)			+= cpufreq.o alu-t-boost.o
+# Old cpu-boost.c replaced by new touch boost by Alucard24
+# And moved to touchscreen folder.
+#obj-$(CONFIG_CPU_FREQ)			+= cpu-boost.o
+obj-$(CONFIG_CPU_FREQ)			+= cpufreq.o
 # CPUfreq stats
 obj-$(CONFIG_CPU_FREQ_STAT)             += cpufreq_stats.o
 
