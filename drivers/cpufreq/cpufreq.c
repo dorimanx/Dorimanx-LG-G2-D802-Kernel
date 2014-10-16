@@ -556,14 +556,26 @@ static ssize_t store_scaling_max_freq
 #if defined(CONFIG_MULTI_CPU_POLICY_LIMIT) && \
 		defined(CONFIG_MSM_CPUFREQ_LIMITER)
 	if (limited_cpu_freq > 0) {
-		if (new_policy.max > old_max_freq) {
-			new_policy.max = limited_cpu_freq;
-			apply_limit = true;
+		if (cpu == 0) {
+			if (new_policy.max > old_max_freq) {
+				new_policy.max = limited_cpu_freq;
+				apply_limit = true;
+			}
+		} else {
+			if (new_policy.max > limited_cpu_freq) {
+				new_policy.max = limited_cpu_freq;
+				apply_limit = true;
+			}
 		}
 	}
 #endif
 
 	policy->user_policy.max = new_policy.max;
+
+	/* for debug only
+	pr_info("CPU[%u], old_max_freq[%u], new_policy.max[%u], limited_cpu_freq[%u]\n",
+			cpu, old_max_freq, new_policy.max, limited_cpu_freq);
+	*/
 
 	ret = __cpufreq_set_policy(policy, &new_policy);
 	policy->user_policy.max = new_policy.max;
