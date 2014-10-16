@@ -141,28 +141,28 @@ static unsigned int get_nr_run_avg(void)
 }
 
 static unsigned int hotplug_freq[NR_CPUS][2] = {
-	{0, 1728000},
-	{960000, 1267200},
-	{960000, 1267200},
-	{960000, 0}
+	{0, 1497600},
+	{652800, 1190400},
+	{652800, 1190400},
+	{652800, 0}
 };
 static int hotplug_load[NR_CPUS][2] = {
-	{0, 60},
+	{0, 65},
+	{50, 60},
 	{30, 60},
-	{30, 40},
-	{20, 0}
+	{30, 0}
 };
 static unsigned int hotplug_rq[NR_CPUS][2] = {
 	{0, 200},
-	{100, 200},
-	{100, 100},
-	{100, 0}
+	{300, 100},
+	{200, 100},
+	{200, 0}
 };
 
 static unsigned int hotplug_rate[NR_CPUS][2] = {
-	{1, 1},
+	{1, 2},
 	{4, 2},
-	{4, 2},
+	{6, 2},
 	{4, 1}
 };
 
