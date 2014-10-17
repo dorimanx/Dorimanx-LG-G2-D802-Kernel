@@ -543,6 +543,8 @@ static ssize_t store_scaling_max_freq
 	old_max_freq = new_policy.user_policy.max;
 #endif
 
+	new_policy.max = new_policy.user_policy.max;
+
 	ret = sscanf(buf, "%u", &new_policy.max);
 	if (ret != 1)
 		return -EINVAL;
@@ -567,6 +569,8 @@ static ssize_t store_scaling_max_freq
 		}
 	}
 #endif
+
+	policy->user_policy.max = new_policy.max;
 
 	/* for debug only
 	pr_info("CPU[%u], old_max_freq[%u], new_policy.max[%u], limited_cpu_freq[%u]\n",
