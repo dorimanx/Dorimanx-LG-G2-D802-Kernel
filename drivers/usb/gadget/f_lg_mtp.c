@@ -72,7 +72,7 @@
 #define MTP_RESPONSE_OK             0x2001
 #define MTP_RESPONSE_DEVICE_BUSY    0x2019
 
-unsigned int lg_mtp_rx_req_len = MTP_BULK_BUFFER_SIZE;
+unsigned int lg_mtp_rx_req_len = 65536;
 module_param(lg_mtp_rx_req_len, uint, S_IRUGO | S_IWUSR);
 
 unsigned int lg_mtp_tx_req_len = MTP_BULK_BUFFER_SIZE;

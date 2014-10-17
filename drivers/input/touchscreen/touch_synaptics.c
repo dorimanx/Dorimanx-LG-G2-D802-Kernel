@@ -319,10 +319,14 @@ touch_maker_id get_touch_maker_id(void)
 
 /* LIMIT: Include ONLY A1, B1, Vu3, Z models used MSM8974 AA/AB */
 #ifdef CONFIG_ADC_READY_CHECK_JB
-	//while ((qpnp_vadc_is_ready() != 0) && (trial_us < (200 * 1000))) {
-		//udelay(1);
+#ifdef CONFIG_MACH_MSM8974_G2_SPR
+	/* for LS980 */
+	while ((qpnp_vadc_is_ready() != 0) && (trial_us < (200 * 1000))) {
+		udelay(1);
+#else
 	while ((qpnp_vadc_is_ready() != 0) && (trial_us < (150))) {
 		msleep(10);
+#endif
 		trial_us++;
 	}
 
@@ -535,7 +539,11 @@ int synaptics_ts_get_data(struct i2c_client *client, struct touch_data* data)
 		TOUCH_INFO_MSG("[synaptics_ts_get_data] ts->double_tap_enable");
 		goto ignore_interrupt;
 	} else if (ts->password_enable) {
+#if defined(KNOCKON_MASK)
+		TOUCH_INFO_MSG("[synaptics_ts_get_data] ts->password_enable ts->password_tap_count=X");
+#else
 		TOUCH_INFO_MSG("[synaptics_ts_get_data] ts->password_enable ts->password_tap_count=%d", ts->password_tap_count);
+#endif
 		if (unlikely(touch_i2c_write_byte(client, PAGE_SELECT_REG, 4) < 0)) {
 			TOUCH_ERR_MSG("PAGE_SELECT_REG write fail\n");
 			return -EIO;
@@ -556,7 +564,11 @@ int synaptics_ts_get_data(struct i2c_client *client, struct touch_data* data)
 			int i = 0;
 			if (custom_gesture_status) {
 				for (i = 0; i < ts->password_tap_count; i++) {
+#if defined(KNOCKON_MASK)
+					TOUCH_INFO_MSG("lpwg data %d: 0:XX 1:XX 2:XX 3:XX\n",  i);
+#else
 					TOUCH_INFO_MSG("lpwg data %d: 0:0x%-4x 1:0x%-4x 2:0x%-4x 3:0x%-4x\n",  i, lpwg_data[4*i], lpwg_data[4*i+1],lpwg_data[4*i+2],lpwg_data[4*i+3]);
+#endif
 				}
 			}
 		}
@@ -1508,7 +1520,7 @@ int synaptics_ts_init(struct i2c_client *client, struct touch_fw_info *fw_info)
 	}
 
 #if defined(CONFIG_LGE_VU3_TOUCHSCREEN)
-////for vu3 pen writing
+/* for vu3 pen writing */
 	r_mem = kzalloc(sizeof(char) * (9), GFP_KERNEL);
 	if (unlikely(touch_i2c_read(client, JITTER_FILTER_STR_REG, (JITTER_FILTER_STR_REG_OFFSET+1), r_mem) < 0)) {
 		if (r_mem != NULL) kfree(r_mem);
@@ -1536,7 +1548,7 @@ int synaptics_ts_init(struct i2c_client *client, struct touch_fw_info *fw_info)
 
 	if (r_mem != NULL)
 		kfree(r_mem);
-////for doze mode
+/* for doze mode */
 	if (unlikely(touch_i2c_write_byte(client, DOZE_INTERVAL_REG, 1) < 0)) {
 		TOUCH_ERR_MSG("DOZE_INTERVAL_REG write fail\n");
 		return -EIO;
@@ -2439,6 +2451,11 @@ err_t synaptics_ts_lpwg(struct i2c_client* client, u32 code, u32 value, struct p
 			for(i=0;i< ts->password_tap_count;i++) {
 				data[i].x = lpwg_data[4*i+1]<<8 | lpwg_data[4*i];
 				data[i].y = lpwg_data[4*i+3]<<8 | lpwg_data[4*i+2];
+#if defined(KNOCKON_MASK)
+				TOUCH_DEBUG_MSG("TAP Position x:XXX, y:XXX\n");
+#else
+				TOUCH_DEBUG_MSG("TAP Position x:0x%x, y:0x%x\n", data[i].x, data[i].y);
+#endif
 				// '-1' should be assinged to the last data.
 				// Each data should be converted to LCD-resolution.
 			}
