@@ -280,6 +280,9 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 				&& cur_freq >= up_freq 
 				&& rq_avg > up_rq) {
 					if (check_up) {
+#if 0
+						pr_info("CPU[%u], UPCPU[%u], cur_freq[%u], cur_load[%u], rq_avg[%u], up_rate[%u]\n", cpu, upcpu, cur_freq, cur_load, rq_avg, pcpu_info->cpu_up_rate);
+#endif
 						hotplug_onoff[upcpu][UP_INDEX] = true;
 						pcpu_info->cpu_up_rate = 1;
 						++online_cpu;
@@ -291,6 +294,9 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 						   || (cur_load < down_load
 						       && rq_avg <= down_rq))) {
 							if (check_down) {
+#if 0
+								pr_info("CPU[%u], cur_freq[%u], cur_load[%u], rq_avg[%u], down_rate[%u]\n", cpu, cur_freq, cur_load, rq_avg, pcpu_info->cpu_down_rate);
+#endif
 								hotplug_onoff[cpu][DOWN_INDEX] = true;
 								pcpu_info->cpu_up_rate = 1;
 								pcpu_info->cpu_down_rate = 1;
@@ -298,6 +304,9 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 							} else {
 								++pcpu_info->cpu_down_rate;
 							}
+			} else {
+				pcpu_info->cpu_up_rate = 1;
+				pcpu_info->cpu_down_rate = 1;
 			}
 		}
 	}
