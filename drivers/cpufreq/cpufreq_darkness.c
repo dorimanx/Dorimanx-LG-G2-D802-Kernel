@@ -240,10 +240,6 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 
 		if (normalize_cpu_load == true) {
 			for_each_cpu(j, cpu_policy->cpus) {
-				struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
-
-				j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
-
 				avg_freq = __cpufreq_driver_getavg(cpu_policy, j);
 				if (avg_freq <= 0)
 					avg_freq = cpu_policy->cur;
