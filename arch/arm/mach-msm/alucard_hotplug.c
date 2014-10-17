@@ -160,9 +160,9 @@ static unsigned int hotplug_rq[NR_CPUS][2] = {
 };
 
 static unsigned int hotplug_rate[NR_CPUS][2] = {
-	{1, 2},
-	{4, 2},
-	{6, 2},
+	{1, 1},
+	{4, 1},
+	{4, 1},
 	{4, 1}
 };
 
@@ -290,8 +290,8 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 						++pcpu_info->cpu_up_rate;
 					}
 			} else if (cpu >= min_cpus_online
-					   && (cur_freq <= down_freq 
-						   || (cur_load < down_load
+					   && (cur_load < down_load
+						  || (cur_freq <= down_freq
 						       && rq_avg <= down_rq))) {
 							if (check_down) {
 #if 0
