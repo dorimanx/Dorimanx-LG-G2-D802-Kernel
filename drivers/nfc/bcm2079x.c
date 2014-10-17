@@ -76,10 +76,9 @@ struct wake_lock nfc_wake_lock;
 //                                                                          
 static unsigned char sPowerState = NFC_POWER_OFF;
 //                                                                        
-
-//                                                                     
+#ifndef CONFIG_MACH_MSM8974_G2_SPR
 static unsigned int sIrqGpioNum = 59; // Init number
-//                                                                   
+#endif
 
 static void bcm2079x_init_stat(struct bcm2079x_dev *bcm2079x_dev)
 {
@@ -175,15 +174,14 @@ static irqreturn_t bcm2079x_dev_irq_handler(int irq, void *dev_id)
     struct bcm2079x_dev *bcm2079x_dev = dev_id;
     unsigned long flags;
 
-    //                                                                     
+#ifndef CONFIG_MACH_MSM8974_G2_SPR
     unsigned int irq_value = gpio_get_value(sIrqGpioNum);
 
     if (irq_value == 0) {
         dev_err(&bcm2079x_dev->client->dev,"%s, NFC IRQ == 0\n", __func__);
         return 0;
     }
-    //                                                                   
-
+#endif
     //                                                                          
     if (sPowerState == NFC_POWER_ON) {
         spin_lock_irqsave(&bcm2079x_dev->irq_enabled_lock, flags);
@@ -288,16 +286,21 @@ static ssize_t bcm2079x_dev_read(struct file *filp, char __user *buf,
     spin_lock_irqsave(&bcm2079x_dev->irq_enabled_lock, flags);
     if (bcm2079x_dev->count_irq > 0) {
         bcm2079x_dev->count_irq--;
-    }
-    else {
+        spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
+    } else {
+        spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
         dev_err(&bcm2079x_dev->client->dev, "Invalid IRQ\n");
     }
     //                                                                        
 
+    spin_lock_irqsave(&bcm2079x_dev->irq_enabled_lock, flags);
     if (bcm2079x_dev->count_irq == 0) {
+        spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
         wake_unlock(&nfc_wake_lock);
+    } else {
+        spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
     }
-    spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
+
     return total;
 }
 
@@ -432,9 +435,9 @@ static int bcm2079x_probe(struct i2c_client *client,
         platform_data.irq_gpio = of_get_named_gpio_flags(client->dev.of_node, "bcm,gpio_irq", 0, NULL);
         platform_data.en_gpio = of_get_named_gpio_flags(client->dev.of_node, "bcm,gpio_ven", 0, NULL);
         platform_data.wake_gpio = of_get_named_gpio_flags(client->dev.of_node, "bcm,gpio_mode", 0, NULL);
-        //                                                                     
+#ifndef CONFIG_MACH_MSM8974_G2_SPR
         sIrqGpioNum = platform_data.irq_gpio;
-        //                                                                   
+#endif
     }
     else{
         dev_err(&client->dev, "nfc probe of_node fail\n");
