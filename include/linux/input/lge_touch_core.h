@@ -570,7 +570,13 @@ enum{
 };
 
 #ifdef CONFIG_LGE_SECURITY_KNOCK_ON
-
+/* For Error Handling
+  *
+  * DO_IF : execute 'do_work', and if the result is true, print 'error_log' and goto 'goto_error'.
+  * DO_SAFE : execute 'do_work', and if the result is '< 0', print 'error_log' and goto 'goto_error'
+  * ASSIGN : excute 'do_assign', and if the result is 'NULL', print 'error_log' and goto 'goto_error'
+  * ERROR_IF : if the condition is true(ERROR), print 'string' and goto 'goto_error'.
+  */
 #define DO_IF(do_work, goto_error)                              \
 do {                                                \
     if(do_work){                                        \
@@ -740,6 +746,10 @@ enum{
 
 #if defined(CONFIG_MACH_MSM8974_G2_VZW) || defined(CONFIG_MACH_MSM8974_G2_TMO_US) || defined(CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_Z_TMO_US) || defined(CONFIG_MACH_MSM8974_Z_ATT_US)
 #define ISIS_L2 /* block the exposure of privacy information */
+#endif
+
+#if defined(CONFIG_MACH_MSM8974_Z_SPR) || defined(CONFIG_MACH_MSM8974_Z_TMO_US) || defined(CONFIG_MACH_MSM8974_Z_ATT_US)||defined(CONFIG_MACH_MSM8974_G2_SPR)
+#define KNOCKON_MASK
 #endif
 
 int  touch_driver_register(struct touch_device_driver *driver);
