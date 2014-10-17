@@ -497,22 +497,17 @@ static int apply_max_freq_cpus_limit(unsigned int src_freq)
 	unsigned int cpu, tgt_freq = 0, ret = 0;
 
 	get_online_cpus();
-	for_each_possible_cpu(cpu) {
-		if (cpu == 0)
+	for_each_cpu_not(cpu, cpu_online_mask) {
+		tgt_freq = get_max_lock(cpu);
+
+		if (tgt_freq == 0)
+			tgt_freq = src_freq;
+
+		if (tgt_freq == 0)
 			continue;
 
-		if (!cpu_online(cpu)) {
-			tgt_freq = get_max_lock(cpu);
-
-			if (tgt_freq == 0)
-				tgt_freq = src_freq;
-
-			if (tgt_freq == 0)
-				continue;
-
-			per_cpu(cpufreq_policy_save, cpu).max = tgt_freq;
+		per_cpu(cpufreq_policy_save, cpu).max = tgt_freq;
 			continue;
-		}
 	}
 	put_online_cpus();
 
