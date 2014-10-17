@@ -145,6 +145,7 @@ static int test_task_flag(struct task_struct *p, int flag)
 }
 
 static DEFINE_MUTEX(scan_mutex);
+static DEFINE_MUTEX(auto_oom_mutex);
 
 int can_use_cma_pages(gfp_t gfp_mask)
 {
@@ -562,16 +563,21 @@ static struct shrinker lowmem_shrinker = {
 
 static void low_mem_power_suspend(struct power_suspend *handler)
 {
-	if (lowmem_auto_oom && lowmem_minfree != lowmem_minfree_screen_off) {
+	if (lowmem_auto_oom) {
+		mutex_lock(&auto_oom_mutex);
 		memcpy(lowmem_minfree_screen_on, lowmem_minfree, sizeof(lowmem_minfree));
 		memcpy(lowmem_minfree, lowmem_minfree_screen_off, sizeof(lowmem_minfree_screen_off));
+		mutex_unlock(&auto_oom_mutex);
 	}
 }
 
 static void low_mem_late_resume(struct power_suspend *handler)
 {
-	if (lowmem_auto_oom && lowmem_minfree != lowmem_minfree_screen_off)
+	if (lowmem_auto_oom) {
+		mutex_lock(&auto_oom_mutex);
 		memcpy(lowmem_minfree, lowmem_minfree_screen_on, sizeof(lowmem_minfree_screen_on));
+		mutex_unlock(&auto_oom_mutex);
+	}
 }
 
 static struct power_suspend low_mem_suspend = {
