@@ -1280,9 +1280,11 @@ static ssize_t __ref store_cc_enabled(struct kobject *kobj,
 		pr_info("%s: Core control enabled\n", KBUILD_MODNAME);
 		register_cpu_notifier(&msm_thermal_cpu_notifier);
 		update_offline_cores(cpus_offlined);
+		enabled = 1;
 	} else {
 		pr_info("%s: Core control disabled\n", KBUILD_MODNAME);
 		unregister_cpu_notifier(&msm_thermal_cpu_notifier);
+		enabled = 0;
 	}
 
 done_store_cc:
