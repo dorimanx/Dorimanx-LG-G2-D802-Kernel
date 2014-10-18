@@ -2386,6 +2386,23 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.codec_name = "snd-soc-dummy",
 		.be_id = MSM_FRONTEND_DAI_LSM1,
 	},
+#if defined(CONFIG_SND_FM_RADIO) && !defined(CONFIG_MACH_MSM8974_G2_SPR)
+    {
+		.name = "MI2S_TX Hostless",
+		.stream_name = "MI2S_TX Hostless",
+		.cpu_dai_name   = "MI2S_TX_HOSTLESS",
+		.platform_name  = "msm-pcm-hostless",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+#endif
 	/* Multiple Tunnel instances */
 	{
 		.name = "MSM8974 Compress2",
@@ -2502,7 +2519,8 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
-#ifdef CONFIG_SND_FM_RADIO
+/* radio define for LS980 ZVE */
+#if defined(CONFIG_SND_FM_RADIO) && defined(CONFIG_MACH_MSM8974_G2_SPR)
 	{
 		.name = "MI2S_TX Hostless",
 		.stream_name = "MI2S_TX Hostless",
