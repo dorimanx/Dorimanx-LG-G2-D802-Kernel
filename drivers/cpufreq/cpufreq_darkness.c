@@ -244,7 +244,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 				if (avg_freq <= 0)
 					avg_freq = cpu_policy->cur;
 			}
-			cur_load = (cur_load * avg_freq) / cpu_policy->cur;
+			cur_load = max((cur_load * avg_freq) / cpu_policy->cur, 100u);
 		}
 
 		cpufreq_notify_utilization(cpu_policy, cur_load);
