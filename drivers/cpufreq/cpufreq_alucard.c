@@ -488,7 +488,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 				if (avg_freq <= 0)
 					avg_freq = cpu_policy->cur;
 			}
-			cur_load = (cur_load * avg_freq) / cpu_policy->cur;
+			cur_load = max((cur_load * avg_freq) / cpu_policy->cur, 100u);
 		}
 
 		cpufreq_notify_utilization(cpu_policy, cur_load);

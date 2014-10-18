@@ -324,6 +324,9 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 	delay = msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate);
 
 	if (num_online_cpus() > 1) {
+#if 0
+		pr_info("NR_CPUS[%u], jiffies[%ld], delay[%u]\n", num_online_cpus(), jiffies, delay);
+#endif
 		delay -= jiffies % delay;
 	}
 
