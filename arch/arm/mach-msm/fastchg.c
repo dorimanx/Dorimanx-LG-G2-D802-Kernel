@@ -45,9 +45,10 @@
  * when battery is below 95% and fast charge was ON by user before, then it's enabled again.
  * version 2.0 Guard with mutex all functions that use values from other code to prevent race and bug.
  * version 2.1 Corect Mutex guards in code for fastcharge.
+ * version 2.2 allow to charge on 900ma lock.
  */
 
-#define FAST_CHARGE_VERSION	"Version 2.1"
+#define FAST_CHARGE_VERSION	"Version 2.2"
 
 int force_fast_charge;
 int force_fast_charge_temp;
