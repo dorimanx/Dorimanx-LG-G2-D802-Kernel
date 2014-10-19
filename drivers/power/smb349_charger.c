@@ -66,7 +66,7 @@
 
 #ifdef CONFIG_FORCE_FAST_CHARGE
 #include <linux/fastchg.h>
-struct mutex smb349_fast_charge_lock;
+static DEFINE_MUTEX(smb349_fast_charge_lock);
 #endif
 
 /* Register definitions */
@@ -1705,7 +1705,6 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 		the_smb349_chg->batt_psy.get_property(&(the_smb349_chg->batt_psy),
 				POWER_SUPPLY_PROP_CURRENT_NOW, &pwr);
 		current_now = pwr.intval / 1000;
-		mutex_unlock(&smb349_fast_charge_lock);
 
 		if (batt_charge >= 95) {
 			batt_state_check = 1;
@@ -1752,15 +1751,18 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 			}
 #ifndef CONFIG_SMB349_VZW_FAST_CHG
 			if (usb_power_curr_now == 500) {
-				if (new_thermal_mitigation > 300)
-					new_thermal_mitigation = 900;
+				if (new_thermal_mitigation != 300) {
+					if (new_thermal_mitigation > 900)
+						new_thermal_mitigation = 900;
+				}
 			}
 #endif
 		} else if (force_fast_charge == 1) {
 #ifndef CONFIG_SMB349_VZW_FAST_CHG
-			if (usb_power_curr_now == 500)
-				new_thermal_mitigation = 900;
-			else
+			if (usb_power_curr_now == 500) {
+				if (new_thermal_mitigation > 900)
+					new_thermal_mitigation = 900;
+			} else
 #endif
 				new_thermal_mitigation = 1200;
 		} else if (!force_fast_charge)
@@ -1780,7 +1782,6 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 				usb_power_curr_now,
 				current_now);
 #endif
-		mutex_lock(&smb349_fast_charge_lock);
 		if (new_thermal_mitigation != the_smb349_chg->chg_current_te) {
 			the_smb349_chg->chg_current_te = new_thermal_mitigation;
 			cancel_delayed_work_sync(&the_smb349_chg->battemp_work);
@@ -1804,6 +1805,10 @@ module_param_call(smb349_thermal_mitigation, smb349_set_thermal_chg_current_set,
 	param_get_uint, &smb349_thermal_mitigation, 0644);
 
 #if defined(CONFIG_FORCE_FAST_CHARGE) && !defined(CONFIG_SMB349_VZW_FAST_CHG)
+/*
+ * This function is protected by mutex
+ * from caller in drivers/usb/dwc3/dwc3_otg.c
+ */
 int smb349_thermal_mitigation_update(int value)
 {
 	int batt_state_check = 0;
@@ -1818,10 +1823,8 @@ int smb349_thermal_mitigation_update(int value)
 	if (is_factory_cable())
 		return 0;
 	else {
-		mutex_lock(&smb349_fast_charge_lock);
 		batt_temp = smb349_get_prop_batt_temp(the_smb349_chg);
 		batt_charge = smb349_get_prop_batt_capacity(the_smb349_chg);
-		mutex_unlock(&smb349_fast_charge_lock);
 
 		if (batt_charge >= 95)
 			batt_state_check = 1;
@@ -1856,14 +1859,17 @@ int smb349_thermal_mitigation_update(int value)
 					break;
 			}
 			if (value == 500) {
-				if (new_thermal_mitigation > 300)
-					new_thermal_mitigation = 900;
+				if (new_thermal_mitigation != 300) {
+					if (new_thermal_mitigation > 900)
+						new_thermal_mitigation = 900;
+				}
 			} else if (value == 300)
 				new_thermal_mitigation = 300;
 		} else if (force_fast_charge == 1) {
-			if (value == 500)
-				new_thermal_mitigation = 900;
-			else if (value == 300)
+			if (value == 500) {
+				if (new_thermal_mitigation > 900)
+					new_thermal_mitigation = 900;
+			} else if (value == 300)
 				new_thermal_mitigation = 300;
 			else if (value > 500)
 				new_thermal_mitigation = 1200;
@@ -1875,7 +1881,6 @@ int smb349_thermal_mitigation_update(int value)
 		else if (batt_state_check == 2)
 			new_thermal_mitigation = 300;
 
-		mutex_lock(&smb349_fast_charge_lock);
 		if (new_thermal_mitigation != the_smb349_chg->chg_current_te) {
 			the_smb349_chg->chg_current_te = new_thermal_mitigation;
 			cancel_delayed_work_sync(&the_smb349_chg->battemp_work);
@@ -1883,7 +1888,6 @@ int smb349_thermal_mitigation_update(int value)
 		}
 		/* update smb349_thermal_mitigation */
 		smb349_thermal_mitigation = new_thermal_mitigation;
-		mutex_unlock(&smb349_fast_charge_lock);
 	}
 #else
 	pr_err("thermal-engine chg current control not enabled\n");
@@ -5263,18 +5267,12 @@ static struct i2c_driver smb349_driver = {
 
 static int __init smb349_init(void)
 {
-#ifdef CONFIG_FORCE_FAST_CHARGE
-	mutex_init(&smb349_fast_charge_lock);
-#endif
 	return i2c_add_driver(&smb349_driver);
 }
 module_init(smb349_init);
 
 static void __exit smb349_exit(void)
 {
-#ifdef CONFIG_FORCE_FAST_CHARGE
-	mutex_destroy(&smb349_fast_charge_lock);
-#endif
 	return i2c_del_driver(&smb349_driver);
 }
 module_exit(smb349_exit);
