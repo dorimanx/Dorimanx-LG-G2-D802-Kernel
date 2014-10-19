@@ -2773,7 +2773,7 @@ static int pm_power_get_property(struct power_supply *psy,
 	return 0;
 }
 
-#define SMB349_FAST_CHG_MIN_MA	1000
+#define SMB349_FAST_CHG_MIN_MA	400
 #define SMB349_FAST_CHG_STEP_MA	200
 #define SMB349_FAST_CHG_MAX_MA	4000
 #define SMB349_FAST_CHG_SHIFT	4
@@ -3465,7 +3465,7 @@ static struct input_current_ma_limit_entry pchg_ma_table[] = {
 };
 
 #define SMB349_PRE_CHG_CURRENT_LIMIT_MIN_MA     100
-#define SMB349_PRE_CHG_CURRENT_LIMIT_MAX_MA     700
+#define SMB349_PRE_CHG_CURRENT_LIMIT_MAX_MA     900
 #define SMB349_PRE_CHG_CURRENT_LIMIT_DEFAULT    300
 static int
 smb349_set_pre_chg_current(struct smb349_struct *smb349_chg, int pchg_ma)
