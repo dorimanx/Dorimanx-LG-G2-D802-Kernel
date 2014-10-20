@@ -248,7 +248,7 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = ccache gcc
 HOSTCXX      = ccache g++
-HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer
+HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89
 HOSTCXXFLAGS = -O2
 
 # Decide whether to build built-in, modular, or both.
@@ -358,10 +358,10 @@ KERNEL_FLAGS	= -marm -mtune=cortex-a15 -mcpu=cortex-a15 -mfpu=neon-vfpv4 \
 		  -mvectorize-with-neon-quad -fgcse-after-reload -fgcse-sm \
 		  -fgcse-las -ftree-loop-im -ftree-loop-ivcanon -fivopts \
 		  -ftree-vectorize -fmodulo-sched -ffast-math \
-		  -funsafe-math-optimizations
+		  -funsafe-math-optimizations -std=gnu89
 
 CFLAGS_MODULE   = -DMODULE $(KERNEL_FLAGS)
-AFLAGS_MODULE   =
+AFLAGS_MODULE   = -DMODULE $(KERNEL_FLAGS)
 LDFLAGS_MODULE  =
 CFLAGS_KERNEL	= $(KERNEL_FLAGS)
 AFLAGS_KERNEL	=
