@@ -570,6 +570,7 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 	cpu = policy->cpu;
 	io_busy = alucard_tuners_ins.io_is_busy;
 	this_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, cpu);
+	this_alucard_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
@@ -690,15 +691,8 @@ static int __init cpufreq_gov_alucard_init(void)
 	for_each_possible_cpu(cpu) {
 		struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, cpu);
 
-		this_alucard_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
-
 		this_alucard_cpuinfo->pump_inc_step_at_min_freq = 2;
-
-		if (cpu < 2)
-			this_alucard_cpuinfo->pump_inc_step = 2;
-		else
-			this_alucard_cpuinfo->pump_inc_step = 1;
-
+		this_alucard_cpuinfo->pump_inc_step = 2;
 		this_alucard_cpuinfo->pump_dec_step = 1;
 	}
 
