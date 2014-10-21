@@ -46,7 +46,7 @@ struct cpufreq_nightmare_cpuinfo {
 	ktime_t time_stamp;
 #endif
 	int cpu;
-	unsigned int enable:1;
+	bool governor_enabled;
 	/*
 	 * mutex that serializes governor limit change with
 	 * do_nightmare_timer invocation. We do not want do_nightmare_timer to run
@@ -481,6 +481,9 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	unsigned int cpu;
 	int io_busy = nightmare_tuners_ins.io_is_busy;
 
+	if (!this_nightmare_cpuinfo->governor_enabled)
+		return;
+
 	cpu = this_nightmare_cpuinfo->cpu;
 	cpu_policy = this_nightmare_cpuinfo->cur_policy;
 
@@ -601,6 +604,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 				return rc;
 			}
 		}
+		this_nightmare_cpuinfo->governor_enabled = true;
 		mutex_unlock(&nightmare_mutex);
 
 		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
@@ -615,7 +619,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			delay -= jiffies % delay;
 		}
 
-		this_nightmare_cpuinfo->enable = 1;
 		INIT_DEFERRABLE_WORK(&this_nightmare_cpuinfo->work, do_nightmare_timer);
 		queue_delayed_work_on(this_nightmare_cpuinfo->cpu, nightmare_wq, &this_nightmare_cpuinfo->work, delay);
 
@@ -627,7 +630,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		mutex_lock(&nightmare_mutex);
 		mutex_destroy(&this_nightmare_cpuinfo->timer_mutex);
 
-		this_nightmare_cpuinfo->enable = 0;
+		this_nightmare_cpuinfo->governor_enabled = false;
 
 		nightmare_enable--;
 		if (!nightmare_enable) {

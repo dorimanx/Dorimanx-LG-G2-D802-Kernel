@@ -47,6 +47,7 @@ struct cpufreq_darkness_cpuinfo {
 #endif
 	int cpu;
 	int cur_load;
+	bool governor_enabled;
 	/*
 	 * percpu mutex that serializes governor limit change with
 	 * do_dbs_timer invocation. We do not want do_dbs_timer to run
@@ -218,6 +219,9 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	bool normalize_cpu_load = (darkness_tuners_ins.normalize_cpu_load > 0);
 	int io_busy = darkness_tuners_ins.io_is_busy;
 
+	if (!this_darkness_cpuinfo->governor_enabled)
+		return;
+
 	cpu = this_darkness_cpuinfo->cpu;
 	cpu_policy = this_darkness_cpuinfo->cur_policy;
 
@@ -322,12 +326,12 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		mutex_lock(&darkness_mutex);
 
+		this_darkness_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
+
+		this_darkness_cpuinfo->cpu = cpu;
 		this_darkness_cpuinfo->cur_policy = policy;
 
 		this_darkness_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_darkness_cpuinfo->prev_cpu_wall, io_busy);
-
-		this_darkness_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
-		this_darkness_cpuinfo->cpu = cpu;
 
 		darkness_enable++;
 		/*
@@ -343,6 +347,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 				return rc;
 			}
 		}
+		this_darkness_cpuinfo->governor_enabled = true;
 		mutex_unlock(&darkness_mutex);
 
 		mutex_init(&this_darkness_cpuinfo->timer_mutex);
@@ -367,6 +372,8 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		mutex_lock(&darkness_mutex);
 		mutex_destroy(&this_darkness_cpuinfo->timer_mutex);
+
+		this_darkness_cpuinfo->governor_enabled = false;
 
 		darkness_enable--;
 		if (!darkness_enable) {
