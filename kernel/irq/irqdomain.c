@@ -768,6 +768,33 @@ unsigned int irq_find_mapping(struct irq_domain *domain,
 }
 EXPORT_SYMBOL_GPL(irq_find_mapping);
 
+#ifdef CONFIG_MACH_LGE
+/**
+ * irq_radix_revmap_insert() - Insert a hw irq to linux irq number mapping.
+ * @domain: domain owning this hardware interrupt
+ * @virq: linux irq number
+ * @hwirq: hardware irq number in that domain space
+ *
+ * This is for use by irq controllers that use a radix tree reverse
+ * mapping for fast lookup.
+ */
+void irq_radix_revmap_insert(struct irq_domain *domain, unsigned int virq,
+				irq_hw_number_t hwirq)
+{
+	struct irq_data *irq_data = irq_get_irq_data(virq);
+
+	if (WARN_ON(domain->revmap_type != IRQ_DOMAIN_MAP_TREE))
+		return;
+
+	if (virq) {
+		mutex_lock(&revmap_trees_mutex);
+		radix_tree_insert(&domain->revmap_data.tree, hwirq, irq_data);
+		mutex_unlock(&revmap_trees_mutex);
+	}
+}
+EXPORT_SYMBOL_GPL(irq_radix_revmap_insert);
+#endif
+
 /**
  * irq_linear_revmap() - Find a linux irq from a hw irq number.
  * @domain: domain owning this hardware interrupt

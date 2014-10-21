@@ -491,7 +491,6 @@ static int qpnpint_irq_domain_map(struct irq_domain *d,
 {
 	struct q_chip_data *chip_d = d->host_data;
 	struct q_irq_data *irq_d;
-	struct irq_data *irq_data = irq_get_irq_data(virq);
 	int rc;
 
 	pr_debug("hwirq = %lu\n", hwirq);
@@ -501,7 +500,7 @@ static int qpnpint_irq_domain_map(struct irq_domain *d,
 		return -EINVAL;
 	}
 
-	radix_tree_insert(&d->revmap_data.tree, hwirq, irq_data);
+	irq_radix_revmap_insert(d, virq, hwirq);
 
 	irq_d = qpnpint_alloc_irq_data(chip_d, hwirq);
 	if (IS_ERR(irq_d)) {
