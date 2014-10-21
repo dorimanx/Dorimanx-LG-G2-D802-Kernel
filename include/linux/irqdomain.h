@@ -174,6 +174,11 @@ static inline int irq_create_identity_mapping(struct irq_domain *host,
 	return irq_create_strict_mappings(host, hwirq, hwirq, 1);
 }
 
+#ifdef CONFIG_MACH_LGE
+extern void irq_radix_revmap_insert(struct irq_domain *host, unsigned int virq,
+				      irq_hw_number_t hwirq);
+#endif
+
 extern unsigned int irq_linear_revmap(struct irq_domain *host,
 				      irq_hw_number_t hwirq);
 
