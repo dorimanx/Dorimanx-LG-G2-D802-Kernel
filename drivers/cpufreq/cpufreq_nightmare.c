@@ -481,11 +481,10 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	unsigned int cpu;
 	int io_busy = nightmare_tuners_ins.io_is_busy;
 
-	if (!this_nightmare_cpuinfo->governor_enabled)
-		return;
-
 	cpu = this_nightmare_cpuinfo->cpu;
 	cpu_policy = this_nightmare_cpuinfo->cur_policy;
+	if (cpu_policy == NULL)
+		return;
 
 	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, io_busy);
 
@@ -631,6 +630,8 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		mutex_destroy(&this_nightmare_cpuinfo->timer_mutex);
 
 		this_nightmare_cpuinfo->governor_enabled = false;
+
+		this_nightmare_cpuinfo->cur_policy = NULL;
 
 		nightmare_enable--;
 		if (!nightmare_enable) {
