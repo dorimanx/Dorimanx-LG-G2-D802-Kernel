@@ -52,6 +52,7 @@ struct cpufreq_alucard_cpuinfo {
 	int pump_inc_step_at_min_freq;
 	int pump_dec_step;
 	unsigned int cur_freq;
+	bool governor_enabled;
 	/*
 	 * mutex that serializes governor limit change with
 	 * do_alucard_timer invocation. We do not want do_alucard_timer to run
@@ -465,6 +466,9 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 	bool normalize_cpu_load = (alucard_tuners_ins.normalize_cpu_load > 0);
 	int io_busy = alucard_tuners_ins.io_is_busy;
 
+	if (!this_alucard_cpuinfo->governor_enabled)
+		return;
+
 	cpu = this_alucard_cpuinfo->cpu;
 	cpu_policy = this_alucard_cpuinfo->cur_policy;
 
@@ -498,7 +502,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 				CPUFREQ_RELATION_H, &hi_index);
 
 		cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, cpu_policy->cur,
-				CPUFREQ_RELATION_L, &index);
+				CPUFREQ_RELATION_H, &index);
 
 		/* CPUs Online Scale Frequency*/
 		if (cpu_policy->cur < freq_responsiveness) {
@@ -556,6 +560,7 @@ static void do_alucard_timer(struct work_struct *work)
 		alucard_check_cpu(alucard_cpuinfo);
 
 	queue_delayed_work_on(cpu, alucard_wq, &alucard_cpuinfo->work, delay);
+
 	mutex_unlock(&alucard_cpuinfo->timer_mutex);
 }
 
@@ -606,6 +611,7 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 				return rc;
 			}
 		}
+		this_alucard_cpuinfo->governor_enabled = true;
 		mutex_unlock(&alucard_mutex);
 
 		mutex_init(&this_alucard_cpuinfo->timer_mutex);
@@ -629,6 +635,8 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 
 		mutex_lock(&alucard_mutex);
 		mutex_destroy(&this_alucard_cpuinfo->timer_mutex);
+
+		this_alucard_cpuinfo->governor_enabled = false;
 
 		alucard_enable--;
 		if (!alucard_enable) {
