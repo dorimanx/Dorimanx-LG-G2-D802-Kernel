@@ -159,6 +159,10 @@ bool wl_cfgp2p_is_gas_action(void *frame, u32 frame_len)
 		return false;
 
 #ifdef WL11U
+	/* XXX Hotspot2.0 STA mode can receive only response
+	*  SoftAP mode cannot run Hotspot2.0 compliant Ap because
+	*  Hotspot2.0 support only Enterprise mode
+	*/
 	if (sd_act_frm->action == P2PSD_ACTION_ID_GAS_IRESP)
 		return wl_cfgp2p_find_gas_subtype(P2PSD_GAS_OUI_SUBTYPE,
 			(u8 *)sd_act_frm->query_data + GAS_RESP_OFFSET,
@@ -599,7 +603,6 @@ wl_cfgp2p_set_p2p_mode(struct wl_priv *wl, u8 mode, u32 channel, u16 listen_ms, 
 		CFGP2P_ERR(("bssidx %d is not assigned\n", bssidx));
 		return BCME_NOTFOUND;
 	}
-
 
 	/* Put the WL driver into P2P Listen Mode to respond to P2P probe reqs */
 	discovery_mode.state = mode;
