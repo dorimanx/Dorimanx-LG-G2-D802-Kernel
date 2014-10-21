@@ -29,7 +29,7 @@
 #include <proto/bcmeth.h>
 #include <proto/bcmevent.h>
 
-#if WLC_E_LAST != 130
+#if WLC_E_LAST != 139
 #error "You need to add an entry to bcmevent_names[] for the new event"
 #endif
 
@@ -148,6 +148,10 @@ const bcmevent_name_t bcmevent_names[] = {
 #endif
 	{ WLC_E_CCA_CHAN_QUAL, "CCA_BASED_CHANNEL_QUALITY" },
 	{ WLC_E_CCX_S69_RESP_RX, "CCX_S69_RESPONSE"},
+#ifdef GSCAN_SUPPORT
+	{ WLC_E_PFN_GSCAN_FULL_RESULT, "PFN_GSCAN_FULL_RESULT"},
+	{ WLC_E_PFN_SWC, "PFN_SIGNIFICANT_WIFI_CHANGE"}
+#endif /* GSCAN_SUPPORT */
 };
 
 const int bcmevent_names_size = ARRAYSIZE(bcmevent_names);

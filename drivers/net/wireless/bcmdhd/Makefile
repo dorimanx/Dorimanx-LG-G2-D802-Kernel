@@ -64,7 +64,7 @@ DHDCFLAGS += -DCUSTOM_TDLS_RSSI_THRESHOLD_LOW=-85
 # Roaming
 #DHDCFLAGS += -DROAM_AP_ENV_DETECTION
 DHDCFLAGS += -DROAM_ENABLE -DROAM_API
-#DHDCFLAGS += -DENABLE_FW_ROAM_SUSPEND
+DHDCFLAGS += -DENABLE_FW_ROAM_SUSPEND
 
 # CCX
 ifeq ($(CONFIG_BRCM_CCX),y)
@@ -167,6 +167,7 @@ DHDCFLAGS += -DWL_SUPPORT_BACKPORTED_KPATCHES
 # Kitkat
 #################
 DHDCFLAGS += -DWL_IFACE_COMB_NUM_CHANNELS
+DHDCFLAGS += -DGSCAN_SUPPORT -DWL_VENDOR_EXT_SUPPORT
 
 ##########################
 # driver type
@@ -363,7 +364,8 @@ DHDOFILES := src/bcmsdio/sys/bcmsdh.o	src/bcmsdio/sys/bcmsdh_linux.o \
 	 src/shared/sbutils.o		src/shared/siutils.o \
 	 src/wl/sys/wl_android.o	src/wl/sys/wl_cfg80211.o \
 	 src/wl/sys/wl_cfgp2p.o		src/wl/sys/wldev_common.o \
-	 src/wl/sys/wl_linux_mon.o	src/wl/sys/wl_roam.o
+	 src/wl/sys/wl_linux_mon.o	src/wl/sys/wl_roam.o \
+	 src/wl/sys/wl_cfgvendor.o
 
 obj-$(CONFIG_BCMDHD) += bcmdhd.o
 
