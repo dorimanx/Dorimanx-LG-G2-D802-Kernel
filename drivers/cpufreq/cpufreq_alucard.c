@@ -36,8 +36,8 @@
 
 /* Tuning Interface */
 #define SAMPLING_RATE			50000
-#define INC_CPU_LOAD_AT_MIN_FREQ	60
-#define INC_CPU_LOAD			80
+#define INC_CPU_LOAD_AT_MIN_FREQ	70
+#define INC_CPU_LOAD			70
 #define DEC_CPU_LOAD_AT_MIN_FREQ	70
 #define DEC_CPU_LOAD 			70
 
@@ -48,8 +48,8 @@
 #endif
 
 /* Pump Inc/Dec for all cores */
-#define PUMP_INC_STEP_AT_MIN_FREQ	5
-#define PUMP_INC_STEP			6
+#define PUMP_INC_STEP_AT_MIN_FREQ	6
+#define PUMP_INC_STEP			1
 #define PUMP_DEC_STEP			1
 
 static void do_alucard_timer(struct work_struct *work);
