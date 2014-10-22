@@ -34,6 +34,24 @@
  * It helps to keep variable names smaller, simpler
  */
 
+/* Tuning Interface */
+#define SAMPLING_RATE			50000
+#define INC_CPU_LOAD_AT_MIN_FREQ	60
+#define INC_CPU_LOAD			80
+#define DEC_CPU_LOAD_AT_MIN_FREQ	70
+#define DEC_CPU_LOAD 			70
+
+#ifdef CONFIG_MACH_LGE
+#define FREQ_RESPONSIVENESS		1574400
+#else
+#define FREQ_RESPONSIVENESS		1134000
+#endif
+
+/* Pump Inc/Dec for all cores */
+#define PUMP_INC_STEP_AT_MIN_FREQ	5
+#define PUMP_INC_STEP			6
+#define PUMP_DEC_STEP			1
+
 static void do_alucard_timer(struct work_struct *work);
 
 struct cpufreq_alucard_cpuinfo {
@@ -81,16 +99,12 @@ static struct alucard_tuners {
 	int freq_responsiveness;
 	unsigned int io_is_busy;
 } alucard_tuners_ins = {
-	.sampling_rate = 60000,
-	.inc_cpu_load_at_min_freq = 60,
-	.inc_cpu_load = 80,
-	.dec_cpu_load_at_min_freq = 60,
-	.dec_cpu_load = 80,
-#if defined(CONFIG_MACH_LGE)
-	.freq_responsiveness = 1497600,
-#else
-	.freq_responsiveness = 1134000,
-#endif
+	.sampling_rate = SAMPLING_RATE,
+	.inc_cpu_load_at_min_freq = INC_CPU_LOAD_AT_MIN_FREQ,
+	.inc_cpu_load = INC_CPU_LOAD,
+	.dec_cpu_load_at_min_freq = DEC_CPU_LOAD_AT_MIN_FREQ,
+	.dec_cpu_load = DEC_CPU_LOAD,
+	.freq_responsiveness = FREQ_RESPONSIVENESS,
 	.io_is_busy = 0,
 };
 
@@ -170,7 +184,7 @@ static ssize_t store_##file_name##_##num_core		\
 	if (ret != 1)											\
 		return -EINVAL;										\
 														\
-	input = min(max(1, input), 3);							\
+	input = min(max(1, input), 6);							\
 														\
 	this_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, num_core - 1); \
 														\
@@ -460,10 +474,10 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 
 		/* Maximum increasing frequency possible */
 		cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, max(cur_load * (cpu_policy->max / 100), cpu_policy->min),
-				CPUFREQ_RELATION_L, &hi_index);
+				CPUFREQ_RELATION_C, &hi_index);
 
 		cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, cpu_policy->cur,
-				CPUFREQ_RELATION_H, &index);
+				CPUFREQ_RELATION_C, &index);
 
 		/* CPUs Online Scale Frequency*/
 		if (cpu_policy->cur < freq_responsiveness) {
@@ -489,7 +503,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 		this_alucard_cpuinfo->cur_freq = this_alucard_cpuinfo->freq_table[index].frequency;
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, this_alucard_cpuinfo->freq_table[index].frequency, cpu_policy->cur, cpu_policy->min, this_alucard_cpuinfo->freq_table[hi_index].frequency);*/
 		if (this_alucard_cpuinfo->cur_freq != cpu_policy->cur) {
-			__cpufreq_driver_target(cpu_policy, this_alucard_cpuinfo->cur_freq, CPUFREQ_RELATION_L);
+			__cpufreq_driver_target(cpu_policy, this_alucard_cpuinfo->cur_freq, CPUFREQ_RELATION_C);
 		}
 	}
 }
@@ -662,9 +676,9 @@ static int __init cpufreq_gov_alucard_init(void)
 	for_each_possible_cpu(cpu) {
 		struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, cpu);
 
-		this_alucard_cpuinfo->pump_inc_step_at_min_freq = 2;
-		this_alucard_cpuinfo->pump_inc_step = 2;
-		this_alucard_cpuinfo->pump_dec_step = 1;
+		this_alucard_cpuinfo->pump_inc_step_at_min_freq = PUMP_INC_STEP_AT_MIN_FREQ;
+		this_alucard_cpuinfo->pump_inc_step = PUMP_INC_STEP;
+		this_alucard_cpuinfo->pump_dec_step = PUMP_DEC_STEP;
 	}
 
 	return cpufreq_register_governor(&cpufreq_gov_alucard);
