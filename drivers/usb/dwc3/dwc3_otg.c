@@ -660,22 +660,9 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 				"power_supply_get_by_name(ac)\n");
 		dotg->psy = power_supply_get_by_name("ac");
 	} else {
-#ifdef CONFIG_FORCE_FAST_CHARGE
-		if ((force_fast_charge > 0) &&
-				(fake_charge_ac == FAKE_CHARGE_AC_ENABLE)) {
-			pr_info("msm_otg_notify_power_supply: "
-					"power_supply_get_by_name(ac)\n");
-			dotg->psy = power_supply_get_by_name("ac");
-		} else {
-			pr_info("msm_otg_notify_power_supply: "
-					"power_supply_get_by_name(usb)\n");
-			dotg->psy = power_supply_get_by_name("usb");
-		}
-#else
 		pr_info("msm_otg_notify_power_supply: "
 				"power_supply_get_by_name(usb)\n");
 		dotg->psy = power_supply_get_by_name("usb");
-#endif
 	}
 	if (!dotg->psy)
 		goto psy_error;
@@ -881,15 +868,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	case OTG_STATE_UNDEFINED:
 		dwc3_otg_init_sm(dotg);
 		if (!dotg->psy) {
-#ifdef CONFIG_FORCE_FAST_CHARGE
-			if ((force_fast_charge > 0) &&
-					(fake_charge_ac == FAKE_CHARGE_AC_ENABLE))
-				dotg->psy = power_supply_get_by_name("ac");
-			else
-				dotg->psy = power_supply_get_by_name("usb");
-#else
 			dotg->psy = power_supply_get_by_name("usb");
-#endif
 
 			if (!dotg->psy)
 				dev_err(phy->dev,

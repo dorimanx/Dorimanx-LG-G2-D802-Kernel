@@ -31,7 +31,8 @@
 /* Credits / Changelog:
  * version 1.0 Initial build by Paul Reioux
  * version 1.1 Added 1800ma limit to table by Dorimanx
- * version 1.2 Added Fake AC interface by Mankindtw@xda and Dorimanx
+ * version 1.2 Added Fake AC interface by Mankindtw@xda and Dorimanx 
+ * (update 22/10/14 mod deleted, it's bugged and useless)
  * version 1.3 Misc fixes to force AC and allowed real 1800mA max.
  *
  * Next versions depend on code for LG G2 Device!!! (Dorimanx)
@@ -53,7 +54,6 @@
 int force_fast_charge;
 int force_fast_charge_temp;
 int fast_charge_level;
-int fake_charge_ac;
 int force_fast_charge_on_off;
 
 /* sysfs interface for "force_fast_charge" */
@@ -116,32 +116,6 @@ static ssize_t charge_level_store(struct kobject *kobj,
 	return -EINVAL;
 }
 
-static ssize_t fake_charge_ac_show(struct kobject *kobj,
-				struct kobj_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%d\n", fake_charge_ac);
-}
-
-static ssize_t fake_charge_ac_store(struct kobject *kobj,
-			struct kobj_attribute *attr, const char *buf,
-			size_t count)
-{
-
-	int new_fake_charge_ac;
-
-	sscanf(buf, "%du", &new_fake_charge_ac);
-
-	switch (new_fake_charge_ac) {
-		case FAKE_CHARGE_AC_DISABLE:
-		case FAKE_CHARGE_AC_ENABLE:
-			fake_charge_ac = new_fake_charge_ac;
-			return count;
-		default:
-			return -EINVAL;
-	}
-	return -EINVAL;
-}
-
 /* sysfs interface for "fast_charge_levels" */
 static ssize_t available_charge_levels_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
@@ -173,15 +147,9 @@ static struct kobj_attribute force_fast_charge_attribute =
 		force_fast_charge_show,
 		force_fast_charge_store);
 
-static struct kobj_attribute fake_charge_ac_attribute =
-	__ATTR(fake_charge_ac, 0666,
-		fake_charge_ac_show,
-		fake_charge_ac_store);
-
 static struct attribute *force_fast_charge_attrs[] = {
 	&force_fast_charge_attribute.attr,
 	&fast_charge_level_attribute.attr,
-	&fake_charge_ac_attribute.attr,
 	&available_charge_levels_attribute.attr,
 	&version_attribute.attr,
 	NULL,
@@ -202,7 +170,6 @@ int force_fast_charge_init(void)
 	force_fast_charge = FAST_CHARGE_DISABLED;
 	force_fast_charge_temp = FAST_CHARGE_DISABLED;
 	force_fast_charge_on_off = FAST_CHARGE_DISABLED;
-	fake_charge_ac = FAKE_CHARGE_AC_DISABLE;
 	fast_charge_level = FAST_CHARGE_1800;
 
 	force_fast_charge_kobj
