@@ -2105,7 +2105,7 @@ switch(ts->fw_info.fw_setting.ic_chip_rev) {
 							   break;
 	   }
 #endif	
-	if((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10)<A1_vendor){
+	if ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10)<A1_vendor) {
 #endif
 		if(buf !=0x04){
 			mutex_unlock(&i2c_suspend_lock);
@@ -2113,7 +2113,7 @@ switch(ts->fw_info.fw_setting.ic_chip_rev) {
 			TOUCH_INFO_MSG("exception handling INTERRUPT_STATUS_REG %x\n", buf);
 			return;
 		}
-	}else{
+	} else {
 		if((buf!=0x40)&&(buf!=0x04)){
 			mutex_unlock(&i2c_suspend_lock);
 			mutex_unlock(&ts->irq_work_mutex);
@@ -2135,16 +2135,16 @@ switch(ts->fw_info.fw_setting.ic_chip_rev) {
 #endif
 #if defined(CONFIG_LGE_VU3_TOUCHSCREEN)
 	TOUCH_INFO_MSG("knock on reporting? %d\n", knockon_wakeup_uevent_reporting);
-	if(knockon_wakeup_uevent_reporting!=1){
+	if (knockon_wakeup_uevent_reporting!=1) {
 #ifdef CONFIG_LGE_SECURITY_KNOCK_ON
-		if( buf & 0x40 ){
+		if (buf & 0x40) {
 			send_uevent_lpwg(touch_gesture_enable);
 			knockon_wakeup_uevent_reporting = 1;
-		}else{
+		} else {
 			wake_unlock(&touch_wake_lock);
 		}
 #else
-		if( buf & 0x04 ){
+		if (buf & 0x04) {
 			kobject_uevent_env(&lge_touch_sys_device.kobj, KOBJ_CHANGE, touch_wakeup_gesture);
 			knockon_wakeup_uevent_reporting = 1;
 		} else {
@@ -2156,11 +2156,11 @@ switch(ts->fw_info.fw_setting.ic_chip_rev) {
 #ifdef CONFIG_LGE_SECURITY_KNOCK_ON
 	TOUCH_INFO_MSG("ic_fw_version = %d\n",(int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10));
 #if defined(CONFIG_LGE_Z_TOUCHSCREEN)
-	if((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10)<50){
+	if ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10)<50) {
 #endif
 #if defined(A1_only)
 #if defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
- switch(ts->fw_info.fw_setting.ic_chip_rev) {
+	switch(ts->fw_info.fw_setting.ic_chip_rev) {
 						 case TOUCH_PANEL_G1F_LGIT:
 							A1_vendor = 17;
 							break;
@@ -2171,7 +2171,7 @@ switch(ts->fw_info.fw_setting.ic_chip_rev) {
 							break;
 	}
 #else
- switch(touch_test_dev->fw_info.fw_setting.curr_touch_vendor) {
+	switch(touch_test_dev->fw_info.fw_setting.curr_touch_vendor) {
 						 case TOUCH_VENDOR_TPK:
 						 	A1_vendor = 14;
 							break;
@@ -2182,20 +2182,20 @@ switch(ts->fw_info.fw_setting.ic_chip_rev) {
 							break;
  	}
  #endif
-	if((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10)<A1_vendor){
+	if ((int)simple_strtoul(&ts->fw_info.ic_fw_version[1], NULL, 10)<A1_vendor) {
 #endif
-		if( buf==0x04 ){
+		if (buf == 0x04) {
 			kobject_uevent_env(&lge_touch_sys_device.kobj, KOBJ_CHANGE, touch_wakeup_gesture);
 		}
-	}else{
-		if((buf==0x40)&&(touch_gesture_enable==LPWG_DOUBLE_TAP)){
+	} else {
+		if ((buf == 0x40) && (touch_gesture_enable == LPWG_DOUBLE_TAP)) {
 			send_uevent_lpwg(touch_gesture_enable);
 		}
 	}
 #else
-	if( buf & 0x04 ){
+	if (buf & 0x04) {
 		kobject_uevent_env(&lge_touch_sys_device.kobj, KOBJ_CHANGE, touch_wakeup_gesture);
-	}else{
+	} else {
 		wake_unlock(&touch_wake_lock);
 	}
 #endif
@@ -3278,7 +3278,7 @@ static irqreturn_t touch_thread_irq_handler(int irq, void *dev_id)
 		TOUCH_INFO_MSG("gesture wakeup\n");
 #ifdef I2C_SUSPEND_WORKAROUND
 		queue_delayed_work(touch_wq, &ts->check_suspended_work, 0);
-#else	
+#else
 		queue_delayed_work(touch_wq, &ts->work_gesture_wakeup,
 				msecs_to_jiffies(0));
 #endif
@@ -3316,11 +3316,11 @@ static void synaptics_touch_check_suspended_worker(struct work_struct *check_sus
 		dev_err(&ts->client->dev, "lge_touch touch suspended. try i2c operation after 10ms.\n");
 		queue_delayed_work(touch_wq, &ts->check_suspended_work, msecs_to_jiffies(10));
 		return;
-		} else {
+	} else {
 		dev_dbg(&ts->client->dev, "lge_touch touch resume. do touch work.\n");
 		queue_delayed_work(touch_wq, &ts->work_gesture_wakeup, msecs_to_jiffies(0));
 		return;
-		}
+	}
 }
 #endif
 
@@ -5851,7 +5851,7 @@ static int touch_lcd_resume(struct device *device)
 	if (!ts) {
 		TOUCH_ERR_MSG("Called before init\n");
 		return 0;
-		}
+	}
 #endif
 #ifdef CUST_G2_TOUCH
 	cancel_delayed_work_sync(&ts->work_f54);
