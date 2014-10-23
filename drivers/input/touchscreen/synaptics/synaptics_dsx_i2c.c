@@ -41,9 +41,9 @@
 #endif
 
 #define NO_0D_WHILE_2D
-/*
+#ifdef CONFIG_MACH_MSM8974_G2_KR
 #define REPORT_2D_Z
-*/
+#endif
 #define REPORT_2D_W
 
 #define F12_FINGERS_TO_SUPPORT 10
@@ -947,6 +947,9 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 	int y;
 	int wx;
 	int wy;
+#ifdef REPORT_2D_Z
+	int z;
+#endif
 	struct synaptics_rmi4_f12_finger_data *data;
 	struct synaptics_rmi4_f12_finger_data *finger_data;
 
@@ -987,6 +990,9 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			wy = finger_data->wy;
 #endif
 
+#ifdef REPORT_2D_Z
+			z = finger_data->z;
+#endif
 			if (rmi4_data->board->x_flip)
 				x = rmi4_data->sensor_max_x - x;
 			if (rmi4_data->board->y_flip)
@@ -1005,6 +1011,10 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 					ABS_MT_TOUCH_MAJOR, max(wx, wy));
 			input_report_abs(rmi4_data->input_dev,
 					ABS_MT_TOUCH_MINOR, min(wx, wy));
+#endif
+#ifdef REPORT_2D_Z
+			input_report_abs(rmi4_data->input_dev,
+					ABS_MT_PRESSURE, z);
 #endif
 #ifndef TYPE_B_PROTOCOL
 			input_mt_sync(rmi4_data->input_dev);
@@ -2288,6 +2298,11 @@ static int synaptics_rmi4_set_input_dev(struct synaptics_rmi4_data *rmi4_data)
 	input_set_abs_params(rmi4_data->input_dev,
 			ABS_MT_TOUCH_MINOR, 0,
 			rmi4_data->max_touch_width, 0, 0);
+#endif
+#ifdef REPORT_2D_Z
+	input_set_abs_params(rmi4_data->input_dev,
+			ABS_MT_PRESSURE, 0,
+			0xFF, 0, 0);
 #endif
 #ifdef PROXIMITY
 	input_set_abs_params(rmi4_data->input_dev,
