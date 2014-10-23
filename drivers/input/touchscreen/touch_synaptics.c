@@ -2138,11 +2138,12 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 
 #endif
 
-					if (touch_i2c_write(ts->client, DOUBLE_TAP_AREA_REG, (10), r_mem) < 0){
+					if (touch_i2c_write(ts->client, DOUBLE_TAP_AREA_REG, (10), r_mem) < 0) {
 						TOUCH_ERR_MSG("DOUBLE_TAP_AREA_REG write fail");
-						if(r_mem != NULL) kfree(r_mem);
-						return -EIO;
-						}
+						if (r_mem != NULL)
+							kfree(r_mem);
+							return -EIO;
+					}
 #ifdef CONFIG_LGE_SECURITY_KNOCK_ON
 					if (unlikely(touch_i2c_write_byte(client, PAGE_SELECT_REG, LPWG_CTRL_PAGE) < 0)) {
 						TOUCH_ERR_MSG("PAGE_SELECT_REG write fail\n");
@@ -2157,13 +2158,15 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 						TOUCH_INFO_MSG("MultiTap Press Release Distance = 0x%02x\n", *(r_mem+0));
 					}
 					if (touch_i2c_read(client, INTERTAP_DISTANCE_REG, 1, r_mem) < 0) {
-						if(r_mem != NULL) kfree(r_mem);
+						if (r_mem != NULL)
+							kfree(r_mem);
 						TOUCH_ERR_MSG("INTERTAP_DISTANCE_REG read fail!\n");
 						return -EIO;
 					} else {
 						*(r_mem+0) = 0x0A;
-						if(touch_i2c_write(client, INTERTAP_DISTANCE_REG, 1, r_mem) < 0) {
-							if(r_mem != NULL) kfree(r_mem);
+						if (touch_i2c_write(client, INTERTAP_DISTANCE_REG, 1, r_mem) < 0) {
+							if (r_mem != NULL)
+								kfree(r_mem);
 							TOUCH_ERR_MSG("Double TAP Maximum InterTap Distance reg(0x04P:0x4B) write fail\n");
 							return -EIO;
 						} else {
@@ -2213,7 +2216,7 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 					*(r_mem+2) = 0x3;
 #endif
 #endif
-					*(r_mem+3) = 0xA; /* max active duration 3sec(0x6) -> 5sec(0xA) */
+					*(r_mem+3) = 0x6;
 					*(r_mem+4) = 0x2;
 					*(r_mem+5) = 0x2;
 
@@ -2248,25 +2251,29 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 #else
 					if (touch_i2c_write(ts->client, WAKEUP_GESTURE_ENABEL_REG, (6), r_mem) < 0) {
 						TOUCH_ERR_MSG("WAKEUP_GESTURE_ENABEL_REG write fail");
-								if (r_mem != NULL)	kfree(r_mem);
-								return -EIO;
+						if (r_mem != NULL)
+							kfree(r_mem);
+						return -EIO;
 					}
 #endif
 					if (touch_i2c_write_byte(ts->client, DOZE_INTERVAL_REG, 5) < 0) {
 						TOUCH_ERR_MSG("DOZE_INTERVAL_REG write fail");
-						if (r_mem != NULL) kfree(r_mem);
+						if (r_mem != NULL)
+							kfree(r_mem);
 						return -EIO;
 					}
 #if defined(CONFIG_LGE_Z_TOUCHSCREEN)
 					if(touch_i2c_write_byte(ts->client, 0x10, 20) < 0) {
 						TOUCH_ERR_MSG("DOZE_WAKEUP_TRESHOLD_REG write fail");
-						if(r_mem != NULL) kfree(r_mem);
+						if(r_mem != NULL)
+							kfree(r_mem);
 						return -EIO;
 					}
 #else
 					if(touch_i2c_write_byte(ts->client, 0x10, 30) < 0) {
 						TOUCH_ERR_MSG("DOZE_WAKEUP_TRESHOLD_REG write fail");
-						if(r_mem != NULL) kfree(r_mem);
+						if(r_mem != NULL)
+							kfree(r_mem);
 						return -EIO;
 					}
 #endif
@@ -2316,9 +2323,10 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 						*(r_mem+9) = 50;
 #endif
 #endif
-					if (touch_i2c_write(ts->client, DOUBLE_TAP_AREA_REG, (10), r_mem) < 0){
+					if (touch_i2c_write(ts->client, DOUBLE_TAP_AREA_REG, (10), r_mem) < 0) {
 						TOUCH_ERR_MSG("DOUBLE_TAP_AREA_REG write fail");
-						if(r_mem != NULL) kfree(r_mem);
+						if (r_mem != NULL)
+							kfree(r_mem);
 						return -EIO;
 					}
 

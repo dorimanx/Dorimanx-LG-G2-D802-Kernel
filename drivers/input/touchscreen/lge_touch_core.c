@@ -2130,7 +2130,7 @@ switch(ts->fw_info.fw_setting.ic_chip_rev) {
 	mutex_unlock(&ts->irq_work_mutex);
 
 	TOUCH_INFO_MSG("INTERRUPT_STATUS_REG %x\n", buf);
-#ifndef CONFIG_LGE_SECURITY_KNOCK_ON
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
 	wake_lock_timeout(&touch_wake_lock, msecs_to_jiffies(3000));
 #endif
 #if defined(CONFIG_LGE_VU3_TOUCHSCREEN)
@@ -3272,9 +3272,7 @@ static irqreturn_t touch_thread_irq_handler(int irq, void *dev_id)
 
 #ifdef CUST_G2_TOUCH_WAKEUP_GESTURE
 	if(ts_suspend && touch_gesture_enable){
-#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
-		wake_lock_timeout(&touch_wake_lock, msecs_to_jiffies(3000));
-#else
+#ifndef CONFIG_LGE_SECURITY_KNOCK_ON
 		wake_lock_timeout(&touch_wake_lock, msecs_to_jiffies(1000));
 #endif
 		TOUCH_INFO_MSG("gesture wakeup\n");
@@ -5821,8 +5819,6 @@ static int touch_lcd_suspend(struct device *device)
 #if defined(A1_only)
 			if(f54_window_crack)
 				f54_window_crack = 2;
-		} else if (lge_get_boot_mode() != LGE_BOOT_MODE_NORMAL) {
-			touch_power_cntl(ts, ts->pdata->role->suspend_pwr);
 #endif
 		} else
 #endif
