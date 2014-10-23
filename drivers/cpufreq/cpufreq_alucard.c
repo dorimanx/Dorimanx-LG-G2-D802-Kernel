@@ -98,6 +98,7 @@ static struct alucard_tuners {
 	int dec_cpu_load;
 	int freq_responsiveness;
 	unsigned int io_is_busy;
+	unsigned int cpufreq_relation;
 } alucard_tuners_ins = {
 	.sampling_rate = SAMPLING_RATE,
 	.inc_cpu_load_at_min_freq = INC_CPU_LOAD_AT_MIN_FREQ,
@@ -106,6 +107,7 @@ static struct alucard_tuners {
 	.dec_cpu_load = DEC_CPU_LOAD,
 	.freq_responsiveness = FREQ_RESPONSIVENESS,
 	.io_is_busy = 0,
+	.cpufreq_relation = CPUFREQ_RELATION_C,
 };
 
 /************************** sysfs interface ************************/
@@ -124,6 +126,7 @@ show_one(dec_cpu_load_at_min_freq, dec_cpu_load_at_min_freq);
 show_one(dec_cpu_load, dec_cpu_load);
 show_one(freq_responsiveness, freq_responsiveness);
 show_one(io_is_busy, io_is_busy);
+show_one(cpufreq_relation, cpufreq_relation);
 
 #define show_pcpu_param(file_name, num_core)		\
 static ssize_t show_##file_name##_##num_core		\
@@ -379,6 +382,30 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+/* cpufreq_relation */
+static ssize_t store_cpufreq_relation(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (input != CPUFREQ_RELATION_L
+		&& input != CPUFREQ_RELATION_H
+		&& input != CPUFREQ_RELATION_C)
+		return -EINVAL;
+
+	if (input == alucard_tuners_ins.cpufreq_relation)
+		return count;
+
+	alucard_tuners_ins.cpufreq_relation = input;
+
+	return count;
+}
+
 define_one_global_rw(sampling_rate);
 define_one_global_rw(inc_cpu_load_at_min_freq);
 define_one_global_rw(inc_cpu_load);
@@ -386,6 +413,7 @@ define_one_global_rw(dec_cpu_load_at_min_freq);
 define_one_global_rw(dec_cpu_load);
 define_one_global_rw(freq_responsiveness);
 define_one_global_rw(io_is_busy);
+define_one_global_rw(cpufreq_relation);
 
 static struct attribute *alucard_attributes[] = {
 	&sampling_rate.attr,
@@ -395,6 +423,7 @@ static struct attribute *alucard_attributes[] = {
 	&dec_cpu_load.attr,
 	&freq_responsiveness.attr,
 	&io_is_busy.attr,
+	&cpufreq_relation.attr,
 	&pump_inc_step_at_min_freq_1.attr,
 	&pump_inc_step_at_min_freq_2.attr,
 	&pump_inc_step_at_min_freq_3.attr,
@@ -474,7 +503,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 
 		/* Maximum increasing frequency possible */
 		cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, max(cur_load * (cpu_policy->max / 100), cpu_policy->min),
-				CPUFREQ_RELATION_C, &hi_index);
+				alucard_tuners_ins.cpufreq_relation, &hi_index);
 
 		cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, cpu_policy->cur,
 				CPUFREQ_RELATION_C, &index);
