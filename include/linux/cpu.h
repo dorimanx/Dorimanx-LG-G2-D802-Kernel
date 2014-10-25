@@ -242,11 +242,6 @@ void idle_notifier_register(struct notifier_block *n);
 void idle_notifier_unregister(struct notifier_block *n);
 void idle_notifier_call_chain(unsigned long val);
 
-extern bool check_cpuboost(int cpu);
-#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_MACH_LGE)
-extern bool wakeup_boost;
-#endif
-
 /* warning shut if msm thermal holding cores off on high temp. */
 extern bool core_control;
 
