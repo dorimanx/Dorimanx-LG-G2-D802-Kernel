@@ -72,7 +72,7 @@ static struct msm_thermal_data_intelli msm_thermal_info_local = {
 };
 
 static struct delayed_work check_temp_work;
-static bool core_control;
+bool core_control;
 
 /* dummy parameter for rom thermal and apps */
 static bool enabled = 1;

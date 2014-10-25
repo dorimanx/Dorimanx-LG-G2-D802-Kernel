@@ -247,4 +247,7 @@ extern bool check_cpuboost(int cpu);
 extern bool wakeup_boost;
 #endif
 
+/* warning shut if msm thermal holding cores off on high temp. */
+extern bool core_control;
+
 #endif /* _LINUX_CPU_H_ */
