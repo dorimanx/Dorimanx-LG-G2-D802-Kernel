@@ -270,7 +270,7 @@ static void __ref cpu_up_down_work(struct work_struct *work)
 		for_each_online_cpu(cpu) {
 			if (cpu == 0)
 				continue;
-			if (check_down_lock(cpu) || check_cpuboost(cpu))
+			if (check_down_lock(cpu))
 				break;
 			l_nr_threshold =
 				cpu_nr_run_threshold << 1 /
