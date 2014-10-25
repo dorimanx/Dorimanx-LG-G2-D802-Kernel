@@ -127,17 +127,6 @@ static void touchboost_input_event(struct input_handle *handle,
 	last_input_time = ktime_to_us(ktime_get());
 }
 
-/* extern for intelli_plug and msm_hotplug */
-bool check_cpuboost(int cpu)
-{
-	unsigned int freq = get_cpu_min_lock(cpu);
-
-	if (freq > 0)
-		return true;
-
-	return false;
-}
-
 static int touchboost_input_connect(struct input_handler *handler,
 		struct input_dev *dev, const struct input_device_id *id)
 {
