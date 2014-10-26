@@ -41,6 +41,9 @@
 #define DEC_CPU_LOAD_AT_MIN_FREQ	70
 #define DEC_CPU_LOAD 			70
 
+#define CPUS_UP_RATE			1
+#define CPUS_DOWN_RATE			2
+
 #ifdef CONFIG_MACH_LGE
 #define FREQ_RESPONSIVENESS		1574400
 #else
@@ -112,8 +115,8 @@ static struct alucard_tuners {
 	.freq_responsiveness = FREQ_RESPONSIVENESS,
 	.io_is_busy = 0,
 	.cpufreq_relation = CPUFREQ_RELATION_L,
-	.cpus_up_rate = 1,
-	.cpus_down_rate = 3,
+	.cpus_up_rate = CPUS_UP_RATE,
+	.cpus_down_rate = CPUS_DOWN_RATE,
 };
 
 /************************** sysfs interface ************************/
