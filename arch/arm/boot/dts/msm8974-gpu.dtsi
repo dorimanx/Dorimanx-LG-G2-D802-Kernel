@@ -76,14 +76,14 @@
 			qcom,gpu-pwrlevel@1 {
 				reg = <1>;
 				qcom,gpu-freq = <533333000>;
-				qcom,bus-freq = <7>;
+				qcom,bus-freq = <8>;
 			};
 
 			qcom,gpu-pwrlevel@2 {
 				reg = <2>;
 				qcom,gpu-freq = <450000000>;
-				qcom,bus-freq = <5>;
-	                };
+				qcom,bus-freq = <8>;
+			};
 
 			qcom,gpu-pwrlevel@3 {
 				reg = <3>;
