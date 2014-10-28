@@ -860,10 +860,10 @@ static ssize_t show_freq(struct device *dev,
 	struct devfreq *devfreq = to_devfreq(dev);
 	struct devfreq_dev_profile *profile = devfreq->profile;
 
-	if (devfreq->state == KGSL_STATE_SLUMBER)
-		return sprintf(buf, "%u\n",
-			       profile->
-			       freq_table[sizeof(profile->freq_table)]);
+	if (devfreq->state == KGSL_STATE_SLUMBER) {
+		freq = 27000000;
+		return sprintf(buf, "%lu\n", freq);
+	}
 
 	if (profile->get_cur_freq &&
 		!profile->get_cur_freq(devfreq->dev.parent, &freq))
