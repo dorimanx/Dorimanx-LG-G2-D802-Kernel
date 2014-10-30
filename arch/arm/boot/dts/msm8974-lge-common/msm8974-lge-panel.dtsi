@@ -1591,7 +1591,7 @@ mdss_dsi_lgd_960p_video: qcom,mdss_dsi_lgd_960p_video {
 			reg = <0x38>;
 			lm3630,lcd_bl_en = <&msmgpio 49 0x00>;
 			lm3630,max_current = <0x17>;
-			lm3630,min_brightness = <0x05>;
+			lm3630,min_brightness = <0x03>;
 			lm3630,default_brightness = <0x9C>;
 			lm3630,max_brightness = <0xFF>;
 			lm3630,enable_pwm = <0>;
@@ -1622,7 +1622,7 @@ mdss_dsi_lgd_960p_video: qcom,mdss_dsi_lgd_960p_video {
 			reg = <0x38>;
 			lm3630,lcd_bl_en = <&msmgpio 91 0x00>;
 			lm3630,max_current = <0x17>;
-			lm3630,min_brightness = <0x05>;
+			lm3630,min_brightness = <0x03>;
 			lm3630,default_brightness = <0x9C>;
 			lm3630,max_brightness = <0xFF>;
 			lm3630,enable_pwm = <0>;
@@ -1653,7 +1653,7 @@ mdss_dsi_lgd_960p_video: qcom,mdss_dsi_lgd_960p_video {
 			reg = <0x38>;
 			lm3630,lcd_bl_en = <&msmgpio 49 0x00>;
 			lm3630,max_current = <0x17>;
-			lm3630,min_brightness = <0x05>;
+			lm3630,min_brightness = <0x03>;
 			lm3630,default_brightness = <0x9C>;
 			lm3630,max_brightness = <0xFF>;
 			lm3630,enable_pwm = <0>;
