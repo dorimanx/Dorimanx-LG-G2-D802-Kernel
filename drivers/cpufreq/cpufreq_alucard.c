@@ -584,6 +584,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 		}
 		/* Check for frequency increase or for frequency decrease */
 		if (cur_load >= inc_cpu_load && index < hi_index) {
+			++this_alucard_cpuinfo->up_rate;
 			if (check_up) {
 				if ((index + pump_inc_step) >= hi_index)
 					index = hi_index;
@@ -591,18 +592,19 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 					index += pump_inc_step;
 
 				this_alucard_cpuinfo->up_rate = 1;
-			} else
-				++this_alucard_cpuinfo->up_rate;
+				this_alucard_cpuinfo->down_rate = 1;
+			}
 		} else if (cur_load < dec_cpu_load && index > this_alucard_cpuinfo->min_index) {
+			++this_alucard_cpuinfo->down_rate;
 			if (check_down) {
 				if ((index - pump_dec_step) <= this_alucard_cpuinfo->min_index)
 					index = this_alucard_cpuinfo->min_index;
 				else
 					index -= pump_dec_step;
 
+				this_alucard_cpuinfo->up_rate = 1;
 				this_alucard_cpuinfo->down_rate = 1;
-			} else
-				++this_alucard_cpuinfo->down_rate;
+			}
 		} else {
 			this_alucard_cpuinfo->up_rate = 1;
 			this_alucard_cpuinfo->down_rate = 1;
