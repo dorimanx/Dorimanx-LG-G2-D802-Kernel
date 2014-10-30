@@ -47,9 +47,11 @@
  * version 2.0 Guard with mutex all functions that use values from other code to prevent race and bug.
  * version 2.1 Corect Mutex guards in code for fastcharge.
  * version 2.2 allow to charge on 900ma lock.
+ * version 2.3 added more checks to thermal mitigation functions and corrected code style.
+ * removed updating charging scenario when no charger connected. no point to do so.
  */
 
-#define FAST_CHARGE_VERSION	"Version 2.2"
+#define FAST_CHARGE_VERSION	"Version 2.3"
 
 int force_fast_charge;
 int force_fast_charge_temp;
