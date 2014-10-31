@@ -69,7 +69,11 @@ static struct hotplug_tuners {
 #endif
 } hotplug_tuners_ins = {
 	.hotplug_sampling_rate = 30,
+#ifdef CONFIG_MACH_JF
+	.hotplug_enable = 1,
+#else
 	.hotplug_enable = 0,
+#endif
 	.min_cpus_online = 1,
 	.maxcoreslimit = NR_CPUS,
 	.maxcoreslimit_sleep = 1,
@@ -239,7 +243,7 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 			check_up = (pcpu_info->cur_up_rate % pcpu_info->up_rate == 0);
 			check_down = (pcpu_info->cur_down_rate % pcpu_info->down_rate == 0);
 
-			if (cpu > 0 
+			if (cpu > 0
 				&& ((online_cpus - offline_cpu) > upmaxcoreslimit)) {
 					hotplug_onoff[cpu] = OFF;
 					pcpu_info->cur_up_rate = 1;
@@ -267,8 +271,8 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 				&& upcpu < upmaxcoreslimit
 				&& (!cpu_online(upcpu))
 				&& (online_cpus + online_cpu) < upmaxcoreslimit
- 			    && cur_load >= pcpu_info->up_load 
-				&& cur_freq >= pcpu_info->up_freq 
+			    && cur_load >= pcpu_info->up_load
+				&& cur_freq >= pcpu_info->up_freq
 				&& rq_avg > pcpu_info->up_rq) {
 					++pcpu_info->cur_up_rate;
 					if (check_up) {
@@ -336,7 +340,7 @@ static void __ref alucard_hotplug_early_suspend(struct early_suspend *handler)
 #endif
 {
 	if (hotplug_tuners_ins.hotplug_enable > 0
-		&& hotplug_tuners_ins.hotplug_suspend == 1) { 
+		&& hotplug_tuners_ins.hotplug_suspend == 1) {
 			mutex_lock(&hotplug_tuners_ins.alu_hotplug_mutex);
 			hotplug_tuners_ins.suspended = true;
 			mutex_unlock(&hotplug_tuners_ins.alu_hotplug_mutex);
@@ -512,14 +516,14 @@ static ssize_t store_##file_name		\
 	const char *buf, size_t count)					\
 {									\
 	unsigned int input;						\
-	struct hotplug_cpuinfo *pcpu_info; 		\
+	struct hotplug_cpuinfo *pcpu_info;		\
 	int ret;									\
 													\
 	ret = sscanf(buf, "%u", &input);					\
 	if (ret != 1)											\
 		return -EINVAL;										\
 																\
-	pcpu_info = &per_cpu(od_hotplug_cpuinfo, num_core - 1); 	\
+	pcpu_info = &per_cpu(od_hotplug_cpuinfo, num_core - 1);		\
 															\
 	if (input == pcpu_info->var_name) {		\
 		return count;						\
@@ -833,10 +837,17 @@ static int __init alucard_hotplug_init(void)
 	int ret;
 	unsigned int cpu;
 	unsigned int hotplug_freq[NR_CPUS][2] = {
+#ifdef CONFIG_MACH_LGE
 		{0, 1497600},
 		{652800, 1190400},
 		{652800, 1190400},
 		{652800, 0}
+#else
+		{0, 1242000},
+		{810000, 1566000},
+		{918000, 1674000},
+		{1026000, 0}
+#endif
 	};
 	unsigned int hotplug_load[NR_CPUS][2] = {
 		{0, 60},
