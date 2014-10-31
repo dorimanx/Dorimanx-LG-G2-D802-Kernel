@@ -337,7 +337,7 @@ endif
 
 #EXTRA_LDFLAGS += --strip-debug
 
-EXTRA_CFLAGS += $(DHDCFLAGS) #-DDHD_DEBUG
+EXTRA_CFLAGS += $(DHDCFLAGS) -DDHD_DEBUG
 EXTRA_CFLAGS += -DSRCBASE=\"$(src)/src\"
 EXTRA_CFLAGS += -I$(src)/src/include/
 EXTRA_CFLAGS += -I$(src)/src/dhd/sys/
