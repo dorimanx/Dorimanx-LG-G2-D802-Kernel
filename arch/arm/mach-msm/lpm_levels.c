@@ -566,7 +566,7 @@ static noinline int lpm_cpu_power_select(struct cpuidle_device *dev, int *index)
 		if (best_level_pwr >= power) {
 			best_level = i;
 			best_level_pwr = power;
-			if (next_event_us < sleep_us &&
+			if (next_event_us && next_event_us < sleep_us &&
 				(mode != MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT))
 				modified_time_us = next_event_us
 							- pwr->latency_us;
