@@ -1607,7 +1607,7 @@ SYSCALL_DEFINE1(swapoff, const char __user *, specialfile)
 	struct address_space *mapping;
 	struct inode *inode;
 	char *pathname;
-	short oom_score_adj;
+	int oom_score_adj;
 	int i, type, prev;
 	int err;
 

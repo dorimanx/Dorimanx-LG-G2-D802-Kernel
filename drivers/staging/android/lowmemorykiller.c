@@ -297,10 +297,10 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int rem = 0;
 	int tasksize;
 	int i;
-	short min_score_adj = OOM_SCORE_ADJ_MAX + 1;
+	int min_score_adj = OOM_SCORE_ADJ_MAX + 1;
 	int minfree = 0;
 	int selected_tasksize = 0;
-	short selected_oom_score_adj;
+	int selected_oom_score_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
 	int other_free;
 	int other_file;
@@ -335,7 +335,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		}
 	}
 	if (nr_to_scan > 0)
-		lowmem_print(3, "lowmem_shrink %lu, %x, ofree %d %d, ma %hd\n",
+		lowmem_print(3, "lowmem_shrink %lu, %x, ofree %d %d, ma %d\n",
 				nr_to_scan, sc->gfp_mask, other_free,
 				other_file, min_score_adj);
 	rem = global_page_state(NR_ACTIVE_ANON) +
@@ -363,7 +363,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	for_each_process(tsk) {
 #endif
 		struct task_struct *p;
-		short oom_score_adj;
+		int oom_score_adj;
 
 		if (tsk->flags & PF_KTHREAD)
 			continue;
@@ -439,7 +439,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	if (selected) {
 		lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
 				"   to free %ldkB on behalf of '%s' (%d) because\n" \
-				"   cache %ldkB is below limit %ldkB for oom_score_adj %hd\n" \
+				"   cache %ldkB is below limit %ldkB for oom_score_adj %d\n" \
 				"   Free memory is %ldkB above reserved\n",
 			     selected->comm, selected->pid,
 			     selected_oom_score_adj,
@@ -537,7 +537,7 @@ static void __exit lowmem_exit(void)
 }
 
 #ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
-static short lowmem_oom_adj_to_oom_score_adj(short oom_adj)
+static int lowmem_oom_adj_to_oom_score_adj(int oom_adj)
 {
 	if (oom_adj == OOM_ADJUST_MAX)
 		return OOM_SCORE_ADJ_MAX;
@@ -548,8 +548,8 @@ static short lowmem_oom_adj_to_oom_score_adj(short oom_adj)
 static void lowmem_autodetect_oom_adj_values(void)
 {
 	int i;
-	short oom_adj;
-	short oom_score_adj;
+	int oom_adj;
+	int oom_score_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
 
 	if (lowmem_adj_size < array_size)
@@ -607,7 +607,7 @@ static struct kernel_param_ops lowmem_adj_array_ops = {
 static const struct kparam_array __param_arr_adj = {
 	.max = ARRAY_SIZE(lowmem_adj),
 	.num = &lowmem_adj_size,
-	.ops = &param_ops_short,
+	.ops = &param_ops_int,
 	.elemsize = sizeof(lowmem_adj[0]),
 	.elem = lowmem_adj,
 };
@@ -698,9 +698,9 @@ __module_param_call(MODULE_PARAM_PREFIX, adj,
 		    &lowmem_adj_array_ops,
 		    .arr = &__param_arr_adj,
 		    S_IRUGO | S_IWUSR, 0664);
-__MODULE_PARM_TYPE(adj, "array of short");
+__MODULE_PARM_TYPE(adj, "array of int");
 #else
-module_param_array_named(adj, lowmem_adj, short, &lowmem_adj_size,
+module_param_array_named(adj, lowmem_adj, int, &lowmem_adj_size,
 			 S_IRUGO | S_IWUSR);
 #endif
 module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,

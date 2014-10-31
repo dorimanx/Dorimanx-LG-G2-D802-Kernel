@@ -57,7 +57,7 @@ static DEFINE_SPINLOCK(zone_scan_lock);
  * @old_val.  Usually used to reinstate a previous value to prevent racing with
  * userspacing tuning the value in the interim.
  */
-void compare_swap_oom_score_adj(short old_val, short new_val)
+void compare_swap_oom_score_adj(int old_val, int new_val)
 {
 	struct sighand_struct *sighand = current->sighand;
 
@@ -81,7 +81,7 @@ void compare_swap_oom_score_adj(short old_val, short new_val)
  * synchronization and returns the old value.  Usually used to temporarily
  * set a value, save the old value in the caller, and then reinstate it later.
  */
-short test_set_oom_score_adj(short new_val)
+int test_set_oom_score_adj(int new_val)
 {
 	struct sighand_struct *sighand = current->sighand;
 	int old_val;
@@ -214,7 +214,7 @@ unsigned long oom_badness(struct task_struct *p, struct mem_cgroup *memcg,
 	if (!p)
 		return 0;
 
-	adj = (long)p->signal->oom_score_adj;
+	adj = p->signal->oom_score_adj;
 	if (adj == OOM_SCORE_ADJ_MIN) {
 		task_unlock(p);
 		return 0;
@@ -424,7 +424,7 @@ static void dump_tasks(const struct mem_cgroup *memcg, const nodemask_t *nodemas
 			continue;
 		}
 
-		pr_info("[%5d] %5d %5d %8lu %8lu %3u     %3d         %5hd %s\n",
+		pr_info("[%5d] %5d %5d %8lu %8lu %3u     %3d         %5d %s\n",
 			task->pid, task_uid(task), task->tgid,
 			task->mm->total_vm, get_mm_rss(task->mm),
 			task_cpu(task), task->signal->oom_adj,
@@ -439,7 +439,7 @@ static void dump_header(struct task_struct *p, gfp_t gfp_mask, int order,
 {
 	task_lock(current);
 	pr_warning("%s invoked oom-killer: gfp_mask=0x%x, order=%d, "
-		"oom_adj=%hd, oom_score_adj=%hd\n",
+		"oom_adj=%d, oom_score_adj=%d\n",
 		current->comm, gfp_mask, order, current->signal->oom_adj,
 		current->signal->oom_score_adj);
 	cpuset_print_task_mems_allowed(current);

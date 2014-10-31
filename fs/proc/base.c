@@ -1020,7 +1020,7 @@ static ssize_t oom_score_adj_read(struct file *file, char __user *buf,
 {
 	struct task_struct *task = get_proc_task(file->f_path.dentry->d_inode);
 	char buffer[PROC_NUMBUF];
-	short oom_score_adj = OOM_SCORE_ADJ_MIN;
+	int oom_score_adj = OOM_SCORE_ADJ_MIN;
 	unsigned long flags;
 	size_t len;
 
@@ -1031,7 +1031,7 @@ static ssize_t oom_score_adj_read(struct file *file, char __user *buf,
 		unlock_task_sighand(task, &flags);
 	}
 	put_task_struct(task);
-	len = snprintf(buffer, sizeof(buffer), "%hd\n", oom_score_adj);
+	len = snprintf(buffer, sizeof(buffer), "%d\n", oom_score_adj);
 	return simple_read_from_buffer(buf, count, ppos, buffer, len);
 }
 
@@ -1078,19 +1078,19 @@ static ssize_t oom_score_adj_write(struct file *file, const char __user *buf,
 		goto err_task_lock;
 	}
 
-	if ((short)oom_score_adj < task->signal->oom_score_adj_min &&
+	if (oom_score_adj < task->signal->oom_score_adj_min &&
 			!capable(CAP_SYS_RESOURCE)) {
 		err = -EACCES;
 		goto err_sighand;
 	}
 
-	task->signal->oom_score_adj = (short)oom_score_adj;
+	task->signal->oom_score_adj = oom_score_adj;
 #ifdef CONFIG_ANDROID_LMK_ADJ_RBTREE
 	delete_from_adj_tree(task);
 	add_2_adj_tree(task);
 #endif
 	if (has_capability_noaudit(current, CAP_SYS_RESOURCE))
-		task->signal->oom_score_adj_min = (short)oom_score_adj;
+		task->signal->oom_score_adj_min = oom_score_adj;
 	trace_oom_score_adj_update(task);
 	/*
 	 * Scale /proc/pid/oom_adj appropriately ensuring that OOM_DISABLE is
