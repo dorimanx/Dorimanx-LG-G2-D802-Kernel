@@ -130,16 +130,16 @@ static bool protected_apps(char *comm)
 
 static int test_task_flag(struct task_struct *p, int flag)
 {
-	struct task_struct *t;
+	struct task_struct *t = p;
 
-	for_each_thread(p,t) {
+	do {
 		task_lock(t);
 		if (test_tsk_thread_flag(t, flag)) {
 			task_unlock(t);
 			return 1;
 		}
 		task_unlock(t);
-	}
+	} while_each_thread(p, t);
 
 	return 0;
 }
