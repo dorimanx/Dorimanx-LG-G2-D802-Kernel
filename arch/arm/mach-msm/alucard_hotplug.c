@@ -164,7 +164,7 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 	int online_cpu = 0;
 	int offline_cpu = 0;
 	int online_cpus = 0;
-	unsigned int nr_rq_avg;
+	unsigned int rq_avg;
 #if defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
 	bool force_up = hotplug_tuners_ins.force_cpu_up;
@@ -178,7 +178,7 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 	int delay;
 	int io_busy = hotplug_tuners_ins.hp_io_is_busy;
 
-	nr_rq_avg = get_nr_run_avg();
+	rq_avg = get_nr_run_avg();
 
 #if defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
@@ -188,8 +188,8 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 #endif
 		upmaxcoreslimit = hotplug_tuners_ins.maxcoreslimit;
 
+	get_online_cpus();
 	online_cpus = num_online_cpus();
-
 	for_each_online_cpu(cpu) {
 		struct hotplug_cpuinfo *pcpu_info = &per_cpu(od_hotplug_cpuinfo, cpu);
 		unsigned int upcpu = (cpu + 1);
@@ -200,7 +200,6 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 		int cur_load = -1;
 		unsigned int cur_freq = 0;
 		bool check_up = false, check_down = false;
-		unsigned int rq_avg = nr_rq_avg;
 
 #ifdef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
 		cur_load = cpufreq_quick_get_util(cpu);
@@ -252,18 +251,24 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 					continue;
 #if defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
-			} else if (force_up == true || upcpu < min_cpus_online) {
+			} else if (force_up == true || (online_cpus + online_cpu) < min_cpus_online) {
 #else
-			} else if (upcpu < min_cpus_online) {
+			} else if ((online_cpus + online_cpu) < min_cpus_online) {
 #endif
-					check_up = true;
-					cur_load = 100;
-					cur_freq = UINT_MAX;
-					rq_avg = UINT_MAX;
+					if (upcpu < upmaxcoreslimit) {
+						if (!cpu_online(upcpu)) {
+							hotplug_onoff[upcpu][UP_INDEX] = true;
+							pcpu_info->cur_up_rate = 1;
+							pcpu_info->cur_down_rate = 1;
+							++online_cpu;
+						}
+					}
+					continue;
 			}
 
-			if (!cpu_online(upcpu)
+			if (upcpu > 0
 				&& upcpu < upmaxcoreslimit
+				&& (!cpu_online(upcpu))
 				&& (online_cpus + online_cpu) < upmaxcoreslimit
  			    && cur_load >= pcpu_info->up_load 
 				&& cur_freq >= pcpu_info->up_freq 
@@ -298,6 +303,7 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 			}
 		}
 	}
+	put_online_cpus();
 
 	for (cpu = 1; cpu < NR_CPUS; cpu++) {
 		if (hotplug_onoff[cpu][UP_INDEX] == true)
