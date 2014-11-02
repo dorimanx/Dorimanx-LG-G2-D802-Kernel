@@ -961,13 +961,15 @@ static ssize_t oom_adjust_write(struct file *file, const char __user *buf,
 	 * Scale /proc/pid/oom_score_adj appropriately ensuring that a maximum
 	 * value is always attainable.
 	 */
+#ifdef CONFIG_ANDROID_LMK_ADJ_RBTREE
+	delete_from_adj_tree(task);
+#endif
 	if (task->signal->oom_adj == OOM_ADJUST_MAX)
 		task->signal->oom_score_adj = OOM_SCORE_ADJ_MAX;
 	else
 		task->signal->oom_score_adj = (oom_adjust * OOM_SCORE_ADJ_MAX) /
 								-OOM_DISABLE;
 #ifdef CONFIG_ANDROID_LMK_ADJ_RBTREE
-	delete_from_adj_tree(task);
 	add_2_adj_tree(task);
 #endif
 	trace_oom_score_adj_update(task);
@@ -1084,9 +1086,9 @@ static ssize_t oom_score_adj_write(struct file *file, const char __user *buf,
 		goto err_sighand;
 	}
 
-	task->signal->oom_score_adj = (short)oom_score_adj;
 #ifdef CONFIG_ANDROID_LMK_ADJ_RBTREE
 	delete_from_adj_tree(task);
+	task->signal->oom_score_adj = oom_score_adj;
 	add_2_adj_tree(task);
 #endif
 	if (has_capability_noaudit(current, CAP_SYS_RESOURCE))

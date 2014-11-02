@@ -63,9 +63,11 @@ void compare_swap_oom_score_adj(short old_val, short new_val)
 
 	spin_lock_irq(&sighand->siglock);
 	if (current->signal->oom_score_adj == old_val) {
-		current->signal->oom_score_adj = new_val;
 #ifdef CONFIG_ANDROID_LMK_ADJ_RBTREE
 		delete_from_adj_tree(current);
+#endif
+		current->signal->oom_score_adj = new_val;
+#ifdef CONFIG_ANDROID_LMK_ADJ_RBTREE
 		add_2_adj_tree(current);
 #endif
 	}
@@ -87,10 +89,12 @@ short test_set_oom_score_adj(short new_val)
 	int old_val;
 
 	spin_lock_irq(&sighand->siglock);
+#ifdef CONFIG_ANDROID_LMK_ADJ_RBTREE
+	delete_from_adj_tree(current);
+#endif
 	old_val = current->signal->oom_score_adj;
 	current->signal->oom_score_adj = new_val;
 #ifdef CONFIG_ANDROID_LMK_ADJ_RBTREE
-	delete_from_adj_tree(current);
 	add_2_adj_tree(current);
 #endif
 	trace_oom_score_adj_update(current);
