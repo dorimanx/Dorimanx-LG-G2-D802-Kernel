@@ -1747,14 +1747,12 @@ struct file_operations {
 
 static inline int file_readable(struct file *filp)
 {
-	return filp && (filp->f_op->read || filp->f_op->aio_read ||
-			filp->f_op->read_iter);
+	return filp && (filp->f_op->read || filp->f_op->aio_read);
 }
 
 static inline int file_writable(struct file *filp)
 {
-	return filp && (filp->f_op->write || filp->f_op->aio_write ||
-			filp->f_op->write_iter);
+	return filp && (filp->f_op->write || filp->f_op->aio_write);
 }
 
 struct inode_operations {
