@@ -737,7 +737,7 @@ ext4_ext_find_extent(struct inode *inode, ext4_lblk_t block,
 	struct ext4_extent_header *eh;
 	struct buffer_head *bh;
 	short int depth, i, ppos = 0, alloc = 0;
-	int ret;
+	int ret = 0;
 
 	eh = ext_inode_hdr(inode);
 	depth = ext_depth(inode);
