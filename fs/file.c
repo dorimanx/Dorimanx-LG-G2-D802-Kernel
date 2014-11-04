@@ -585,7 +585,6 @@ out:
 	spin_unlock(&files->file_lock);
 	return error;
 }
-EXPORT_SYMBOL(alloc_fd);
 
 static int alloc_fd(unsigned start, unsigned flags)
 {
