@@ -88,7 +88,7 @@ int user_statfs(const char __user *pathname, struct kstatfs *st)
 int fd_statfs(int fd, struct kstatfs *st)
 {
 	int fput_needed;
-	struct file *file = fget_raw_light(fd, &fput_needed);
+	struct file *file = fget_light(fd, &fput_needed);
 	int error = -EBADF;
 	if (file) {
 		error = vfs_statfs(&file->f_path, st);
