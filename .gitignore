@@ -38,6 +38,8 @@ patch-3.*
 usr/initramfs_data.cpio.lz4
 READY-RELEASES/*.zip
 
+/READY-RELEASES/*
+
 #
 # Top-level generic files
 #
