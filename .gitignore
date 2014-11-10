@@ -35,6 +35,8 @@ modules.builtin
 *.rej
 *.orig
 
+/READY-RELEASES/*
+
 #
 # Top-level generic files
 #
