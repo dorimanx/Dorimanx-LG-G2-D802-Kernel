@@ -354,7 +354,7 @@ static int do_fsync(unsigned int fd, int datasync)
 					sizeof(fwork->pathname) - 1);
 				INIT_WORK(&fwork->work, do_afsync_work);
 				queue_work(fsync_workqueue, &fwork->work);
-				fput(file);
+				fput_light(file, fput_needed);
 				return 0;
 			}
 		}
