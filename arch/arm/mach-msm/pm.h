@@ -99,7 +99,6 @@ void msm_pm_enable_retention(bool enable);
 #if defined(CONFIG_MSM_PM)
 void msm_pm_set_rpm_wakeup_irq(unsigned int irq);
 int msm_pm_wait_cpu_shutdown(unsigned int cpu);
-int msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle);
 void __init msm_pm_sleep_status_init(void);
 void msm_pm_set_l2_flush_flag(enum msm_pm_l2_scm_flag flag);
 bool msm_cpu_pm_check_mode(unsigned int cpu, enum msm_pm_sleep_mode mode,
