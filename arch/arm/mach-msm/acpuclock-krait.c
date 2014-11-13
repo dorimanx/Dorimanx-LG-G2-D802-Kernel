@@ -417,12 +417,12 @@ static void decrease_vdd(int cpu, struct vdd_data *data,
 	}
 }
 
-static int calculate_vdd_mem(const struct acpu_level *tgt)
+static inline int calculate_vdd_mem(const struct acpu_level *tgt)
 {
 	return drv.l2_freq_tbl[tgt->l2_level].vdd_mem;
 }
 
-static int get_src_dig(const struct core_speed *s)
+static inline int get_src_dig(const struct core_speed *s)
 {
 	const int *hfpll_vdd = drv.hfpll_data->vdd;
 	const u32 low_vdd_l_max = drv.hfpll_data->low_vdd_l_max;
@@ -438,7 +438,7 @@ static int get_src_dig(const struct core_speed *s)
 		return hfpll_vdd[HFPLL_VDD_LOW];
 }
 
-static int calculate_vdd_dig(const struct acpu_level *tgt)
+static inline int calculate_vdd_dig(const struct acpu_level *tgt)
 {
 	int l2_pll_vdd_dig, cpu_pll_vdd_dig;
 
@@ -452,7 +452,7 @@ static int calculate_vdd_dig(const struct acpu_level *tgt)
 static bool enable_boost = true;
 module_param_named(boost, enable_boost, bool, S_IRUGO | S_IWUSR);
 
-static int calculate_vdd_core(const struct acpu_level *tgt)
+static inline int calculate_vdd_core(const struct acpu_level *tgt)
 {
 	return tgt->vdd_core + (enable_boost ? drv.boost_uv : 0);
 }
