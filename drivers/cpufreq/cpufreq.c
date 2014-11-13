@@ -178,7 +178,7 @@ u64 get_cpu_idle_time(unsigned int cpu, u64 *wall, int io_busy)
 }
 EXPORT_SYMBOL_GPL(get_cpu_idle_time);
 
-static struct cpufreq_policy *__cpufreq_cpu_get(unsigned int cpu, int sysfs)
+static struct cpufreq_policy *__cpufreq_cpu_get(unsigned int cpu, bool sysfs)
 {
 	struct cpufreq_policy *data;
 	unsigned long flags;
@@ -221,16 +221,16 @@ struct cpufreq_policy *cpufreq_cpu_get(unsigned int cpu)
 	if (cpufreq_disabled())
 		return NULL;
 
-	return __cpufreq_cpu_get(cpu, 0);
+	return __cpufreq_cpu_get(cpu, false);
 }
 EXPORT_SYMBOL_GPL(cpufreq_cpu_get);
 
 static struct cpufreq_policy *cpufreq_cpu_get_sysfs(unsigned int cpu)
 {
-	return __cpufreq_cpu_get(cpu, 1);
+	return __cpufreq_cpu_get(cpu, true);
 }
 
-static void __cpufreq_cpu_put(struct cpufreq_policy *data, int sysfs)
+static void __cpufreq_cpu_put(struct cpufreq_policy *data, bool sysfs)
 {
 	if (!sysfs)
 		kobject_put(&data->kobj);
@@ -242,13 +242,13 @@ void cpufreq_cpu_put(struct cpufreq_policy *data)
 	if (cpufreq_disabled())
 		return;
 
-	__cpufreq_cpu_put(data, 0);
+	__cpufreq_cpu_put(data, false);
 }
 EXPORT_SYMBOL_GPL(cpufreq_cpu_put);
 
 static void cpufreq_cpu_put_sysfs(struct cpufreq_policy *data)
 {
-	__cpufreq_cpu_put(data, 1);
+	__cpufreq_cpu_put(data, true);
 }
 
 /*********************************************************************
