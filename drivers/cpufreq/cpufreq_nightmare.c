@@ -63,8 +63,6 @@ static unsigned int nightmare_enable;	/* number of CPUs using this policy */
  */
 static DEFINE_MUTEX(nightmare_mutex);
 
-static struct workqueue_struct *nightmare_wq;
-
 /* nightmare tuners */
 static struct nightmare_tuners {
 	unsigned int sampling_rate;
@@ -559,7 +557,7 @@ static void do_nightmare_timer(struct work_struct *work)
 #endif
 		nightmare_check_cpu(nightmare_cpuinfo);
 
-	mod_delayed_work_on(cpu, nightmare_wq, &nightmare_cpuinfo->work, delay);
+	queue_delayed_work_on(cpu, system_wq, &nightmare_cpuinfo->work, delay);
 	mutex_unlock(&nightmare_cpuinfo->timer_mutex);
 }
 
@@ -619,7 +617,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		}
 
 		INIT_DEFERRABLE_WORK(&this_nightmare_cpuinfo->work, do_nightmare_timer);
-		mod_delayed_work_on(this_nightmare_cpuinfo->cpu, nightmare_wq, &this_nightmare_cpuinfo->work, delay);
+		queue_delayed_work_on(this_nightmare_cpuinfo->cpu, system_wq, &this_nightmare_cpuinfo->work, delay);
 
 		break;
 
@@ -672,19 +670,11 @@ struct cpufreq_governor cpufreq_gov_nightmare = {
 
 static int __init cpufreq_gov_nightmare_init(void)
 {
-	nightmare_wq = alloc_workqueue("nightmare_wq", WQ_HIGHPRI, 0);
-
-	if (!nightmare_wq) {
-		printk(KERN_ERR "Failed to create nightmare workqueue\n");
-		return -EFAULT;
-	}
-
 	return cpufreq_register_governor(&cpufreq_gov_nightmare);
 }
 
 static void __exit cpufreq_gov_nightmare_exit(void)
 {
-	destroy_workqueue(nightmare_wq);
 	cpufreq_unregister_governor(&cpufreq_gov_nightmare);
 }
 
