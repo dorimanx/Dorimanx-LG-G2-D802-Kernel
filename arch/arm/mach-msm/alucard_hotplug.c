@@ -49,8 +49,6 @@ struct hotplug_cpuinfo {
 
 static DEFINE_PER_CPU(struct hotplug_cpuinfo, od_hotplug_cpuinfo);
 
-static struct workqueue_struct *alucardhp_wq;
-
 static struct delayed_work alucard_hotplug_work;
 
 static struct hotplug_tuners {
@@ -328,7 +326,7 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 		delay -= jiffies % delay;
 	}
 */
-	mod_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
+	queue_delayed_work_on(0, system_wq, &alucard_hotplug_work,
 							  delay);
 }
 
@@ -383,16 +381,8 @@ static int hotplug_start(void)
 	unsigned int cpu;
 	int ret = 0;
 
-	alucardhp_wq = alloc_workqueue("alucardhp_wq", WQ_HIGHPRI | WQ_FREEZABLE, 0);
-
-	if (!alucardhp_wq) {
-		printk(KERN_ERR "Failed to create alucard hotplug workqueue\n");
-		return -EFAULT;
-	}
-
 	ret = init_rq_avg();
 	if (ret) {
-		destroy_workqueue(alucardhp_wq);
 		return ret;
 	}
 
@@ -417,7 +407,7 @@ static int hotplug_start(void)
 
 	init_rq_avg_stats();
 	INIT_DELAYED_WORK(&alucard_hotplug_work, hotplug_work_fn);
-	mod_delayed_work_on(0, alucardhp_wq, &alucard_hotplug_work,
+	queue_delayed_work_on(0, system_wq, &alucard_hotplug_work,
 						msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate));
 
 #if defined(CONFIG_POWERSUSPEND) || \
@@ -450,8 +440,6 @@ static void hotplug_stop(void)
 	cancel_delayed_work_sync(&alucard_hotplug_work);
 
 	exit_rq_avg();
-
-	destroy_workqueue(alucardhp_wq);
 }
 
 #define show_one(file_name, object)					\
