@@ -35,6 +35,7 @@
  */
 
 /* Tuning Interface */
+#define MIN_SAMPLING_RATE		10000
 #define SAMPLING_RATE			50000
 #define INC_CPU_LOAD_AT_MIN_FREQ	70
 #define INC_CPU_LOAD			70
@@ -63,9 +64,6 @@ struct cpufreq_alucard_cpuinfo {
 	struct cpufreq_frequency_table *freq_table;
 	struct delayed_work work;
 	struct cpufreq_policy *cur_policy;
-#if 0
-	ktime_t time_stamp;
-#endif
 	int cpu;
 	int min_index;
 	int max_index;
@@ -468,24 +466,6 @@ static struct attribute_group alucard_attr_group = {
 
 /************************** sysfs end ************************/
 
-#if 0
-/* Will return if we need to evaluate cpu load again or not */
-static inline bool need_load_eval(struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo,
-		unsigned int sampling_rate)
-{
-	ktime_t time_now = ktime_get();
-	s64 delta_us = ktime_us_delta(time_now, this_alucard_cpuinfo->time_stamp);
-
-	/* Do nothing if we recently have sampled */
-	if (delta_us < (s64)(sampling_rate / 2))
-		return false;
-	else
-		this_alucard_cpuinfo->time_stamp = time_now;
-
-	return true;
-}
-#endif
-
 static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo)
 {
 	struct cpufreq_policy *cpu_policy;
@@ -574,9 +554,6 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 				this_alucard_cpuinfo->up_rate = 1;
 				this_alucard_cpuinfo->down_rate = 1;
 			}
-		} else {
-			this_alucard_cpuinfo->up_rate = 1;
-			this_alucard_cpuinfo->down_rate = 1;
 		}
 
 		this_alucard_cpuinfo->cur_freq = this_alucard_cpuinfo->freq_table[index].frequency;
@@ -590,7 +567,6 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 static void do_alucard_timer(struct work_struct *work)
 {
 	struct cpufreq_alucard_cpuinfo *alucard_cpuinfo;
-	unsigned int sampling_rate;
 	int delay;
 	unsigned int cpu;
 
@@ -599,21 +575,18 @@ static void do_alucard_timer(struct work_struct *work)
 
 	mutex_lock(&alucard_cpuinfo->timer_mutex);
 
-	sampling_rate = alucard_tuners_ins.sampling_rate;
-	delay = usecs_to_jiffies(sampling_rate);
-	/* We want all CPUs to do sampling nearly on
-	 * same jiffy
-	 */
-	if (num_online_cpus() > 1) {
+	alucard_check_cpu(alucard_cpuinfo);
+
+	delay = usecs_to_jiffies(alucard_tuners_ins.sampling_rate);
+
+	/* We want all CPUs to do sampling nearly on same jiffy */
+	if (num_online_cpus() > 1)
 		delay -= jiffies % delay;
-	}
 
-#if 0
-	if (need_load_eval(alucard_cpuinfo, sampling_rate))
-#endif
-		alucard_check_cpu(alucard_cpuinfo);
-
-	queue_delayed_work_on(cpu, system_wq, &alucard_cpuinfo->work, delay);
+	if (delay > 0)
+		mod_delayed_work_on(cpu, system_wq, &alucard_cpuinfo->work, delay);
+	else
+		mod_delayed_work_on(cpu, system_wq, &alucard_cpuinfo->work, usecs_to_jiffies(MIN_SAMPLING_RATE));
 
 	mutex_unlock(&alucard_cpuinfo->timer_mutex);
 }
@@ -672,17 +645,14 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 
 		mutex_init(&this_alucard_cpuinfo->timer_mutex);
 
-#if 0
-		/* Initiate timer time stamp */
-		this_alucard_cpuinfo->time_stamp = ktime_get();
-#endif
-		delay=usecs_to_jiffies(alucard_tuners_ins.sampling_rate);
-		if (num_online_cpus() > 1) {
+		delay = usecs_to_jiffies(alucard_tuners_ins.sampling_rate);
+		/* We want all CPUs to do sampling nearly on same jiffy */
+		if (num_online_cpus() > 1)
 			delay -= jiffies % delay;
-		}
 
 		INIT_DEFERRABLE_WORK(&this_alucard_cpuinfo->work, do_alucard_timer);
-		queue_delayed_work_on(this_alucard_cpuinfo->cpu, system_wq, &this_alucard_cpuinfo->work, delay);
+
+		mod_delayed_work_on(this_alucard_cpuinfo->cpu, system_wq, &this_alucard_cpuinfo->work, delay);
 
 		break;
 
