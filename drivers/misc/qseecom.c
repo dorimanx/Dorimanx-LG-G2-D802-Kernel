@@ -1972,14 +1972,14 @@ static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 	qseecom.cmnlib_ion_handle = ion_alloc(qseecom.ion_clnt, fw_size,
 					SZ_4K, ION_HEAP(ION_QSECOM_HEAP_ID), 0);
 	if (IS_ERR_OR_NULL(qseecom.cmnlib_ion_handle)) {
-		pr_err("ION alloc failed\n");
+		pr_err("%s: ION alloc failed\n",  __func__);
 		return -ENOMEM;
 	}
 
 	img_data = (u8 *)ion_map_kernel(qseecom.ion_clnt,
 					qseecom.cmnlib_ion_handle);
 	if (IS_ERR_OR_NULL(img_data)) {
-		pr_err("ION memory mapping for cmnlib failed\n");
+		pr_err("%s: ION memory mapping for cmnlib failed\n", __func__);
 		ret = -ENOMEM;
 		goto exit_ion_free;
 	}
