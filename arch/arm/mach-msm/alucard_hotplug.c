@@ -326,7 +326,7 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 		delay -= jiffies % delay;
 	}
 */
-	queue_delayed_work_on(0, system_wq, &alucard_hotplug_work,
+	mod_delayed_work_on(0, system_wq, &alucard_hotplug_work,
 							  delay);
 }
 
@@ -407,7 +407,7 @@ static int hotplug_start(void)
 
 	init_rq_avg_stats();
 	INIT_DELAYED_WORK(&alucard_hotplug_work, hotplug_work_fn);
-	queue_delayed_work_on(0, system_wq, &alucard_hotplug_work,
+	mod_delayed_work_on(0, system_wq, &alucard_hotplug_work,
 						msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate));
 
 #if defined(CONFIG_POWERSUSPEND) || \
