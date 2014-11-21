@@ -87,20 +87,40 @@ static struct hotplug_tuners {
 #define DOWN_INDEX		(0)
 #define UP_INDEX		(1)
 
+#define RQ_AVG_TIMER_RATE	20
+
 struct runqueue_data {
 	unsigned int nr_run_avg;
+	unsigned int update_rate;
 	int64_t last_time;
 	int64_t total_time;
+	struct delayed_work work;
+	struct workqueue_struct *nr_run_wq;
 	spinlock_t lock;
 };
 
 static struct runqueue_data *rq_data;
+static void rq_work_fn(struct work_struct *work);
 
-static void init_rq_avg_stats(void)
+static void start_rq_work(void)
 {
 	rq_data->nr_run_avg = 0;
 	rq_data->last_time = 0;
 	rq_data->total_time = 0;
+	if (rq_data->nr_run_wq == NULL)
+		rq_data->nr_run_wq =
+			create_singlethread_workqueue("nr_run_avg");
+
+	queue_delayed_work(rq_data->nr_run_wq, &rq_data->work,
+			   msecs_to_jiffies(rq_data->update_rate));
+	return;
+}
+
+static void stop_rq_work(void)
+{
+	if (rq_data->nr_run_wq)
+		cancel_delayed_work(&rq_data->work);
+	return;
 }
 
 static int __init init_rq_avg(void)
@@ -111,6 +131,8 @@ static int __init init_rq_avg(void)
 		return -ENOMEM;
 	}
 	spin_lock_init(&rq_data->lock);
+	rq_data->update_rate = RQ_AVG_TIMER_RATE;
+	INIT_DEFERRABLE_WORK(&rq_data->work, rq_work_fn);
 
 	return 0;
 }
@@ -120,15 +142,12 @@ static void exit_rq_avg(void)
 	kfree(rq_data);
 }
 
-static unsigned int get_nr_run_avg(void)
+static void rq_work_fn(struct work_struct *work)
 {
 	int64_t time_diff = 0;
 	int64_t nr_run = 0;
 	unsigned long flags = 0;
-	int64_t cur_time;
-	unsigned int nr_run_avg;
-
-	cur_time = ktime_to_ns(ktime_get());
+	int64_t cur_time = ktime_to_ns(ktime_get());
 
 	spin_lock_irqsave(&rq_data->lock, flags);
 
@@ -150,9 +169,21 @@ static unsigned int get_nr_run_avg(void)
 	rq_data->total_time += time_diff;
 	rq_data->last_time = cur_time;
 
+	if (rq_data->update_rate != 0)
+		queue_delayed_work(rq_data->nr_run_wq, &rq_data->work,
+				   msecs_to_jiffies(rq_data->update_rate));
+
+	spin_unlock_irqrestore(&rq_data->lock, flags);
+}
+
+static unsigned int get_nr_run_avg(void)
+{
+	unsigned int nr_run_avg;
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&rq_data->lock, flags);
 	nr_run_avg = rq_data->nr_run_avg;
 	rq_data->nr_run_avg = 0;
-
 	spin_unlock_irqrestore(&rq_data->lock, flags);
 
 	return nr_run_avg;
@@ -405,7 +436,8 @@ static int hotplug_start(void)
 	}
 	put_online_cpus();
 
-	init_rq_avg_stats();
+	start_rq_work();
+
 	INIT_DELAYED_WORK(&alucard_hotplug_work, hotplug_work_fn);
 	mod_delayed_work_on(0, system_wq, &alucard_hotplug_work,
 						msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate));
@@ -438,6 +470,8 @@ static void hotplug_stop(void)
 #endif  /* CONFIG_POWERSUSPEND || CONFIG_HAS_EARLYSUSPEND */
 
 	cancel_delayed_work_sync(&alucard_hotplug_work);
+
+	stop_rq_work();
 
 	exit_rq_avg();
 }
