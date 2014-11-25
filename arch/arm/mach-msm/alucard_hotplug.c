@@ -132,7 +132,7 @@ static int __init init_rq_avg(void)
 	}
 	spin_lock_init(&rq_data->lock);
 	rq_data->update_rate = RQ_AVG_TIMER_RATE;
-	INIT_DEFERRABLE_WORK(&rq_data->work, rq_work_fn);
+	INIT_DELAYED_WORK(&rq_data->work, rq_work_fn);
 
 	return 0;
 }
