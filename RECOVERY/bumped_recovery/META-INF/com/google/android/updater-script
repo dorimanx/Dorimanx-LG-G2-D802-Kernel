@@ -1,0 +1,29 @@
+ui_print(" ");
+ui_print("-----------------------------------");
+ui_print("-    blastagator's LG G2 TWRP     -");
+ui_print("-            2.8.1.1              -");
+ui_print("-           LG G2 d802            -");
+ui_print("- (with F2FS and Thermal Control) -");
+ui_print("-     Build Date Oct 25 2014      -");
+ui_print("-----------------------------------");
+ui_print(" ");
+
+ui_print(" ");
+show_progress(0.9, 5);
+ui_print("Installing New Recovery");
+
+package_extract_dir("tmp", "/tmp");
+package_extract_file("recovery.img", "/tmp/loki/recovery.img");
+set_perm(0, 0, 0755, "/tmp/loki.sh");
+set_perm_recursive(0, 0, 0755, 0755, "/tmp/loki");
+assert(run_program("/tmp/loki.sh") == 0);
+delete("/tmp/loki.sh");
+ui_print(" ");
+
+
+ui_print(" ");
+set_progress(1.0);
+ui_print("-----------------------------------");
+ui_print("------------ Finished -------------");
+ui_print("-----------------------------------");
+ui_print(" ");

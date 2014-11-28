@@ -1,0 +1,21 @@
+Manifest-Version: 1.0
+Created-By: Ryuinferno @ XDA
+
+Name: META-INF/com/google/android/updater-script
+SHA1-Digest: +gRaEPMZ7oMXA/rrOIuKhWwEeyY=
+
+Name: META-INF/com/google/android/update-binary
+SHA1-Digest: Tzr9AFMUz4IwROO/xoLZeAV7F4o=
+
+Name: tmp/loki.sh
+SHA1-Digest: T69LiIowWlgxdJQKSTMsfnr7zIQ=
+
+Name: recovery.img
+SHA1-Digest: 4bQrWMo1v2z0PPDPiSu+tt5CF/Q=
+
+Name: tmp/loki/loki_flash
+SHA1-Digest: YVcnuCTqzHSKcyG65wvnVF8YUb8=
+
+Name: tmp/loki/loki_patch
+SHA1-Digest: AUqN2bKQ5XRdSi84D+wx8YTiKkA=
+

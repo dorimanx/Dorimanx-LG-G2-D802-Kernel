@@ -1,0 +1,22 @@
+Signature-Version: 1.0
+SHA1-Digest-Manifest: JerO0K2iBVbX07vH0u8XlTstpf0=
+Created-By: Ryuinferno @ XDA
+
+Name: META-INF/com/google/android/updater-script
+SHA1-Digest: MjCq1IATQroguyY6vWPkNenWDPE=
+
+Name: META-INF/com/google/android/update-binary
+SHA1-Digest: /or6fhDgjpLMoaVS66c8dBiPQjk=
+
+Name: tmp/loki.sh
+SHA1-Digest: rsIBuZwofj71QKofAAcHO5/bI/Y=
+
+Name: recovery.img
+SHA1-Digest: Cis+x0CibiShLDmabBAiiqQCMWU=
+
+Name: tmp/loki/loki_flash
+SHA1-Digest: UrwOSD3LpfD2if628L2jS4dYJds=
+
+Name: tmp/loki/loki_patch
+SHA1-Digest: FKYuSgcpd9d2O1fcuwyqvmgyv3s=
+
