@@ -80,7 +80,6 @@ static struct notifier_block notif;
 #endif
 
 struct ip_cpu_info {
-	unsigned int curr_max;
 	unsigned long cpu_nr_running;
 };
 static DEFINE_PER_CPU(struct ip_cpu_info, ip_info);
