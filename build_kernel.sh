@@ -287,6 +287,13 @@ if [ -e "$KERNELDIR"/arch/arm/boot/zImage ]; then
 	cd ..
 	rm -rf boot
 
+	# BUMP boot.img with magic key to install on JB/KK bootloader
+	cd ..
+	sh kernel_bump.sh
+	mv READY-KERNEL/boot_bumped.img READY-KERNEL/boot.img
+	echo "Kernel BUMP done!";
+	cd READY-KERNEL/
+
 	# create the flashable zip file from the contents of the output directory
 	echo "Make flashable zip..........."
 	zip -r Kernel-"${GETVER}"-No-Knock-Code-KK-"$(date +"[%H-%M]-[%d-%m]-LG-${GETBRANCH}-PWR-CORE")".zip * >/dev/null
