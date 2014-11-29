@@ -4700,13 +4700,9 @@ static ssize_t store_lpwg_notify(struct lge_touch_data *ts, const char *buf, siz
 			touch_device_func->lpwg(ts->client, LPWG_ACTIVE_AREA_Y2, value[3], NULL);
 			break;
         case 4 :
-#ifdef CONFIG_MACH_MSM8974_G2_OPEN_COM
 			mutex_lock(&ts->irq_work_mutex);
 			touch_device_func->lpwg(ts->client, LPWG_TAP_COUNT, value[0], NULL);
 			mutex_unlock(&ts->irq_work_mutex);
-#else
-			touch_device_func->lpwg(ts->client, LPWG_TAP_COUNT, value[0], NULL);
-#endif
 			break;
         case 6 :
 #if 0 //#if defined(CONFIG_FB)
