@@ -2556,7 +2556,7 @@ static int qseecom_send_modfd_resp(struct qseecom_dev_handle *data,
 	}
 	resp.resp_buf_ptr = (uint32_t)this_lstnr->sb_virt +
 		(resp.resp_buf_ptr - this_lstnr->user_virt_sb_base);
-	__qseecom_update_cmd_buf(&resp, false, data, true);
+	__qseecom_update_cmd_buf(&resp, false, data, false);
 	qseecom.send_resp_flag = 1;
 	wake_up_interruptible(&qseecom.send_resp_wq);
 	return 0;
@@ -2583,13 +2583,16 @@ static int qseecom_get_qseos_version(struct qseecom_dev_handle *data,
 static int __qseecom_enable_clk(enum qseecom_ce_hw_instance ce)
 {
 	int rc = 0;
-	struct qseecom_clk *qclk;
+	struct qseecom_clk *qclk = NULL;
 
 	if (ce == CLK_QSEE)
 		qclk = &qseecom.qsee;
-	else
+	if (ce == CLK_CE_DRV)
 		qclk = &qseecom.ce_drv;
-
+	if (qclk == NULL) {
+		pr_err("CLK type not supported\n");
+		return -EINVAL;
+	}
 	mutex_lock(&clk_access_lock);
 
 	if (qclk->clk_access_cnt == ULONG_MAX)
@@ -2602,31 +2605,39 @@ static int __qseecom_enable_clk(enum qseecom_ce_hw_instance ce)
 	}
 
 	/* Enable CE core clk */
-	rc = clk_prepare_enable(qclk->ce_core_clk);
-	if (rc) {
-		pr_err("Unable to enable/prepare CE core clk\n");
-		goto err;
+	if (qclk->ce_core_clk != NULL) {
+		rc = clk_prepare_enable(qclk->ce_core_clk);
+		if (rc) {
+			pr_err("Unable to enable/prepare CE core clk\n");
+			goto err;
+		}
 	}
 	/* Enable CE clk */
-	rc = clk_prepare_enable(qclk->ce_clk);
-	if (rc) {
-		pr_err("Unable to enable/prepare CE iface clk\n");
-		goto ce_clk_err;
+	if (qclk->ce_clk != NULL) {
+		rc = clk_prepare_enable(qclk->ce_clk);
+		if (rc) {
+			pr_err("Unable to enable/prepare CE iface clk\n");
+			goto ce_clk_err;
+		}
 	}
 	/* Enable AXI clk */
-	rc = clk_prepare_enable(qclk->ce_bus_clk);
-	if (rc) {
-		pr_err("Unable to enable/prepare CE bus clk\n");
-		goto ce_bus_clk_err;
+	if (qclk->ce_bus_clk != NULL) {
+		rc = clk_prepare_enable(qclk->ce_bus_clk);
+		if (rc) {
+			pr_err("Unable to enable/prepare CE bus clk\n");
+			goto ce_bus_clk_err;
+		}
 	}
 	qclk->clk_access_cnt++;
 	mutex_unlock(&clk_access_lock);
 	return 0;
 
 ce_bus_clk_err:
-	clk_disable_unprepare(qclk->ce_clk);
+	if (qclk->ce_clk != NULL)
+		clk_disable_unprepare(qclk->ce_clk);
 ce_clk_err:
-	clk_disable_unprepare(qclk->ce_core_clk);
+	if (qclk->ce_core_clk != NULL)
+		clk_disable_unprepare(qclk->ce_core_clk);
 err:
 	mutex_unlock(&clk_access_lock);
 	return -EIO;
@@ -4276,6 +4287,7 @@ static int __qseecom_init_clk(enum qseecom_ce_hw_instance ce)
 						qseecom.ce_opp_freq_hz);
 		if (rc) {
 			clk_put(qclk->ce_core_src_clk);
+			qclk->ce_core_src_clk = NULL;
 			pr_err("Unable to set the core src clk @%uMhz.\n",
 					qseecom.ce_opp_freq_hz/CE_CLK_DIV);
 			return -EIO;
@@ -4317,6 +4329,7 @@ static int __qseecom_init_clk(enum qseecom_ce_hw_instance ce)
 		clk_put(qclk->ce_clk);
 		return -EIO;
 	}
+
 	return rc;
 }
 
@@ -4773,26 +4786,29 @@ static int qseecom_resume(struct platform_device *pdev)
 	}
 
 	if (qclk->clk_access_cnt) {
-
-		ret = clk_prepare_enable(qclk->ce_core_clk);
-		if (ret) {
-			pr_err("Unable to enable/prepare CE core clk\n");
-			qclk->clk_access_cnt = 0;
-			goto err;
+		if (qclk->ce_core_clk != NULL) {
+			ret = clk_prepare_enable(qclk->ce_core_clk);
+			if (ret) {
+				pr_err("Unable to enable/prep CE core clk\n");
+				qclk->clk_access_cnt = 0;
+				goto err;
+			}
 		}
-
-		ret = clk_prepare_enable(qclk->ce_clk);
-		if (ret) {
-			pr_err("Unable to enable/prepare CE iface clk\n");
-			qclk->clk_access_cnt = 0;
-			goto ce_clk_err;
+		if (qclk->ce_clk != NULL) {
+			ret = clk_prepare_enable(qclk->ce_clk);
+			if (ret) {
+				pr_err("Unable to enable/prep CE iface clk\n");
+				qclk->clk_access_cnt = 0;
+				goto ce_clk_err;
+			}
 		}
-
-		ret = clk_prepare_enable(qclk->ce_bus_clk);
-		if (ret) {
-			pr_err("Unable to enable/prepare CE bus clk\n");
-			qclk->clk_access_cnt = 0;
-			goto ce_bus_clk_err;
+		if (qclk->ce_bus_clk != NULL) {
+			ret = clk_prepare_enable(qclk->ce_bus_clk);
+			if (ret) {
+				pr_err("Unable to enable/prep CE bus clk\n");
+				qclk->clk_access_cnt = 0;
+				goto ce_bus_clk_err;
+			}
 		}
 	}
 
