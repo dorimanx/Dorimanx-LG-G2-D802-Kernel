@@ -189,8 +189,6 @@ static unsigned int get_nr_run_avg(void)
 	return nr_run_avg;
 }
 
-typedef enum {IDLE, ON, OFF} HOTPLUG_STATUS;
-
 static void __ref hotplug_work_fn(struct work_struct *work)
 {
 	unsigned int upmaxcoreslimit = 0;
@@ -204,8 +202,8 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 	defined(CONFIG_HAS_EARLYSUSPEND)
 	bool force_up = hotplug_tuners_ins.force_cpu_up;
 #endif
-	HOTPLUG_STATUS hotplug_onoff[NR_CPUS] = {IDLE, IDLE, IDLE, IDLE};
 	int io_busy = hotplug_tuners_ins.hp_io_is_busy;
+	cpumask_var_t cpus;
 
 	rq_avg = get_nr_run_avg();
 
@@ -218,8 +216,11 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 		upmaxcoreslimit = hotplug_tuners_ins.maxcoreslimit;
 
 	get_online_cpus();
+	cpumask_copy(cpus, cpu_online_mask);
 	online_cpus = num_online_cpus();
-	for_each_online_cpu(cpu) {
+	put_online_cpus();
+
+	for_each_cpu(cpu, cpus) {
 		struct hotplug_cpuinfo *pcpu_info =
 				&per_cpu(od_hotplug_cpuinfo, cpu);
 		unsigned int upcpu = (cpu + 1);
@@ -274,10 +275,10 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 
 		if (cpu > 0
 			&& ((online_cpus - offline_cpu) > upmaxcoreslimit)) {
-				hotplug_onoff[cpu] = OFF;
 				pcpu_info->cur_up_rate = 1;
 				pcpu_info->cur_down_rate = 1;
 				++offline_cpu;
+				cpu_down(cpu);
 				continue;
 #if defined(CONFIG_POWERSUSPEND) || \
 		defined(CONFIG_HAS_EARLYSUSPEND)
@@ -288,10 +289,10 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 #endif
 				if (upcpu < upmaxcoreslimit) {
 					if (!cpu_online(upcpu)) {
-						hotplug_onoff[upcpu] = ON;
 						pcpu_info->cur_up_rate = 1;
 						pcpu_info->cur_down_rate = 1;
 						++online_cpu;
+						cpu_up(upcpu);
 					}
 				}
 				continue;
@@ -314,10 +315,10 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 						cur_load, rq_avg,
 						pcpu_info->cur_up_rate);
 #endif
-					hotplug_onoff[upcpu] = ON;
 					pcpu_info->cur_up_rate = 1;
 					pcpu_info->cur_down_rate = 1;
 					++online_cpu;
+					cpu_up(upcpu);
 				}
 		} else if (cpu >= min_cpus_online && (
 				cur_load < pcpu_info->down_load
@@ -336,23 +337,15 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 							pcpu_info->
 							cur_down_rate);
 #endif
-						hotplug_onoff[cpu] = OFF;
 						pcpu_info->cur_up_rate = 1;
 						pcpu_info->cur_down_rate = 1;
 						++offline_cpu;
+						cpu_down(cpu);
 					}
 		} else {
 			pcpu_info->cur_up_rate = 1;
 			pcpu_info->cur_down_rate = 1;
 		}
-	}
-	put_online_cpus();
-
-	for (cpu = 1; cpu < NR_CPUS; cpu++) {
-		if (hotplug_onoff[cpu] == ON)
-			cpu_up(cpu);
-		else if (hotplug_onoff[cpu] == OFF)
-			cpu_down(cpu);
 	}
 
 #if defined(CONFIG_POWERSUSPEND) || \
@@ -430,7 +423,6 @@ static int hotplug_start(void)
 	hotplug_tuners_ins.force_cpu_up = false;
 #endif
 
-	get_online_cpus();
 	for_each_possible_cpu(cpu) {
 		struct hotplug_cpuinfo *pcpu_info =
 				&per_cpu(od_hotplug_cpuinfo, cpu);
@@ -443,7 +435,6 @@ static int hotplug_start(void)
 		pcpu_info->cur_up_rate = 1;
 		pcpu_info->cur_down_rate = 1;
 	}
-	put_online_cpus();
 
 	start_rq_work();
 
