@@ -727,8 +727,6 @@ static int __devexit dwc3_remove(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
-	pm_runtime_disable(&pdev->dev);
-
 	dwc3_debugfs_exit(dwc);
 
 	switch (dwc->mode) {
@@ -749,6 +747,8 @@ static int __devexit dwc3_remove(struct platform_device *pdev)
 	}
 
 	dwc3_core_exit(dwc);
+
+	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }

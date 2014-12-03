@@ -85,6 +85,7 @@ static  bool req_crypt_should_encrypt(struct req_dm_crypt_io *req)
 	int ret;
 	bool should_encrypt = false;
 	struct bio *bio = NULL;
+	struct inode *inode = NULL;
 	u32 key_id = 0;
 	bool is_encrypted = false;
 	bool is_inplace = false;
@@ -94,7 +95,13 @@ static  bool req_crypt_should_encrypt(struct req_dm_crypt_io *req)
 
 	bio = req->cloned_request->bio;
 
-	ret = pft_get_key_index(bio, &key_id, &is_encrypted, &is_inplace);
+	if (!bio->bi_io_vec || !bio->bi_io_vec->bv_page ||
+	    !bio->bi_io_vec->bv_page->mapping)
+		return false;
+
+	inode = bio->bi_io_vec->bv_page->mapping->host;
+
+	ret = pft_get_key_index(inode, &key_id, &is_encrypted, &is_inplace);
 	/* req->key_id = key_id; @todo support more than 1 pfe key */
 	if ((ret == 0) && (is_encrypted || is_inplace)) {
 		should_encrypt = true;
@@ -112,6 +119,7 @@ static  bool req_crypt_should_deccrypt(struct req_dm_crypt_io *req)
 	int ret;
 	bool should_deccrypt = false;
 	struct bio *bio = NULL;
+	struct inode *inode = NULL;
 	u32 key_id = 0;
 	bool is_encrypted = false;
 	bool is_inplace = false;
@@ -121,7 +129,13 @@ static  bool req_crypt_should_deccrypt(struct req_dm_crypt_io *req)
 
 	bio = req->cloned_request->bio;
 
-	ret = pft_get_key_index(bio, &key_id, &is_encrypted, &is_inplace);
+	if (!bio->bi_io_vec || !bio->bi_io_vec->bv_page ||
+	    !bio->bi_io_vec->bv_page->mapping)
+		return false;
+
+	inode = bio->bi_io_vec->bv_page->mapping->host;
+
+	ret = pft_get_key_index(inode, &key_id, &is_encrypted, &is_inplace);
 	/* req->key_id = key_id; @todo support more than 1 pfe key */
 	if ((ret == 0) && (is_encrypted && !is_inplace)) {
 		should_deccrypt = true;

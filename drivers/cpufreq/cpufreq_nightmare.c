@@ -29,6 +29,9 @@
 #include <linux/ktime.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+
+#define MIN_SAMPLING_RATE	10000
+
 /*
  * dbs is used in this file as a shortform for demandbased switching
  * It helps to keep variable names smaller, simpler
@@ -42,9 +45,6 @@ struct cpufreq_nightmare_cpuinfo {
 	struct cpufreq_frequency_table *freq_table;
 	struct delayed_work work;
 	struct cpufreq_policy *cur_policy;
-#if 0
-	ktime_t time_stamp;
-#endif
 	int cpu;
 	bool governor_enabled;
 	/*
@@ -62,8 +62,6 @@ static unsigned int nightmare_enable;	/* number of CPUs using this policy */
  * nightmare_mutex protects nightmare_enable in governor start/stop.
  */
 static DEFINE_MUTEX(nightmare_mutex);
-
-static struct workqueue_struct *nightmare_wq;
 
 /* nightmare tuners */
 static struct nightmare_tuners {
@@ -442,24 +440,6 @@ static struct attribute_group nightmare_attr_group = {
 
 /************************** sysfs end ************************/
 
-#if 0
-/* Will return if we need to evaluate cpu load again or not */
-static inline bool need_load_eval(struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo,
-		unsigned int sampling_rate)
-{
-	ktime_t time_now = ktime_get();
-	s64 delta_us = ktime_us_delta(time_now, this_nightmare_cpuinfo->time_stamp);
-
-	/* Do nothing if we recently have sampled */
-	if (delta_us < (s64)(sampling_rate / 2))
-		return false;
-	else
-		this_nightmare_cpuinfo->time_stamp = time_now;
-
-	return true;
-}
-#endif
-
 static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo)
 {
 	struct cpufreq_policy *cpu_policy;
@@ -536,7 +516,6 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 static void do_nightmare_timer(struct work_struct *work)
 {
 	struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo;
-	unsigned int sampling_rate;
 	int delay;
 	unsigned int cpu;
 
@@ -545,8 +524,9 @@ static void do_nightmare_timer(struct work_struct *work)
 
 	mutex_lock(&nightmare_cpuinfo->timer_mutex);
 
-	sampling_rate = nightmare_tuners_ins.sampling_rate;
-	delay = usecs_to_jiffies(sampling_rate);
+	nightmare_check_cpu(nightmare_cpuinfo);
+
+	delay = usecs_to_jiffies(nightmare_tuners_ins.sampling_rate);
 	/* We want all CPUs to do sampling nearly on
 	 * same jiffy
 	 */
@@ -554,12 +534,11 @@ static void do_nightmare_timer(struct work_struct *work)
 		delay -= jiffies % delay;
 	}
 
-#if 0
-	if (need_load_eval(nightmare_cpuinfo, sampling_rate))
-#endif
-		nightmare_check_cpu(nightmare_cpuinfo);
+	if (delay > 0)
+		mod_delayed_work_on(cpu, system_wq, &nightmare_cpuinfo->work, delay);
+	else
+		mod_delayed_work_on(cpu, system_wq, &nightmare_cpuinfo->work, usecs_to_jiffies(MIN_SAMPLING_RATE));
 
-	queue_delayed_work_on(cpu, nightmare_wq, &nightmare_cpuinfo->work, delay);
 	mutex_unlock(&nightmare_cpuinfo->timer_mutex);
 }
 
@@ -608,18 +587,14 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
 
-#if 0
-		/* Initiate timer time stamp */
-		this_nightmare_cpuinfo->time_stamp = ktime_get();
-#endif
-
 		delay=usecs_to_jiffies(nightmare_tuners_ins.sampling_rate);
 		if (num_online_cpus() > 1) {
 			delay -= jiffies % delay;
 		}
 
 		INIT_DEFERRABLE_WORK(&this_nightmare_cpuinfo->work, do_nightmare_timer);
-		queue_delayed_work_on(this_nightmare_cpuinfo->cpu, nightmare_wq, &this_nightmare_cpuinfo->work, delay);
+
+		mod_delayed_work_on(this_nightmare_cpuinfo->cpu, system_wq, &this_nightmare_cpuinfo->work, delay);
 
 		break;
 
@@ -672,19 +647,11 @@ struct cpufreq_governor cpufreq_gov_nightmare = {
 
 static int __init cpufreq_gov_nightmare_init(void)
 {
-	nightmare_wq = alloc_workqueue("nightmare_wq", WQ_HIGHPRI, 0);
-
-	if (!nightmare_wq) {
-		printk(KERN_ERR "Failed to create nightmare workqueue\n");
-		return -EFAULT;
-	}
-
 	return cpufreq_register_governor(&cpufreq_gov_nightmare);
 }
 
 static void __exit cpufreq_gov_nightmare_exit(void)
 {
-	destroy_workqueue(nightmare_wq);
 	cpufreq_unregister_governor(&cpufreq_gov_nightmare);
 }
 

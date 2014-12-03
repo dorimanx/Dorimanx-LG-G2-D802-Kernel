@@ -37,8 +37,8 @@
  * The context ID is used by debuggers and trace logic, and
  * should be unique within all running processes.
  *
- * In big endian operation, the two 32 bit words are swapped if accesed by
- * non 64-bit operations.
+ * In big endian operation, the two 32 bit words are swapped if accessed
+ * by non-64-bit operations.
  */
 #define ASID_FIRST_VERSION	(1ULL << ASID_BITS)
 #define NUM_USER_ASIDS		ASID_FIRST_VERSION
@@ -190,35 +190,50 @@ static int is_reserved_asid(u64 asid)
 
 static u64 new_context(struct mm_struct *mm, unsigned int cpu)
 {
+	static u32 cur_idx = 1;
 	u64 asid = atomic64_read(&mm->context.id);
 	u64 generation = atomic64_read(&asid_generation);
 
-	if (asid != 0 && is_reserved_asid(asid)) {
+	if (asid != 0) {
 		/*
-		 * Our current ASID was active during a rollover, we can
-		 * continue to use it and this was just a false alarm.
+		 * If our current ASID was active during a rollover, we
+		 * can continue to use it and this was just a false alarm.
 		 */
-		asid = generation | (asid & ~ASID_MASK);
-	} else {
+		if (is_reserved_asid(asid))
+			return generation | (asid & ~ASID_MASK);
+
 		/*
-		 * Allocate a free ASID. If we can't find one, take a
-		 * note of the currently active ASIDs and mark the TLBs
-		 * as requiring flushes. We always count from ASID #1,
-		 * as we reserve ASID #0 to switch via TTBR0 and indicate
-		 * rollover events.
+		 * We had a valid ASID in a previous life, so try to re-use
+		 * it if possible.,
 		 */
-		asid = find_next_zero_bit(asid_map, NUM_USER_ASIDS, 1);
-		if (asid == NUM_USER_ASIDS) {
-			generation = atomic64_add_return(ASID_FIRST_VERSION,
-							 &asid_generation);
-			flush_context(cpu);
-			asid = find_next_zero_bit(asid_map, NUM_USER_ASIDS, 1);
-		}
-		__set_bit(asid, asid_map);
-		asid |= generation;
-		cpumask_clear(mm_cpumask(mm));
+		asid &= ~ASID_MASK;
+		if (!__test_and_set_bit(asid, asid_map))
+			goto bump_gen;
 	}
 
+	/*
+	 * Allocate a free ASID. If we can't find one, take a note of the
+	 * currently active ASIDs and mark the TLBs as requiring flushes.
+	 * We always count from ASID #1, as we reserve ASID #0 to switch
+	 * via TTBR0 and to avoid speculative page table walks from hitting
+	 * in any partial walk caches, which could be populated from
+	 * overlapping level-1 descriptors used to map both the module
+	 * area and the userspace stack.
+	 */
+	asid = find_next_zero_bit(asid_map, NUM_USER_ASIDS, cur_idx);
+	if (asid == NUM_USER_ASIDS) {
+		generation = atomic64_add_return(ASID_FIRST_VERSION,
+						 &asid_generation);
+		flush_context(cpu);
+		asid = find_next_zero_bit(asid_map, NUM_USER_ASIDS, 1);
+	}
+
+	__set_bit(asid, asid_map);
+	cur_idx = asid;
+
+bump_gen:
+	asid |= generation;
+	cpumask_clear(mm_cpumask(mm));
 	return asid;
 }
 
@@ -232,8 +247,9 @@ void check_and_switch_context(struct mm_struct *mm, struct task_struct *tsk)
 		__check_kvm_seq(mm);
 
 	/*
-	 * Required during context switch to avoid speculative page table
-	 * walking with the wrong TTBR.
+	 * We cannot update the pgd and the ASID atomicly with classic
+	 * MMU, so switch exclusively to global mappings to avoid
+	 * speculative page table walking with the wrong TTBR.
 	 */
 	cpu_set_reserved_ttbr0();
 

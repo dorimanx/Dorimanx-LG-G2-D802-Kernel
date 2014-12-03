@@ -832,7 +832,7 @@ int msm_pm_wait_cpu_shutdown(unsigned int cpu)
 		return 0;
 	if (!msm_pm_slp_sts[cpu].base_addr)
 		return 0;
-	while (timeout--) {
+	while (1) {
 		/*
 		 * Check for the SPM of the core being hotplugged to set
 		 * its sleep state.The SPM sleep state indicates that the
@@ -843,12 +843,9 @@ int msm_pm_wait_cpu_shutdown(unsigned int cpu)
 		if (acc_sts & msm_pm_slp_sts[cpu].mask)
 			return 0;
 		udelay(100);
-		WARN(++timeout == 50, "CPU%u didn't collapse within 5ms\n",
-					cpu);
+		WARN(++timeout == 50, "CPU%u didn't collapse in 5 ms\n", cpu);
 	}
 
-	pr_info("%s(): Timed out waiting for CPU %u SPM to enter sleep state",
-		__func__, cpu);
 	return -EBUSY;
 }
 
@@ -1072,7 +1069,7 @@ static inline u32 msm_pc_debug_counters_read_register(
 	return readl_relaxed(reg + (index * 4 + offset) * 4);
 }
 
-static char *counter_name[] = {
+char *counter_name[MSM_PC_NUM_COUNTERS] = {
 		"PC Entry Counter",
 		"Warmboot Entry Counter",
 		"PC Bailout Counter"
@@ -1084,19 +1081,24 @@ static int msm_pc_debug_counters_copy(
 	int j;
 	u32 stat;
 	unsigned int cpu;
+	unsigned int len;
 
 	for_each_possible_cpu(cpu) {
-		data->len += scnprintf(data->buf + data->len,
+		len = scnprintf(data->buf + data->len,
 				sizeof(data->buf)-data->len,
 				"CPU%d\n", cpu);
 
+		data->len += len;
+
 		for (j = 0; j < MSM_PC_NUM_COUNTERS; j++) {
 			stat = msm_pc_debug_counters_read_register(
-					data->reg, cpu, j);
-			data->len += scnprintf(data->buf + data->len,
-					sizeof(data->buf)-data->len,
-					"\t%s : %d\n", counter_name[j],
-					stat);
+				data->reg, cpu, j);
+			 len = scnprintf(data->buf + data->len,
+					 sizeof(data->buf) - data->len,
+					"\t%s: %d", counter_name[j], stat);
+
+			 data->len += len;
+
 		}
 
 	}

@@ -102,6 +102,7 @@ struct nfs_open_context {
 	int error;
 
 	struct list_head list;
+	struct nfs4_threshold	*mdsthreshold;
 };
 
 struct nfs_open_dir_context {
@@ -310,11 +311,6 @@ static inline void nfs_mark_for_revalidate(struct inode *inode)
 static inline int nfs_server_capable(struct inode *inode, int cap)
 {
 	return NFS_SERVER(inode)->caps & cap;
-}
-
-static inline int NFS_USE_READDIRPLUS(struct inode *inode)
-{
-	return test_bit(NFS_INO_ADVISE_RDPLUS, &NFS_I(inode)->flags);
 }
 
 static inline void nfs_set_verifier(struct dentry * dentry, unsigned long verf)

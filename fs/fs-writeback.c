@@ -234,6 +234,8 @@ static void requeue_io(struct inode *inode, struct bdi_writeback *wb)
 static void inode_sync_complete(struct inode *inode)
 {
 	inode->i_state &= ~I_SYNC;
+	/* If inode is clean an unused, put it into LRU now... */
+	inode_add_lru(inode);
 	/* Waiters must see I_SYNC cleared before being woken up */
 	smp_mb();
 	wake_up_bit(&inode->i_state, __I_SYNC);
@@ -255,7 +257,7 @@ static bool inode_dirtied_after(struct inode *inode, unsigned long t)
 }
 
 /*
- * Move expired (dirtied after work->older_than_this) dirty inodes from
+ * Move expired (dirtied before work->older_than_this) dirty inodes from
  * @delaying_queue to @dispatch_queue.
  */
 static int move_expired_inodes(struct list_head *delaying_queue,
@@ -445,8 +447,7 @@ static void requeue_inode(struct inode *inode, struct bdi_writeback *wb,
  * setting I_SYNC flag and calling inode_sync_complete() to clear it.
  */
 static int
-__writeback_single_inode(struct inode *inode, struct bdi_writeback *wb,
-			 struct writeback_control *wbc)
+__writeback_single_inode(struct inode *inode, struct writeback_control *wbc)
 {
 	struct address_space *mapping = inode->i_mapping;
 	long nr_to_write = wbc->nr_to_write;
@@ -535,7 +536,7 @@ writeback_single_inode(struct inode *inode, struct bdi_writeback *wb,
 	inode->i_state |= I_SYNC;
 	spin_unlock(&inode->i_lock);
 
-	ret = __writeback_single_inode(inode, wb, wbc);
+	ret = __writeback_single_inode(inode, wbc);
 
 	spin_lock(&wb->list_lock);
 	spin_lock(&inode->i_lock);
@@ -669,6 +670,7 @@ static long writeback_sb_inodes(struct super_block *sb,
 			/* Wait for I_SYNC. This function drops i_lock... */
 			inode_sleep_on_writeback(inode);
 			/* Inode may be gone, start again */
+			spin_lock(&wb->list_lock);
 			continue;
 		}
 		inode->i_state |= I_SYNC;
@@ -682,7 +684,7 @@ static long writeback_sb_inodes(struct super_block *sb,
 		 * We use I_SYNC to pin the inode in memory. While it is set
 		 * evict_inode() will wait so the inode cannot be freed.
 		 */
-		__writeback_single_inode(inode, wb, &wbc);
+		__writeback_single_inode(inode, &wbc);
 
 		work->nr_pages -= write_chunk - wbc.nr_to_write;
 		wrote += write_chunk - wbc.nr_to_write;

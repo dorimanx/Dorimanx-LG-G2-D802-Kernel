@@ -67,7 +67,7 @@ BUILD_NOW()
 {
 	if [ -e /usr/bin/python3 ]; then
 		rm /usr/bin/python
-		ln -s /usr/bin/python2.7 /usr/bin/python
+		ln -s /usr/bin/python2 /usr/bin/python
 	fi;
 
 	# move into the kernel directory and compile the main image
@@ -250,6 +250,13 @@ BUILD_NOW()
 		cd ..
 		rm -rf boot
 
+		# BUMP boot.img with magic key to install on JB/KK bootloader
+		cd ..
+		sh kernel_bump.sh
+		mv READY-KERNEL/boot_bumped.img READY-KERNEL/boot.img
+		echo "Kernel BUMP done!";
+		cd READY-KERNEL/
+
 		# create the flashable zip file from the contents of the output directory
 		echo "Make flashable zip..........."
 		zip -r Kernel-"${GETVER}"-KK-"$(date +"[%H-%M]-[%d-%m]-LG-${GETBRANCH}-PWR-CORE")".zip * >/dev/null
@@ -272,7 +279,7 @@ CLEAN_KERNEL()
 	# fix python
 	if [ -e /usr/bin/python3 ]; then
 		rm /usr/bin/python
-		ln -s /usr/bin/python2.7 /usr/bin/python
+		ln -s /usr/bin/python2 /usr/bin/python
 	fi;
 
 	cp -pv .config .config.bkp;

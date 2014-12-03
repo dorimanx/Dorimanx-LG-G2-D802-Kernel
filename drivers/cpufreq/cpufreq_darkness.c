@@ -29,6 +29,9 @@
 #include <linux/ktime.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+
+#define MIN_SAMPLING_RATE	10000
+
 /*
  * dbs is used in this file as a shortform for demandbased switching
  * It helps to keep variable names smaller, simpler
@@ -42,9 +45,6 @@ struct cpufreq_darkness_cpuinfo {
 	struct cpufreq_frequency_table *freq_table;
 	struct delayed_work work;
 	struct cpufreq_policy *cur_policy;
-#if 0
-	ktime_t time_stamp;
-#endif
 	int cpu;
 	bool governor_enabled;
 	/*
@@ -66,8 +66,6 @@ static unsigned int darkness_enable;	/* number of CPUs using this policy */
  * darkness_mutex protects darkness_enable in governor start/stop.
  */
 static DEFINE_MUTEX(darkness_mutex);
-
-static struct workqueue_struct *darkness_wq;
 
 /* darkness tuners */
 static struct darkness_tuners {
@@ -158,24 +156,6 @@ static struct attribute_group darkness_attr_group = {
 
 /************************** sysfs end ************************/
 
-#if 0
-/* Will return if we need to evaluate cpu load again or not */
-static inline bool need_load_eval(struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo,
-		unsigned int sampling_rate)
-{
-	ktime_t time_now = ktime_get();
-	s64 delta_us = ktime_us_delta(time_now, this_darkness_cpuinfo->time_stamp);
-
-	/* Do nothing if we recently have sampled */
-	if (delta_us < (s64)(sampling_rate / 2))
-		return false;
-	else
-		this_darkness_cpuinfo->time_stamp = time_now;
-
-	return true;
-}
-#endif
-
 static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo)
 {
 	struct cpufreq_policy *cpu_policy;
@@ -238,7 +218,6 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 static void do_darkness_timer(struct work_struct *work)
 {
 	struct cpufreq_darkness_cpuinfo *darkness_cpuinfo;
-	unsigned int sampling_rate;
 	int delay;
 	unsigned int cpu;
 
@@ -247,8 +226,9 @@ static void do_darkness_timer(struct work_struct *work)
 
 	mutex_lock(&darkness_cpuinfo->timer_mutex);
 
-	sampling_rate = darkness_tuners_ins.sampling_rate;
-	delay = usecs_to_jiffies(sampling_rate);
+	darkness_check_cpu(darkness_cpuinfo);
+
+	delay = usecs_to_jiffies(darkness_tuners_ins.sampling_rate);
 	/* We want all CPUs to do sampling nearly on
 	 * same jiffy
 	 */
@@ -256,12 +236,11 @@ static void do_darkness_timer(struct work_struct *work)
 		delay -= jiffies % delay;
 	}
 
-#if 0
-	if (need_load_eval(darkness_cpuinfo, sampling_rate))
-#endif
-		darkness_check_cpu(darkness_cpuinfo);
+	if (delay > 0)
+		mod_delayed_work_on(cpu, system_wq, &darkness_cpuinfo->work, delay);
+	else
+		mod_delayed_work_on(cpu, system_wq, &darkness_cpuinfo->work, usecs_to_jiffies(MIN_SAMPLING_RATE));
 
-	queue_delayed_work_on(cpu, darkness_wq, &darkness_cpuinfo->work, delay);
 	mutex_unlock(&darkness_cpuinfo->timer_mutex);
 }
 
@@ -310,18 +289,15 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		mutex_init(&this_darkness_cpuinfo->timer_mutex);
 
-#if 0
-		/* Initiate timer time stamp */
-		this_darkness_cpuinfo->time_stamp = ktime_get();
-#endif
-
-		delay=usecs_to_jiffies(darkness_tuners_ins.sampling_rate);
+		delay = usecs_to_jiffies(darkness_tuners_ins.sampling_rate);
+		/* We want all CPUs to do sampling nearly on same jiffy */
 		if (num_online_cpus() > 1) {
 			delay -= jiffies % delay;
 		}
 
 		INIT_DEFERRABLE_WORK(&this_darkness_cpuinfo->work, do_darkness_timer);
-		queue_delayed_work_on(this_darkness_cpuinfo->cpu, darkness_wq, &this_darkness_cpuinfo->work, delay);
+
+		mod_delayed_work_on(this_darkness_cpuinfo->cpu, system_wq, &this_darkness_cpuinfo->work, delay);
 
 		break;
 
@@ -374,19 +350,11 @@ struct cpufreq_governor cpufreq_gov_darkness = {
 
 static int __init cpufreq_gov_darkness_init(void)
 {
-	darkness_wq = alloc_workqueue("darkness_wq", WQ_HIGHPRI, 0);
-
-	if (!darkness_wq) {
-		printk(KERN_ERR "Failed to create darkness workqueue\n");
-		return -EFAULT;
-	}
-
 	return cpufreq_register_governor(&cpufreq_gov_darkness);
 }
 
 static void __exit cpufreq_gov_darkness_exit(void)
 {
-	destroy_workqueue(darkness_wq);
 	cpufreq_unregister_governor(&cpufreq_gov_darkness);
 }
 

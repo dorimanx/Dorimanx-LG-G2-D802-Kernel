@@ -124,7 +124,7 @@ static void __msm_limit_suspend(struct early_suspend *handler)
 		return;
 
 	INIT_DELAYED_WORK(&limit.suspend_work, msm_limit_suspend);
-	queue_delayed_work_on(0, limiter_wq, &limit.suspend_work,
+	mod_delayed_work_on(0, limiter_wq, &limit.suspend_work,
 			msecs_to_jiffies(limit.suspend_defer_time * 1000));
 }
 

@@ -1099,7 +1099,8 @@ static ssize_t oom_score_adj_write(struct file *file, const char __user *buf,
 	if (task->signal->oom_score_adj == OOM_SCORE_ADJ_MIN)
 		task->signal->oom_adj = OOM_DISABLE;
 	else
-		task->signal->oom_adj = (oom_score_adj * OOM_ADJUST_MAX) /
+		task->signal->oom_adj = ((short)oom_score_adj *
+							OOM_ADJUST_MAX) /
 							OOM_SCORE_ADJ_MAX;
 err_sighand:
 	unlock_task_sighand(task, &flags);
@@ -1645,13 +1646,13 @@ int pid_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat)
  * made this apply to all per process world readable and executable
  * directories.
  */
-int pid_revalidate(struct dentry *dentry, struct nameidata *nd)
+int pid_revalidate(struct dentry *dentry, unsigned int flags)
 {
 	struct inode *inode;
 	struct task_struct *task;
 	const struct cred *cred;
 
-	if (nd && nd->flags & LOOKUP_RCU)
+	if (flags & LOOKUP_RCU)
 		return -ECHILD;
 
 	inode = dentry->d_inode;
@@ -1825,7 +1826,7 @@ static int proc_fd_link(struct dentry *dentry, struct path *path)
 	return proc_fd_info(dentry->d_inode, path, NULL);
 }
 
-static int tid_fd_revalidate(struct dentry *dentry, struct nameidata *nd)
+static int tid_fd_revalidate(struct dentry *dentry, unsigned int flags)
 {
 	struct inode *inode;
 	struct task_struct *task;
@@ -1833,7 +1834,7 @@ static int tid_fd_revalidate(struct dentry *dentry, struct nameidata *nd)
 	struct files_struct *files;
 	const struct cred *cred;
 
-	if (nd && nd->flags & LOOKUP_RCU)
+	if (flags & LOOKUP_RCU)
 		return -ECHILD;
 
 	inode = dentry->d_inode;
@@ -1912,7 +1913,7 @@ static struct dentry *proc_fd_instantiate(struct inode *dir,
 	d_set_d_op(dentry, &tid_fd_dentry_operations);
 	d_add(dentry, inode);
 	/* Close the race of the process dying before we return the dentry */
-	if (tid_fd_revalidate(dentry, NULL))
+	if (tid_fd_revalidate(dentry, 0))
 		error = NULL;
 
  out:
@@ -2046,7 +2047,7 @@ static int dname_to_vma_addr(struct dentry *dentry,
 	return 0;
 }
 
-static int map_files_d_revalidate(struct dentry *dentry, struct nameidata *nd)
+static int map_files_d_revalidate(struct dentry *dentry, unsigned int flags)
 {
 	unsigned long vm_start, vm_end;
 	bool exact_vma_exists = false;
@@ -2056,7 +2057,7 @@ static int map_files_d_revalidate(struct dentry *dentry, struct nameidata *nd)
 	struct inode *inode;
 	int status = 0;
 
-	if (nd && nd->flags & LOOKUP_RCU)
+	if (flags & LOOKUP_RCU)
 		return -ECHILD;
 
 	if (!capable(CAP_SYS_ADMIN)) {
@@ -2417,7 +2418,7 @@ static struct dentry *proc_fdinfo_instantiate(struct inode *dir,
 	d_set_d_op(dentry, &tid_fd_dentry_operations);
 	d_add(dentry, inode);
 	/* Close the race of the process dying before we return the dentry */
-	if (tid_fd_revalidate(dentry, NULL))
+	if (tid_fd_revalidate(dentry, 0))
 		error = NULL;
 
  out:
@@ -2476,7 +2477,7 @@ static struct dentry *proc_pident_instantiate(struct inode *dir,
 	d_set_d_op(dentry, &pid_dentry_operations);
 	d_add(dentry, inode);
 	/* Close the race of the process dying before we return the dentry */
-	if (pid_revalidate(dentry, NULL))
+	if (pid_revalidate(dentry, 0))
 		error = NULL;
 out:
 	return error;
@@ -3211,7 +3212,7 @@ static struct dentry *proc_pid_instantiate(struct inode *dir,
 
 	d_add(dentry, inode);
 	/* Close the race of the process dying before we return the dentry */
-	if (pid_revalidate(dentry, NULL))
+	if (pid_revalidate(dentry, 0))
 		error = NULL;
 out:
 	return error;
@@ -3475,7 +3476,7 @@ static struct dentry *proc_task_instantiate(struct inode *dir,
 
 	d_add(dentry, inode);
 	/* Close the race of the process dying before we return the dentry */
-	if (pid_revalidate(dentry, NULL))
+	if (pid_revalidate(dentry, 0))
 		error = NULL;
 out:
 	return error;

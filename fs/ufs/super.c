@@ -146,10 +146,7 @@ static struct dentry *ufs_fh_to_parent(struct super_block *sb, struct fid *fid,
 
 static struct dentry *ufs_get_parent(struct dentry *child)
 {
-	struct qstr dot_dot = {
-		.name	= "..",
-		.len	= 2,
-	};
+	struct qstr dot_dot = QSTR_INIT("..", 2);
 	ino_t ino;
 
 	ino = ufs_inode_by_name(child->d_inode, &dot_dot);
@@ -1452,6 +1449,11 @@ static int init_inodecache(void)
 
 static void destroy_inodecache(void)
 {
+	/*
+	 * Make sure all delayed rcu free inodes are flushed before we
+	 * destroy cache.
+	 */
+	rcu_barrier();
 	kmem_cache_destroy(ufs_inode_cachep);
 }
 

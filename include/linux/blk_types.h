@@ -70,13 +70,6 @@ struct bio {
 	struct bio_integrity_payload *bi_integrity;  /* data integrity */
 #endif
 
-	/*
-	 * When using dircet-io (O_DIRECT), we can't get the inode from a bio
-	 * by walking bio->bi_io_vec->bv_page->mapping->host
-	 * since the page is anon.
-	 */
-	struct inode		*bi_dio_inode;
-
 	bio_destructor_t	*bi_destructor;	/* destructor */
 
 	/*
@@ -166,6 +159,7 @@ enum rq_flag_bits {
 	__REQ_SANITIZE,		/* sanitize */
 	__REQ_URGENT,		/* urgent request */
 	__REQ_PM,		/* runtime pm request */
+	__REQ_KERNEL, 		/* direct IO to kernel pages */
 	__REQ_NR_BITS,		/* stops here */
 };
 
@@ -213,5 +207,6 @@ enum rq_flag_bits {
 #define REQ_MIXED_MERGE		(1 << __REQ_MIXED_MERGE)
 #define REQ_SECURE		(1 << __REQ_SECURE)
 #define REQ_PM                 (1 << __REQ_PM)
+#define REQ_KERNEL		(1 << __REQ_KERNEL)
 
 #endif /* __LINUX_BLK_TYPES_H */

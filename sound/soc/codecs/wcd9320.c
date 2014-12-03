@@ -35,7 +35,9 @@
 #include <linux/pm_runtime.h>
 #include <linux/kernel.h>
 #include <linux/gpio.h>
+#include <linux/pm_qos.h>
 #include <linux/pm.h>
+#include <mach/cpuidle.h>
 #include "wcd9320.h"
 #include "wcd9xxx-resmgr.h"
 #include "wcd9xxx-common.h"
@@ -470,7 +472,7 @@ struct taiko_priv {
 	 */
 	struct list_head reg_save_restore;
 
-	struct wakeup_source mad_wakeup_source;
+	struct pm_qos_request pm_qos_req;
 };
 
 static const u32 comp_shift[] = {
@@ -2922,27 +2924,30 @@ static int taiko_codec_config_mad(struct snd_soc_codec *codec)
 	int i = 0;
 
 	pr_debug("%s: enter\n", __func__);
-	__pm_stay_awake(&taiko->mad_wakeup_source);
-
+	/* wakeup for codec calibration access */
+	pm_qos_add_request(&taiko->pm_qos_req,
+			   PM_QOS_CPU_DMA_LATENCY,
+			   PM_QOS_DEFAULT_VALUE);
+	pm_qos_update_request(&taiko->pm_qos_req,
+			      msm_cpuidle_get_deep_idle_latency());
 	ret = request_firmware(&fw, filename, codec->dev);
 	if (ret != 0) {
 		pr_err("Failed to acquire MAD firwmare data %s: %d\n", filename,
 		       ret);
-		ret = -ENODEV;
-		goto relax;
+		return -ENODEV;
 	}
 
 	if (fw->size < sizeof(struct mad_audio_cal)) {
 		pr_err("%s: incorrect firmware size %u\n", __func__, fw->size);
-		ret = -ENOMEM;
-		goto out;
+		release_firmware(fw);
+		return -ENOMEM;
 	}
 
 	mad_cal = (struct mad_audio_cal *)(fw->data);
 	if (!mad_cal) {
 		pr_err("%s: Invalid calibration data\n", __func__);
-		ret = -EINVAL;
-		goto out;
+		release_firmware(fw);
+		return -EINVAL;
 	}
 
 	snd_soc_write(codec, TAIKO_A_CDC_MAD_MAIN_CTL_2,
@@ -3000,13 +3005,11 @@ static int taiko_codec_config_mad(struct snd_soc_codec *codec)
 	snd_soc_write(codec, TAIKO_A_CDC_MAD_ULTR_CTL_6,
 		      mad_cal->ultrasound_info.rms_threshold_msb);
 
-out:
 	release_firmware(fw);
-relax:
-	__pm_relax(&taiko->mad_wakeup_source);
-
 	pr_debug("%s: leave ret %d\n", __func__, ret);
-
+	pm_qos_update_request(&taiko->pm_qos_req,
+			      PM_QOS_DEFAULT_VALUE);
+	pm_qos_remove_request(&taiko->pm_qos_req);
 	return ret;
 }
 
@@ -7370,6 +7373,18 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 
 	mutex_lock(&codec->mutex);
 
+        if (codec->reg_def_copy) {
+            pr_debug("%s: Update ASOC cache", __func__);
+            kfree(codec->reg_cache);
+            codec->reg_cache = kmemdup(codec->reg_def_copy,
+                                            codec->reg_size, GFP_KERNEL);
+            if (!codec->reg_cache) {
+                pr_err("%s: Cache update failed!\n", __func__);
+                mutex_unlock(&codec->mutex);
+                return -ENOMEM;
+            }
+        }
+
 	taiko_update_reg_defaults(codec);
 	if (wcd9xxx->mclk_rate == TAIKO_MCLK_CLK_12P288MHZ)
 		snd_soc_update_bits(codec, TAIKO_A_CHIP_CTL, 0x06, 0x0);
@@ -7737,8 +7752,6 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 		goto err_irq;
 	}
 
-	wakeup_source_init(&taiko->mad_wakeup_source, "mad_wakeup_source");
-
 	atomic_set(&kp_taiko_priv, (unsigned long)taiko);
 	mutex_lock(&dapm->codec->mutex);
 	snd_soc_dapm_disable_pin(dapm, "ANC HPHL");
@@ -7788,8 +7801,6 @@ static int taiko_codec_remove(struct snd_soc_codec *codec)
 	wcd9xxx_resmgr_deinit(&taiko->resmgr);
 
 	taiko->spkdrv_reg = NULL;
-
-	wakeup_source_trash(&taiko->mad_wakeup_source);
 
 	kfree(taiko);
 	return 0;

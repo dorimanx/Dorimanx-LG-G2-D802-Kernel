@@ -238,7 +238,7 @@ static int expand_fdtable(struct files_struct *files, int nr)
  * expanded and execution may have blocked.
  * The files->file_lock should be held on entry, and will be held on exit.
  */
-int expand_files(struct files_struct *files, int nr)
+static int expand_files(struct files_struct *files, int nr)
 {
 	struct fdtable *fdt;
 
@@ -254,6 +254,26 @@ int expand_files(struct files_struct *files, int nr)
 
 	/* All good, so we try */
 	return expand_fdtable(files, nr);
+}
+
+static inline void __set_close_on_exec(int fd, struct fdtable *fdt)
+{
+	__set_bit(fd, fdt->close_on_exec);
+}
+
+static inline void __clear_close_on_exec(int fd, struct fdtable *fdt)
+{
+	__clear_bit(fd, fdt->close_on_exec);
+}
+
+static inline void __set_open_fd(int fd, struct fdtable *fdt)
+{
+	__set_bit(fd, fdt->open_fds);
+}
+
+static inline void __clear_open_fd(int fd, struct fdtable *fdt)
+{
+	__clear_bit(fd, fdt->open_fds);
 }
 
 static int count_open_files(struct fdtable *fdt)
@@ -499,6 +519,12 @@ struct files_struct init_files = {
 	.file_lock	= __SPIN_LOCK_UNLOCKED(init_files.file_lock),
 };
 
+void daemonize_descriptors(void)
+{
+	atomic_inc(&init_files.count);
+	reset_files_struct(&init_files);
+}
+
 /*
  * allocate a file descriptor, mark it busy.
  */
@@ -559,9 +585,8 @@ out:
 	spin_unlock(&files->file_lock);
 	return error;
 }
-EXPORT_SYMBOL(alloc_fd);
 
-int alloc_fd(unsigned start, unsigned flags)
+static int alloc_fd(unsigned start, unsigned flags)
 {
 	return __alloc_fd(current->files, start, rlimit(RLIMIT_NOFILE), flags);
 }
@@ -660,7 +685,6 @@ void do_close_on_exec(struct files_struct *files)
 	struct fdtable *fdt;
 
 	/* exec unshares first */
-	BUG_ON(atomic_read(&files->count) != 1);
 	spin_lock(&files->file_lock);
 	for (i = 0; ; i++) {
 		unsigned long set;
@@ -772,6 +796,7 @@ struct file *fget_light(unsigned int fd, int *fput_needed)
 
 	return file;
 }
+EXPORT_SYMBOL(fget_light);
 
 struct file *fget_raw_light(unsigned int fd, int *fput_needed)
 {
@@ -874,7 +899,7 @@ int replace_fd(unsigned fd, struct file *file, unsigned flags)
 		return __close_fd(files, fd);
 
 	if (fd >= rlimit(RLIMIT_NOFILE))
-		return -EMFILE;
+		return -EBADF;
 
 	spin_lock(&files->file_lock);
 	err = expand_files(files, fd);
@@ -896,8 +921,11 @@ SYSCALL_DEFINE3(dup3, unsigned int, oldfd, unsigned int, newfd, int, flags)
 	if ((flags & ~O_CLOEXEC) != 0)
 		return -EINVAL;
 
+	if (unlikely(oldfd == newfd))
+		return -EINVAL;
+
 	if (newfd >= rlimit(RLIMIT_NOFILE))
-		return -EMFILE;
+		return -EBADF;
 
 	spin_lock(&files->file_lock);
 	err = expand_files(files, newfd);

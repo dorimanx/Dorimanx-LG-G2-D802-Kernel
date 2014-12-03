@@ -300,7 +300,7 @@ static void apply_down_lock(unsigned int cpu)
 	struct down_lock *dl = &per_cpu(lock_info, cpu);
 
 	dl->locked = 1;
-	queue_delayed_work_on(0, hotplug_wq, &dl->lock_rem,
+	mod_delayed_work_on(0, hotplug_wq, &dl->lock_rem,
 			      msecs_to_jiffies(hotplug.down_lock_dur));
 }
 
@@ -454,7 +454,7 @@ static void reschedule_hotplug_work(void)
 	unsigned int delay;
 
 	delay = load_to_update_rate(stats.cur_avg_load);
-	queue_delayed_work_on(0, hotplug_wq, &hotplug_work,
+	mod_delayed_work_on(0, hotplug_wq, &hotplug_work,
 			      msecs_to_jiffies(delay));
 	if (debug == 4)
 		pr_info("%s: reschedule_hotplug delay %u\n",
@@ -594,7 +594,7 @@ static void __msm_hotplug_suspend(struct early_suspend *handler)
 		return;
 
 	INIT_DELAYED_WORK(&hotplug.suspend_work, msm_hotplug_suspend);
-	queue_delayed_work_on(0, susp_wq, &hotplug.suspend_work,
+	mod_delayed_work_on(0, susp_wq, &hotplug.suspend_work,
 			msecs_to_jiffies(hotplug.suspend_defer_time * 1000));
 }
 
@@ -837,7 +837,7 @@ static int __ref msm_hotplug_start(void)
 		apply_down_lock(cpu);
 	}
 
-	queue_delayed_work_on(0, hotplug_wq, &hotplug_work,
+	mod_delayed_work_on(0, hotplug_wq, &hotplug_work,
 							START_DELAY);
 
 	return ret;

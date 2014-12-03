@@ -45,7 +45,6 @@
 #include <linux/usb/audio.h>
 #include <linux/usb/audio-v2.h>
 #include <linux/module.h>
-#include <linux/switch.h>
 
 #include <sound/control.h>
 #include <sound/core.h>
@@ -82,7 +81,6 @@ static int vid[SNDRV_CARDS] = { [0 ... (SNDRV_CARDS-1)] = -1 };
 static int pid[SNDRV_CARDS] = { [0 ... (SNDRV_CARDS-1)] = -1 };
 static int device_setup[SNDRV_CARDS]; /* device parameter for this card */
 static bool ignore_ctl_error;
-struct switch_dev *usbaudiosdev;
 static bool autoclock = true;
 
 module_param_array(index, int, NULL, 0444);
@@ -220,11 +218,24 @@ static int snd_usb_create_streams(struct snd_usb_audio *chip, int ctrlif)
 	struct usb_device *dev = chip->dev;
 	struct usb_host_interface *host_iface;
 	struct usb_interface_descriptor *altsd;
+	struct usb_interface *usb_iface;
 	void *control_header;
 	int i, protocol;
 
+	usb_iface = usb_ifnum_to_if(dev, ctrlif);
+	if (!usb_iface) {
+		snd_printk(KERN_ERR "%d:%u : does not exist\n",
+					dev->devnum, ctrlif);
+		return -EINVAL;
+	}
+
 	/* find audiocontrol interface */
-	host_iface = &usb_ifnum_to_if(dev, ctrlif)->altsetting[0];
+	host_iface = &usb_iface->altsetting[0];
+	if (!host_iface) {
+		snd_printk(KERN_ERR "Audio Control interface is not available.");
+		return -EINVAL;
+	}
+
 	control_header = snd_usb_find_csint_desc(host_iface->extra,
 						 host_iface->extralen,
 						 NULL, UAC_HEADER);
@@ -264,8 +275,7 @@ static int snd_usb_create_streams(struct snd_usb_audio *chip, int ctrlif)
 
 	case UAC_VERSION_2: {
 		struct usb_interface_assoc_descriptor *assoc =
-			usb_ifnum_to_if(dev, ctrlif)->intf_assoc;
-
+						usb_iface->intf_assoc;
 		if (!assoc) {
 			/*
 			 * Firmware writers cannot count to three.  So to find
@@ -296,7 +306,6 @@ static int snd_usb_create_streams(struct snd_usb_audio *chip, int ctrlif)
 		break;
 	}
 	}
-	switch_set_state(usbaudiosdev, 1);
 	return 0;
 }
 
@@ -564,7 +573,6 @@ snd_usb_audio_probe(struct usb_device *dev,
 		goto __error;
 	}
 
-	switch_set_state(usbaudiosdev, 1);
 	usb_chip[chip->index] = chip;
 	chip->num_interfaces++;
 	chip->probing = 0;
@@ -591,18 +599,19 @@ static void snd_usb_audio_disconnect(struct usb_device *dev,
 {
 	struct snd_card *card;
 	struct list_head *p;
+	bool was_shutdown;
 
 	if (chip == (void *)-1L)
 		return;
 
 	card = chip->card;
 	down_write(&chip->shutdown_rwsem);
+	was_shutdown = chip->shutdown;
 	chip->shutdown = 1;
 	up_write(&chip->shutdown_rwsem);
 
 	mutex_lock(&register_mutex);
-	chip->num_interfaces--;
-	if (chip->num_interfaces <= 0) {
+	if (!was_shutdown) {
 		struct snd_usb_endpoint *ep;
 
 		snd_card_disconnect(card);
@@ -622,13 +631,16 @@ static void snd_usb_audio_disconnect(struct usb_device *dev,
 		list_for_each(p, &chip->mixer_list) {
 			snd_usb_mixer_disconnect(p);
 		}
+	}
+
+	chip->num_interfaces--;
+	if (chip->num_interfaces <= 0) {
 		usb_chip[chip->index] = NULL;
 		mutex_unlock(&register_mutex);
 		snd_card_free_when_closed(card);
 	} else {
 		mutex_unlock(&register_mutex);
 	}
-	switch_set_state(usbaudiosdev, 0);
 }
 
 /*
@@ -792,24 +804,12 @@ static struct usb_driver usb_audio_driver = {
 
 static int __init snd_usb_audio_init(void)
 {
-	int err;
-
-	usbaudiosdev = kzalloc(sizeof(*usbaudiosdev), GFP_KERNEL);
-	usbaudiosdev->name = "usb_audio";
-
-	err = switch_dev_register(usbaudiosdev);
-	if (err)
-		pr_err("Usb-audio switch registration failed\n");
-	else
-		pr_debug("usb hs_detected\n");
-
 	return usb_register(&usb_audio_driver);
 }
 
 static void __exit snd_usb_audio_cleanup(void)
 {
 	usb_deregister(&usb_audio_driver);
-	kfree(usbaudiosdev);
 }
 
 module_init(snd_usb_audio_init);

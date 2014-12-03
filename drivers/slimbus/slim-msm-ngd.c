@@ -101,15 +101,13 @@ static irqreturn_t ngd_slim_interrupt(int irq, void *d)
 								dev->err);
 		/* Guarantee that error interrupts are cleared */
 		mb();
-		if (dev->wr_comp)
-			complete(dev->wr_comp);
+		msm_slim_manage_tx_msgq(dev, false, NULL);
 
 	} else if (stat & NGD_INT_TX_MSG_SENT) {
 		writel_relaxed(NGD_INT_TX_MSG_SENT, ngd + NGD_INT_CLR);
 		/* Make sure interrupt is cleared */
 		mb();
-		if (dev->wr_comp)
-			complete(dev->wr_comp);
+		msm_slim_manage_tx_msgq(dev, false, NULL);
 	}
 	if (stat & NGD_INT_RX_MSG_RCVD) {
 		u32 rx_buf[10];
@@ -286,6 +284,7 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	u8 la = txn->la;
 	u8 wbuf[SLIM_MSGQ_BUF_LEN];
 	bool report_sat = false;
+	bool sync_wr = true;
 
 	if (txn->mc == SLIM_USR_MC_REPORT_SATELLITE &&
 		txn->mt == SLIM_MSG_MT_SRC_REFERRED_USER)
@@ -299,7 +298,13 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		 * If the state was DOWN, SSR UP notification will take
 		 * care of putting the device in active state.
 		 */
-		ngd_slim_runtime_resume(dev->dev);
+		ret = ngd_slim_runtime_resume(dev->dev);
+
+		if (ret) {
+			SLIM_ERR(dev, "slim resume failed ret:%d, state:%d",
+					ret, dev->state);
+			return -EREMOTEIO;
+		}
 	}
 
 	else if (txn->mc & SLIM_MSG_CLK_PAUSE_SEQ_FLG)
@@ -364,23 +369,18 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		 * Setting runtime status to suspended clears the error
 		 * It also makes HW status cosistent with what SW has it here
 		 */
-		if (ret == -ENETRESET && dev->state == MSM_CTRL_DOWN) {
+		if (pm_runtime_enabled(dev->dev) && ret < 0) {
+			SLIM_ERR(dev, "slim ctrl vote failed ret:%d, state:%d",
+					ret, dev->state);
 			pm_runtime_set_suspended(dev->dev);
 			msm_slim_put_ctrl(dev);
 			return -EREMOTEIO;
-		} else if (ret >= 0) {
+		} else {
 			dev->state = MSM_CTRL_AWAKE;
 		}
 	}
 	mutex_lock(&dev->tx_lock);
 
-	if (report_sat == false && dev->state != MSM_CTRL_AWAKE) {
-		SLIM_ERR(dev, "controller not ready\n");
-		mutex_unlock(&dev->tx_lock);
-		pm_runtime_set_suspended(dev->dev);
-		msm_slim_put_ctrl(dev);
-		return -EREMOTEIO;
-	}
 	if (txn->mt == SLIM_MSG_MT_CORE &&
 		(txn->mc == SLIM_MSG_MC_CONNECT_SOURCE ||
 		txn->mc == SLIM_MSG_MC_CONNECT_SINK ||
@@ -438,7 +438,25 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		txn->rl = txn->len + 4;
 	}
 	txn->rl--;
-	pbuf = msm_get_msg_buf(dev, txn->rl);
+
+	if (txn->mt == SLIM_MSG_MT_CORE && txn->comp &&
+		dev->use_tx_msgqs == MSM_MSGQ_ENABLED &&
+		(txn_mc != SLIM_MSG_MC_REQUEST_INFORMATION &&
+		 txn_mc != SLIM_MSG_MC_REQUEST_VALUE &&
+		 txn_mc != SLIM_MSG_MC_REQUEST_CHANGE_VALUE &&
+		 txn_mc != SLIM_MSG_MC_REQUEST_CLEAR_INFORMATION)) {
+		sync_wr = false;
+		pbuf = msm_get_msg_buf(dev, txn->rl, txn->comp);
+	} else if (txn->mt == SLIM_MSG_MT_DEST_REFERRED_USER &&
+			dev->use_tx_msgqs == MSM_MSGQ_ENABLED &&
+			txn->mc == SLIM_USR_MC_REPEAT_CHANGE_VALUE &&
+			txn->comp) {
+		sync_wr = false;
+		pbuf = msm_get_msg_buf(dev, txn->rl, txn->comp);
+	} else {
+		pbuf = msm_get_msg_buf(dev, txn->rl, &tx_sent);
+	}
+
 	if (!pbuf) {
 		SLIM_ERR(dev, "Message buffer unavailable\n");
 		ret = -ENOMEM;
@@ -509,10 +527,9 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	 */
 	txn_mc = txn->mc;
 	txn_mt = txn->mt;
-	dev->wr_comp = &tx_sent;
 	ret = msm_send_msg_buf(dev, pbuf, txn->rl,
 			NGD_BASE(dev->ctrl.nr, dev->ver) + NGD_TX_MSG);
-	if (!ret) {
+	if (!ret && sync_wr) {
 		int timeout = wait_for_completion_timeout(&tx_sent, HZ);
 		if (!timeout) {
 			ret = -ETIMEDOUT;
@@ -528,7 +545,6 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			ret = dev->err;
 		}
 	}
-	dev->wr_comp = NULL;
 	if (ret) {
 		u32 conf, stat, rx_msgq, int_stat, int_en, int_clr;
 		void __iomem *ngd = dev->base + NGD_BASE(dev->ctrl.nr,
@@ -1127,7 +1143,7 @@ static int ngd_slim_rx_msgq_thread(void *data)
 
 	while (!kthread_should_stop()) {
 		set_current_state(TASK_INTERRUPTIBLE);
-		wait_for_completion(notify);
+		wait_for_completion_interruptible(notify);
 		/* 1 irq notification per message */
 		if (dev->use_rx_msgqs != MSM_MSGQ_ENABLED) {
 			msm_slim_rx_dequeue(dev, (u8 *)buffer);
@@ -1163,9 +1179,17 @@ static int ngd_notify_slaves(void *data)
 	struct slim_device *sbdev;
 	struct list_head *pos, *next;
 	int ret, i = 0;
+	ret = qmi_svc_event_notifier_register(SLIMBUS_QMI_SVC_ID,
+				SLIMBUS_QMI_SVC_V1,
+				SLIMBUS_QMI_INS_ID, &dev->qmi.nb);
+	if (ret) {
+		pr_err("Slimbus QMI service registration failed:%d", ret);
+		return ret;
+	}
+
 	while (!kthread_should_stop()) {
 		set_current_state(TASK_INTERRUPTIBLE);
-		wait_for_completion(&dev->qmi.slave_notify);
+		wait_for_completion_interruptible(&dev->qmi.slave_notify);
 		/* Probe devices for first notification */
 		if (!i) {
 			i++;
@@ -1296,13 +1320,17 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "no memory for MSM slimbus controller\n");
 		return PTR_ERR(dev);
 	}
+	dev->wr_comp = kzalloc(sizeof(struct completion *) * MSM_TX_BUFS,
+				GFP_KERNEL);
+	if (!dev->wr_comp)
+		return -ENOMEM;
 	dev->dev = &pdev->dev;
 	platform_set_drvdata(pdev, dev);
 	slim_set_ctrldata(&dev->ctrl, dev);
 
 	/* Create IPC log context */
 	dev->ipc_slimbus_log = ipc_log_context_create(IPC_SLIMBUS_LOG_PAGES,
-						dev_name(dev->dev));
+						dev_name(dev->dev), 0);
 	if (!dev->ipc_slimbus_log)
 		dev_err(&pdev->dev, "error creating ipc_logging context\n");
 	else {
@@ -1379,6 +1407,7 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 	init_completion(&dev->reconf);
 	init_completion(&dev->ctrl_up);
 	mutex_init(&dev->tx_lock);
+	mutex_init(&dev->tx_buf_lock);
 	spin_lock_init(&dev->rx_lock);
 	dev->ee = 1;
 	dev->irq = irq->start;
@@ -1406,8 +1435,9 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 	dev->ctrl.dev.of_node = pdev->dev.of_node;
 	dev->state = MSM_CTRL_DOWN;
 
-	ret = request_irq(dev->irq, ngd_slim_interrupt,
-			IRQF_TRIGGER_HIGH, "ngd_slim_irq", dev);
+	ret = request_threaded_irq(dev->irq, NULL,
+			ngd_slim_interrupt,
+			IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "ngd_slim_irq", dev);
 
 	if (ret) {
 		dev_err(&pdev->dev, "request IRQ failed\n");
@@ -1435,14 +1465,6 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 	INIT_WORK(&dev->qmi.ssr_up, ngd_adsp_up);
 	dev->qmi.nb.notifier_call = ngd_qmi_available;
 	pm_runtime_get_noresume(dev->dev);
-	ret = qmi_svc_event_notifier_register(SLIMBUS_QMI_SVC_ID,
-				SLIMBUS_QMI_SVC_V1,
-				SLIMBUS_QMI_INS_ID, &dev->qmi.nb);
-	if (ret) {
-		pr_err("Slimbus QMI service registration failed:%d", ret);
-		goto qmi_register_failed;
-	}
-
 
 	/* Fire up the Rx message queue thread */
 	dev->rx_msgq_thread = kthread_run(ngd_slim_rx_msgq_thread, dev,
@@ -1467,10 +1489,6 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 err_notify_thread_create_failed:
 	kthread_stop(dev->rx_msgq_thread);
 err_rx_thread_create_failed:
-	qmi_svc_event_notifier_unregister(SLIMBUS_QMI_SVC_ID,
-				SLIMBUS_QMI_SVC_V1,
-				SLIMBUS_QMI_INS_ID, &dev->qmi.nb);
-qmi_register_failed:
 	free_irq(dev->irq, dev);
 err_request_irq_failed:
 	slim_del_controller(&dev->ctrl);
@@ -1482,6 +1500,7 @@ err_ioremap_failed:
 	if (dev->sysfs_created)
 		sysfs_remove_file(&dev->dev->kobj,
 				&dev_attr_debug_mask.attr);
+	kfree(dev->wr_comp);
 	kfree(dev);
 	return ret;
 }
@@ -1504,6 +1523,7 @@ static int __devexit ngd_slim_remove(struct platform_device *pdev)
 	kthread_stop(dev->rx_msgq_thread);
 	iounmap(dev->bam.base);
 	iounmap(dev->base);
+	kfree(dev->wr_comp);
 	kfree(dev);
 	return 0;
 }
