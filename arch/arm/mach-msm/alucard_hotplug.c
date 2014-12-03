@@ -215,10 +215,8 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 #endif
 		upmaxcoreslimit = hotplug_tuners_ins.maxcoreslimit;
 
-	get_online_cpus();
 	cpumask_copy(cpus, cpu_online_mask);
 	online_cpus = num_online_cpus();
-	put_online_cpus();
 
 	for_each_cpu(cpu, cpus) {
 		struct hotplug_cpuinfo *pcpu_info =
