@@ -22,9 +22,11 @@
 #include <linux/cpufreq.h>
 #ifdef CONFIG_LCD_NOTIFY
 #include <linux/lcd_notify.h>
-#elif defined(CONFIG_POWERSUSPEND)
+#endif
+#ifdef CONFIG_POWERSUSPEND
 #include <linux/powersuspend.h>
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
+#endif
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
 #include <linux/mutex.h>
@@ -32,6 +34,17 @@
 #include <linux/math64.h>
 #include <linux/kernel_stat.h>
 #include <linux/tick.h>
+
+#if defined(CONFIG_LCD_NOTIFY) && \
+	!defined(CONFIG_POWERSUSPEND) && \
+	!defined(CONFIG_HAS_EARLYSUSPEND)
+#define USE_LCD_NOTIFY
+#else
+#ifdef CONFIG_LCD_NOTIFY
+/* if you wish to use LCD NOTIFY, change undef to define */
+#undef USE_LCD_NOTIFY
+#endif
+#endif
 
 #define MSM_HOTPLUG			"msm_hotplug"
 #define HOTPLUG_ENABLED			1
@@ -103,7 +116,7 @@ static struct cpu_hotplug {
 	struct delayed_work suspend_work;
 	struct work_struct resume_work;
 	struct mutex msm_hotplug_mutex;
-#ifdef CONFIG_LCD_NOTIFY
+#ifdef USE_LCD_NOTIFY
 	struct notifier_block notif;
 #endif
 #endif
@@ -579,7 +592,7 @@ static void __ref msm_hotplug_resume(struct work_struct *work)
 		reschedule_hotplug_work();
 }
 
-#ifdef CONFIG_LCD_NOTIFY
+#ifdef USE_LCD_NOTIFY
 static void __msm_hotplug_suspend(void)
 #elif defined(CONFIG_POWERSUSPEND)
 static void __msm_hotplug_suspend(struct power_suspend *handler)
@@ -598,7 +611,7 @@ static void __msm_hotplug_suspend(struct early_suspend *handler)
 			msecs_to_jiffies(hotplug.suspend_defer_time * 1000));
 }
 
-#ifdef CONFIG_LCD_NOTIFY
+#ifdef USE_LCD_NOTIFY
 static void __ref __msm_hotplug_resume(void)
 #elif defined(CONFIG_POWERSUSPEND)
 static void __ref __msm_hotplug_resume(struct power_suspend *handler)
@@ -629,7 +642,7 @@ static void __ref __msm_hotplug_resume(struct early_suspend *handler)
 	queue_work_on(0, susp_wq, &hotplug.resume_work);
 }
 
-#ifdef CONFIG_LCD_NOTIFY
+#ifdef USE_LCD_NOTIFY
 static int lcd_notifier_callback(struct notifier_block *nb,
                                  unsigned long event, void *data)
 {
@@ -655,7 +668,7 @@ static struct power_suspend msm_hotplug_power_suspend_driver = {
 static struct early_suspend msm_hotplug_early_suspend_driver = {
 	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 10,
 #endif
-#ifndef CONFIG_LCD_NOTIFY
+#ifndef USE_LCD_NOTIFY
 	.suspend = __msm_hotplug_suspend,
 	.resume = __msm_hotplug_resume,
 };
@@ -782,7 +795,7 @@ static int __ref msm_hotplug_start(void)
 	}
 #endif
 
-#ifdef CONFIG_LCD_NOTIFY
+#ifdef USE_LCD_NOTIFY
 	hotplug.notif.notifier_call = lcd_notifier_callback;
         if (lcd_register_client(&hotplug.notif) != 0) {
                 pr_err("%s: Failed to register LCD notifier callback\n",
@@ -877,7 +890,7 @@ static void msm_hotplug_stop(void)
 	mutex_destroy(&stats.stats_mutex);
 	kfree(stats.load_hist);
 
-#ifdef CONFIG_LCD_NOTIFY
+#ifdef USE_LCD_NOTIFY
 	lcd_unregister_client(&hotplug.notif);
 	hotplug.notif.notifier_call = NULL;
 #elif defined(CONFIG_POWERSUSPEND)
