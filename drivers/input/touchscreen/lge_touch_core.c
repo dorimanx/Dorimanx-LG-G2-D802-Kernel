@@ -6006,15 +6006,18 @@ static int lcd_notifier_callback(struct notifier_block *self, unsigned long even
 			touch_lcd_resume(&ts->client->dev);
 			TOUCH_INFO_MSG("touch_resume\n");
 			break;
+		case LCD_EVENT_ON_END:
+			break;
 		case LCD_EVENT_OFF_START:
 			touch_lcd_suspend(&ts->client->dev);
 			TOUCH_INFO_MSG("touch_suspend\n");
 			break;
+		case LCD_EVENT_OFF_END:
 		default:
 			break;
 	}
 
-	return 0;
+	return NOTIFY_OK;
 }
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 static void touch_early_suspend(struct early_suspend *h)
