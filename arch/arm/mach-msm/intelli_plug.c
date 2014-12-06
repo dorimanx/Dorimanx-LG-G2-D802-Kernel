@@ -20,12 +20,25 @@
 #include <linux/kobject.h>
 #ifdef CONFIG_LCD_NOTIFY
 #include <linux/lcd_notify.h>
-#elif defined(CONFIG_POWERSUSPEND)
+#endif
+#ifdef CONFIG_POWERSUSPEND
 #include <linux/powersuspend.h>
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
+#endif
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
 #include <linux/cpufreq.h>
+
+#if defined(CONFIG_LCD_NOTIFY) && \
+	!defined(CONFIG_POWERSUSPEND) && \
+	!defined(CONFIG_HAS_EARLYSUSPEND)
+#define USE_LCD_NOTIFY
+#else
+#ifdef CONFIG_LCD_NOTIFY
+/* if you wish to use LCD NOTIFY, change undef to define */
+#undef USE_LCD_NOTIFY
+#endif
+#endif
 
 #define INTELLI_PLUG			"intelli_plug"
 #define INTELLI_PLUG_MAJOR_VERSION	5
@@ -74,7 +87,7 @@ static struct workqueue_struct *susp_wq;
 static struct delayed_work suspend_work;
 static struct work_struct resume_work;
 static struct mutex intelli_plug_mutex;
-#ifdef CONFIG_LCD_NOTIFY
+#ifdef USE_LCD_NOTIFY
 static struct notifier_block notif;
 #endif
 #endif
@@ -365,7 +378,7 @@ static void __ref intelli_plug_resume(struct work_struct *work)
 				      msecs_to_jiffies(RESUME_SAMPLING_MS));
 }
 
-#ifdef CONFIG_LCD_NOTIFY
+#ifdef USE_LCD_NOTIFY
 static void __intelli_plug_suspend(void)
 #elif defined(CONFIG_POWERSUSPEND)
 static void __intelli_plug_suspend(struct power_suspend *handler)
@@ -384,7 +397,7 @@ static void __intelli_plug_suspend(struct early_suspend *handler)
 				 msecs_to_jiffies(suspend_defer_time * 1000));
 }
 
-#ifdef CONFIG_LCD_NOTIFY
+#ifdef USE_LCD_NOTIFY
 static void __ref __intelli_plug_resume(void)
 #elif defined(CONFIG_POWERSUSPEND)
 static void __ref __intelli_plug_resume(struct power_suspend *handler)
@@ -415,7 +428,7 @@ static void __ref __intelli_plug_resume(struct early_suspend *handler)
 	queue_work_on(0, susp_wq, &resume_work);
 }
 
-#ifdef CONFIG_LCD_NOTIFY
+#ifdef USE_LCD_NOTIFY
 static int lcd_notifier_callback(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
@@ -570,7 +583,7 @@ static int __ref intelli_plug_start(void)
 	}
 #endif
 
-#ifdef CONFIG_LCD_NOTIFY
+#ifdef USE_LCD_NOTIFY
 	notif.notifier_call = lcd_notifier_callback;
 	if (lcd_register_client(&notif) != 0) {
 		pr_err("%s: Failed to register LCD notifier callback\n",
@@ -651,7 +664,7 @@ static void intelli_plug_stop(void)
 	defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
 	mutex_destroy(&intelli_plug_mutex);
-#ifdef CONFIG_LCD_NOTIFY
+#ifdef USE_LCD_NOTIFY
 	lcd_unregister_client(&notif);
 	notif.notifier_call = NULL;
 #elif defined(CONFIG_POWERSUSPEND)
