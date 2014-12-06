@@ -349,6 +349,9 @@ static int lcd_notifier_callback(struct notifier_block *this,
 	case LCD_EVENT_ON_END:
 		scr_suspended = false;
 		break;
+	case LCD_EVENT_OFF_START:
+	case LCD_EVENT_ON_START:
+		break;
 	case LCD_EVENT_OFF_END:
 		scr_suspended = true;
 		break;
@@ -356,7 +359,7 @@ static int lcd_notifier_callback(struct notifier_block *this,
 		break;
 	}
 
-	return 0;
+	return NOTIFY_OK;
 }
 #else
 static void s2w_early_suspend(struct early_suspend *h) {
