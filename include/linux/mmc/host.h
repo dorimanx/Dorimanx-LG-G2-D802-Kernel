@@ -201,12 +201,6 @@ struct mmc_hotplug {
 extern int mmc_cd_get_status(struct mmc_host *host);
 #endif
 
-enum dev_state {
-	DEV_SUSPENDING = 1,
-	DEV_SUSPENDED,
-	DEV_RESUMED,
-};
-
 struct mmc_host {
 	struct device		*parent;
 	struct device		class_dev;
@@ -433,7 +427,6 @@ struct mmc_host {
 		struct delayed_work work;
 		enum mmc_load	state;
 	} clk_scaling;
-	enum dev_state dev_status;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
