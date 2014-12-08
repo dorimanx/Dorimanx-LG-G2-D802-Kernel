@@ -534,10 +534,10 @@ static void do_nightmare_timer(struct work_struct *work)
 		delay -= jiffies % delay;
 	}
 
-	if (delay > 0)
-		mod_delayed_work_on(cpu, system_wq, &nightmare_cpuinfo->work, delay);
-	else
-		mod_delayed_work_on(cpu, system_wq, &nightmare_cpuinfo->work, usecs_to_jiffies(MIN_SAMPLING_RATE));
+	if (delay <= 0)
+		delay = usecs_to_jiffies(MIN_SAMPLING_RATE);
+
+	mod_delayed_work_on(cpu, system_wq, &nightmare_cpuinfo->work, delay);
 
 	mutex_unlock(&nightmare_cpuinfo->timer_mutex);
 }
@@ -556,7 +556,9 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if ((!cpu_online(cpu)) || (!policy->cur))
+		if ((!cpu_online(cpu)) ||
+			(!policy->cur) ||
+			(cpu != this_nightmare_cpuinfo->cpu))
 			return -EINVAL;
 
 		mutex_lock(&nightmare_mutex);
@@ -566,7 +568,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		this_nightmare_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_nightmare_cpuinfo->prev_cpu_wall, io_busy);
 
 		this_nightmare_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
-		this_nightmare_cpuinfo->cpu = cpu;
 
 		nightmare_enable++;
 		/*
@@ -591,6 +592,9 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		if (num_online_cpus() > 1) {
 			delay -= jiffies % delay;
 		}
+
+		if (delay <= 0)
+			delay = usecs_to_jiffies(MIN_SAMPLING_RATE);
 
 		INIT_DEFERRABLE_WORK(&this_nightmare_cpuinfo->work, do_nightmare_timer);
 
@@ -647,6 +651,13 @@ struct cpufreq_governor cpufreq_gov_nightmare = {
 
 static int __init cpufreq_gov_nightmare_init(void)
 {
+	unsigned int cpu;
+
+	for_each_possible_cpu(cpu) {
+		struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, cpu);
+		this_nightmare_cpuinfo->cpu = cpu;
+	}
+
 	return cpufreq_register_governor(&cpufreq_gov_nightmare);
 }
 

@@ -583,10 +583,10 @@ static void do_alucard_timer(struct work_struct *work)
 	if (num_online_cpus() > 1)
 		delay -= jiffies % delay;
 
-	if (delay > 0)
-		mod_delayed_work_on(cpu, system_wq, &alucard_cpuinfo->work, delay);
-	else
-		mod_delayed_work_on(cpu, system_wq, &alucard_cpuinfo->work, usecs_to_jiffies(MIN_SAMPLING_RATE));
+	if (delay <= 0)
+		delay = usecs_to_jiffies(MIN_SAMPLING_RATE);
+
+	mod_delayed_work_on(cpu, system_wq, &alucard_cpuinfo->work, delay);
 
 	mutex_unlock(&alucard_cpuinfo->timer_mutex);
 }
@@ -606,12 +606,13 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if ((!cpu_online(cpu)) || (!policy->cur))
+		if ((!cpu_online(cpu)) || 
+			(!policy->cur) || 
+			(cpu != this_alucard_cpuinfo->cpu))
 			return -EINVAL;
 
 		mutex_lock(&alucard_mutex);
 
-		this_alucard_cpuinfo->cpu = cpu;
 		this_alucard_cpuinfo->cur_policy = policy;
 
 		this_alucard_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_alucard_cpuinfo->prev_cpu_wall, io_busy);
@@ -649,6 +650,9 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 		/* We want all CPUs to do sampling nearly on same jiffy */
 		if (num_online_cpus() > 1)
 			delay -= jiffies % delay;
+
+		if (delay <= 0)
+			delay = usecs_to_jiffies(MIN_SAMPLING_RATE);
 
 		INIT_DEFERRABLE_WORK(&this_alucard_cpuinfo->work, do_alucard_timer);
 
@@ -720,6 +724,7 @@ static int __init cpufreq_gov_alucard_init(void)
 	for_each_possible_cpu(cpu) {
 		struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, cpu);
 
+		this_alucard_cpuinfo->cpu = cpu;
 		this_alucard_cpuinfo->pump_inc_step_at_min_freq = PUMP_INC_STEP_AT_MIN_FREQ;
 		this_alucard_cpuinfo->pump_inc_step = PUMP_INC_STEP;
 		this_alucard_cpuinfo->pump_dec_step = PUMP_DEC_STEP;
