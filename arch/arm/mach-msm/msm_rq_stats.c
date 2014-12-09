@@ -342,15 +342,6 @@ EXPORT_SYMBOL(get_rq_info);
 
 static void def_work_fn(struct work_struct *work)
 {
-	int64_t diff;
-
-	if (!rq_info.hotplug_enabled)
-		return;
-
-	diff = ktime_to_ns(ktime_get()) - rq_info.def_start_time;
-	do_div(diff, 1000 * 1000);
-	rq_info.def_interval = (unsigned int) diff;
-
 	/* Notify polling threads on change of value */
 	sysfs_notify(rq_info.kobj, NULL, "def_timer_ms");
 }
@@ -418,9 +409,16 @@ static struct kobj_attribute run_queue_poll_ms_attr =
 static ssize_t show_def_timer_ms(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
+	int64_t diff;
+	unsigned int udiff;
+
+	diff = ktime_to_ns(ktime_get()) - rq_info.def_start_time;
+	do_div(diff, 1000 * 1000);
+	udiff = (unsigned int) diff;
+
+
 	if (!rq_info.bricked_hotplug_enabled)
-		return snprintf(buf, MAX_LONG_SIZE, "%u\n",
-				rq_info.def_interval);
+		return snprintf(buf, MAX_LONG_SIZE, "%u\n", udiff);
 	else
 		return snprintf(buf, MAX_LONG_SIZE, "%u\n", 0);
 }
