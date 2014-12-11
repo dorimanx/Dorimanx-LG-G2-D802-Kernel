@@ -40,6 +40,9 @@
 #define wmb()	mb()
 #define read_barrier_depends()	do { } while(0)
 
+#define dma_rmb()	mb()
+#define dma_wmb()	mb()
+
 #ifdef CONFIG_SMP
 # define smp_mb()	mb()
 # define smp_rmb()	rmb()

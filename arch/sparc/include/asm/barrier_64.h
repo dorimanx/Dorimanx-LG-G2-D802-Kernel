@@ -37,7 +37,13 @@ do {	__asm__ __volatile__("ba,pt	%%xcc, 1f\n\t" \
 #define rmb()	__asm__ __volatile__("":::"memory")
 #define wmb()	__asm__ __volatile__("":::"memory")
 
+<<<<<<< HEAD
 #define read_barrier_depends()		do { } while(0)
+=======
+#define dma_rmb()	rmb()
+#define dma_wmb()	wmb()
+
+>>>>>>> 1077fa3... arch: Add lightweight memory barriers dma_rmb() and dma_wmb()
 #define set_mb(__var, __value) \
 	do { __var = __value; membar_safe("#StoreLoad"); } while(0)
 

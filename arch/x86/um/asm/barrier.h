@@ -29,17 +29,22 @@
 
 #endif /* CONFIG_X86_32 */
 
+<<<<<<< HEAD
 #define read_barrier_depends()	do { } while (0)
 
 #ifdef CONFIG_SMP
 
 #define smp_mb()	mb()
+=======
+>>>>>>> 1077fa3... arch: Add lightweight memory barriers dma_rmb() and dma_wmb()
 #ifdef CONFIG_X86_PPRO_FENCE
-#define smp_rmb()	rmb()
+#define dma_rmb()	rmb()
 #else /* CONFIG_X86_PPRO_FENCE */
-#define smp_rmb()	barrier()
+#define dma_rmb()	barrier()
 #endif /* CONFIG_X86_PPRO_FENCE */
+#define dma_wmb()	barrier()
 
+<<<<<<< HEAD
 #ifdef CONFIG_X86_OOSTORE
 #define smp_wmb()	wmb()
 #else /* CONFIG_X86_OOSTORE */
@@ -47,6 +52,13 @@
 #endif /* CONFIG_X86_OOSTORE */
 
 #define smp_read_barrier_depends()	read_barrier_depends()
+=======
+#ifdef CONFIG_SMP
+
+#define smp_mb()	mb()
+#define smp_rmb()	dma_rmb()
+#define smp_wmb()	barrier()
+>>>>>>> 1077fa3... arch: Add lightweight memory barriers dma_rmb() and dma_wmb()
 #define set_mb(var, value) do { (void)xchg(&var, value); } while (0)
 
 #else /* CONFIG_SMP */
