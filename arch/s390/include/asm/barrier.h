@@ -17,6 +17,7 @@
  * all memory ops have completed wrt other CPU's ( see 7-15 POP  DJB ).
  */
 
+<<<<<<< HEAD
 #define eieio()	asm volatile("bcr 15,0" : : : "memory")
 #define SYNC_OTHER_CORES(x)   eieio()
 #define mb()    eieio()
@@ -31,6 +32,32 @@
 #define smp_mb__after_clear_bit()      smp_mb()
 
 #define set_mb(var, value)      do { var = value; mb(); } while (0)
+=======
+#ifdef CONFIG_HAVE_MARCH_Z196_FEATURES
+/* Fast-BCR without checkpoint synchronization */
+#define __ASM_BARRIER "bcr 14,0\n"
+#else
+#define __ASM_BARRIER "bcr 15,0\n"
+#endif
+
+#define mb() do {  asm volatile(__ASM_BARRIER : : : "memory"); } while (0)
+
+#define rmb()				mb()
+#define wmb()				mb()
+#define dma_rmb()			rmb()
+#define dma_wmb()			wmb()
+#define smp_mb()			mb()
+#define smp_rmb()			rmb()
+#define smp_wmb()			wmb()
+
+#define read_barrier_depends()		do { } while (0)
+#define smp_read_barrier_depends()	do { } while (0)
+
+#define smp_mb__before_atomic()		smp_mb()
+#define smp_mb__after_atomic()		smp_mb()
+
+#define set_mb(var, value)		do { var = value; mb(); } while (0)
+>>>>>>> 1077fa3... arch: Add lightweight memory barriers dma_rmb() and dma_wmb()
 
 #define smp_store_release(p, v)						\
 do {									\
