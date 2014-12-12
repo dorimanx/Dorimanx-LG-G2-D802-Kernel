@@ -5,7 +5,7 @@
 
 DHDCFLAGS = -Wall -Wstrict-prototypes -Dlinux -DLINUX -DBCMDRIVER             \
         -DBCMDONGLEHOST -DUNRELEASEDCHIP -DBCMDMA32 -DBCMFILEIMAGE            \
-        -DDHDTHREAD -DBDC						      \
+        -DDHDTHREAD -DBDC -DDHD_USE_POWERSUSPEND			      \
         -DDHD_BCMEVENTS -DSHOW_EVENTS -DBCMDBG                                \
         -DMMC_SDIO_ABORT -DBCMSDIO -DBCMLXSDMMC -DBCMPLATFORM_BUS -DWLP2P     \
         -DWIFI_ACT_FRAME -DARP_OFFLOAD_SUPPORT                                \
