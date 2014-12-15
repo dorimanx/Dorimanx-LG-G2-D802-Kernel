@@ -421,10 +421,8 @@ static void rndis_response_available(void *_rndis)
 	if (atomic_inc_return(&rndis->notify_count) != 1)
 		return;
 
-#ifndef CONFIG_MACH_MSM8974_G2_VZW
 	if (!rndis->notify->driver_data)
 		return;
-#endif
 	/* Send RNDIS RESPONSE_AVAILABLE notification; a
 	 * USB_CDC_NOTIFY_RESPONSE_AVAILABLE "should" work too
 	 *
