@@ -302,7 +302,7 @@ CLEAN_KERNEL()
 }
 
 echo "What to cook for you?!";
-select CHOICE in D800 D801 D802 D803 F320 LS980 VS980 L01F ALL; do
+select CHOICE in D800 D801 D802 D803 F320 LS980 VS980 L01F ALL_NEEDED ALL; do
 	case "$CHOICE" in
 		"D800")
 			export KERNEL_CONFIG=dorimanx_d800_defconfig
@@ -351,6 +351,48 @@ select CHOICE in D800 D801 D802 D803 F320 LS980 VS980 L01F ALL; do
 			KERNEL_CONFIG_FILE=dorimanx_l01f_defconfig
 			BUILD_L01F=1;
 			BUILD_NOW;
+			break;;
+		"ALL_NEEDED")
+			CLEAN_KERNEL;
+			echo "starting build of LS980 in 3"
+			sleep 1;
+			echo "starting build of LS980 in 2"
+			sleep 1;
+			echo "starting build of LS980 in 1"
+			sleep 1;
+			CLEANUP;
+			export KERNEL_CONFIG=dorimanx_ls980_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_ls980_defconfig
+			BUILD_LS_980=1;
+			BUILD_NOW;
+			echo "LS980 is ready!"
+			cp READY-KERNEL/*.zip READY-RELEASES/;
+			echo "starting build of VS980 in 3"
+			sleep 1;
+			echo "starting build of VS980 in 2"
+			sleep 1;
+			echo "starting build of VS980 in 1"
+			sleep 1;
+			CLEANUP;
+			export KERNEL_CONFIG=dorimanx_vs980_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_vs980_defconfig
+			BUILD_VS_980=1;
+			BUILD_NOW;
+			echo "VS980 is ready!"
+			cp READY-KERNEL/*.zip READY-RELEASES/;
+			echo "starting build of L01F in 3"
+			sleep 1;
+			echo "starting build of L01F in 2"
+			sleep 1;
+			echo "starting build of L01F in 1"
+			sleep 1;
+			CLEANUP;
+			export KERNEL_CONFIG=dorimanx_l01f_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_l01f_defconfig
+			BUILD_L01F=1;
+			BUILD_NOW;
+			echo "L01F is ready!"
+			cp READY-KERNEL/*.zip READY-RELEASES/;
 			break;;
 		"ALL")
 			CLEAN_KERNEL;
