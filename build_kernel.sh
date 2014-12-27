@@ -88,7 +88,7 @@ BUILD_NOW()
 			cp arch/arm/configs/dorimanx_ls980_defconfig .config
 		elif [ "$BUILD_VS_980" -eq "1" ]; then
 			cp arch/arm/configs/dorimanx_vs980_defconfig .config
-		elif [ã "$BUIDL_L01F" -eq "1"]; then
+		elif [ "$BUILD_L01F" -eq "1" ]; then
 			cp arch/arm/configs/dorimanx_l01f_defconfig .config
 		fi;
 	fi;
