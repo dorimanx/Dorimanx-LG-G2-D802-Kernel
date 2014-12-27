@@ -236,10 +236,10 @@ static void do_darkness_timer(struct work_struct *work)
 		delay -= jiffies % delay;
 	}
 
-	if (delay > 0)
-		mod_delayed_work_on(cpu, system_wq, &darkness_cpuinfo->work, delay);
-	else
-		mod_delayed_work_on(cpu, system_wq, &darkness_cpuinfo->work, usecs_to_jiffies(MIN_SAMPLING_RATE));
+	if (delay <= 0)
+		delay = usecs_to_jiffies(MIN_SAMPLING_RATE);
+
+	mod_delayed_work_on(cpu, system_wq, &darkness_cpuinfo->work, delay);
 
 	mutex_unlock(&darkness_cpuinfo->timer_mutex);
 }
@@ -258,14 +258,15 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if ((!cpu_online(cpu)) || (!policy->cur))
+		if ((!cpu_online(cpu)) ||
+			(!policy->cur) ||
+			(cpu != this_darkness_cpuinfo->cpu))
 			return -EINVAL;
 
 		mutex_lock(&darkness_mutex);
 
 		this_darkness_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
 
-		this_darkness_cpuinfo->cpu = cpu;
 		this_darkness_cpuinfo->cur_policy = policy;
 
 		this_darkness_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_darkness_cpuinfo->prev_cpu_wall, io_busy);
@@ -294,6 +295,9 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		if (num_online_cpus() > 1) {
 			delay -= jiffies % delay;
 		}
+
+		if (delay <= 0)
+			delay = usecs_to_jiffies(MIN_SAMPLING_RATE);
 
 		INIT_DEFERRABLE_WORK(&this_darkness_cpuinfo->work, do_darkness_timer);
 
@@ -350,6 +354,13 @@ struct cpufreq_governor cpufreq_gov_darkness = {
 
 static int __init cpufreq_gov_darkness_init(void)
 {
+	unsigned int cpu;
+
+	for_each_possible_cpu(cpu) {
+		struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, cpu);
+		this_darkness_cpuinfo->cpu = cpu;
+	}
+
 	return cpufreq_register_governor(&cpufreq_gov_darkness);
 }
 

@@ -286,7 +286,7 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 		} else if ((online_cpus + online_cpu) < min_cpus_online) {
 #endif
 				if (upcpu < upmaxcoreslimit) {
-					if (!cpu_online(upcpu)) {
+					if (cpu_is_offline(upcpu)) {
 						pcpu_info->cur_up_rate = 1;
 						pcpu_info->cur_down_rate = 1;
 						++online_cpu;
@@ -298,7 +298,7 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 
 		if (upcpu > 0
 			&& upcpu < upmaxcoreslimit
-			&& (!cpu_online(upcpu))
+			&& (cpu_is_offline(upcpu))
 			&& (online_cpus + online_cpu) < upmaxcoreslimit
 		    && cur_load >= pcpu_info->up_load
 			&& cur_freq >= pcpu_info->up_freq

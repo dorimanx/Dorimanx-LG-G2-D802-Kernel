@@ -508,14 +508,14 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 	}
 	pr_info("%s: %s: Starting bkops\n", mmc_hostname(card->host), __func__);
 
-	#ifdef CONFIG_MACH_LGE
+	#ifdef CONFIG_MACH_LGE_JUNK
 		printk(KERN_INFO "[LGE][MMC][%-18s( )] before %s bkops operation\n", __func__, mmc_hostname(card->host));
 	#endif
 
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			EXT_CSD_BKOPS_START, 1, 0, false, false);
 
-	#ifdef CONFIG_MACH_LGE
+	#ifdef CONFIG_MACH_LGE_JUNK
 		printk(KERN_INFO "[LGE][MMC][%-18s( )] after %s bkops operation\n", __func__, mmc_hostname(card->host));
 	#endif
 
@@ -1326,12 +1326,6 @@ void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card)
 			limit_us = 3000000;
 		else
 			#ifdef CONFIG_MACH_LGE
-			/*           
-                                              
-                                                                         
-                                        
-                               
-    */
 			limit_us = 300000;
 			#else
 			limit_us = 100000;
@@ -1966,10 +1960,6 @@ void mmc_power_up(struct mmc_host *host)
 	 * to reach the minimum voltage.
 	 */
 	#ifdef CONFIG_MACH_LGE
-	/*           
-                                              
-                            
- */
 	mmc_delay(20);
 	#else
 	mmc_delay(10);
@@ -1985,10 +1975,6 @@ void mmc_power_up(struct mmc_host *host)
 	 * time required to reach a stable voltage.
 	 */
 #ifdef CONFIG_MACH_LGE
-	/*           
-                                              
-                            
- */
 	mmc_delay(20);
 #else
 	mmc_delay(10);
@@ -2000,9 +1986,6 @@ void mmc_power_up(struct mmc_host *host)
 void mmc_power_off(struct mmc_host *host)
 {
 	#ifdef CONFIG_MACH_LGE
-		/*                                      
-                                           
-  */
 		if (host->ios.power_mode == MMC_POWER_OFF) {
 			printk(KERN_INFO "[LGE][MMC][%-18s( )] host->index:%d, already power-off, skip below\n", __func__, host->index);
 			return;
@@ -2106,6 +2089,11 @@ int mmc_resume_bus(struct mmc_host *host)
 		host->bus_ops->resume(host);
 	}
 
+#ifndef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+	if (host->bus_ops->detect && !host->bus_dead)
+		host->bus_ops->detect(host);
+#endif
+
 	mmc_bus_put(host);
 	pr_debug("%s: Deferred resume completed\n", mmc_hostname(host));
 	return 0;
@@ -2179,10 +2167,6 @@ void mmc_detect_change(struct mmc_host *host, unsigned long delay)
 #endif
 	host->detect_change = 1;
 #ifdef CONFIG_MACH_LGE
-/*
-                                           
-                                                                           
- */
 	wake_lock(&host->detect_wake_lock);
 #endif
 	mmc_schedule_delayed_work(&host->detect, delay);
@@ -3266,10 +3250,6 @@ void mmc_rescan(struct work_struct *work)
 	bool extend_wakelock = false;
 
 #ifdef CONFIG_MACH_LGE
-	/*           
-               
-                                 
- */
 	printk(KERN_INFO "[LGE][MMC][%-18s( ) START!] %d\n", __func__, host->index);
 #endif
 
@@ -3334,10 +3314,6 @@ void mmc_rescan(struct work_struct *work)
 	if (extend_wakelock && !host->rescan_disable)
 		wake_lock_timeout(&host->detect_wake_lock, HZ / 2);
 #ifdef CONFIG_MACH_LGE
-/*
-                                           
-                                                                           
- */
 	else
 		wake_unlock(&host->detect_wake_lock);
 #endif

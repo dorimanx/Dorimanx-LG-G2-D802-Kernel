@@ -5,7 +5,7 @@
 
 DHDCFLAGS = -Wall -Wstrict-prototypes -Dlinux -DLINUX -DBCMDRIVER             \
         -DBCMDONGLEHOST -DUNRELEASEDCHIP -DBCMDMA32 -DBCMFILEIMAGE            \
-        -DDHDTHREAD -DBDC						      \
+        -DDHDTHREAD -DBDC -DDHD_USE_POWERSUSPEND                              \
         -DDHD_BCMEVENTS -DSHOW_EVENTS -DBCMDBG                                \
         -DMMC_SDIO_ABORT -DBCMSDIO -DBCMLXSDMMC -DBCMPLATFORM_BUS -DWLP2P     \
         -DWIFI_ACT_FRAME -DARP_OFFLOAD_SUPPORT                                \
@@ -15,8 +15,6 @@ DHDCFLAGS = -Wall -Wstrict-prototypes -Dlinux -DLINUX -DBCMDRIVER             \
 #################
 # Common feature
 #################
-
-#DHDCFLAGS += -DDHD_USE_POWERSUSPEND
 
 ifeq ($(CONFIG_BCMDHD_HOSTWAKEUP_USE_GPIO),y)
 ifeq ($(CONFIG_BCMDHD_HW_OOB),y)
