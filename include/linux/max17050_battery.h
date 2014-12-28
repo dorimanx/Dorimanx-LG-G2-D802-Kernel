@@ -73,6 +73,8 @@ struct max17050_platform_data {
 #define MAX17050_QH					0x4D
 #define MAX17050_V_FOCV				0xFB
 #define MAX17050_SOC_VF				0xFF
+#define BATT_ID         13
+#define BATT_ID_PULLUP  14
 
 #ifdef CONFIG_LGE_PM
 int max17050_get_battery_capacity_percent(void);
