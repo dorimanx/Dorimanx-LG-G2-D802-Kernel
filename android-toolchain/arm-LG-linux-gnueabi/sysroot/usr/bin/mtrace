@@ -21,7 +21,7 @@ eval "exec /usr/bin/perl -S $0 $@"
 # <http://www.gnu.org/licenses/>.
 
 $VERSION = "2.19-2014.07";
-$PKGVERSION = "(crosstool-NG hg+default-db3f7ffabdc8 - LINARO CORE) ";
+$PKGVERSION = "(crosstool-NG 1.20.0 - LINARO CORE) ";
 $REPORT_BUGS_TO = '<http://www.eglibc.org/issues/>';
 $progname = $0;
 
