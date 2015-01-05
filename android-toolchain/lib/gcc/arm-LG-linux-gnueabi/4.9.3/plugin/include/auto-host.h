@@ -129,7 +129,7 @@
 /* Define to 1 if translation of program messages to the user's native
    language is requested. */
 #ifndef USED_FOR_TARGET
-#define ENABLE_NLS 1
+/* #undef ENABLE_NLS */
 #endif
 
 
@@ -1671,7 +1671,7 @@
 
 /* Define if cloog is in use. */
 #ifndef USED_FOR_TARGET
-/* #undef HAVE_cloog */
+#define HAVE_cloog 1
 #endif
 
 

@@ -382,6 +382,16 @@
 # define __glibc_likely(cond)	(cond)
 #endif
 
+#if (!defined _Noreturn \
+     && (defined __STDC_VERSION__ ? __STDC_VERSION__ : 0) < 201112 \
+     &&  !__GNUC_PREREQ (4,7))
+# if __GNUC_PREREQ (2,8)
+#  define _Noreturn __attribute__ ((__noreturn__))
+# else
+#  define _Noreturn
+# endif
+#endif
+
 #include <bits/wordsize.h>
 
 #if defined __LONG_DOUBLE_MATH_OPTIONAL && defined __NO_LONG_DOUBLE_MATH

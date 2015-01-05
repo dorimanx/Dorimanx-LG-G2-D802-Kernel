@@ -41,7 +41,7 @@ __BEGIN_DECLS
 # include <bits/waitflags.h>
 # include <bits/waitstatus.h>
 
-# ifdef __USE_BSD
+# ifdef __USE_MISC
 
 /* Lots of hair to allow traditional BSD use of `union wait'
    as well as POSIX.1 use of `int' for the status word.  */
@@ -72,13 +72,13 @@ typedef union
 #   define __WAIT_STATUS_DEFN	int *
 #  endif
 
-# else /* Don't use BSD.  */
+# else /* Don't use misc.  */
 
 #  define __WAIT_INT(status)	(status)
 #  define __WAIT_STATUS		int *
 #  define __WAIT_STATUS_DEFN	int *
 
-# endif /* Use BSD.  */
+# endif /* Use misc.  */
 
 /* Define the macros <sys/wait.h> also would define this way.  */
 # define WEXITSTATUS(status)	__WEXITSTATUS (__WAIT_INT (status))
@@ -151,7 +151,7 @@ extern long int atol (const char *__nptr)
      __THROW __attribute_pure__ __nonnull ((1)) __wur;
 __END_NAMESPACE_STD
 
-#if defined __USE_ISOC99 || defined __USE_MISC
+#ifdef __USE_ISOC99
 __BEGIN_NAMESPACE_C99
 /* Convert a string to a long long integer.  */
 __extension__ extern long long int atoll (const char *__nptr)
@@ -189,7 +189,7 @@ extern unsigned long int strtoul (const char *__restrict __nptr,
      __THROW __nonnull ((1));
 __END_NAMESPACE_STD
 
-#ifdef __USE_BSD
+#ifdef __USE_MISC
 /* Convert a string to a quadword integer.  */
 __extension__
 extern long long int strtoq (const char *__restrict __nptr,
@@ -200,9 +200,9 @@ __extension__
 extern unsigned long long int strtouq (const char *__restrict __nptr,
 				       char **__restrict __endptr, int __base)
      __THROW __nonnull ((1));
-#endif /* Use BSD.  */
+#endif /* Use misc.  */
 
-#if defined __USE_ISOC99 || defined __USE_MISC
+#ifdef __USE_ISOC99
 __BEGIN_NAMESPACE_C99
 /* Convert a string to a quadword integer.  */
 __extension__
@@ -286,7 +286,7 @@ __NTH (atol (const char *__nptr))
 }
 __END_NAMESPACE_STD
 
-# if defined __USE_MISC || defined __USE_ISOC99
+# ifdef __USE_ISOC99
 __BEGIN_NAMESPACE_C99
 __extension__ __extern_inline long long int
 __NTH (atoll (const char *__nptr))
@@ -298,7 +298,7 @@ __END_NAMESPACE_C99
 #endif /* Optimizing and Inlining.  */
 
 
-#if defined __USE_SVID || defined __USE_XOPEN_EXTENDED
+#if defined __USE_MISC || defined __USE_XOPEN_EXTENDED
 /* Convert N to base 64 using the digits "./0-9A-Za-z", least-significant
    digit first.  Returns a pointer to static storage overwritten by the
    next call.  */
@@ -308,9 +308,9 @@ extern char *l64a (long int __n) __THROW __wur;
 extern long int a64l (const char *__s)
      __THROW __attribute_pure__ __nonnull ((1)) __wur;
 
-#endif	/* Use SVID || extended X/Open.  */
+#endif	/* Use misc || extended X/Open.  */
 
-#if defined __USE_SVID || defined __USE_XOPEN_EXTENDED || defined __USE_BSD
+#if defined __USE_MISC || defined __USE_XOPEN_EXTENDED
 # include <sys/types.h>	/* we need int32_t... */
 
 /* These are the functions that actually do things.  The `random', `srandom',
@@ -366,7 +366,7 @@ extern int setstate_r (char *__restrict __statebuf,
 		       struct random_data *__restrict __buf)
      __THROW __nonnull ((1, 2));
 # endif	/* Use misc.  */
-#endif	/* Use SVID || extended X/Open || BSD. */
+#endif	/* Use extended X/Open || misc. */
 
 
 __BEGIN_NAMESPACE_STD
@@ -382,7 +382,7 @@ extern int rand_r (unsigned int *__seed) __THROW;
 #endif
 
 
-#if defined __USE_SVID || defined __USE_XOPEN
+#if defined __USE_MISC || defined __USE_XOPEN
 /* System V style 48-bit random number generator functions.  */
 
 /* Return non-negative, double-precision floating-point value in [0.0,1.0).  */
@@ -455,7 +455,7 @@ extern int lcong48_r (unsigned short int __param[7],
 		      struct drand48_data *__buffer)
      __THROW __nonnull ((1, 2));
 # endif	/* Use misc.  */
-#endif	/* Use SVID or X/Open.  */
+#endif	/* Use misc or X/Open.  */
 
 #endif /* don't just need malloc and calloc */
 
@@ -488,12 +488,12 @@ __END_NAMESPACE_STD
 extern void cfree (void *__ptr) __THROW;
 #endif /* Use misc.  */
 
-#if defined __USE_GNU || defined __USE_BSD || defined __USE_MISC
+#ifdef __USE_MISC
 # include <alloca.h>
-#endif /* Use GNU, BSD, or misc.  */
+#endif /* Use misc.  */
 
 #if (defined __USE_XOPEN_EXTENDED && !defined __USE_XOPEN2K) \
-    || defined __USE_BSD
+    || defined __USE_MISC
 /* Allocate SIZE bytes on a page boundary.  The storage cannot be freed.  */
 extern void *valloc (size_t __size) __THROW __attribute_malloc__ __wur;
 #endif
@@ -571,14 +571,14 @@ extern char *secure_getenv (const char *__name)
      __THROW __nonnull ((1)) __wur;
 #endif
 
-#if defined __USE_SVID || defined __USE_XOPEN
+#if defined __USE_MISC || defined __USE_XOPEN
 /* The SVID says this is in <stdio.h>, but this seems a better place.	*/
 /* Put STRING, which is of the form "NAME=VALUE", in the environment.
    If there is no `=', remove NAME from the environment.  */
 extern int putenv (char *__string) __THROW __nonnull ((1));
 #endif
 
-#if defined __USE_BSD || defined __USE_XOPEN2K
+#ifdef __USE_XOPEN2K
 /* Set NAME to VALUE in the environment.
    If REPLACE is nonzero, overwrite an existing value.  */
 extern int setenv (const char *__name, const char *__value, int __replace)
@@ -606,8 +606,7 @@ extern int clearenv (void) __THROW;
 extern char *mktemp (char *__template) __THROW __nonnull ((1));
 #endif
 
-#if defined __USE_MISC || defined __USE_XOPEN_EXTENDED \
-    || defined __USE_XOPEN2K8
+#if defined __USE_XOPEN_EXTENDED || defined __USE_XOPEN2K8
 /* Generate a unique temporary file name from TEMPLATE.
    The last six characters of TEMPLATE must be "XXXXXX";
    they are replaced with a string that makes the filename unique.
@@ -654,7 +653,7 @@ extern int mkstemps64 (char *__template, int __suffixlen)
 # endif
 #endif
 
-#if defined __USE_BSD || defined __USE_XOPEN2K8
+#ifdef __USE_XOPEN2K8
 /* Create a unique temporary directory from TEMPLATE.
    The last six characters of TEMPLATE must be "XXXXXX";
    they are replaced with a string that makes the directory name unique.
@@ -725,7 +724,7 @@ extern char *canonicalize_file_name (const char *__name)
      __THROW __nonnull ((1)) __wur;
 #endif
 
-#if defined __USE_BSD || defined __USE_XOPEN_EXTENDED
+#if defined __USE_MISC || defined __USE_XOPEN_EXTENDED
 /* Return the canonical absolute name of file NAME.  If RESOLVED is
    null, the result is malloc'd; otherwise, if the canonical name is
    PATH_MAX chars or more, returns null with `errno' set to
@@ -802,7 +801,7 @@ __END_NAMESPACE_C99
 
 
 #if (defined __USE_XOPEN_EXTENDED && !defined __USE_XOPEN2K8) \
-    || defined __USE_SVID
+    || defined __USE_MISC
 /* Convert floating point numbers to strings.  The returned values are
    valid only until another call to the same function.  */
 
@@ -880,7 +879,7 @@ extern size_t wcstombs (char *__restrict __s,
 __END_NAMESPACE_STD
 
 
-#ifdef __USE_SVID
+#ifdef __USE_MISC
 /* Determine whether the string value of RESPONSE matches the affirmation
    or negative response expression as specified by the LC_MESSAGES category
    in the program's current locale.  Returns 1 if affirmative, 0 if
@@ -944,7 +943,7 @@ extern int ptsname_r (int __fd, char *__buf, size_t __buflen)
 extern int getpt (void);
 #endif
 
-#ifdef __USE_BSD
+#ifdef __USE_MISC
 /* Put the 1 minute, 5 minute and 15 minute load averages into the first
    NELEM elements of LOADAVG.  Return the number written (never more than
    three, but may be less than NELEM), or -1 if an error occurred.  */
