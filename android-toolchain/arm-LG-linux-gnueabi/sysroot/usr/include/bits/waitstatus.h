@@ -59,7 +59,7 @@
 #define	__WCOREFLAG		0x80
 
 
-#ifdef	__USE_BSD
+#ifdef	__USE_MISC
 
 # include <endian.h>
 
@@ -102,4 +102,4 @@ union wait
 # define w_stopsig	__wait_stopped.__w_stopsig
 # define w_stopval	__wait_stopped.__w_stopval
 
-#endif	/* Use BSD.  */
+#endif	/* Use misc.  */

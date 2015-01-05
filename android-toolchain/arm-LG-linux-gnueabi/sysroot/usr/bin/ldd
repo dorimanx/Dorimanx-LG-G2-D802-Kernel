@@ -34,7 +34,7 @@ verbose=
 while test $# -gt 0; do
   case "$1" in
   --vers | --versi | --versio | --version)
-    echo 'ldd (crosstool-NG 1.20.0 - LINARO CORE) 2.19-2014.07'
+    echo 'ldd (crosstool-NG 1.20.0 - LINARO CORE) 2.20'
     printf $"Copyright (C) %s Free Software Foundation, Inc.
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -53,7 +53,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
   -v, --verbose           print all information
 "
     printf $"For bug reporting instructions, please see:\\n%s.\\n" \
-      "<http://www.eglibc.org/issues/>"
+      "<http://www.gnu.org/software/libc/bugs.html>"
     exit 0
     ;;
   -d | --d | --da | --dat | --data | --data- | --data-r | --data-re | \
