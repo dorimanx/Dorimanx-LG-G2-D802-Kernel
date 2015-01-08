@@ -4690,6 +4690,12 @@ static int taiko_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 	if (taiko_is_digital_gain_register(reg))
 		return 1;
 
+#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
+	/* HPH gain registers */
+	if (reg == TAIKO_A_RX_HPH_L_GAIN || reg == TAIKO_A_RX_HPH_R_GAIN)
+		return 1;
+#endif
+
 	/* HPH status registers */
 	if (reg == TAIKO_A_RX_HPH_L_STATUS || reg == TAIKO_A_RX_HPH_R_STATUS)
 		return 1;
