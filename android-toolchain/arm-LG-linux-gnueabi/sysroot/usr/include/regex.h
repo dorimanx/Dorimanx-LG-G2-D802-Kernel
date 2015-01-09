@@ -21,7 +21,6 @@
 #define _REGEX_H 1
 
 #include <sys/types.h>
-#include <gnu/option-groups.h>
 
 /* Allow the use in C++ code.  */
 #ifdef __cplusplus
@@ -157,8 +156,6 @@ typedef unsigned long int reg_syntax_t;
    treated as 'a\{1'.  */
 # define RE_INVALID_INTERVAL_ORD (RE_DEBUG << 1)
 
-/* EGLIBC: Old regex implementation does not support these.  */
-# ifdef __OPTION_POSIX_REGEXP_GLIBC
 /* If this bit is set, then ignore case when matching.
    If not set, then case is significant.  */
 # define RE_ICASE (RE_INVALID_INTERVAL_ORD << 1)
@@ -175,7 +172,6 @@ typedef unsigned long int reg_syntax_t;
 /* If this bit is set, then no_sub will be set to 1 during
    re_compile_pattern.  */
 # define RE_NO_SUB (RE_CONTEXT_INVALID_DUP << 1)
-# endif /* __OPTION_POSIX_REGEXP_GLIBC */
 #endif
 
 /* This global variable defines the particular regexp syntax to use (for
@@ -235,13 +231,8 @@ extern reg_syntax_t re_syntax_options;
   (RE_CHAR_CLASSES | RE_DOT_NEWLINE      | RE_DOT_NOT_NULL		\
    | RE_INTERVALS  | RE_NO_EMPTY_RANGES)
 
-#ifdef __OPTION_POSIX_REGEXP_GLIBC
 #define RE_SYNTAX_POSIX_BASIC						\
   (_RE_SYNTAX_POSIX_COMMON | RE_BK_PLUS_QM | RE_CONTEXT_INVALID_DUP)
-#else
-#define RE_SYNTAX_POSIX_BASIC						\
-  (_RE_SYNTAX_POSIX_COMMON | RE_BK_PLUS_QM)
-#endif
 
 /* Differs from ..._POSIX_BASIC only in that RE_BK_PLUS_QM becomes
    RE_LIMITED_OPS, i.e., \? \+ \| are not recognized.  Actually, this
@@ -307,11 +298,9 @@ extern reg_syntax_t re_syntax_options;
 /* Like REG_NOTBOL, except for the end-of-line.  */
 #define REG_NOTEOL (1 << 1)
 
-#ifdef __OPTION_POSIX_REGEXP_GLIBC
 /* Use PMATCH[0] to delimit the start and end of the search in the
    buffer.  */
 #define REG_STARTEND (1 << 2)
-#endif
 
 
 /* If any error codes are removed, changed, or added, update the
@@ -540,7 +529,7 @@ extern void re_set_registers (struct re_pattern_buffer *__buffer,
 			      regoff_t *__starts, regoff_t *__ends);
 #endif	/* Use GNU */
 
-#if defined _REGEX_RE_COMP || (defined _LIBC && defined __USE_BSD)
+#if defined _REGEX_RE_COMP || (defined _LIBC && defined __USE_MISC)
 # ifndef _CRAY
 /* 4.2 bsd compatibility.  */
 extern char *re_comp (const char *);

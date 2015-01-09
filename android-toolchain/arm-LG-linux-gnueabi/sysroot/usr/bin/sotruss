@@ -28,7 +28,7 @@ unset SOTRUSS_NOINDENT
 SOTRUSS_WHICH=$$
 lib='/usr/$LIB/audit/sotruss-lib.so'
 
-function do_help {
+do_help() {
   echo $"Usage: sotruss [OPTION...] [--] EXECUTABLE [EXECUTABLE-OPTION...]
   -F, --from FROMLIST     Trace calls from objects on FROMLIST
   -T, --to TOLIST         Trace calls to objects on TOLIST
@@ -47,17 +47,17 @@ function do_help {
   echo
 
   printf $"For bug reporting instructions, please see:\\n%s.\\n" \
-    "<http://www.eglibc.org/issues/>"
+    "<http://www.gnu.org/software/libc/bugs.html>"
   exit 0
 }
 
-function do_missing_arg {
+do_missing_arg() {
   printf >&2 $"%s: option requires an argument -- '%s'\n" sotruss "$1"
   printf >&2 $"Try \`%s --help' or \`%s --usage' for more information.\n" sotruss sotruss
   exit 1
 }
 
-function do_ambiguous {
+do_ambiguous() {
   printf >&2 $"%s: option is ambiguous; possibilities:"
   while test $# -gt 0; do
     printf >&2 " '%s'" $1
@@ -71,7 +71,7 @@ function do_ambiguous {
 while test $# -gt 0; do
   case "$1" in
   --v | --ve | --ver | --vers | --versi | --versio | --version)
-    echo "sotruss (crosstool-NG hg+default-db3f7ffabdc8 - LINARO CORE) 2.19-2014.07"
+    echo "sotruss (crosstool-NG 1.20.0 - LINARO CORE) 2.20"
     printf $"Copyright (C) %s Free Software Foundation, Inc.
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -150,6 +150,3 @@ export SOTRUSS_EXIT
 export LD_AUDIT="$lib"
 
 exec "$@"
-# Local Variables:
-#  mode:ksh
-# End:

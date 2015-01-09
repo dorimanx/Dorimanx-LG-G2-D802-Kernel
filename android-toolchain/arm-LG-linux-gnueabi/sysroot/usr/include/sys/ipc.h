@@ -20,8 +20,8 @@
 
 #include <features.h>
 
-#if !defined __USE_SVID && !defined __USE_XOPEN && __GNUC__ >= 2
-# warning "Files using this header must be compiled with _SVID_SOURCE or _XOPEN_SOURCE"
+#if !defined __USE_MISC && !defined __USE_XOPEN && __GNUC__ >= 2
+# warning "Files using this header must be compiled with _GNU_SOURCE or _XOPEN_SOURCE"
 #endif
 
 /* Get system dependent definition of `struct ipc_perm' and more.  */

@@ -21,7 +21,10 @@
 #endif
 
 /* The following definitions basically come from the kernel headers.
-   But the kernel header is not namespace clean.  */
+   But the kernel header is not namespace clean.
+
+   This file is also used by some non-Linux configurations of the
+   GNU C Library, for other systems that use these same bit values.  */
 
 
 /* Protections are chosen from these bits, OR'd together.  The
@@ -72,7 +75,7 @@
 #endif
 
 /* Advice to `madvise'.  */
-#ifdef __USE_BSD
+#ifdef __USE_MISC
 # define MADV_NORMAL	  0	/* No further special treatment.  */
 # define MADV_RANDOM	  1	/* Expect random page references.  */
 # define MADV_SEQUENTIAL  2	/* Expect sequential page references.  */
