@@ -705,7 +705,7 @@ namespace std
 #define _GLIBCXX_HAVE_LDEXPL 1
 
 /* Define to 1 if you have the <libintl.h> header file. */
-/* #undef _GLIBCXX_HAVE_LIBINTL_H */
+#define _GLIBCXX_HAVE_LIBINTL_H 1
 
 /* Only used in build directory testsuite_hooks.h. */
 /* #undef _GLIBCXX_HAVE_LIMIT_AS */
@@ -847,7 +847,7 @@ namespace std
 
 /* Define to 1 if the target runtime linker supports binding the same symbol
    to different versions. */
-#define _GLIBCXX_HAVE_SYMVER_SYMBOL_RENAMING_RUNTIME_SUPPORT 1
+/* #undef _GLIBCXX_HAVE_SYMVER_SYMBOL_RENAMING_RUNTIME_SUPPORT */
 
 /* Define to 1 if you have the <sys/filio.h> header file. */
 /* #undef _GLIBCXX_HAVE_SYS_FILIO_H */
@@ -1223,13 +1223,13 @@ namespace std
 #define _GLIBCXX_STDIO_SEEK_END 2
 
 /* Define to use symbol versioning in the shared library. */
-#define _GLIBCXX_SYMVER 1
+/* #undef _GLIBCXX_SYMVER */
 
 /* Define to use darwin versioning in the shared library. */
 /* #undef _GLIBCXX_SYMVER_DARWIN */
 
 /* Define to use GNU versioning in the shared library. */
-#define _GLIBCXX_SYMVER_GNU 1
+/* #undef _GLIBCXX_SYMVER_GNU */
 
 /* Define to use GNU namespace versioning in the shared library. */
 /* #undef _GLIBCXX_SYMVER_GNU_NAMESPACE */
@@ -1315,7 +1315,7 @@ namespace std
 #define _GLIBCXX_USE_NANOSLEEP 1
 
 /* Define if NLS translations are to be used. */
-/* #undef _GLIBCXX_USE_NLS */
+#define _GLIBCXX_USE_NLS 1
 
 /* Define if pthreads_num_processors_np is available in <pthread.h>. */
 /* #undef _GLIBCXX_USE_PTHREADS_NUM_PROCESSORS_NP */
