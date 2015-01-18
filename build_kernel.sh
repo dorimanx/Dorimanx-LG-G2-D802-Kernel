@@ -4,7 +4,7 @@ clear
 # Initia script by @glewarne big thanks!
 
 # What you need installed to compile
-# gcc, gpp, cpp, c++, g++, lzma, lzop, ia32-libs
+# gcc, gpp, cpp, c++, g++, lzma, lzop, ia32-libs flex
 
 # What you need to make configuration easier by using xconfig
 # qt4-dev, qmake-qt4, pkg-config
