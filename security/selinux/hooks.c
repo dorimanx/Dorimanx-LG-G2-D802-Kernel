@@ -419,12 +419,14 @@ static int sb_finish_set_opts(struct super_block *sb)
 	    sbsec->behavior > ARRAY_SIZE(labeling_behaviors))
 		sbsec->flags &= ~SE_SBLABELSUPP;
 
+#if 0
 	/* Special handling. Is genfs but also has in-core setxattr handler*/
 	if (!strcmp(sb->s_type->name, "sysfs") ||
 	    !strcmp(sb->s_type->name, "pstore") ||
 	    !strcmp(sb->s_type->name, "debugfs") ||
 	    !strcmp(sb->s_type->name, "rootfs"))
 		sbsec->flags |= SE_SBLABELSUPP;
+#endif
 
 	/* Initialize the root inode. */
 	rc = inode_doinit_with_dentry(root_inode, root);
