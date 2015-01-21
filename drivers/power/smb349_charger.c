@@ -1746,10 +1746,10 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 					new_thermal_mitigation = 1600;
 					break;
 				case FAST_CHARGE_1800:
-					new_thermal_mitigation = 1600;
+					new_thermal_mitigation = 1800;
 					break;
 				case FAST_CHARGE_2000:
-					new_thermal_mitigation = 1600;
+					new_thermal_mitigation = 2000;
 					break;
 				default:
 					break;
@@ -1861,10 +1861,10 @@ int smb349_thermal_mitigation_update(int value)
 					new_thermal_mitigation = 1600;
 					break;
 				case FAST_CHARGE_1800:
-					new_thermal_mitigation = 1600;
+					new_thermal_mitigation = 1800;
 					break;
 				case FAST_CHARGE_2000:
-					new_thermal_mitigation = 1800;
+					new_thermal_mitigation = 2000;
 					break;
 				default:
 					break;
