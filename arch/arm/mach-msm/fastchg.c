@@ -49,9 +49,10 @@
  * version 2.2 allow to charge on 900ma lock.
  * version 2.3 added more checks to thermal mitigation functions and corrected code style.
  * removed updating charging scenario when no charger connected. no point to do so.
+ * version 2.4 allowed full 2000ma to be set in charger driver.
  */
 
-#define FAST_CHARGE_VERSION	"Version 2.3"
+#define FAST_CHARGE_VERSION	"Version 2.4"
 
 int force_fast_charge;
 int force_fast_charge_temp;
@@ -172,7 +173,7 @@ int force_fast_charge_init(void)
 	force_fast_charge = FAST_CHARGE_DISABLED;
 	force_fast_charge_temp = FAST_CHARGE_DISABLED;
 	force_fast_charge_on_off = FAST_CHARGE_DISABLED;
-	fast_charge_level = FAST_CHARGE_1800;
+	fast_charge_level = FAST_CHARGE_1600;
 
 	force_fast_charge_kobj
 		= kobject_create_and_add("fast_charge", kernel_kobj);
