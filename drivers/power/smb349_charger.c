@@ -1745,6 +1745,12 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 				case FAST_CHARGE_1600:
 					new_thermal_mitigation = 1600;
 					break;
+				case FAST_CHARGE_1800:
+					new_thermal_mitigation = 1600;
+					break;
+				case FAST_CHARGE_2000:
+					new_thermal_mitigation = 1600;
+					break;
 				default:
 					break;
 			}
@@ -1853,6 +1859,12 @@ int smb349_thermal_mitigation_update(int value)
 					break;
 				case FAST_CHARGE_1600:
 					new_thermal_mitigation = 1600;
+					break;
+				case FAST_CHARGE_1800:
+					new_thermal_mitigation = 1600;
+					break;
+				case FAST_CHARGE_2000:
+					new_thermal_mitigation = 1800;
 					break;
 				default:
 					break;
@@ -3430,6 +3442,14 @@ static int smb349_input_current_limit_set(struct smb349_struct *smb349_chg, int 
 			case FAST_CHARGE_1600:
 				i = 7;
 				custom_ma = FAST_CHARGE_1600;
+				break;
+			case FAST_CHARGE_1800:
+				i = 9;
+				custom_ma = FAST_CHARGE_1800;
+				break;
+			case FAST_CHARGE_2000:
+				i = 0xA;
+				custom_ma = FAST_CHARGE_2000;
 				break;
 			default:
 				break;
