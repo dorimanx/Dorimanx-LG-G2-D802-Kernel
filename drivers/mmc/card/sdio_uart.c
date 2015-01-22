@@ -44,6 +44,9 @@
 #include <linux/mmc/sdio_func.h>
 #include <linux/mmc/sdio_ids.h>
 
+#if defined(CONFIG_LGE_MMC_DYNAMIC_LOG)
+#include  <linux/mmc/debug_log.h>
+#endif
 
 #define UART_NR		8	/* Number of UARTs this driver can handle */
 

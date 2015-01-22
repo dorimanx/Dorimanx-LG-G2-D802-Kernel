@@ -20,6 +20,10 @@
 
 #include <linux/mmc/sdhci.h>
 
+#if defined(CONFIG_LGE_MMC_DYNAMIC_LOG)
+#include <linux/mmc/debug_log.h>
+#endif
+
 /*
  * Controller registers
  */
@@ -297,6 +301,7 @@ struct sdhci_ops {
 	unsigned int	(*get_max_segments)(void);
 	void	(*platform_bus_voting)(struct sdhci_host *host, u32 enable);
 	void    (*disable_data_xfer)(struct sdhci_host *host);
+	void	(*dump_vendor_regs)(struct sdhci_host *host);
 	int	(*enable_controller_clock)(struct sdhci_host *host);
 };
 
