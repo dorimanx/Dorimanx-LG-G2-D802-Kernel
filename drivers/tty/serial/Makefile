@@ -55,7 +55,11 @@ obj-$(CONFIG_SERIAL_SGI_IOC3) += ioc3_serial.o
 obj-$(CONFIG_SERIAL_ATMEL) += atmel_serial.o
 obj-$(CONFIG_SERIAL_UARTLITE) += uartlite.o
 obj-$(CONFIG_SERIAL_MSM) += msm_serial.o
+ifndef CONFIG_MACH_LGE
 obj-$(CONFIG_SERIAL_MSM_HS) += msm_serial_hs.o
+else
+obj-$(CONFIG_SERIAL_MSM_HS) += msm_serial_hs_lge.o
+endif
 obj-$(CONFIG_SERIAL_MSM_HSL) += msm_serial_hs_lite.o
 obj-$(CONFIG_MSM_SERIAL_DEBUGGER) += msm_serial_debugger.o
 obj-$(CONFIG_SERIAL_NETX) += netx-serial.o
