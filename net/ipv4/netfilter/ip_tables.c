@@ -337,8 +337,6 @@ ipt_do_table(struct sk_buff *skb,
 	stackptr   = per_cpu_ptr(private->stackptr, cpu);
 	origptr    = *stackptr;
 
-        BUG_ON(jumpstack == NULL);
-
 	e = get_entry(table_base, private->hook_entry[hook]);
 
 	pr_debug("Entering %s(hook %u); sp at %u (UF %p)\n",

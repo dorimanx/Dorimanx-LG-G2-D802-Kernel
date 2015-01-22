@@ -1186,10 +1186,6 @@ try_again:
 				  &peeked, &off, &err);
 	if (!skb)
 		goto out;
-	if (ccs_socket_post_recvmsg_permission(sk, skb, flags)) {
-		err = -EAGAIN; /* Hope less harmful than -EPERM. */
-		goto out;
-	}
 
 	ulen = skb->len - sizeof(struct udphdr);
 	copied = len;

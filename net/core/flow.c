@@ -424,7 +424,7 @@ static int __init flow_cache_init(struct flow_cache *fc)
 		return -ENOMEM;
 
 	get_online_cpus();
-	for_each_possible_cpu(i) {
+	for_each_online_cpu(i) {
 		if (flow_cache_cpu_prepare(fc, i))
 			goto err;
 	}

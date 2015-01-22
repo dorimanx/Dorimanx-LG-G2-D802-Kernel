@@ -755,6 +755,13 @@ static struct ctl_table ipv4_table[] = {
 		.extra2		    = &tcp_use_userconfig_max,
 	},
 
+	{
+		.procname	= "ds_enable",
+		.data		= &sysctl_ds_enable,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec
+	},
 	{ }
 };
 
