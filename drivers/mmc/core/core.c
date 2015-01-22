@@ -90,6 +90,17 @@ MODULE_PARM_DESC(
 	removable,
 	"MMC/SD cards are removable and may be removed during suspend");
 
+#if defined(CONFIG_LGE_MMC_DYNAMIC_LOG)
+
+uint32_t mmc_debug_level = 6;                   // show pr_info.
+
+module_param_named(debug_level, mmc_debug_level, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(
+    debug_level,
+    "MMC/SD cards debug_level");
+
+#endif	/*                     */
+
 #define MMC_UPDATE_BKOPS_STATS_HPI(stats)	\
 	do {					\
 		spin_lock(&stats.lock);		\
@@ -508,17 +519,8 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 	}
 	pr_info("%s: %s: Starting bkops\n", mmc_hostname(card->host), __func__);
 
-	#ifdef CONFIG_MACH_LGE_JUNK
-		printk(KERN_INFO "[LGE][MMC][%-18s( )] before %s bkops operation\n", __func__, mmc_hostname(card->host));
-	#endif
-
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			EXT_CSD_BKOPS_START, 1, 0, false, false);
-
-	#ifdef CONFIG_MACH_LGE_JUNK
-		printk(KERN_INFO "[LGE][MMC][%-18s( )] after %s bkops operation\n", __func__, mmc_hostname(card->host));
-	#endif
-
 	if (err) {
 		pr_warn("%s: %s: Error %d when starting bkops\n",
 			mmc_hostname(card->host), __func__, err);
@@ -1959,11 +1961,11 @@ void mmc_power_up(struct mmc_host *host)
 	 * This delay should be sufficient to allow the power supply
 	 * to reach the minimum voltage.
 	 */
-	#ifdef CONFIG_MACH_LGE
+#ifdef CONFIG_MACH_LGE
 	mmc_delay(20);
-	#else
+#else
 	mmc_delay(10);
-	#endif
+#endif
 
 	host->ios.clock = host->f_init;
 
@@ -1987,7 +1989,7 @@ void mmc_power_off(struct mmc_host *host)
 {
 	#ifdef CONFIG_MACH_LGE
 		if (host->ios.power_mode == MMC_POWER_OFF) {
-			printk(KERN_INFO "[LGE][MMC][%-18s( )] host->index:%d, already power-off, skip below\n", __func__, host->index);
+            pr_info("[LGE][MMC][%-18s( )] host->index:%d, already power-off, skip below\n", __func__, host->index);
 			return;
 		}
 	#endif
@@ -2088,11 +2090,6 @@ int mmc_resume_bus(struct mmc_host *host)
 		BUG_ON(!host->bus_ops->resume);
 		host->bus_ops->resume(host);
 	}
-
-#ifndef CONFIG_MMC_BLOCK_DEFERRED_RESUME
-	if (host->bus_ops->detect && !host->bus_dead)
-		host->bus_ops->detect(host);
-#endif
 
 	mmc_bus_put(host);
 	pr_debug("%s: Deferred resume completed\n", mmc_hostname(host));
@@ -2685,14 +2682,14 @@ int mmc_can_reset(struct mmc_card *card)
 		rst_n_function = card->ext_csd.rst_n_function;
 		if ((rst_n_function & EXT_CSD_RST_N_EN_MASK) !=
 		    EXT_CSD_RST_N_ENABLED)
-	#ifdef CONFIG_MACH_LGE
+#ifdef CONFIG_MACH_LGE
 		{
-			printk("%s: mmc, MMC_CAP_HW_RESET, rst_n_function=0x%02x\n", __func__, rst_n_function);
+            pr_info("%s: mmc, MMC_CAP_HW_RESET, rst_n_function=0x%02x\n", __func__, rst_n_function);
 			return 0;
 		}
-	#else
+#else
 			return 0;
-	#endif
+#endif
 	}
 	return 1;
 }
@@ -3201,7 +3198,7 @@ int _mmc_detect_card_removed(struct mmc_host *host)
 	}
 
 	#ifdef CONFIG_MACH_LGE
-	printk(KERN_INFO "[LGE][MMC][%-18s( )] end, mmc%d, return %d\n", __func__, host->index, ret);
+    pr_info("[LGE][MMC][%-18s( )] end, mmc%d, return %d\n", __func__, host->index, ret);
 	#endif
 
 	return ret;
@@ -3250,7 +3247,7 @@ void mmc_rescan(struct work_struct *work)
 	bool extend_wakelock = false;
 
 #ifdef CONFIG_MACH_LGE
-	printk(KERN_INFO "[LGE][MMC][%-18s( ) START!] %d\n", __func__, host->index);
+    pr_info("[LGE][MMC][%-18s( ) START!] mmc%d\n", __func__, host->index);
 #endif
 
 	if (host->rescan_disable)
@@ -3750,10 +3747,10 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 #ifdef CONFIG_BCMDHD_MODULE
 		/* This patch is for nonremovable 0 case of BCM WiFi */
 		if (host->card && mmc_card_sdio(host->card)) {
-			printk("J:%s-mmc_card_sdio, host->index=%d\n", __FUNCTION__, host->index);
+            pr_info("J:%s-mmc_card_sdio, host->index=%d\n", __FUNCTION__, host->index);
 			return 0;
 		}
-#endif  /* CONFIG_BCMDHD_MODULE */
+#endif /* CONFIG_BCMDHD_MODULE */
 		mmc_detect_change(host, 0);
 		break;
 

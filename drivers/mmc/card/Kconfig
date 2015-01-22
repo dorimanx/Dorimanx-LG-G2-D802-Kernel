@@ -88,3 +88,24 @@ config MMC_BLOCK_TEST
 	  Currently used to test eMMC 4.5 features (packed commands, sanitize,
 	  BKOPs).
 
+# LGE_CHANGE_S : bohyun.jung@lge.com
+config LGE_MMC_RESET_IF_HANG
+	bool "MMC Reset if eMMC is hang. "
+	default n
+	help
+		Reset eMMC if eMMC is unaccessible. continously error on r/w cmd.
+
+config LGE_MMC_SEND_HPI_SANITIZE_TIMEOUT
+	bool "Send HPI if timeout happened on sanitize request. "
+	default n
+	help
+		Send HPI if Sanitize does not finished within MMC_SANITIZE_REQ_TIMEOUT (240000msec)
+# LGE_CHANGE_E : bohyun.jung@lge.com
+
+config MMC_FFU
+    bool "FFU SUPPORT"
+    default n
+    help
+      This is an option to run firmware update on eMMC 5.0.
+      Field firmware updates (FFU) enables features enhancement
+      in the field.

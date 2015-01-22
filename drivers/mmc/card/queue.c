@@ -21,6 +21,10 @@
 #include <linux/mmc/host.h>
 #include "queue.h"
 
+#if defined(CONFIG_LGE_MMC_DYNAMIC_LOG)
+#include <linux/mmc/debug_log.h>
+#endif
+
 #define MMC_QUEUE_BOUNCESZ	65536
 
 
@@ -202,17 +206,9 @@ static struct scatterlist *mmc_alloc_sg(int sg_len, int *err)
 	struct scatterlist *sg;
 
 	sg = kmalloc(sizeof(struct scatterlist)*sg_len, GFP_KERNEL);
-
-	if (!sg) {
-#ifdef CONFIG_MACH_LGE
-		sg = kmalloc(sizeof(struct scatterlist)*sg_len, GFP_KERNEL |
-					__GFP_NOFAIL);
-		if (!sg)
-			*err = -ENOMEM;
-#else
+	if (!sg)
 		*err = -ENOMEM;
-#endif
-	} else {
+	else {
 		*err = 0;
 		sg_init_table(sg, sg_len);
 	}
