@@ -2491,6 +2491,12 @@ static int rt6_fill_node(struct net *net,
 		NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
 	}
 
+    /* G3L netlink kernel crash in case of WiFi on/off repeat */
+    if (unlikely((unsigned long)dst_metrics_ptr(&rt->dst) < 2)) {
+        WARN(1, "Got null _metrics from rt->dst");
+        printk(KERN_DEBUG "Got null _metrics from rt->dst \n");
+        goto nla_put_failure;
+    }
 	if (rtnetlink_put_metrics(skb, dst_metrics_ptr(&rt->dst)) < 0)
 		goto nla_put_failure;
 

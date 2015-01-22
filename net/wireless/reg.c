@@ -1194,7 +1194,10 @@ void regulatory_update(struct wiphy *wiphy,
 		       enum nl80211_reg_initiator setby)
 {
 	mutex_lock(&reg_mutex);
-	wiphy_update_regulatory(wiphy, setby);
+	if (last_request)
+		wiphy_update_regulatory(wiphy, last_request->initiator);
+	else
+		wiphy_update_regulatory(wiphy, setby);
 	mutex_unlock(&reg_mutex);
 }
 
@@ -1524,8 +1527,8 @@ static void reg_process_hint(struct regulatory_request *reg_request,
 	if (wiphy_idx_valid(reg_request->wiphy_idx))
 		wiphy = wiphy_idx_to_wiphy(reg_request->wiphy_idx);
 
-	if (reg_initiator == NL80211_REGDOM_SET_BY_DRIVER &&
-	    !wiphy) {
+	if ((reg_initiator == NL80211_REGDOM_SET_BY_DRIVER ||
+	     reg_initiator == NL80211_REGDOM_SET_BY_COUNTRY_IE) && !wiphy) {
 		kfree(reg_request);
 		return;
 	}

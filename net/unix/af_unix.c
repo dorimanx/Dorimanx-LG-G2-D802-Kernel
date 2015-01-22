@@ -1816,10 +1816,6 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
 	wake_up_interruptible_sync_poll(&u->peer_wait,
 					POLLOUT | POLLWRNORM | POLLWRBAND);
 
-	if (ccs_socket_post_recvmsg_permission(sk, skb, flags)) {
-		err = -EAGAIN; /* Hope less harmful than -EPERM. */
-		goto out_unlock;
-	}
 	if (msg->msg_name)
 		unix_copy_addr(msg, skb->sk);
 
@@ -2416,7 +2412,7 @@ static int __net_init unix_net_init(struct net *net)
 {
 	int error = -ENOMEM;
 
-	net->unx.sysctl_max_dgram_qlen = 10;
+	net->unx.sysctl_max_dgram_qlen = 300;
 	if (unix_sysctl_register(net))
 		goto out;
 

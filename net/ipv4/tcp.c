@@ -290,6 +290,8 @@ EXPORT_SYMBOL_GPL(tcp_orphan_count);
 
 int sysctl_tcp_wmem[3] __read_mostly;
 int sysctl_tcp_rmem[3] __read_mostly;
+int sysctl_ds_enable __read_mostly;
+EXPORT_SYMBOL(sysctl_ds_enable);
 
 EXPORT_SYMBOL(sysctl_tcp_rmem);
 EXPORT_SYMBOL(sysctl_tcp_wmem);
