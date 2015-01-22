@@ -249,7 +249,7 @@ struct msm_hs_port {
 	int rx_count_callback;
 	bool rx_bam_inprogress;
 	wait_queue_head_t bam_disconnect_wait;
-
+	bool obs;
 };
 
 static struct of_device_id msm_hs_match_table[] = {
@@ -1828,13 +1828,19 @@ static int msm_hs_check_clock_off(struct uart_port *uport)
 	    msm_uport->imr_reg & UARTDM_ISR_TXLEV_BMSK) {
 		if (msm_uport->clk_state == MSM_HS_CLK_REQUEST_OFF) {
 			msm_uport->clk_state = MSM_HS_CLK_ON;
-			/* Pulling RFR line high */
-			msm_hs_write(uport, UART_DM_CR, RFR_LOW);
-			/* Enable auto RFR */
-			data = msm_hs_read(uport, UART_DM_MR1);
-			data |= UARTDM_MR1_RX_RDY_CTL_BMSK;
-			msm_hs_write(uport, UART_DM_MR1, data);
-			mb();
+
+			/* Pull RFR GPIO line HIGH for IBS
+			* and return
+			*/
+			if (!msm_uport->obs) {
+				/* Pulling RFR line high */
+				msm_hs_write(uport, UART_DM_CR, RFR_LOW);
+				/* Enable auto RFR */
+				data = msm_hs_read(uport, UART_DM_MR1);
+				data |= UARTDM_MR1_RX_RDY_CTL_BMSK;
+				msm_hs_write(uport, UART_DM_MR1, data);
+				mb();
+			}
 		}
 		spin_unlock_irqrestore(&uport->lock, flags);
 		mutex_unlock(&msm_uport->clk_mutex);
@@ -1866,13 +1872,18 @@ static int msm_hs_check_clock_off(struct uart_port *uport)
 
 	spin_unlock_irqrestore(&uport->lock, flags);
 
-	/* Pulling RFR line high */
-	msm_hs_write(uport, UART_DM_CR, RFR_LOW);
-	/* Enable auto RFR */
-	data = msm_hs_read(uport, UART_DM_MR1);
-	data |= UARTDM_MR1_RX_RDY_CTL_BMSK;
-	msm_hs_write(uport, UART_DM_MR1, data);
-	mb();
+	/* Pull RFR GPIO line HIGH for IBS
+	 * to receive Wakeup byte
+	 */
+	if (!msm_uport->obs) {
+		/* Pulling RFR line high */
+		msm_hs_write(uport, UART_DM_CR, RFR_LOW);
+		/* Enable auto RFR */
+		data = msm_hs_read(uport, UART_DM_MR1);
+		data |= UARTDM_MR1_RX_RDY_CTL_BMSK;
+		msm_hs_write(uport, UART_DM_MR1, data);
+		mb();
+	}
 
 	/* we really want to clock off */
 	mutex_unlock(&msm_uport->clk_mutex);
@@ -2047,13 +2058,19 @@ void msm_hs_request_clock_off(struct uart_port *uport) {
 	spin_lock_irqsave(&uport->lock, flags);
 	if (msm_uport->clk_state == MSM_HS_CLK_ON) {
 		msm_uport->clk_state = MSM_HS_CLK_REQUEST_OFF;
-		data = msm_hs_read(uport, UART_DM_MR1);
-		/*disable auto ready-for-receiving */
-		data &= ~UARTDM_MR1_RX_RDY_CTL_BMSK;
-		msm_hs_write(uport, UART_DM_MR1, data);
-		mb();
-		/* set RFR_N to high */
-		msm_hs_write(uport, UART_DM_CR, RFR_HIGH);
+
+		/* Stop receiving data by pulling RFR GPIO line
+		 * LOW and disabling Auto RFR for IBS
+		 */
+		if (!msm_uport->obs) {
+			data = msm_hs_read(uport, UART_DM_MR1);
+			/* disable auto ready-for-receiving */
+			data &= ~UARTDM_MR1_RX_RDY_CTL_BMSK;
+			msm_hs_write(uport, UART_DM_MR1, data);
+			mb();
+			/* set RFR_N to high */
+			msm_hs_write(uport, UART_DM_CR, RFR_HIGH);
+		}
 
 		data = msm_hs_read(uport, UART_DM_SR);
 		MSM_HS_DBG("%s(): TXEMT, queuing clock off work\n",
@@ -2081,7 +2098,11 @@ void msm_hs_request_clock_on(struct uart_port *uport)
 	mutex_lock(&msm_uport->clk_mutex);
 	spin_lock_irqsave(&uport->lock, flags);
 
-	if (msm_uport->clk_state == MSM_HS_CLK_REQUEST_OFF) {
+	/* Pull RFR GPIO line HIGH and Enable Auto
+	 * RFR control for IBS
+	 */
+	if (!msm_uport->obs &&
+		msm_uport->clk_state == MSM_HS_CLK_REQUEST_OFF) {
 		/* Pulling RFR line high */
 		msm_hs_write(uport, UART_DM_CR, RFR_LOW);
 		/* Enable auto RFR */
@@ -2090,6 +2111,7 @@ void msm_hs_request_clock_on(struct uart_port *uport)
 		msm_hs_write(uport, UART_DM_MR1, data);
 		mb();
 	}
+
 	switch (msm_uport->clk_state) {
 	case MSM_HS_CLK_OFF:
 		wake_lock(&msm_uport->dma_wake_lock);
@@ -2554,6 +2576,13 @@ struct msm_serial_hs_platform_data
 	pdata->no_suspend_delay = of_property_read_bool(node,
 				"qcom,no-suspend-delay");
 
+	pdata->obs = of_property_read_bool(node,
+				"qcom,msm-obs");
+	if(pdata->obs) {
+		MSM_HS_WARN("Out of Band Sleep is TRUE\n");
+	} else {
+		MSM_HS_WARN("Out of Band Sleep is FALSE\n");
+	}
 	pdata->inject_rx_on_wakeup = of_property_read_bool(node,
 				"qcom,inject-rx-on-wakeup");
 
@@ -2793,6 +2822,56 @@ deregister_bam:
 	return rc;
 }
 
+/*                                                                    */
+/*                                                                 */
+#ifdef CONFIG_LGE_BLUESLEEP
+struct uart_port* msm_hs_get_bt_uport(unsigned int line)
+{
+	struct uart_state *state = msm_hs_driver.state + line;
+
+	/* The uart_driver structure stores the states in an array.
+	 * Thus the corresponding offset from the drv->state returns
+	 * the state for the uart_port that is requested
+	 */
+	return state->uart_port;
+
+	/* TODO : Need to check */
+	/* return &q_uart_port[line].uport; */
+}
+EXPORT_SYMBOL(msm_hs_get_bt_uport);
+
+/* Get UART Clock State : */
+int msm_hs_get_bt_uport_clock_state(struct uart_port *uport)
+{
+	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
+	//unsigned long flags;
+	int ret = CLOCK_REQUEST_UNAVAILABLE;
+
+	//mutex_lock(&msm_uport->clk_mutex);
+	//spin_lock_irqsave(&uport->lock, flags);
+
+	switch (msm_uport->clk_state) {
+		case MSM_HS_CLK_ON:
+		case MSM_HS_CLK_PORT_OFF:
+			printk(KERN_ERR "UART Clock already on or port not use : %d\n", msm_uport->clk_state);
+			ret = CLOCK_REQUEST_UNAVAILABLE;
+			break;
+		case MSM_HS_CLK_REQUEST_OFF:
+		case MSM_HS_CLK_OFF:
+			printk(KERN_ERR "Uart clock off. Please clock on : %d\n", msm_uport->clk_state);
+			ret = CLOCK_REQUEST_AVAILABLE;
+			break;
+	}
+
+	//spin_unlock_irqrestore(&uport->lock, flags);
+	//mutex_unlock(&msm_uport->clk_mutex);
+
+	return ret;
+}
+EXPORT_SYMBOL(msm_hs_get_bt_uport_clock_state);
+#endif /*                      */
+/*                                                                 */
+/*                                                        */
 
 static bool deviceid[UARTDM_NR] = {0};
 /*
@@ -2908,11 +2987,16 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 		MSM_HS_ERR("Invalid bam irqres Resources.\n");
 		return -ENXIO;
 	}
+
+#if 0  //                                                       
 	wakeup_irqres = platform_get_irq_byname(pdev, "wakeup_irq");
 	if (wakeup_irqres < 0) {
 		wakeup_irqres = -1;
 		MSM_HS_DBG("Wakeup irq not specified.\n");
 	}
+#else
+	wakeup_irqres = 0;
+#endif
 
 	uport->mapbase = core_resource->start;
 
@@ -2957,6 +3041,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 		msm_uport->wakeup.ignore = 1;
 		msm_uport->wakeup.inject_rx = pdata->inject_rx_on_wakeup;
 		msm_uport->wakeup.rx_to_inject = pdata->rx_to_inject;
+		msm_uport->obs = pdata->obs;
 
 		msm_uport->bam_tx_ep_pipe_index =
 				pdata->bam_tx_ep_pipe_index;
