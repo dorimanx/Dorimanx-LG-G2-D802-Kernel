@@ -137,7 +137,7 @@ static long get_min(struct sensor_info *sensor, long temp)
 	return min;
 }
 
-static void __update_sensor_thresholds(struct sensor_info *sensor)
+static int __update_sensor_thresholds(struct sensor_info *sensor)
 {
 	long min = LONG_MIN;
 	long max = LONG_MAX;
@@ -145,6 +145,7 @@ static void __update_sensor_thresholds(struct sensor_info *sensor)
 	long min_of_max = LONG_MAX;
 	struct sensor_threshold *pos, *var;
 	long curr_temp;
+	int ret = 0;
 
 	if ((sensor->max_idx == -1) || (sensor->min_idx == -1))
 		init_sensor_trip(sensor);
@@ -195,14 +196,20 @@ static void __update_sensor_thresholds(struct sensor_info *sensor)
 	pr_debug("sensor %d: curr_temp: %ld min: %ld max: %ld\n",
 		sensor->sensor_id, curr_temp,
 		sensor->threshold_min, sensor->threshold_max);
+
+	return ret;
 }
 
 static void sensor_update_work(struct work_struct *work)
 {
 	struct sensor_info *sensor = container_of(work, struct sensor_info,
 						work);
+	int ret = 0;
 	mutex_lock(&sensor->lock);
-	__update_sensor_thresholds(sensor);
+	ret = __update_sensor_thresholds(sensor);
+	if (ret)
+		pr_err("sensor %d: Error %d setting threshold\n",
+			sensor->sensor_id, ret);
 	mutex_unlock(&sensor->lock);
 }
 
@@ -245,6 +252,7 @@ int sensor_set_trip(uint32_t sensor_id, struct sensor_threshold *threshold)
 {
 	struct sensor_threshold *pos, *var;
 	struct sensor_info *sensor = get_sensor(sensor_id);
+	int ret = 0;
 
 	if (!sensor)
 		return -ENODEV;
@@ -263,10 +271,10 @@ int sensor_set_trip(uint32_t sensor_id, struct sensor_threshold *threshold)
 		list_add(&threshold->list, &sensor->threshold_list);
 	}
 
-	__update_sensor_thresholds(sensor);
+	ret = __update_sensor_thresholds(sensor);
 	mutex_unlock(&sensor->lock);
 
-	return 0;
+	return ret;
 
 }
 EXPORT_SYMBOL(sensor_set_trip);
@@ -275,6 +283,7 @@ int sensor_cancel_trip(uint32_t sensor_id, struct sensor_threshold *threshold)
 {
 	struct sensor_threshold *pos, *var;
 	struct sensor_info *sensor = get_sensor(sensor_id);
+	int ret = 0;
 
 	if (!sensor)
 		return -ENODEV;
@@ -287,10 +296,10 @@ int sensor_cancel_trip(uint32_t sensor_id, struct sensor_threshold *threshold)
 		}
 	}
 
-	__update_sensor_thresholds(sensor);
+	ret = __update_sensor_thresholds(sensor);
 	mutex_unlock(&sensor->lock);
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(sensor_cancel_trip);
 
@@ -510,23 +519,32 @@ trip_point_type_activate(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t count)
 {
 	struct thermal_zone_device *tz = to_thermal_zone(dev);
-	int trip, result;
+	int trip, result = 0;
+	bool activate;
 
-	if (!tz->ops->activate_trip_type)
-		return -EPERM;
+	if (!tz->ops->activate_trip_type) {
+		result = -EPERM;
+		goto trip_activate_exit;
+	}
 
-	if (!sscanf(attr->attr.name, "trip_point_%d_type", &trip))
-		return -EINVAL;
-
-	if (!strncmp(buf, "enabled", sizeof("enabled")))
-		result = tz->ops->activate_trip_type(tz, trip,
-					THERMAL_TRIP_ACTIVATION_ENABLED);
-	else if (!strncmp(buf, "disabled", sizeof("disabled")))
-		result = tz->ops->activate_trip_type(tz, trip,
-					THERMAL_TRIP_ACTIVATION_DISABLED);
-	else
+	if (!sscanf(attr->attr.name, "trip_point_%d_type", &trip)) {
 		result = -EINVAL;
+		goto trip_activate_exit;
+	}
 
+	if (!strcmp(buf, "enabled")) {
+		activate = true;
+	} else if (!strcmp(buf, "disabled")) {
+		activate = false;
+	} else {
+		result = -EINVAL;
+		goto trip_activate_exit;
+	}
+	result = tz->ops->activate_trip_type(tz, trip,
+			activate ? THERMAL_TRIP_ACTIVATION_ENABLED :
+					THERMAL_TRIP_ACTIVATION_DISABLED);
+
+trip_activate_exit:
 	if (result)
 		return result;
 
@@ -1040,14 +1058,17 @@ thermal_remove_hwmon_sysfs(struct thermal_zone_device *tz)
 static void thermal_zone_device_set_polling(struct thermal_zone_device *tz,
 					    int delay)
 {
+	cancel_delayed_work(&(tz->poll_queue));
+
+	if (!delay)
+		return;
+
 	if (delay > 1000)
 		mod_delayed_work(system_freezable_wq, &(tz->poll_queue),
 				      round_jiffies(msecs_to_jiffies(delay)));
-	else if (delay)
+	else
 		mod_delayed_work(system_freezable_wq, &(tz->poll_queue),
 				      msecs_to_jiffies(delay));
-	else
-		cancel_delayed_work(&tz->poll_queue);
 }
 
 static void thermal_zone_device_passive(struct thermal_zone_device *tz,
