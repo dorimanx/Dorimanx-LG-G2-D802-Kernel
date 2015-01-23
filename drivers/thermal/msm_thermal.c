@@ -16,6 +16,8 @@
  *
  */
 
+#define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
+
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -240,9 +242,8 @@ static int msm_thermal_cpufreq_callback(struct notifier_block *nfb,
 
 	switch (event) {
 	case CPUFREQ_INCOMPATIBLE:
-		pr_debug("%s: mitigating cpu %d to freq max: %u min: %u\n",
-				KBUILD_MODNAME, policy->cpu, max_freq_req,
-				min_freq_req);
+		pr_debug("mitigating CPU%d to freq max: %u min: %u\n",
+		policy->cpu, max_freq_req, min_freq_req);
 
 		cpufreq_verify_within_limits(policy, min_freq_req,
 				max_freq_req);
@@ -267,7 +268,7 @@ static int check_freq_table(void)
 
 	table = cpufreq_frequency_get_table(0);
 	if (!table) {
-		pr_debug("%s: error reading cpufreq table\n", __func__);
+		pr_debug("error reading cpufreq table\n");
 		return -EINVAL;
 	}
 	freq_table_get = 1;
@@ -301,7 +302,7 @@ static int update_cpu_min_freq_all(uint32_t min)
 	if (!freq_table_get) {
 		ret = check_freq_table();
 		if (ret) {
-			pr_err("%s:Fail to get freq table\n", KBUILD_MODNAME);
+			pr_err("Fail to get freq table. err:%d\n", ret);
 			return ret;
 		}
 	}
@@ -351,7 +352,7 @@ static int vdd_restriction_apply_voltage(struct rail *r, int level)
 	int ret = 0;
 
 	if (r->reg == NULL) {
-		pr_info("Do not have regulator handle:%s, can't apply vdd\n",
+		pr_err("%s don't have regulator handle. can't apply vdd\n",
 				r->name);
 		return -EFAULT;
 	}
@@ -364,11 +365,15 @@ static int vdd_restriction_apply_voltage(struct rail *r, int level)
 			r->levels[r->num_levels - 1]);
 		if (!ret)
 			r->curr_level = -1;
+		pr_debug("Requested min level for %s. curr level: %d\n",
+				r->name, r->curr_level);
 	} else if (level >= 0 && level < (r->num_levels)) {
 		ret = regulator_set_voltage(r->reg, r->levels[level],
 			r->levels[r->num_levels - 1]);
 		if (!ret)
 			r->curr_level = level;
+		pr_debug("Requesting level %d for %s. curr level: %d\n",
+			r->levels[level], r->name, r->levels[r->curr_level]);
 	} else {
 		pr_err("level input:%d is not within range\n", level);
 		return -EINVAL;
@@ -384,12 +389,13 @@ static int psm_set_mode_all(int mode)
 	int fail_cnt = 0;
 	int ret = 0;
 
+	pr_debug("Requesting PMIC Mode: %d\n", mode);
 	for (i = 0; i < psm_rails_cnt; i++) {
 		if (psm_rails[i].mode != mode) {
 			ret = rpm_regulator_set_mode(psm_rails[i].reg, mode);
 			if (ret) {
-				pr_err("Cannot set mode:%d for %s",
-					mode, psm_rails[i].name);
+				pr_err("Cannot set mode:%d for %s. err:%d",
+					mode, psm_rails[i].name, ret);
 				fail_cnt++;
 			} else
 				psm_rails[i].mode = mode;
@@ -456,6 +462,8 @@ static ssize_t vdd_rstr_en_store(struct kobject *kobj,
 		en->enabled = 1;
 	else if (!val && (dis_cnt == rails_cnt))
 		en->enabled = 0;
+	pr_debug("%s vdd restriction. curr: %d\n",
+			(val) ? "Enable" : "Disable", en->enabled);
 
 done_vdd_rstr_en:
 	mutex_unlock(&vdd_rstr_mutex);
@@ -531,12 +539,14 @@ static ssize_t vdd_rstr_reg_level_store(struct kobject *kobj,
 			if (ret) {
 				pr_err( \
 				"Set vdd restriction for regulator %s \
-						failed\n",
-				reg->name);
+						failed. err:%d\n",
+				reg->name, ret);
 				goto done_store_level;
 			}
 		}
 		reg->curr_level = val;
+		pr_debug("Request level %d for %s\n",
+				reg->curr_level, reg->name);
 	}
 
 done_store_level:
@@ -566,16 +576,15 @@ static ssize_t psm_reg_mode_store(struct kobject *kobj,
 	}
 
 	if ((val != PMIC_PWM_MODE) && (val != PMIC_AUTO_MODE)) {
-		pr_err(" Invalid number %d for mode\n", val);
+		pr_err("Invalid number %d for mode\n", val);
 		goto done_psm_store;
 	}
 
 	if (val != reg->mode) {
 		ret = rpm_regulator_set_mode(reg->reg, val);
 		if (ret) {
-			pr_err( \
-			"Fail to set PMIC SW Mode:%d for %s\n",
-			val, reg->name);
+			pr_err("Fail to set Mode:%d for %s. err:%d\n",
+			val, reg->name, ret);
 			goto done_psm_store;
 		}
 		reg->mode = val;
@@ -599,7 +608,7 @@ static int check_sensor_id(int sensor_id)
 		}
 	}
 	if (!hw_id_found) {
-		pr_err("%s: Invalid sensor hw id :%d\n", __func__, sensor_id);
+		pr_err("Invalid sensor hw id:%d\n", sensor_id);
 		return -EINVAL;
 	}
 
@@ -614,8 +623,7 @@ static int create_sensor_id_map(void)
 	tsens_id_map = kzalloc(sizeof(int) * max_tsens_num,
 			GFP_KERNEL);
 	if (!tsens_id_map) {
-		pr_err("%s: Cannot allocate memory for tsens_id_map\n",
-				__func__);
+		pr_err("Cannot allocate memory for tsens_id_map\n");
 		return -ENOMEM;
 	}
 
@@ -627,9 +635,8 @@ static int create_sensor_id_map(void)
 				tsens_id_map[i] = i;
 				ret = 0;
 			} else {
-				pr_err( \
-				"%s: Failed to get hw id for sw id %d\n",
-				__func__, i);
+				pr_err("Failed to get hw id for id:%d.err:%d\n",
+						i, ret);
 				goto fail;
 			}
 		}
@@ -659,7 +666,9 @@ static int vdd_restriction_apply_all(int en)
 			ret = vdd_restriction_apply_voltage(&rails[i],
 					en ? 0 : -1);
 		if (ret) {
-			pr_err("Cannot set voltage for %s", rails[i].name);
+			pr_err("Failed to %s for %s. err:%d",
+					(en) ? "enable" : "disable",
+					rails[i].name, ret);
 			fail_cnt++;
 		} else {
 			if (en)
@@ -692,7 +701,7 @@ static int msm_thermal_get_freq_table(void)
 
 	table = cpufreq_frequency_get_table(0);
 	if (table == NULL) {
-		pr_debug("%s: error reading cpufreq table\n", KBUILD_MODNAME);
+		pr_err("error reading cpufreq table\n");
 		ret = -EINVAL;
 		goto fail;
 	}
@@ -761,8 +770,8 @@ static void __ref do_core_control(long temp)
 				continue;
 			ret = cpu_up(i);
 			if (ret)
-				pr_err("%s: Error %d online core %d\n",
-						KBUILD_MODNAME, ret, i);
+				pr_err("Error %d online core %d\n",
+						ret, i);
 			break;
 		}
 	}
@@ -806,9 +815,13 @@ static int do_vdd_restriction(void)
 			ret = vdd_restriction_apply_all(1);
 			if (ret) {
 				pr_err( \
-				"Enable vdd rstr votlage for all failed\n");
+				"Enable vdd rstr for all failed. err:%d\n",
+					ret);
 				goto exit;
 			}
+			pr_debug("Enabled Vdd Restriction tsens:%d. Temp:%ld\n",
+			thresh[MSM_VDD_RESTRICTION].thresh_list[i].sensor_id,
+			temp);
 			goto exit;
 		} else if (temp > msm_thermal_info.vdd_rstr_temp_hyst_degC)
 			dis_cnt++;
@@ -816,9 +829,11 @@ static int do_vdd_restriction(void)
 	if (dis_cnt == max_tsens_num) {
 		ret = vdd_restriction_apply_all(0);
 		if (ret) {
-			pr_err("Disable vdd rstr votlage for all failed\n");
+			pr_err("Disable vdd rstr for all failed. err:%d\n",
+					ret);
 			goto exit;
 		}
+		pr_debug("Disabled Vdd Restriction\n");
 	}
 exit:
 	mutex_unlock(&vdd_rstr_mutex);
@@ -853,7 +868,8 @@ static int do_psm(void)
 		if (temp >  msm_thermal_info.psm_temp_degC) {
 			ret = psm_set_mode_all(PMIC_PWM_MODE);
 			if (ret) {
-				pr_err("Set pwm mode for all failed\n");
+				pr_err("Set pwm mode for all failed. err:%d\n",
+						ret);
 				goto exit;
 			}
 			break;
@@ -864,9 +880,10 @@ static int do_psm(void)
 	if (auto_cnt == max_tsens_num) {
 		ret = psm_set_mode_all(PMIC_AUTO_MODE);
 		if (ret) {
-			pr_err("Set auto mode for all failed\n");
+			pr_err("Set auto mode for all failed. err:%d\n", ret);
 			goto exit;
 		}
+		pr_debug("Requested PMIC AUTO Mode\n");
 	}
 
 exit:
@@ -1019,6 +1036,8 @@ static int __ref msm_thermal_cpu_callback(struct notifier_block *nfb,
 		}
 	}
 
+	if (debug_mode == 1)
+		pr_debug("voting for CPU%d to be online\n", cpu);
 	return NOTIFY_OK;
 }
 
@@ -1230,7 +1249,7 @@ static ssize_t __ref store_cc_enabled(struct kobject *kobj,
 	mutex_lock(&core_control_mutex);
 	ret = kstrtoint(buf, 10, &val);
 	if (ret) {
-		pr_err("%s: Invalid input %s\n", KBUILD_MODNAME, buf);
+		pr_err("Invalid input %s. err:%d\n", buf, ret);
 		goto done_store_cc;
 	}
 
@@ -1239,12 +1258,12 @@ static ssize_t __ref store_cc_enabled(struct kobject *kobj,
 
 	core_control = !!val;
 	if (core_control) {
-		pr_info("%s: Core control enabled\n", KBUILD_MODNAME);
+		pr_info("Core control enabled\n");
 		register_cpu_notifier(&msm_thermal_cpu_notifier);
 		update_offline_cores(cpus_offlined);
 		enabled = 1;
 	} else {
-		pr_info("%s: Core control disabled\n", KBUILD_MODNAME);
+		pr_info("Core control disabled\n");
 		unregister_cpu_notifier(&msm_thermal_cpu_notifier);
 		enabled = 0;
 	}
@@ -1269,13 +1288,12 @@ static ssize_t __ref store_cpus_offlined(struct kobject *kobj,
 	mutex_lock(&core_control_mutex);
 	ret = kstrtouint(buf, 10, &val);
 	if (ret) {
-		pr_err("%s: Invalid input %s\n", KBUILD_MODNAME, buf);
+		pr_err("Invalid input %s. err:%d\n", buf, ret);
 		goto done_cc;
 	}
 
 	if (intelli_enabled) {
-		pr_err("%s: Ignoring request; polling thread is enabled.\n",
-				KBUILD_MODNAME);
+		pr_err("Ignoring request; polling thread is enabled.\n");
 		goto done_cc;
 	}
 
@@ -1316,23 +1334,21 @@ static __init int msm_thermal_add_cc_nodes(void)
 
 	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
 	if (!module_kobj) {
-		pr_err("%s: cannot find kobject for module\n",
-			KBUILD_MODNAME);
+		pr_err("cannot find kobject\n");
 		ret = -ENOENT;
 		goto done_cc_nodes;
 	}
 
 	cc_kobj = kobject_create_and_add("core_control", module_kobj);
 	if (!cc_kobj) {
-		pr_err("%s: cannot create core control kobj\n",
-				KBUILD_MODNAME);
+		pr_err("cannot create core control kobj\n");
 		ret = -ENOMEM;
 		goto done_cc_nodes;
 	}
 
 	ret = sysfs_create_group(cc_kobj, &cc_attr_group);
 	if (ret) {
-		pr_err("%s: cannot create group\n", KBUILD_MODNAME);
+		pr_err("cannot create sysfs group. err:%d\n", ret);
 		goto done_cc_nodes;
 	}
 
@@ -1376,8 +1392,8 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 	ret = cpufreq_register_notifier(&msm_thermal_cpufreq_notifier,
 			CPUFREQ_POLICY_NOTIFIER);
 	if (ret)
-		pr_err("%s: cannot register cpufreq notifier\n",
-			KBUILD_MODNAME);
+		pr_err("cannot register cpufreq notifier. err:%d\n", ret);
+
 	INIT_DELAYED_WORK(&check_temp_work, check_temp);
 	if (intelli_enabled)
 		schedule_delayed_work(&check_temp_work,
@@ -1405,8 +1421,7 @@ static int vdd_restriction_reg_init(struct platform_device *pdev)
 			if (freq_table_get)
 				ret = vdd_restriction_apply_freq(&rails[i], 0);
 			else
-				pr_info("%s:Defer vdd rstr freq init\n",
-						__func__);
+				pr_info("Defer vdd rstr freq init.\n");
 		} else {
 			rails[i].reg = devm_regulator_get(&pdev->dev,
 					rails[i].name);
@@ -1414,12 +1429,14 @@ static int vdd_restriction_reg_init(struct platform_device *pdev)
 				ret = PTR_ERR(rails[i].reg);
 				if (ret != -EPROBE_DEFER) {
 					pr_err( \
-					"%s, could not get regulator: %s\n",
-					rails[i].name, __func__);
+					"could not get regulator: %s. err:%d\n",
+					rails[i].name, ret);
 					rails[i].reg = NULL;
 					rails[i].curr_level = -2;
 					return ret;
 				}
+				pr_info("Defer regulator %s probe\n",
+					rails[i].name);
 				return ret;
 			}
 			/*
@@ -1445,11 +1462,13 @@ static int psm_reg_init(struct platform_device *pdev)
 		if (IS_ERR_OR_NULL(psm_rails[i].reg)) {
 			ret = PTR_ERR(psm_rails[i].reg);
 			if (ret != -EPROBE_DEFER) {
-				pr_err("%s, could not get rpm regulator: %s\n",
-					psm_rails[i].name, __func__);
+				pr_err("couldn't get rpm regulator %s. err%d\n",
+					psm_rails[i].name, ret);
 				psm_rails[i].reg = NULL;
 				goto psm_reg_exit;
 			}
+			pr_info("Defer regulator %s probe\n",
+					psm_rails[i].name);
 			return ret;
 		}
 		/* Apps default vote for PWM mode */
@@ -1457,7 +1476,7 @@ static int psm_reg_init(struct platform_device *pdev)
 		ret = rpm_regulator_set_mode(psm_rails[i].reg,
 				psm_rails[i].init);
 		if (ret) {
-			pr_err("%s: Cannot set PMIC PWM mode\n", __func__);
+			pr_err("Cannot set PMIC PWM mode. err:%d\n", ret);
 			return ret;
 		} else
 			psm_rails[i].mode = PMIC_PWM_MODE;
@@ -1494,24 +1513,21 @@ static int msm_thermal_add_vdd_rstr_nodes(void)
 
 	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
 	if (!module_kobj) {
-		pr_err("%s: cannot find kobject for module %s\n",
-			__func__, KBUILD_MODNAME);
+		pr_err("cannot find kobject\n");
 		rc = -ENOENT;
 		goto thermal_sysfs_add_exit;
 	}
 
 	vdd_rstr_kobj = kobject_create_and_add("vdd_restriction", module_kobj);
 	if (!vdd_rstr_kobj) {
-		pr_err("%s: cannot create vdd_restriction kobject\n",
-				__func__);
+		pr_err("cannot create vdd_restriction kobject\n");
 		rc = -ENOMEM;
 		goto thermal_sysfs_add_exit;
 	}
 
 	rc = sysfs_create_group(vdd_rstr_kobj, &vdd_rstr_en_attribs_gp);
 	if (rc) {
-		pr_err("%s: cannot create kobject attribute group\n",
-				__func__);
+		pr_err("cannot create kobject attribute group. err:%d\n", rc);
 		rc = -ENOMEM;
 		goto thermal_sysfs_add_exit;
 	}
@@ -1520,8 +1536,8 @@ static int msm_thermal_add_vdd_rstr_nodes(void)
 		vdd_rstr_reg_kobj[i] = kobject_create_and_add(rails[i].name,
 					vdd_rstr_kobj);
 		if (!vdd_rstr_reg_kobj[i]) {
-			pr_err("%s: cannot create for kobject for %s\n",
-					__func__, rails[i].name);
+			pr_err("cannot create kobject for %s\n",
+					rails[i].name);
 			rc = -ENOMEM;
 			goto thermal_sysfs_add_exit;
 		}
@@ -1529,6 +1545,7 @@ static int msm_thermal_add_vdd_rstr_nodes(void)
 		rails[i].attr_gp.attrs = kzalloc(
 				sizeof(struct attribute *) * 3, GFP_KERNEL);
 		if (!rails[i].attr_gp.attrs) {
+			pr_err("kzalloc failed\n");
 			rc = -ENOMEM;
 			goto thermal_sysfs_add_exit;
 		}
@@ -1540,8 +1557,8 @@ static int msm_thermal_add_vdd_rstr_nodes(void)
 		rc = sysfs_create_group(vdd_rstr_reg_kobj[i],
 				&rails[i].attr_gp);
 		if (rc) {
-			pr_err("%s: cannot create attribute group for %s\n",
-					__func__, rails[i].name);
+			pr_err("cannot create attribute group for %s. err:%d\n",
+					rails[i].name, rc);
 			goto thermal_sysfs_add_exit;
 		}
 	}
@@ -1578,15 +1595,14 @@ static int msm_thermal_add_psm_nodes(void)
 
 	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
 	if (!module_kobj) {
-		pr_err("%s: cannot find kobject for module %s\n",
-			__func__, KBUILD_MODNAME);
+		pr_err("cannot find kobject\n");
 		rc = -ENOENT;
 		goto psm_node_exit;
 	}
 
 	psm_kobj = kobject_create_and_add("pmic_sw_mode", module_kobj);
 	if (!psm_kobj) {
-		pr_err("%s: cannot create psm kobject\n", KBUILD_MODNAME);
+		pr_err("cannot create psm kobject\n");
 		rc = -ENOMEM;
 		goto psm_node_exit;
 	}
@@ -1595,14 +1611,15 @@ static int msm_thermal_add_psm_nodes(void)
 		psm_reg_kobj[i] = kobject_create_and_add(psm_rails[i].name,
 					psm_kobj);
 		if (!psm_reg_kobj[i]) {
-			pr_err("%s: cannot create for kobject for %s\n",
-					KBUILD_MODNAME, psm_rails[i].name);
+			pr_err("cannot create kobject for %s\n",
+					psm_rails[i].name);
 			rc = -ENOMEM;
 			goto psm_node_exit;
 		}
 		psm_rails[i].attr_gp.attrs = kzalloc( \
 				sizeof(struct attribute *) * 2, GFP_KERNEL);
 		if (!psm_rails[i].attr_gp.attrs) {
+			pr_err("kzalloc failed\n");
 			rc = -ENOMEM;
 			goto psm_node_exit;
 		}
@@ -1613,8 +1630,8 @@ static int msm_thermal_add_psm_nodes(void)
 		rc = sysfs_create_group(psm_reg_kobj[i],
 				&psm_rails[i].attr_gp);
 		if (rc) {
-			pr_err("%s: cannot create attribute group for %s\n",
-					KBUILD_MODNAME, psm_rails[i].name);
+			pr_err("cannot create attribute group for %s. err:%d\n",
+					psm_rails[i].name, rc);
 			goto psm_node_exit;
 		}
 	}
@@ -1661,14 +1678,14 @@ static int probe_vdd_rstr(struct device_node *node,
 	if (rails_cnt == 0)
 		goto read_node_fail;
 	if (rails_cnt >= MAX_RAILS) {
-		pr_err("%s: Too many rails.\n", __func__);
+		pr_err("Too many rails:%d.\n", rails_cnt);
 		return -EFAULT;
 	}
 
 	rails = kzalloc(sizeof(struct rail) * rails_cnt,
 				GFP_KERNEL);
 	if (!rails) {
-		pr_err("%s: Fail to allocate memory for rails.\n", __func__);
+		pr_err("Fail to allocate memory for rails.\n");
 		return -ENOMEM;
 	}
 
@@ -1685,7 +1702,8 @@ static int probe_vdd_rstr(struct device_node *node,
 		rails[i].num_levels = arr_size/sizeof(__be32);
 		if (rails[i].num_levels >
 			sizeof(rails[i].levels)/sizeof(uint32_t)) {
-			pr_err("%s: Array size too large\n", __func__);
+			pr_err("Array size:%d too large for index:%d\n",
+				rails[i].num_levels, i);
 			return -EFAULT;
 		}
 		ret = of_property_read_u32_array(child_node, key,
@@ -1723,9 +1741,8 @@ read_node_fail:
 	vdd_rstr_probed = true;
 	if (ret) {
 		dev_info(&pdev->dev,
-			"%s:Failed reading node=%s, key=%s. \
-			KTM continues\n", __func__,
-			node->full_name, key);
+		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
+			__func__, node->full_name, key, ret);
 		kfree(rails);
 		rails_cnt = 0;
 	}
@@ -1758,8 +1775,7 @@ static int probe_psm(struct device_node *node, struct msm_thermal_data *data,
 	psm_rails = kzalloc(sizeof(struct psm_rail) * psm_rails_cnt,
 			GFP_KERNEL);
 	if (!psm_rails) {
-		pr_err("%s: Fail to allocate memory for psm rails\n",
-				__func__);
+		pr_err("Fail to allocate memory for psm rails\n");
 		psm_rails_cnt = 0;
 		return -ENOMEM;
 	}
@@ -1774,8 +1790,8 @@ static int probe_psm(struct device_node *node, struct msm_thermal_data *data,
 	if (psm_rails_cnt) {
 		ret = psm_reg_init(pdev);
 		if (ret) {
-			pr_info("%s:Failed to get regulators. \
-					KTM continues.\n", __func__);
+			pr_err("Err regulator init. err:%d. KTM continues.\n",
+					ret);
 			goto read_node_fail;
 		}
 		psm_enabled = true;
@@ -1785,8 +1801,8 @@ read_node_fail:
 	psm_probed = true;
 	if (ret) {
 		dev_info(&pdev->dev,
-			"%s:Failed reading node=%s, key=%s. KTM continues\n",
-			__func__, node->full_name, key);
+		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
+			__func__, node->full_name, key, ret);
 		kfree(psm_rails);
 		psm_rails_cnt = 0;
 	}
@@ -1837,8 +1853,8 @@ static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
 	return ret;
 fail:
 	if (ret)
-		pr_err("%s: Failed reading node=%s, key=%s\n",
-			__func__, node->full_name, key);
+		pr_err("Failed reading node=%s, key=%s. err:%d\n",
+			node->full_name, key, ret);
 
 	pr_info("%s: msm_thermal_dev_probe failed!\n", KBUILD_MODNAME);
 
