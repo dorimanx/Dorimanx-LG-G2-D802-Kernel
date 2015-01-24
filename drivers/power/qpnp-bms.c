@@ -28,10 +28,6 @@
 #include <linux/qpnp/power-on.h>
 #include <linux/of_batterydata.h>
 
-//#ifdef CONFIG_MACH_MSM8974_VU3_KR
-//#define EXTERNAL_FUELGAUGE
-//#endif
-
 /* BMS Register Offsets */
 #define REVISION1			0x0
 #define REVISION2			0x1
@@ -610,17 +606,19 @@ static int get_battery_current(struct qpnp_bms_chip *chip, int *result_ua)
 	unlock_output_data(chip);
 	mutex_unlock(&chip->bms_output_lock);
 
-	pr_info("vsense_uv=%duV\n", vsense_uv);
+	pr_debug("vsense_uv=%duV\n", vsense_uv);
 	/* cast for signed division */
 	temp_current = div_s64((vsense_uv * 1000000LL),
 				(int)chip->r_sense_uohm);
 
+	*result_ua = temp_current;
 	rc = qpnp_iadc_comp_result(chip->iadc_dev, &temp_current);
 	if (rc)
 		pr_debug("error compensation failed: %d\n", rc);
 
+	pr_debug("%d uA err compensated ibat=%llduA\n",
+			*result_ua, temp_current);
 	*result_ua = temp_current;
-	pr_info("err compensated ibat=%duA\n", *result_ua);
 	return 0;
 }
 
@@ -761,13 +759,18 @@ static void reset_cc(struct qpnp_bms_chip *chip, u8 flags)
 static int get_battery_status(struct qpnp_bms_chip *chip)
 {
 	union power_supply_propval ret = {0,};
+	int rc;
 
 	if (chip->batt_psy == NULL)
 		chip->batt_psy = power_supply_get_by_name("battery");
 	if (chip->batt_psy) {
 		/* if battery has been registered, use the status property */
-		chip->batt_psy->get_property(chip->batt_psy,
+		rc = chip->batt_psy->get_property(chip->batt_psy,
 					POWER_SUPPLY_PROP_STATUS, &ret);
+		if (rc) {
+			pr_debug("Battery does not export status: %d\n", rc);
+			return POWER_SUPPLY_STATUS_UNKNOWN;
+		}
 		return ret.intval;
 	}
 
@@ -806,8 +809,12 @@ static bool is_battery_present(struct qpnp_bms_chip *chip)
 		chip->batt_psy = power_supply_get_by_name("battery");
 	if (chip->batt_psy) {
 		/* if battery has been registered, use the present property */
-		chip->batt_psy->get_property(chip->batt_psy,
+		rc = chip->batt_psy->get_property(chip->batt_psy,
 					POWER_SUPPLY_PROP_PRESENT, &ret);
+		if (rc) {
+			pr_debug("battery does not export present: %d\n", rc);
+			return true;
+		}
 		return ret.intval;
 	}
 
@@ -848,13 +855,18 @@ static int get_battery_insertion_ocv_uv(struct qpnp_bms_chip *chip)
 static bool is_batfet_closed(struct qpnp_bms_chip *chip)
 {
 	union power_supply_propval ret = {0,};
+	int rc;
 
 	if (chip->batt_psy == NULL)
 		chip->batt_psy = power_supply_get_by_name("battery");
 	if (chip->batt_psy) {
 		/* if battery has been registered, use the online property */
-		chip->batt_psy->get_property(chip->batt_psy,
+		rc = chip->batt_psy->get_property(chip->batt_psy,
 					POWER_SUPPLY_PROP_ONLINE, &ret);
+		if (rc) {
+			pr_debug("Battery does not export online: %d\n", rc);
+			return true;
+		}
 		return !!ret.intval;
 	}
 
@@ -1043,8 +1055,7 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 		pr_debug("PON_OCV_UV = %d, cc = %llx\n",
 				chip->last_ocv_uv, raw->cc);
 		warm_reset = qpnp_pon_is_warm_reset();
-		if (raw->last_good_ocv_uv < MIN_OCV_UV
-				|| warm_reset > 0) {
+		if (raw->last_good_ocv_uv < MIN_OCV_UV || warm_reset > 0) {
 			pr_debug("OCV is stale or bad, estimating new OCV.\n");
 			chip->last_ocv_uv = estimate_ocv(chip);
 			raw->last_good_ocv_uv = chip->last_ocv_uv;
@@ -1408,8 +1419,7 @@ static int calculate_unusable_charge_uah(struct qpnp_bms_chip *chip,
 		return (params->fcc_uah * 3) / 100;
 
 	uuc_uah_iavg = calculate_termination_uuc(chip, params, batt_temp,
-						uuc_iavg_ma,
-						&pc_unusable);
+						uuc_iavg_ma, &pc_unusable);
 	pr_debug("uuc_iavg_ma = %d uuc with iavg = %d\n",
 						uuc_iavg_ma, uuc_uah_iavg);
 
@@ -4087,7 +4097,7 @@ static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 			return rc;
 		}
 		chip->r_sense_uohm = rds_rsense_nohm/1000;
-		pr_info("rds_rsense = %d nOhm, saved as %d uOhm\n",
+		pr_debug("rds_rsense = %d nOhm, saved as %d uOhm\n",
 					rds_rsense_nohm, chip->r_sense_uohm);
 	}
 	/* prevent shorting of leads by IADC_BMS when external Rsense is used */
@@ -4384,7 +4394,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 			get_prop_bms_capacity(chip), vbatt, chip->last_ocv_uv,
 			chip->r_sense_uohm, warm_reset);
 #else
-	pr_info("probe success: r_sense_uohm = %u\n",chip->r_sense_uohm);
+	pr_info("probe success: r_sense_uohm = %u\n", chip->r_sense_uohm);
 #endif
 	return 0;
 
