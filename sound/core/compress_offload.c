@@ -625,7 +625,6 @@ snd_compr_set_metadata(struct snd_compr_stream *stream, unsigned long arg)
 	return retval;
 }
 
-
 static inline int
 snd_compr_tstamp(struct snd_compr_stream *stream, unsigned long arg)
 {
@@ -832,7 +831,7 @@ static long snd_compr_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 
 	case _IOC_NR(SNDRV_COMPRESS_SET_METADATA):
 		retval = snd_compr_set_metadata(stream, arg);
-	break;
+		break;
 
 	case _IOC_NR(SNDRV_COMPRESS_GET_METADATA):
 		retval = snd_compr_get_metadata(stream, arg);

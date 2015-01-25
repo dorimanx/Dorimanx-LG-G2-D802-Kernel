@@ -3128,7 +3128,9 @@ int msm_hs_get_bt_uport_clock_state(struct uart_port *uport)
 	switch (msm_uport->clk_state) {
 		case MSM_HS_CLK_ON:
 		case MSM_HS_CLK_PORT_OFF:
+#ifdef JUNK
 			printk(KERN_ERR "UART Clock already on or port not use : %d\n", msm_uport->clk_state);
+#endif
 			ret = CLOCK_REQUEST_UNAVAILABLE;
 			break;
 		case MSM_HS_CLK_REQUEST_OFF:

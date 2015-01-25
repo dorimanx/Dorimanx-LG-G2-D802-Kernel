@@ -1390,10 +1390,6 @@ static int taiko_tx_hpf_bypass_put(struct snd_kcontrol *kcontrol,
 
 static const struct snd_kcontrol_new taiko_snd_controls[] = {
 
-/*                                                  
-                                                  
-                                                        
- */
 #if defined(CONFIG_MACH_LGE)
 	SOC_SINGLE_S8_TLV("RX1 Digital Volume", TAIKO_A_CDC_RX1_VOL_CTL_B2_CTL,
 		-60, 40, digital_gain),
@@ -1467,7 +1463,6 @@ static const struct snd_kcontrol_new taiko_snd_controls[] = {
 	SOC_SINGLE_S8_TLV("DEC10 Volume", TAIKO_A_CDC_TX10_VOL_CTL_GAIN, -84,
 		40, digital_gain),
 #endif
-/*                                                   */
 
 	SOC_SINGLE_S8_TLV("IIR1 INP1 Volume", TAIKO_A_CDC_IIR1_GAIN_B1_CTL, -84,
 		40, digital_gain),
@@ -3657,7 +3652,7 @@ static int taiko_codec_enable_anc(struct snd_soc_dapm_widget *w,
 	const char *filename;
 	const struct firmware *fw;
 	int i;
-	int ret =0;
+	int ret = 0;
 	int num_anc_slots;
 	struct wcd9xxx_anc_header *anc_head;
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);

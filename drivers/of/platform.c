@@ -80,6 +80,10 @@ void of_device_make_bus_id(struct device *dev)
 	u64 addr;
 	const __be32 *addrp;
 	int magic;
+#ifdef CONFIG_MACH_LGE
+	int id, ret;
+	const char *name;
+#endif
 
 #ifdef CONFIG_PPC_DCR
 	/*
@@ -121,6 +125,27 @@ void of_device_make_bus_id(struct device *dev)
 			return;
 		}
 	}
+
+#ifdef CONFIG_MACH_LGE
+	/* if "platform,dev,id" and "platform,dev,name" are set both,
+	 * use name.id as device name. if "platform,dev,id" is set only,
+	 * node name.id will be assigned. Also if "platform,dev,id" is 0,
+	 * only "platform,dev,name" (or node name if none) is device name.
+	 */
+	ret = of_property_read_u32(node, "platform,dev,id", &id);
+	if (!ret) {
+		ret = of_property_read_string(node, "platform,dev,name", &name);
+		if (!ret) {
+			if (id == 0) {
+				dev_set_name(dev, "%s", name);
+				return;
+			}
+			dev_set_name(dev, "%s.%d", name, id);
+		} else
+			dev_set_name(dev, "%s.%d", node->name, id);
+		return;
+	}
+#endif
 
 	/*
 	 * No BusID, use the node name and add a globally incremented

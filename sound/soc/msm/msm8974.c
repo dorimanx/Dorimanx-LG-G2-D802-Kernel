@@ -55,6 +55,8 @@ static int slim0_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int slim0_tx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int hdmi_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 
+#define SAMPLING_RATE_8KHZ 8000
+#define SAMPLING_RATE_16KHZ 16000
 #define SAMPLING_RATE_48KHZ 48000
 #define SAMPLING_RATE_96KHZ 96000
 #define SAMPLING_RATE_192KHZ 192000
@@ -843,7 +845,7 @@ static const char *const slim0_tx_ch_text[] = {"One", "Two", "Three", "Four",
 static char const *hdmi_rx_ch_text[] = {"Two", "Three", "Four", "Five",
 					"Six", "Seven", "Eight"};
 static char const *rx_bit_format_text[] = {"S16_LE", "S24_LE"};
-static char const *slim0_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96",
+static char const *slim0_rx_sample_rate_text[] = {"KHZ_8", "KHZ_16", "KHZ_48", "KHZ_96",
 					"KHZ_192"};
 static const char *const proxy_rx_ch_text[] = {"One", "Two", "Three", "Four",
 	"Five",	"Six", "Seven", "Eight"};
@@ -862,16 +864,24 @@ static int slim0_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
 
 	switch (slim0_rx_sample_rate) {
 	case SAMPLING_RATE_192KHZ:
-		sample_rate_val = 2;
+		sample_rate_val = 4;
 		break;
 
 	case SAMPLING_RATE_96KHZ:
+		sample_rate_val = 3;
+		break;
+
+	case SAMPLING_RATE_16KHZ:
 		sample_rate_val = 1;
+		break;
+
+	case SAMPLING_RATE_8KHZ:
+		sample_rate_val = 0;
 		break;
 
 	case SAMPLING_RATE_48KHZ:
 	default:
-		sample_rate_val = 0;
+		sample_rate_val = 2;
 		break;
 	}
 
@@ -889,13 +899,19 @@ static int slim0_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
 			ucontrol->value.integer.value[0]);
 
 	switch (ucontrol->value.integer.value[0]) {
-	case 2:
+	case 4:
 		slim0_rx_sample_rate = SAMPLING_RATE_192KHZ;
 		break;
-	case 1:
+	case 3:
 		slim0_rx_sample_rate = SAMPLING_RATE_96KHZ;
 		break;
+	case 1:
+		slim0_rx_sample_rate = SAMPLING_RATE_16KHZ;
+		break;
 	case 0:
+		slim0_rx_sample_rate = SAMPLING_RATE_8KHZ;
+		break;
+	case 2:
 	default:
 		slim0_rx_sample_rate = SAMPLING_RATE_48KHZ;
 	}
@@ -940,6 +956,8 @@ static int slim0_rx_bit_format_put(struct snd_kcontrol *kcontrol,
 		slim0_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 		break;
 	}
+	pr_debug("%s: slim0_rx_bit_format = %d\n",
+			 __func__, slim0_rx_bit_format);
 	return 0;
 }
 
@@ -1525,7 +1543,7 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(8, slim0_tx_ch_text),
 	SOC_ENUM_SINGLE_EXT(7, hdmi_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(2, rx_bit_format_text),
-	SOC_ENUM_SINGLE_EXT(3, slim0_rx_sample_rate_text),
+	SOC_ENUM_SINGLE_EXT(5, slim0_rx_sample_rate_text),
 	SOC_ENUM_SINGLE_EXT(8, proxy_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(3, hdmi_rx_sample_rate_text),
 };
@@ -2393,6 +2411,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.cpu_dai_name   = "MI2S_TX_HOSTLESS",
 		.platform_name  = "msm-pcm-hostless",
 		.dynamic = 1,
+		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			SND_SOC_DPCM_TRIGGER_POST},
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
@@ -2527,6 +2546,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.cpu_dai_name   = "MI2S_TX_HOSTLESS",
 		.platform_name  = "msm-pcm-hostless",
 		.dynamic = 1,
+		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			SND_SOC_DPCM_TRIGGER_POST},
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
@@ -3613,6 +3633,9 @@ skip_sec:
 		ret = -EINVAL;
 		goto err2;
 	}
+
+	dev_info(&pdev->dev, "%s(): done.\n", __func__);
+
 	return 0;
 
 err2:

@@ -196,7 +196,6 @@ static void msm_hdmi_audio_codec_rx_dai_shutdown(
 	return;
 }
 
-
 static struct snd_soc_dai_ops msm_hdmi_audio_codec_rx_dai_ops = {
 	.startup	= msm_hdmi_audio_codec_rx_dai_startup,
 	.hw_params	= msm_hdmi_audio_codec_rx_dai_hw_params,

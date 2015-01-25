@@ -1107,9 +1107,9 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 		prtd->sample_rate = 192000;
 		break;
 #endif
-    default:
-        pr_err("%s: invalid sample rate",__func__);
-        break;
+	default:
+		pr_err("%s: invalid sample rate",__func__);
+		break;
 	}
 
 	pr_debug("%s: sample_rate %d\n", __func__, prtd->sample_rate);
