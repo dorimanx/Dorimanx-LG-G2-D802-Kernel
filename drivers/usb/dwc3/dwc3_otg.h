@@ -49,7 +49,6 @@ struct dwc3_otg {
 	struct work_struct      touch_work;
 #endif
 	struct delayed_work	sm_work;
-	struct workqueue_struct *sm_wq;
 	struct dwc3_charger	*charger;
 	struct dwc3_ext_xceiv	*ext_xceiv;
 #define ID		0

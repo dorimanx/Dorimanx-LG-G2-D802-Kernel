@@ -49,7 +49,7 @@ extern int msm_serial_set_uart_console(int enable);
 static int earjack_debugger_detected(void *dev)
 {
 //                                                                                                                                                                                                
-#if defined CONFIG_MACH_MSM8974_VU3_KR
+#if defined (CONFIG_MACH_MSM8974_VU3_KR) || defined (CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_CA)
 	printk("earjack debugger is detected on VU3 but do not allow to use it!");
 	return 0;
 #else

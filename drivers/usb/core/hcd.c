@@ -1551,6 +1551,11 @@ int usb_hcd_unlink_urb (struct urb *urb, int status)
 	spin_lock_irqsave(&hcd_urb_unlink_lock, flags);
 	if (atomic_read(&urb->use_count) > 0) {
 		retval = 0;
+#ifdef CONFIG_MACH_LGE
+		if (!urb->dev || !urb->dev->devnum)
+			retval = -ENODEV;
+		else
+#endif
 		usb_get_dev(urb->dev);
 	}
 	spin_unlock_irqrestore(&hcd_urb_unlink_lock, flags);

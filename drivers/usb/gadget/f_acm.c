@@ -178,7 +178,6 @@ static int acm_port_disconnect(struct f_acm *acm)
 /* notification endpoint uses smallish and infrequent fixed-size messages */
 
 #define GS_LOG2_NOTIFY_INTERVAL		5	/* 1 << 5 == 32 msec */
-
 #ifdef CONFIG_USB_G_LGE_ANDROID
 #define GS_NOTIFY_MAXPACKET		16	/* For LG host driver */
 #define GS_DESC_NOTIFY_MAXPACKET	64	/* For acm_hs_notify_desc */
@@ -194,7 +193,7 @@ acm_iad_descriptor = {
 	.bDescriptorType =	USB_DT_INTERFACE_ASSOCIATION,
 
 	/* .bFirstInterface =	DYNAMIC, */
-	.bInterfaceCount = 	2,	// control + data
+	.bInterfaceCount = 	2,	/* control + data */
 	.bFunctionClass =	USB_CLASS_COMM,
 	.bFunctionSubClass =	USB_CDC_SUBCLASS_ACM,
 	.bFunctionProtocol =	USB_CDC_ACM_PROTO_AT_V25TER,
@@ -990,12 +989,10 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 	acm->transport = gacm_ports[port_num].transport;
 
 	acm->port.connect = acm_connect;
-
 	acm->port.get_dtr = acm_get_dtr;
 	acm->port.get_rts = acm_get_rts;
 	acm->port.send_carrier_detect = acm_send_carrier_detect;
 	acm->port.send_ring_indicator = acm_send_ring_indicator;
-
 	acm->port.disconnect = acm_disconnect;
 	acm->port.send_break = acm_send_break;
 	acm->port.send_modem_ctrl_bits = acm_send_modem_ctrl_bits;

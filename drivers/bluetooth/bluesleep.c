@@ -59,16 +59,29 @@
 #include <net/bluetooth/hci_core.h> /* event notifications */
 #include "hci_uart.h"
 
+static unsigned int bt_debug = 0;
+module_param_named(bt_debug_mask, bt_debug, uint, 0644);
+
 /*                                                                                            */
 #ifdef CONFIG_LGE_BLUESLEEP
-#undef BT_INFO
-#define BT_INFO(fmt, arg...) printk(KERN_INFO "*[bluesleep(%d)-%s()] " fmt "\n" , __LINE__, __FUNCTION__, ## arg)
 #undef BT_ERR
 #define BT_ERR(fmt, arg...)  printk(KERN_ERR "*[bluesleep(%d)-%s()] " fmt "\n" , __LINE__, __FUNCTION__, ## arg)
-#undef BT_DBG
-#define BT_DBG(fmt, arg...)  printk(KERN_ERR "*[bluesleep(%d)-%s()] " fmt "\n" , __LINE__, __FUNCTION__, ## arg)
 
 #define BT_PORT_ID	99
+
+#undef BT_INFO
+#define BT_INFO(fmt, arg...)										\
+do {													\
+	if (bt_debug)											\
+		printk(KERN_INFO "*[bluesleep(%d)-%s()] " fmt "\n" , __LINE__, __FUNCTION__, ## arg);	\
+} while (0)
+
+#undef BT_DBG
+#define BT_DBG(fmt, arg...)										\
+do {													\
+	if (bt_debug)											\
+		printk(KERN_ERR "*[bluesleep(%d)-%s()] " fmt "\n" , __LINE__, __FUNCTION__, ## arg);	\
+} while (0)
 
 //BT_S : [PSIX-6850] LPM_SLEEP_MODE_DO_NOT_UART_CLOSE
 #define UART_OFF 1
