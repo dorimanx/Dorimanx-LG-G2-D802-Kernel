@@ -360,14 +360,15 @@ static int dev_avtimer_probe(struct platform_device *pdev)
 	}
 
 	if (result < 0) {
-		pr_err("%s: Registering avtimer device failed\n", __func__);
+		dev_err(&pdev->dev, "%s: Registering avtimer device failed\n",
+			__func__);
 		goto unmap;
 	}
 
 	avtimer.avtimer_class = class_create(THIS_MODULE, "avtimer");
 	if (IS_ERR(avtimer.avtimer_class)) {
 		result = PTR_ERR(avtimer.avtimer_class);
-		pr_err("%s: Error creating avtimer class: %d\n",
+		dev_err(&pdev->dev, "%s: Error creating avtimer class: %d\n",
 			__func__, result);
 		goto unregister_chrdev_region;
 	}
@@ -376,7 +377,8 @@ static int dev_avtimer_probe(struct platform_device *pdev)
 	result = cdev_add(&avtimer.myc, dev, 1);
 
 	if (result < 0) {
-		pr_err("%s: Registering file operations failed\n", __func__);
+		dev_err(&pdev->dev, "%s: Registering file operations failed\n",
+			__func__);
 		goto class_destroy;
 	}
 

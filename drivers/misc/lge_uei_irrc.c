@@ -26,9 +26,6 @@ UEI_IRRC_DRIVER_FOR_MSM9860
 
 struct uei_irrc_pdata_type irrc_data;
 
-#ifdef CONFIG_MACH_MSM8974_G2_KDDI
-struct regulator *ldo19 = NULL;
-#endif
 
 #ifdef CONFIG_OF
 static int irrc_parse_dt(struct device *dev, struct uei_irrc_pdata_type *pdata)
@@ -102,16 +99,6 @@ static int uei_irrc_probe(struct platform_device *pdev)
 	}
 	gpio_set_value(irrc_data.reset_gpio, 1);
 
-#ifdef CONFIG_MACH_MSM8974_G2_KDDI
-	ldo19 = regulator_get(NULL, "8941_l19");
-	if (IS_ERR(ldo19)) {
-		pr_err("%s: regulator get of PM8941_l19 failed (%ld)\n",__func__, PTR_ERR(ldo19));
-		regulator_put(ldo19);
-		return -ENXIO;
-	}
-	regulator_enable(ldo19);
-#endif
-
 	return rc;
 }
 
@@ -120,10 +107,7 @@ static int uei_irrc_remove(struct platform_device *pdev)
 	struct uei_irrc_pdata_type *pdata = platform_get_drvdata(pdev);
 	printk(KERN_ERR "[IRRC] remove (err:%d)\n", 104);
 	pdata = NULL;
-#ifdef CONFIG_MACH_MSM8974_G2_KDDI
-	regulator_disable(ldo19);
-	regulator_put(ldo19);
-#endif
+
 	return 0;
 }
 
@@ -134,18 +118,14 @@ static void uei_irrc_shutdown(struct platform_device *pdev)
 
 static int uei_irrc_suspend(struct platform_device *pdev, pm_message_t state)
 {
-#ifdef CONFIG_MACH_MSM8974_G2_KDDI
-	regulator_disable(ldo19);
-#endif
+
 	printk(KERN_INFO "%s\n", __func__);
 	return 0;
 }
 
 static int uei_irrc_resume(struct platform_device *pdev)
 {
-#ifdef CONFIG_MACH_MSM8974_G2_KDDI
-	regulator_enable(ldo19);
-#endif
+
 	printk(KERN_INFO "%s\n", __func__);
 	return 0;
 }

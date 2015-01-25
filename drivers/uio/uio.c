@@ -672,8 +672,7 @@ static int uio_mmap_physical(struct vm_area_struct *vma)
 	if (vma->vm_end - vma->vm_start > mem->size)
 		return -EINVAL;
 
-	vma->vm_flags |= VM_IO | VM_RESERVED;
-
+	vma->vm_ops = &uio_physical_vm_ops;
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
 	/*

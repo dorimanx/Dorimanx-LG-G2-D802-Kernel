@@ -26,10 +26,11 @@
 #include <linux/usb/gadget.h>
 #include <linux/workqueue.h>
 #include <linux/debugfs.h>
+#include <linux/kmemleak.h>
+
 #ifdef CONFIG_USB_G_LGE_ANDROID_DIAG_OSP_SUPPORT
 #include "../../char/diag/diagchar.h"
 #endif
-#include <linux/kmemleak.h>
 
 static DEFINE_SPINLOCK(ch_lock);
 static LIST_HEAD(usb_diag_ch_list);

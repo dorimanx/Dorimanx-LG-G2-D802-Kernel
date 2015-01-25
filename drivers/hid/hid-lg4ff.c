@@ -430,8 +430,11 @@ int lg4ff_init(struct hid_device *hid)
 
 	/* Create sysfs interface */
 	error = device_create_file(&hid->dev, &dev_attr_range);
-	if (error)
+	if (error) {
+		kfree(entry->device_id);
+		kfree(entry);
 		return error;
+	}
 	dbg_hid("sysfs interface created\n");
 
 	/* Set the maximum range to start with */

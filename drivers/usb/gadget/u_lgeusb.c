@@ -275,9 +275,11 @@ static int lgeusb_create_device_file(struct lgeusb_dev *dev)
 
 	while ((attr = *attrs++)) {
 		ret = device_create_file(dev->dev, attr);
-		if (ret)
+		if (ret) {
 			pr_err("usb: lgeusb: error on creating device file %s\n",
 					attr->attr.name);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -503,14 +505,12 @@ struct lge_android_usb_platform_data *lge_android_usb_dt_to_pdata(
 
 static int __devinit lgeusb_probe(struct platform_device *pdev)
 {
-	struct lge_android_usb_platform_data *pdata;
+	struct lge_android_usb_platform_data *pdata = pdev->dev.platform_data;
 	struct lgeusb_dev *usbdev = _lgeusb_dev;
-	int ret = 0;
-
-	pdata = lge_android_usb_dt_to_pdata(pdev);
-	usbdev->dev = &pdev->dev;
 
 	dev_dbg(&pdev->dev, "%s: pdata: %p\n", __func__, pdata);
+
+	usbdev->dev = &pdev->dev;
 
 	if (pdata) {
 		if (pdata->vendor_id)
@@ -545,8 +545,7 @@ static int __devinit lgeusb_probe(struct platform_device *pdev)
 
 	usbdev->current_mode = LGEUSB_DEFAULT_MODE;
 	lgeusb_create_device_file(usbdev);
-
-	return ret;
+	return 0;
 }
 
 static void android_destroy_device(struct lgeusb_dev *dev)
