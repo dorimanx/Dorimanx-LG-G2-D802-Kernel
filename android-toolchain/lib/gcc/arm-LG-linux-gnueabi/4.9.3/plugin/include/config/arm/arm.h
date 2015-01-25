@@ -74,8 +74,8 @@ extern char arm_arch_name[];
 	builtin_define_with_int_value (				\
 	  "__ARM_SIZEOF_MINIMAL_ENUM",				\
 	  flag_short_enums ? 1 : 4);				\
-	builtin_define_with_int_value (				\
-	  "__ARM_SIZEOF_WCHAR_T", WCHAR_TYPE_SIZE);		\
+	builtin_define_type_sizeof ("__ARM_SIZEOF_WCHAR_T",	\
+				    wchar_type_node);		\
 	if (TARGET_ARM_ARCH_PROFILE)				\
 	  builtin_define_with_int_value (			\
 	    "__ARM_ARCH_PROFILE", TARGET_ARM_ARCH_PROFILE);	\
@@ -166,7 +166,10 @@ extern char arm_arch_name[];
 	    builtin_define ("__ARM_EABI__");		\
 	  }						\
 	if (TARGET_IDIV)				\
-	  builtin_define ("__ARM_ARCH_EXT_IDIV__");	\
+         {						\
+            builtin_define ("__ARM_ARCH_EXT_IDIV__");	\
+            builtin_define ("__ARM_FEATURE_IDIV");	\
+         }						\
     } while (0)
 
 #include "config/arm/arm-opts.h"
