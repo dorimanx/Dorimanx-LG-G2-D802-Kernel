@@ -197,12 +197,14 @@ static void cpufreq_yankactive_timer_start(int cpu, int time_override)
 		expires = jiffies + usecs_to_jiffies(pcpu->timer_rate);
 
 	pcpu->cpu_timer.expires = expires;
-	add_timer_on(&pcpu->cpu_timer, cpu);
-	if (pcpu->timer_slack_val >= 0 &&
-			pcpu->target_freq > pcpu->policy->min) {
-		expires += usecs_to_jiffies(pcpu->timer_slack_val);
-		pcpu->cpu_slack_timer.expires = expires;
-		add_timer_on(&pcpu->cpu_slack_timer, cpu);
+	if (cpu_online(cpu)) {
+		add_timer_on(&pcpu->cpu_timer, cpu);
+		if (pcpu->timer_slack_val >= 0 &&
+				pcpu->target_freq > pcpu->policy->min) {
+			expires += usecs_to_jiffies(pcpu->timer_slack_val);
+			pcpu->cpu_slack_timer.expires = expires;
+			add_timer_on(&pcpu->cpu_slack_timer, cpu);
+		}
 	}
 
 	spin_lock_irqsave(&pcpu->load_lock, flags);
@@ -455,6 +457,8 @@ static void cpufreq_yankactive_timer(unsigned long data)
 	cpu_load = loadadjfreq / pcpu->target_freq;
 	pcpu->prev_load = cpu_load;
 	boosted = boost_val || now < boostpulse_endtime;
+
+	cpufreq_notify_utilization(pcpu->policy, cpu_load);
 
 	if (cpu_load >= go_hispeed_load || boosted) {
 		if (pcpu->target_freq < hispeed_freq) {
@@ -1497,8 +1501,8 @@ static int cpufreq_governor_yankactive(struct cpufreq_policy *policy,
 				continue;
 			}
 
-			/* update target_freq firstly */
 			spin_lock_irqsave(&pcpu->target_freq_lock, flags);
+			/* update target_freq firstly */
 			if (policy->max < pcpu->target_freq)
 				pcpu->target_freq = policy->max;
 			spin_unlock_irqrestore(&pcpu->target_freq_lock, flags);
