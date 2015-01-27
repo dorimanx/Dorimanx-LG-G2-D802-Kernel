@@ -187,6 +187,8 @@ ifeq ($(CONFIG_BCMDHD_COB),y)
 DHDCFLAGS += -DGET_CUSTOM_MAC_ENABLE
 endif
 
+DHDCFLAGS += -DCUSTOM_SET_SHORT_DWELL_TIME
+
 #########################
 # Chip dependent feature
 #########################
