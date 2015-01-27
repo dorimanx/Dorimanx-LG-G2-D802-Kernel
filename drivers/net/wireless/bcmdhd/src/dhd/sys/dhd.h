@@ -357,6 +357,7 @@ typedef struct dhd_pub {
 	tcp_ack_info_t tcp_ack_info_tbl[MAXTCPSTREAMS];
 #endif /* DHDTCPACK_SUPPRESS */
 	uint32 arp_version;
+	int short_dwell_time;
 #if defined(BCMSUP_4WAY_HANDSHAKE) && defined(WLAN_AKM_SUITE_FT_8021X)
 	bool fw_4way_handshake;		/* Whether firmware will to do the 4way handshake. */
 #endif
@@ -662,6 +663,10 @@ extern void dhd_os_sdunlock_eventq(dhd_pub_t * pub);
 extern bool dhd_os_check_hang(dhd_pub_t *dhdp, int ifidx, int ret);
 extern int dhd_os_send_hang_message(dhd_pub_t *dhdp);
 extern void dhd_set_version_info(dhd_pub_t *pub, char *fw);
+extern void dhd_set_short_dwell_time(dhd_pub_t *dhd, int set);
+#ifdef CUSTOM_SET_SHORT_DWELL_TIME
+extern void net_set_short_dwell_time(struct net_device *dev, int set);
+#endif
 
 #if defined(KEEP_ALIVE)
 extern int dhd_keep_alive_onoff(dhd_pub_t *dhd);
