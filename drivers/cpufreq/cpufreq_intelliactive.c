@@ -24,13 +24,11 @@
 #include <linux/moduleparam.h>
 #include <linux/rwsem.h>
 #include <linux/sched.h>
-#include <linux/tick.h>
 #include <linux/time.h>
 #include <linux/timer.h>
 #include <linux/workqueue.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
-#include <linux/kernel_stat.h>
 #include <asm/cputime.h>
 
 static int active_count;
@@ -171,8 +169,8 @@ static void cpufreq_interactive_timer_start(int cpu)
 	pcpu->cpu_timer.expires = expires;
 	if (cpu_online(cpu)) {
 		add_timer_on(&pcpu->cpu_timer, cpu);
-		if (timer_slack_val >= 0 && pcpu->target_freq >
-		     pcpu->policy->min) {
+		if (timer_slack_val >= 0 &&
+				pcpu->target_freq > pcpu->policy->min) {
 			expires += usecs_to_jiffies(timer_slack_val);
 			pcpu->cpu_slack_timer.expires = expires;
 			add_timer_on(&pcpu->cpu_slack_timer, cpu);
@@ -522,8 +520,7 @@ exit:
 static void cpufreq_interactive_idle_start(void)
 {
 	int cpu = smp_processor_id();
-	struct cpufreq_interactive_cpuinfo *pcpu =
-		&per_cpu(cpuinfo, smp_processor_id());
+	struct cpufreq_interactive_cpuinfo *pcpu = &per_cpu(cpuinfo, cpu);
 	int pending;
 	u64 now;
 
@@ -562,6 +559,7 @@ static void cpufreq_interactive_idle_start(void)
 
 		}
 	}
+
 exit:
 	up_read(&pcpu->enable_sem);
 }
@@ -894,7 +892,6 @@ static ssize_t store_above_hispeed_delay(
 	nabove_hispeed_delay = ntokens;
 	spin_unlock_irqrestore(&above_hispeed_delay_lock, flags);
 	return count;
-
 }
 
 static struct global_attr above_hispeed_delay_attr =
@@ -1292,7 +1289,8 @@ static int cpufreq_governor_intelliactive(struct cpufreq_policy *policy,
 			down_write(&pcpu->enable_sem);
 			del_timer_sync(&pcpu->cpu_timer);
 			del_timer_sync(&pcpu->cpu_slack_timer);
-			cpufreq_interactive_timer_start(j);
+			if (cpu_online(j))
+				cpufreq_interactive_timer_start(j);
 			pcpu->governor_enabled = 1;
 			up_write(&pcpu->enable_sem);
 		}
