@@ -52,7 +52,6 @@ struct cpufreq_interactive_cpuinfo {
 	unsigned int target_freq;
 	unsigned int floor_freq;
 	unsigned int max_freq;
-	unsigned int timer_rate;
 	int timer_slack_val;
 	unsigned int min_sample_time;
 	u64 floor_validate_time;
@@ -103,11 +102,8 @@ static int nmin_sample_times = ARRAY_SIZE(default_min_sample_time);
 /*
  * The sample rate of the timer used to increase frequency
  */
-#define DEFAULT_TIMER_RATE (40000)
-static unsigned int default_timer_rate[] = { DEFAULT_TIMER_RATE };
-static spinlock_t timer_rate_lock;
-static unsigned int *timer_rates = default_timer_rate;
-static int ntimer_rates = ARRAY_SIZE(default_timer_rate);
+#define DEFAULT_TIMER_RATE (40 * USEC_PER_MSEC)
+static unsigned long timer_rate = DEFAULT_TIMER_RATE;
 
 /*
  * Wait this long before raising speed above hispeed, by default a single
@@ -153,16 +149,14 @@ static bool io_is_busy;
 /* Round to starting jiffy of next evaluation window */
 static u64 round_to_nw_start(u64 jif)
 {
-	struct cpufreq_interactive_cpuinfo *pcpu =
-			&per_cpu(cpuinfo, smp_processor_id());
-	unsigned long step = usecs_to_jiffies(pcpu->timer_rate);
+	unsigned long step = usecs_to_jiffies(timer_rate);
 	u64 ret;
 
 	if (align_windows) {
 		do_div(jif, step);
 		ret = (jif + 1) * step;
 	} else {
-		ret = jiffies + usecs_to_jiffies(pcpu->timer_rate);
+		ret = jiffies + usecs_to_jiffies(timer_rate);
 	}
 
 	return ret;
@@ -261,22 +255,6 @@ static unsigned int freq_to_targetload(unsigned int freq)
 
 	ret = target_loads[i];
 	spin_unlock_irqrestore(&target_loads_lock, flags);
-	return ret;
-}
-
-static unsigned int freq_to_timer_rate(unsigned int freq)
-{
-	int i;
-	unsigned int ret;
-	unsigned long flags;
-
-	spin_lock_irqsave(&timer_rate_lock, flags);
-
-	for (i = 0; i < ntimer_rates - 1 && freq >= timer_rates[i+1]; i += 2)
-		;
-
-	ret = timer_rates[i];
-	spin_unlock_irqrestore(&timer_rate_lock, flags);
 	return ret;
 }
 
@@ -488,7 +466,6 @@ static void cpufreq_interactive_timer(unsigned long data)
 			new_freq = pcpu->policy->max * cpu_load / 100;
 	}
 
-	pcpu->timer_rate = freq_to_timer_rate(new_freq);
 	pcpu->timer_slack_val = freq_to_timer_slack(new_freq);
 	pcpu->min_sample_time = freq_to_min_sample_time(new_freq);
 
@@ -1119,38 +1096,25 @@ static struct global_attr min_sample_time_attr = __ATTR(min_sample_time, 0644,
 static ssize_t show_timer_rate(struct kobject *kobj,
 			struct attribute *attr, char *buf)
 {
-	int i;
-	ssize_t ret = 0;
-	unsigned long flags;
-
-	spin_lock_irqsave(&timer_rate_lock, flags);
-
-	for (i = 0; i < ntimer_rates; i++)
-		ret += sprintf(buf + ret, "%u%s", timer_rates[i],
-			       i & 0x1 ? ":" : " ");
-
-	sprintf(buf + ret - 1, "\n");
-	spin_unlock_irqrestore(&timer_rate_lock, flags);
-	return ret;
+	return sprintf(buf, "%lu\n", timer_rate);
 }
 
 static ssize_t store_timer_rate(struct kobject *kobj,
 			struct attribute *attr, const char *buf, size_t count)
 {
-	int ntokens;
-	unsigned int *new_timer_rate = NULL;
-	unsigned long flags;
+	int ret;
+	unsigned long val, val_round;
 
-	new_timer_rate = get_tokenized_data(buf, &ntokens);
-	if (IS_ERR(new_timer_rate))
-		return PTR_RET(new_timer_rate);
+	ret = strict_strtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
 
-	spin_lock_irqsave(&timer_rate_lock, flags);
-	if (timer_rates != default_timer_rate)
-		kfree(timer_rates);
-	timer_rates = new_timer_rate;
-	ntimer_rates = ntokens;
-	spin_unlock_irqrestore(&timer_rate_lock, flags);
+	val_round = jiffies_to_usecs(usecs_to_jiffies(val));
+	if (val != val_round)
+		pr_warn("timer_rate not aligned to jiffy. Rounded up to %lu\n",
+				val_round);
+
+	timer_rate = val_round;
 	return count;
 }
 
@@ -1535,7 +1499,6 @@ static int __init cpufreq_interactive_init(void)
 
 	spin_lock_init(&target_loads_lock);
 	spin_lock_init(&min_sample_time_lock);
-	spin_lock_init(&timer_rate_lock);
 	spin_lock_init(&timer_slack_lock);
 	spin_lock_init(&speedchange_cpumask_lock);
 	spin_lock_init(&above_hispeed_delay_lock);
