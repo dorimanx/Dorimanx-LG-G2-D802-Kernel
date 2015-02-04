@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,7 @@
 #include <linux/power_supply.h>
 #include <linux/regulator/consumer.h>
 #include <linux/workqueue.h>
+#include <linux/mutex.h>
 #include <asm/hardware/gic.h>
 #include <asm/arch_timer.h>
 #include <mach/gpio.h>
@@ -572,6 +573,9 @@ void msm_mpm_exit_sleep(bool from_idle)
 }
 static void msm_mpm_sys_low_power_modes(bool allow)
 {
+	static DEFINE_MUTEX(enable_xo_mutex);
+
+	mutex_lock(&enable_xo_mutex);
 	if (allow) {
 		if (xo_enabled) {
 			clk_disable_unprepare(xo_clk);
@@ -587,6 +591,7 @@ static void msm_mpm_sys_low_power_modes(bool allow)
 			xo_enabled = true;
 		}
 	}
+	mutex_unlock(&enable_xo_mutex);
 }
 
 void msm_mpm_suspend_prepare(void)
@@ -610,8 +615,7 @@ static void msm_mpm_work_fn(struct work_struct *work)
 	unsigned long flags;
 	while (1) {
 		bool allow;
-		while (wait_for_completion_interruptible(
-			&wake_wq) != 0);
+		wait_for_completion(&wake_wq);
 		spin_lock_irqsave(&msm_mpm_lock, flags);
 		allow = msm_mpm_irqs_detectable(true) &&
 				msm_mpm_gpio_irqs_detectable(true);
@@ -679,7 +683,8 @@ static int __devinit msm_mpm_dev_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 	ret = devm_request_irq(&pdev->dev, dev->mpm_ipc_irq, msm_mpm_irq,
-			IRQF_TRIGGER_RISING, pdev->name, msm_mpm_irq);
+			IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND, pdev->name,
+			msm_mpm_irq);
 
 	if (ret) {
 		pr_info("%s(): request_irq failed errno: %d\n", __func__, ret);
@@ -716,12 +721,12 @@ static int __devinit msm_mpm_dev_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static inline int mpm_irq_domain_linear_size(struct irq_domain *d)
+static inline int __init mpm_irq_domain_linear_size(struct irq_domain *d)
 {
 	return d->revmap_data.linear.size;
 }
 
-static inline int mpm_irq_domain_legacy_size(struct irq_domain *d)
+static inline int __init mpm_irq_domain_legacy_size(struct irq_domain *d)
 {
 	return d->revmap_data.legacy.size;
 }
