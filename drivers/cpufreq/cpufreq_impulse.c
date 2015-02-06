@@ -397,23 +397,15 @@ static void cpufreq_impulse_timer(unsigned long data)
 	do_div(cputime_speedadj, delta_time);
 	loadadjfreq = (unsigned int)cputime_speedadj * 100;
 	cpu_load = loadadjfreq / pcpu->policy->cur;
-	boosted = boost_val || now < boostpulse_endtime;
-	if (check_cpuboost(data))
-		boosted = false;
+	boosted = boost_val || now < boostpulse_endtime ||
+			check_cpuboost(data);
 	this_hispeed_freq = max(hispeed_freq, pcpu->policy->min);
 
-	if (cpu_load >= go_hispeed_load || boosted) {
-		if (pcpu->policy->cur < this_hispeed_freq) {
-			new_freq = this_hispeed_freq;
-		} else {
-			new_freq = choose_freq(pcpu, loadadjfreq);
+	new_freq = choose_freq(pcpu, loadadjfreq);
 
-			if (new_freq < this_hispeed_freq)
-				new_freq = this_hispeed_freq;
-		}
-	} else {
-		new_freq = choose_freq(pcpu, loadadjfreq);
-	}
+	if ((cpu_load >= go_hispeed_load || boosted) && 
+		new_freq < this_hispeed_freq)
+			new_freq = this_hispeed_freq;
 
 	if (pcpu->policy->cur >= this_hispeed_freq &&
 	    new_freq > pcpu->policy->cur &&
