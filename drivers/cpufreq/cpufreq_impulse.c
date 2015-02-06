@@ -73,6 +73,10 @@ static unsigned int hispeed_freq;
 #define DEFAULT_GO_HISPEED_LOAD 99
 static unsigned long go_hispeed_load = DEFAULT_GO_HISPEED_LOAD;
 
+/* Go to lowest speed when CPU load at or below this value. */
+#define DEFAULT_GO_LOWSPEED_LOAD 5
+static unsigned long go_lowspeed_load = DEFAULT_GO_LOWSPEED_LOAD;
+
 /* Target load.  Lower values result in higher CPU speeds. */
 #define DEFAULT_TARGET_LOAD 90
 static unsigned int default_target_loads[] = {DEFAULT_TARGET_LOAD};
@@ -398,14 +402,18 @@ static void cpufreq_impulse_timer(unsigned long data)
 	loadadjfreq = (unsigned int)cputime_speedadj * 100;
 	cpu_load = loadadjfreq / pcpu->policy->cur;
 	boosted = boost_val || now < boostpulse_endtime ||
-			check_cpuboost(data);
+			check_cpuboost(data) || cpu_load >= go_hispeed_load;
 	this_hispeed_freq = max(hispeed_freq, pcpu->policy->min);
 
-	new_freq = choose_freq(pcpu, loadadjfreq);
+	if (cpu_load <= go_lowspeed_load && !boost_val) {
+		boosted = false;
+		new_freq = pcpu->policy->cpuinfo.min_freq;
+	} else {
+		new_freq = choose_freq(pcpu, loadadjfreq);
+	}
 
-	if ((cpu_load >= go_hispeed_load || boosted) && 
-		new_freq < this_hispeed_freq)
-			new_freq = this_hispeed_freq;
+	if (boosted)
+		new_freq = max(new_freq, this_hispeed_freq);
 
 	if (pcpu->policy->cur >= this_hispeed_freq &&
 	    new_freq > pcpu->policy->cur &&
@@ -940,6 +948,28 @@ static ssize_t store_go_hispeed_load(struct kobject *kobj,
 static struct global_attr go_hispeed_load_attr = __ATTR(go_hispeed_load, 0644,
 		show_go_hispeed_load, store_go_hispeed_load);
 
+static ssize_t show_go_lowspeed_load(struct kobject *kobj,
+				     struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%lu\n", go_lowspeed_load);
+}
+
+static ssize_t store_go_lowspeed_load(struct kobject *kobj,
+			struct attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val;
+
+	ret = strict_strtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	go_lowspeed_load = val;
+	return count;
+}
+
+static struct global_attr go_lowspeed_load_attr = __ATTR(go_lowspeed_load, 0644,
+		show_go_lowspeed_load, store_go_lowspeed_load);
+
 static ssize_t show_min_sample_time(struct kobject *kobj,
 				struct attribute *attr, char *buf)
 {
@@ -1109,6 +1139,7 @@ static struct attribute *impulse_attributes[] = {
 	&above_hispeed_delay_attr.attr,
 	&hispeed_freq_attr.attr,
 	&go_hispeed_load_attr.attr,
+	&go_lowspeed_load_attr.attr,
 	&min_sample_time_attr.attr,
 	&timer_rate_attr.attr,
 	&timer_slack.attr,
