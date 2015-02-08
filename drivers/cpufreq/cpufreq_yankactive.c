@@ -556,7 +556,8 @@ static void cpufreq_yankactive_timer(unsigned long data)
 		pcpu->floor_validate_time = now;
 	}
 
-	if (pcpu->target_freq == new_freq) {
+	if (pcpu->target_freq == new_freq &&
+			pcpu->target_freq <= pcpu->policy->cur) {
 		spin_unlock_irqrestore(&pcpu->target_freq_lock, flags);
 		goto rearm_if_notmax;
 	}
