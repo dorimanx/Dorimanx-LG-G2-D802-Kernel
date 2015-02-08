@@ -142,6 +142,9 @@ static int ntimer_slack_vals = ARRAY_SIZE(default_timer_slack_val);
 
 static bool io_is_busy = 0;
 
+/* Improves frequency selection for more energy */
+static bool powersave_bias;
+
 /*
  * If the max load among other CPUs is higher than up_threshold_any_cpu_load
  * or if the highest frequency among the other CPUs is higher than
@@ -703,10 +706,17 @@ static int cpufreq_yankactive_speedchange_task(void *data)
 					max_freq = pjcpu->target_freq;
 			}
 
-			if (max_freq != pcpu->policy->cur)
-				__cpufreq_driver_target(pcpu->policy,
-							max_freq,
-							CPUFREQ_RELATION_H);
+			if (max_freq != pcpu->policy->cur) {
+				if (!powersave_bias)
+					__cpufreq_driver_target(pcpu->policy,
+								max_freq,
+								CPUFREQ_RELATION_H);
+				else
+					__cpufreq_driver_target(pcpu->policy,
+								max_freq,
+								CPUFREQ_RELATION_C);
+
+			}
 
 			up_read(&pcpu->enable_sem);
 		}
@@ -1261,6 +1271,29 @@ static ssize_t store_sync_freq(struct kobject *kobj,
 static struct global_attr sync_freq_attr = __ATTR(sync_freq, 0644,
 		show_sync_freq, store_sync_freq);
 
+static ssize_t show_powersave_bias(struct kobject *kobj,
+				     struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", powersave_bias);
+}
+
+static ssize_t store_powersave_bias(struct kobject *kobj,
+			struct attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val;
+
+	ret = strict_strtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	powersave_bias = val;
+	return count;
+}
+
+static struct global_attr powersave_bias_attr = __ATTR(powersave_bias, 0644,
+		show_powersave_bias, store_powersave_bias);
+
+
 static ssize_t show_up_threshold_any_cpu_load(struct kobject *kobj,
 			struct attribute *attr, char *buf)
 {
@@ -1326,6 +1359,7 @@ static struct attribute *yankactive_attributes[] = {
 	&sync_freq_attr.attr,
 	&up_threshold_any_cpu_load_attr.attr,
 	&up_threshold_any_cpu_freq_attr.attr,
+	&powersave_bias_attr.attr,
 	NULL,
 };
 
