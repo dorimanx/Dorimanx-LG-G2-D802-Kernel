@@ -1060,9 +1060,8 @@ static ssize_t store_boost(struct kobject *kobj, struct attribute *attr,
 
 	boost_val = val;
 
-	if (boost_val) {
+	if (boost_val)
 		cpufreq_interactive_boost();
-	}
 
 	return count;
 }
