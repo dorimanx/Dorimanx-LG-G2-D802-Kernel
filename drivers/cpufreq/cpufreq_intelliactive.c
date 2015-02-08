@@ -47,7 +47,7 @@ struct cpufreq_interactive_cpuinfo {
 	unsigned int target_freq;
 	unsigned int floor_freq;
 	u64 floor_validate_time;
-	u64 hispeed_validate_time;
+	u64 hispeed_validate_time; /* cluster hispeed_validate_time */
 	struct rw_semaphore enable_sem;
 	int governor_enabled;
 	int prev_load;
@@ -120,6 +120,9 @@ static u64 boostpulse_endtime;
 static int timer_slack_val = DEFAULT_TIMER_SLACK;
 
 static bool io_is_busy = 0;
+
+/* Improves frequency selection for more energy */
+static bool powersave_bias;
 
 /*
  * If the max load among other CPUs is higher than up_threshold_any_cpu_load
@@ -636,10 +639,17 @@ static int cpufreq_interactive_speedchange_task(void *data)
 					max_freq = pjcpu->target_freq;
 			}
 
-			if (max_freq != pcpu->policy->cur)
-				__cpufreq_driver_target(pcpu->policy,
-							max_freq,
-							CPUFREQ_RELATION_H);
+			if (max_freq != pcpu->policy->cur) {
+				if (!powersave_bias)
+					__cpufreq_driver_target(pcpu->policy,
+								max_freq,
+								CPUFREQ_RELATION_H);
+				else
+					__cpufreq_driver_target(pcpu->policy,
+								max_freq,
+								CPUFREQ_RELATION_C);
+
+			}
 
 			up_read(&pcpu->enable_sem);
 		}
@@ -1138,6 +1148,29 @@ static ssize_t store_io_is_busy(struct kobject *kobj,
 static struct global_attr io_is_busy_attr = __ATTR(io_is_busy, 0644,
 		show_io_is_busy, store_io_is_busy);
 
+static ssize_t show_powersave_bias(struct kobject *kobj,
+				     struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", powersave_bias);
+}
+
+static ssize_t store_powersave_bias(struct kobject *kobj,
+			struct attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val;
+
+	ret = strict_strtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	powersave_bias = val;
+	return count;
+}
+
+static struct global_attr powersave_bias_attr = __ATTR(powersave_bias, 0644,
+		show_powersave_bias, store_powersave_bias);
+
+
 static ssize_t show_sync_freq(struct kobject *kobj,
 			struct attribute *attr, char *buf)
 {
@@ -1227,6 +1260,7 @@ static struct attribute *interactive_attributes[] = {
 	&up_threshold_any_cpu_load_attr.attr,
 	&up_threshold_any_cpu_freq_attr.attr,
 	&two_phase_freq_attr.attr,
+	&powersave_bias_attr.attr,
 	NULL,
 };
 
