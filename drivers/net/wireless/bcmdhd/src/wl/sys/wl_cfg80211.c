@@ -6045,6 +6045,7 @@ change_bw:
 static s32
 wl_validate_opensecurity(struct net_device *dev, s32 bssidx)
 {
+#ifndef CUSTOMER_HW10 /* for WEP Support */
 	s32 err = BCME_OK;
 
 	/* set auth */
@@ -6053,20 +6054,21 @@ wl_validate_opensecurity(struct net_device *dev, s32 bssidx)
 		WL_ERR(("auth error %d\n", err));
 		return BCME_ERROR;
 	}
-#ifndef CUSTOMER_HW10 /* for WEP Support */
+
 	/* set wsec */
 	err = wldev_iovar_setint_bsscfg(dev, "wsec", 0, bssidx);
 	if (err < 0) {
 		WL_ERR(("wsec error %d\n", err));
 		return BCME_ERROR;
 	}
-#endif
+
 	/* set upper-layer auth */
 	err = wldev_iovar_setint_bsscfg(dev, "wpa_auth", WPA_AUTH_NONE, bssidx);
 	if (err < 0) {
 		WL_ERR(("wpa_auth error %d\n", err));
 		return BCME_ERROR;
 	}
+#endif
 
 	return 0;
 }
@@ -6690,7 +6692,7 @@ wl_cfg80211_bcn_validate_sec(
 				ies->wpa2_ie->len + WPA_RSN_IE_TAG_FIXED_LEN,
 				GFP_KERNEL);
 		}
-		else
+		else {
 #endif /* SUPPORT_SOFTAP_WPAWPA2_MIXED */
 		if ((ies->wpa2_ie || ies->wpa_ie) &&
 			((wl_validate_wpa2ie(dev, ies->wpa2_ie, bssidx)  < 0 ||
@@ -6726,6 +6728,9 @@ wl_cfg80211_bcn_validate_sec(
 				GFP_KERNEL);
 		}
 
+#if defined(CUSTOMER_HW10) && defined(SUPPORT_SOFTAP_WPAWPA2_MIXED)
+		}
+#endif
 		if (!ies->wpa2_ie && !ies->wpa_ie) {
 			wl_validate_opensecurity(dev, bssidx);
 			wl->ap_info->security_mode = false;
@@ -7111,8 +7116,8 @@ static s32 wl_cfg80211_hostapd_sec(
 		}
 		else
 #else
-		if ((ies->wpa_ie != NULL || ies->wpa2_ie != NULL)) {
 #endif /* SUPPORT_SOFTAP_WPAWPA2_MIXED */
+		if ((ies->wpa_ie != NULL || ies->wpa2_ie != NULL)) {
 			if (!wl->ap_info->security_mode) {
 				/* change from open mode to security mode */
 				update_bss = true;

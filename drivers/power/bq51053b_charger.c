@@ -37,10 +37,14 @@
 #define MAX_CHECKING_COUNT	10
 #define MAX_USB_CHECKING_COUNT	4
 
+#define I2C_SUSPEND_WORKAROUND 1
+#ifdef I2C_SUSPEND_WORKAROUND
+extern bool i2c_suspended;
+#endif
 struct bq51053b_wlc_chip {
 	struct device *dev;
 	struct power_supply wireless_psy;
-	struct work_struct wireless_interrupt_work;
+	struct delayed_work wireless_interrupt_work;
 	struct delayed_work wireless_set_online_work;
 	struct delayed_work wireless_set_offline_work;
 	struct delayed_work wireless_eoc_work;
@@ -49,6 +53,10 @@ struct bq51053b_wlc_chip {
 
 	unsigned int wlc_int_gpio;
 	unsigned int wlc_full_chg;
+#if I2C_SUSPEND_WORKAROUND
+	struct delayed_work 	check_suspended_work;
+	int suspended;
+#endif //I2C_SUSPEND_WORKAROUND
 };
 
 static const struct platform_device_id bq51053b_id[] = {
@@ -253,7 +261,7 @@ static void wireless_interrupt_worker(struct work_struct *work)
 {
 	struct bq51053b_wlc_chip *chip =
 	    container_of(work, struct bq51053b_wlc_chip,
-			 wireless_interrupt_work);
+			 wireless_interrupt_work.work);
 
 	pr_err("[WLC] %s \n",__func__);
 
@@ -274,9 +282,31 @@ static irqreturn_t wireless_interrupt_handler(int irq, void *data)
 		pr_err("[WLC] %s : I'm on the WLC PAD\n",__func__);
 	else
 		pr_err("[WLC] %s : I'm NOT on the WLC PAD\n",__func__);
-	schedule_work(&chip->wireless_interrupt_work);
+#if I2C_SUSPEND_WORKAROUND
+	schedule_delayed_work(&chip->check_suspended_work, msecs_to_jiffies(100));
+#else
+	schedule_delayed_work(&chip->wireless_interrupt_work, 0);
+#endif
 	return IRQ_HANDLED;
 }
+#if I2C_SUSPEND_WORKAROUND
+static void wlc_check_suspended_worker(struct work_struct *work)
+{
+        struct bq51053b_wlc_chip *chip =
+                container_of(work, struct bq51053b_wlc_chip, check_suspended_work.work);
+
+        if (chip->suspended && i2c_suspended)
+	{
+		pr_info("WLC suspended. try i2c operation after 100ms.\n");
+		schedule_delayed_work(&chip->check_suspended_work, msecs_to_jiffies(100));
+	}
+	else
+	{
+		pr_info("WLC resumed. .\n");
+		schedule_delayed_work(&chip->wireless_interrupt_work, 0);
+	}
+}
+#endif //I2C_SUSPEND_WORKAROUND
 
 static void wireless_eoc_work(struct work_struct *work)
 {
@@ -362,11 +392,35 @@ err_request_gpio1_failed:
 
 static int bq51053b_wlc_resume(struct device *dev)
 {
+	struct bq51053b_wlc_chip *chip = dev_get_drvdata(dev);
+
+	if (!chip) {
+		pr_err("called before init\n");
+		return 0;
+	}
+
+#if I2C_SUSPEND_WORKAROUND
+		chip->suspended = 0;
+#endif //I2C_SUSPEND_WORKAROUND
+
+		return 0;
+
 	return 0;
 }
 
 static int bq51053b_wlc_suspend(struct device *dev)
 {
+	struct bq51053b_wlc_chip *chip = dev_get_drvdata(dev);
+
+	if (!chip) {
+		pr_err("called before init\n");
+		return 0;
+	}
+
+#if I2C_SUSPEND_WORKAROUND
+	chip->suspended = 1;
+#endif //I2C_SUSPEND_WORKAROUND
+
 	return 0;
 }
 
@@ -440,7 +494,10 @@ static int __devinit bq51053b_wlc_probe(struct platform_device *pdev)
 		goto free_chip;
 	}
 
-	INIT_WORK(&chip->wireless_interrupt_work, wireless_interrupt_worker);
+#if I2C_SUSPEND_WORKAROUND
+	INIT_DELAYED_WORK(&chip->check_suspended_work,wlc_check_suspended_worker);
+#endif //I2C_SUSPEND_WORKAROUND
+	INIT_DELAYED_WORK(&chip->wireless_interrupt_work, wireless_interrupt_worker);
 	INIT_DELAYED_WORK(&chip->wireless_set_online_work,wireless_set_online_work);
 	INIT_DELAYED_WORK(&chip->wireless_set_offline_work,wireless_set_offline_work);
 	INIT_DELAYED_WORK(&chip->wireless_eoc_work,wireless_eoc_work);
