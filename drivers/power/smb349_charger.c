@@ -53,6 +53,9 @@
 #ifdef  CONFIG_SMB349_VZW_FAST_CHG
 #include <linux/slimport.h>
 #endif
+#ifdef CONFIG_MACH_MSM8974_G2_VZW
+#include <mach/board_lge.h>
+#endif
 
 #ifdef CONFIG_LGE_PM
 #include <linux/qpnp/qpnp-temp-alarm.h>
@@ -236,10 +239,7 @@ enum irqstat_idx {
 
 #define I2C_SUSPEND_WORKAROUND 1
 #define SMB349_BOOSTBACK_WORKAROUND 1
-
-#ifdef I2C_SUSPEND_WORKAROUND
 extern bool i2c_suspended;
-#endif
 
 #if SMB349_BOOSTBACK_WORKAROUND
 #define DISABLE_CHG_INPUTFET BIT(0)
@@ -3149,12 +3149,22 @@ static int smb349_hwinit(struct smb349_struct *smb349_chg)
 	}
 #endif
 
-#ifdef CONFIG_SMB349_VZW_FAST_CHG
-	ret = smb349_masked_write(smb349_chg->client, CHG_OTHER_CURRENT_REG,
-			PRE_CHG_CURRENT_MASK, 0xC0);
-	if (ret) {
-		pr_err("Failed to set CHG_OTHER_CURRENT_REG rc=%d\n", ret);
-		return ret;
+#ifdef CONFIG_MACH_MSM8974_G2_VZW
+	if (lge_get_battery_low()){
+		ret = smb349_masked_write(smb349_chg->client, CMD_B_REG,
+				USB_HC_MODE_BIT, USB_HC_MODE_BIT);
+		if (ret) {
+			pr_err("Failed to set USB_HC_MODE_BIT rc=%d\n", ret);
+			return ret;
+		}
+
+		ret = smb349_masked_write(smb349_chg->client, CMD_A_REG,
+				CHG_ENABLE_BIT, 0x00);
+		if (ret) {
+			pr_err("Failed to set CHG_ENABLE_BIT rc=%d\n", ret);
+			return ret;
+		}
+		pr_info("Trickle boot : set usb_hc_mode and charging is disabled\n");
 	}
 #endif
 
@@ -3758,6 +3768,9 @@ static void smb349_batt_external_power_changed(struct power_supply *psy)
 	smb349_chg->usb_online = ret.intval;
 
 	if (is_factory_cable() && smb349_is_charger_present(smb349_chg->client)) {
+#ifdef CONFIG_SMB349_VZW_FAST_CHG
+		chg_state = VZW_NORMAL_CHARGING;
+#endif
 		if (is_factory_cable_130k()) {
 			pr_info("Factory cable 130k detected, operate USB2.0 mode\n");
 			smb349_set_usb_2_3_mode(smb349_chg, false);
