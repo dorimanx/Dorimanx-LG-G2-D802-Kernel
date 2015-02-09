@@ -142,7 +142,7 @@ enum msm_i2c_state {
 #define I2C_STATUS_CLK_STATE		13
 #define QUP_OUT_FIFO_NOT_EMPTY		0x10
 #define I2C_GPIOS_DT_CNT		(2)		/* sda and scl */
-#if defined(CONFIG_TOUCHSCREEN_ATMEL_S540) || defined(CONFIG_SMB349_CHARGER)
+#if defined(CONFIG_TOUCHSCREEN_ATMEL_S540) || defined(CONFIG_SMB349_CHARGER) || defined(CONFIG_BQ24192_CHARGER) || defined(CONFIG_INPUT_MAX14688) || defined(CONFIG_BQ51051B_CHARGER) || defined(CONFIG_BQ51053B_CHARGER)
 bool i2c_suspended = false;		/* Use atme touch IC for checking i2c suspend */
 #endif
 #if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_3404S)
@@ -1807,7 +1807,7 @@ static int i2c_qup_pm_suspend_sys(struct device *device)
 	mutex_unlock(&dev->mlock);
 	if (!pm_runtime_enabled(device) || !pm_runtime_suspended(device)) {
 		dev_dbg(device, "system suspend\n");
-#if defined(CONFIG_TOUCHSCREEN_ATMEL_S540) || defined(CONFIG_SMB349_CHARGER)
+#if defined(CONFIG_TOUCHSCREEN_ATMEL_S540) || defined(CONFIG_SMB349_CHARGER) || defined(CONFIG_BQ24192_CHARGER) || defined(CONFIG_INPUT_MAX14688) || defined(CONFIG_BQ51051B_CHARGER) || defined(CONFIG_BQ51053B_CHARGER)
 		i2c_suspended = true;
 #endif
 
@@ -1842,7 +1842,7 @@ static int i2c_qup_pm_resume_sys(struct device *device)
 	 * clock ON and gpio configuration
 	 */
 	dev_dbg(device, "system resume\n");
-#if defined(CONFIG_TOUCHSCREEN_ATMEL_S540) || defined(CONFIG_SMB349_CHARGER)
+#if defined(CONFIG_TOUCHSCREEN_ATMEL_S540) || defined(CONFIG_SMB349_CHARGER) || defined(CONFIG_BQ24192_CHARGER) || defined(CONFIG_INPUT_MAX14688) || defined(CONFIG_BQ51051B_CHARGER) || defined(CONFIG_BQ51053B_CHARGER)
 	i2c_suspended = false;
 #endif
 #if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_3404S)
