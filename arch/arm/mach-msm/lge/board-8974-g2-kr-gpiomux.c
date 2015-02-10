@@ -998,75 +998,6 @@ static struct msm_gpiomux_config msm8974_slimbus_config[] __initdata = {
 	},
 };
 
-#ifdef CONFIG_SND_FM_RADIO
-
-static struct gpiomux_setting  tert_mi2s_act_cfg = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
-static struct gpiomux_setting  tert_mi2s_sus_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};
-#if 0
-static struct gpiomux_setting  fm_radio_act_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_UP,
-};
-
-static struct gpiomux_setting  fm_radio_sus_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};
-#endif
-static struct msm_gpiomux_config msm8974_tert_mi2s_configs[] __initdata = {
-	{
-		.gpio	= 74,		/*  mi2s sck */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &tert_mi2s_sus_cfg,
-			[GPIOMUX_ACTIVE] = &tert_mi2s_act_cfg,
-		},
-	},
-	{
-		.gpio	= 75,
-			.settings = {
-			[GPIOMUX_SUSPENDED] = &tert_mi2s_sus_cfg,
-			[GPIOMUX_ACTIVE] = &tert_mi2s_act_cfg,
-		},
-	},
-	{
-		.gpio = 76,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &tert_mi2s_sus_cfg,
-			[GPIOMUX_ACTIVE] = &tert_mi2s_act_cfg,
-		},
-	},
-	{
-		.gpio = 77,    /* SD1 -Data 1 */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &tert_mi2s_sus_cfg,
-			[GPIOMUX_ACTIVE] = &tert_mi2s_act_cfg,
-		},
-	},
-};
-#if 0
-static struct msm_gpiomux_config fm_radio_configs[] =  {
-		{
-		.gpio	= 69,		/*  mi2s sck */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &fm_radio_sus_cfg,
-			[GPIOMUX_ACTIVE] = &fm_radio_act_cfg,
-		},
-},
-};
-#endif
-#endif
-
 static struct gpiomux_setting cam_settings[] = {
 	{
 		.func = GPIOMUX_FUNC_1, /*active 1*/ /* 0 */
@@ -2839,11 +2770,4 @@ void __init msm_8974_init_gpiomux(void)
 	if (of_board_is_dragonboard() && machine_is_apq8074())
 		msm_gpiomux_install(apq8074_dragonboard_ts_config,
 				ARRAY_SIZE(apq8074_dragonboard_ts_config));
-
-#ifdef CONFIG_SND_FM_RADIO
-	if (HW_REV_A < lge_get_board_revno()) {
-		msm_gpiomux_install(msm8974_tert_mi2s_configs, ARRAY_SIZE(msm8974_tert_mi2s_configs));
-		/* msm_gpiomux_install(fm_radio_configs,ARRAY_SIZE(fm_radio_configs)); */
-	}
-#endif
 }
