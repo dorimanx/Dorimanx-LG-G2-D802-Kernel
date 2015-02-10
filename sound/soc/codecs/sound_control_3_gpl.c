@@ -27,7 +27,7 @@
 
 #ifdef CONFIG_MACH_LGE
 static int lge_snd_ctrl_locked = 1;
-int lge_snd_pa_ctrl_locked = 1;
+int lge_snd_pa_ctrl_locked = 0;
 #endif
 
 extern struct snd_soc_codec *fauxsound_codec_ptr;
