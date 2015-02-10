@@ -24,7 +24,6 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/device.h>
-#include "acpuclock.h"
 
 #define DEBUG 0
 
@@ -85,51 +84,32 @@ static unsigned int NwNs_Threshold[8] = {12, 0, 25, 7, 30, 10, 0, 18};
 static unsigned int TwTs_Threshold[8] = {140, 0, 140, 190, 140, 190, 0, 190};
 
 extern unsigned int get_rq_info(void);
-extern unsigned long acpuclk_get_rate(int);
 
 unsigned int state = MSM_MPDEC_DISABLED;
 
-static unsigned long get_rate(int cpu) {
-	return acpuclk_get_rate(cpu);
-}
-
 static int get_slowest_cpu(void) {
-	int i, cpu = 0;
-	unsigned long rate, slow_rate = 0;
+	unsigned int cpu, slow_cpu = 0, rate, slow_rate = 0;
 
-	for (i = 1; i < DEFAULT_MAX_CPUS_ONLINE; i++) {
-		if (!cpu_online(i))
+	for_each_online_cpu(cpu) {
+		if (cpu == 0)
 			continue;
-		rate = get_rate(i);
-		if (slow_rate == 0) {
-			cpu = i;
+		rate = cpufreq_quick_get(cpu);
+		if (rate > 0 && slow_rate <= rate) {
 			slow_rate = rate;
-			continue;
-		}
-		if ((rate <= slow_rate) && (slow_rate != 0)) {
-			cpu = i;
-			slow_rate = rate;
+			slow_cpu = cpu;
 		}
 	}
 
-	return cpu;
+	return slow_cpu;
 }
 
-static unsigned long get_slowest_cpu_rate(void) {
-	int i = 0;
-	unsigned long rate, slow_rate = 0;
+static unsigned int get_slowest_cpu_rate(void) {
+	unsigned int cpu, rate, slow_rate = 0;
 
-	for (i = 0; i < DEFAULT_MAX_CPUS_ONLINE; i++) {
-		if (!cpu_online(i))
-			continue;
-		rate = get_rate(i);
-		if ((rate < slow_rate) && (slow_rate != 0)) {
+	for_each_online_cpu(cpu) {
+		rate = cpufreq_quick_get(cpu);
+		if (rate > 0 && slow_rate <= rate)
 			slow_rate = rate;
-			continue;
-		}
-		if (slow_rate == 0) {
-			slow_rate = rate;
-		}
 	}
 
 	return slow_rate;
@@ -161,27 +141,23 @@ static int mp_decision(void) {
 	rq_depth = get_rq_info();
 	nr_cpu_online = num_online_cpus();
 
-	if (nr_cpu_online) {
-		index = (nr_cpu_online - 1) * 2;
-		if ((nr_cpu_online < DEFAULT_MAX_CPUS_ONLINE) && (rq_depth >= NwNs_Threshold[index])) {
-			if ((total_time >= TwTs_Threshold[index]) &&
-				(nr_cpu_online < hotplug.max_cpus_online)) {
-				new_state = MSM_MPDEC_UP;
-				if (get_slowest_cpu_rate() <=  hotplug.idle_freq)
-					new_state = MSM_MPDEC_IDLE;
-			}
-		} else if ((nr_cpu_online > 1) && (rq_depth <= NwNs_Threshold[index+1])) {
-			if ((total_time >= TwTs_Threshold[index+1]) &&
-				(nr_cpu_online > hotplug.min_cpus_online)) {
-				new_state = MSM_MPDEC_DOWN;
-				if (get_slowest_cpu_rate() > hotplug.idle_freq)
-					new_state = MSM_MPDEC_IDLE;
-			}
-		} else {
-			new_state = MSM_MPDEC_IDLE;
-			total_time = 0;
+	index = (nr_cpu_online - 1) * 2;
+	if ((nr_cpu_online < DEFAULT_MAX_CPUS_ONLINE) && (rq_depth >= NwNs_Threshold[index])) {
+		if ((total_time >= TwTs_Threshold[index]) &&
+			(nr_cpu_online < hotplug.max_cpus_online)) {
+			new_state = MSM_MPDEC_UP;
+			if (get_slowest_cpu_rate() <=  hotplug.idle_freq)
+				new_state = MSM_MPDEC_IDLE;
+		}
+	} else if ((nr_cpu_online > 1) && (rq_depth <= NwNs_Threshold[index+1])) {
+		if ((total_time >= TwTs_Threshold[index+1]) &&
+			(nr_cpu_online > hotplug.min_cpus_online)) {
+			new_state = MSM_MPDEC_DOWN;
+			if (get_slowest_cpu_rate() > hotplug.idle_freq)
+				new_state = MSM_MPDEC_IDLE;
 		}
 	} else {
+		new_state = MSM_MPDEC_IDLE;
 		total_time = 0;
 	}
 
