@@ -472,6 +472,9 @@ struct GTY((variable_size)) rtvec_def {
 /* Predicate yielding nonzero iff X is a data for a jump table.  */
 #define JUMP_TABLE_DATA_P(INSN) (GET_CODE (INSN) == JUMP_TABLE_DATA)
 
+/* Predicate yielding nonzero iff RTX is a subreg.  */
+#define SUBREG_P(RTX) (GET_CODE (RTX) == SUBREG)
+
 /* Predicate yielding nonzero iff X is a return or simple_return.  */
 #define ANY_RETURN_P(X) \
   (GET_CODE (X) == RETURN || GET_CODE (X) == SIMPLE_RETURN)
