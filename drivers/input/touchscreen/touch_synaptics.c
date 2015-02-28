@@ -43,7 +43,8 @@
 	defined(CONFIG_MACH_MSM8974_G2_CA) || \
 	defined(CONFIG_MACH_MSM8974_G2_SPR) || \
 	defined(CONFIG_MACH_MSM8974_G2_VZW) || \
-	defined(CONFIG_MACH_MSM8974_G2_KR)
+	defined(CONFIG_MACH_MSM8974_G2_KR) || \
+	defined(CONFIG_MACH_MSM8974_G2_DCM)
 #include "D800_801_803_F320_LS980_VS980_driver/SynaImage_for_G2_LGIT_revB.h"
 #include "D800_801_803_F320_LS980_VS980_driver/SynaImage_for_G2_TPK.h"
 #else
@@ -194,7 +195,8 @@
 #if !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || \
 		!defined(CONFIG_MACH_MSM8974_G2_CA) || \
 		!defined(CONFIG_MACH_MSM8974_G2_KR) || \
-		!defined(CONFIG_MACH_MSM8974_G2_VZW)
+		!defined(CONFIG_MACH_MSM8974_G2_VZW) || \
+		!defined(CONFIG_MACH_MSM8974_G2_DCM)
 #define MULTITAP_PRESS_RELEASE_DISTANCE	0x34
 #endif
 #define INTERTAP_DISTANCE_REG			0x35
@@ -332,7 +334,8 @@ touch_maker_id get_touch_maker_id(void)
 		defined(CONFIG_MACH_MSM8974_G2_CA) || \
 		defined(CONFIG_MACH_MSM8974_G2_KR) || \
 		defined(CONFIG_MACH_MSM8974_G2_SPR) || \
-		defined(CONFIG_MACH_MSM8974_G2_VZW)
+		defined(CONFIG_MACH_MSM8974_G2_VZW) || \
+		defined(CONFIG_MACH_MSM8974_G2_DCM)
 	while ((qpnp_vadc_is_ready() != 0) && (trial_us < (200 * 1000))) {
 		udelay(1);
 #else
@@ -1360,7 +1363,7 @@ int synaptics_ts_init(struct i2c_client *client, struct touch_fw_info *fw_info)
 				TOUCH_ERR_MSG("DEVICE_CONTROL_REG write fail\n");
 				return -EIO;
 			}
-#if defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU) && defined(CONFIG_MACH_MSM8974_G2_KR)
+#if defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU) && (defined(CONFIG_MACH_MSM8974_G2_KR))
 			if ((keyguard_status == 9) && ime_drumming_status) {
 				switch (fw_info->fw_setting.curr_touch_vendor) {
 				case TOUCH_VENDOR_TPK:
@@ -2168,7 +2171,8 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 #if !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || \
 		!defined(CONFIG_MACH_MSM8974_G2_CA) || \
 		!defined(CONFIG_MACH_MSM8974_G2_KR) || \
-		!defined(CONFIG_MACH_MSM8974_G2_VZW)
+		!defined(CONFIG_MACH_MSM8974_G2_VZW) || \
+		!defined(CONFIG_MACH_MSM8974_G2_DCM)
 					*(r_mem+0) = 0x64;	//50(5mm) -> 100 (10mm)
 					if (touch_i2c_write(client, MULTITAP_PRESS_RELEASE_DISTANCE, 1, r_mem) < 0) {
 						TOUCH_ERR_MSG("MultiTap Press Release Distance reg(0x04P:0x34) write fail\n");
@@ -2381,7 +2385,8 @@ int synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u16 value)
 #if !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || \
 		!defined(CONFIG_MACH_MSM8974_G2_CA) || \
 		!defined(CONFIG_MACH_MSM8974_G2_KR) || \
-		!defined(CONFIG_MACH_MSM8974_G2_VZW)
+		!defined(CONFIG_MACH_MSM8974_G2_VZW) || \
+		!defined(CONFIG_MACH_MSM8974_G2_DCM)
 					*(r_mem+0) = 0x64;
 					if (touch_i2c_write(client, MULTITAP_PRESS_RELEASE_DISTANCE, 1, r_mem) < 0) {
 							TOUCH_ERR_MSG("MultiTap press release distance reg(0x04P:0x33) write fail\n");

@@ -26,6 +26,12 @@
 #include <linux/err.h>
 #include <linux/of.h>
 #include <linux/wakelock.h>
+#ifdef CONFIG_LGE_THERMAL_NOTIFICATION
+/* mansu.lee@lge.com Implements thermal notify sequence by sysfs uevent */
+#include <linux/miscdevice.h>
+#include <linux/fs.h>
+/* mansu.lee@lge.com */
+#endif
 
 #include <mach/msm_iomap.h>
 
@@ -265,6 +271,24 @@ struct tsens_tm_device_sensor {
 	int				calib_data_point2;
 	uint32_t			slope_mul_tsens_factor;
 };
+#ifdef CONFIG_LGE_THERMAL_NOTIFICATION
+/* mansu.lee@lge.com Implements thermal notify sequence by sysfs uevent */
+/* uevent string buffer */
+static char lge_tm_event[32];
+static char *envp_state[2] = { lge_tm_event, NULL };
+
+/* add misc device */
+static const struct file_operations lge_thermal_fops = {
+        .owner = THIS_MODULE,
+};
+
+static struct miscdevice lge_thermal_device = {
+        .minor = MISC_DYNAMIC_MINOR,
+        .name = "lge_thermal",
+        .fops = &lge_thermal_fops,
+};
+/* mansu.lee@lge.com */
+#endif
 
 struct tsens_tm_device {
 	struct platform_device		*pdev;
@@ -288,6 +312,24 @@ struct tsens_tm_device {
 };
 
 struct tsens_tm_device *tmdev;
+
+#ifdef CONFIG_LGE_THERMAL_NOTIFICATION
+/* mansu.lee@lge.com Implements thermal notify sequence by sysfs uevent */
+/* sysfs attribute */
+static ssize_t lge_thermal_noti_xotherm_store(struct device *dev,
+                struct device_attribute *attr, const char *buf, size_t count)
+{
+	printk(KERN_INFO "%s : xotherm = %s\n", __func__, buf);
+	sprintf(lge_tm_event, "LGE_TM_XOTHM=%s\n", buf);
+	kobject_uevent_env(&lge_thermal_device.this_device->kobj,
+									KOBJ_CHANGE, envp_state);
+	return count;
+}
+static DEVICE_ATTR(lge_thermal_xotherm, 0664, NULL, lge_thermal_noti_xotherm_store);
+//static DEVICE_ATTR(lge_thermal_lcdbr, 0664, NULL, lge_thermal_noti_lcdrestore_store);
+//static DEVICE_ATTR(lge_thermal_shutdown, 0664, NULL, lge_thermal_noti_shutdown_store);
+/* mansu.lee@lge.com */
+#endif
 
 int tsens_get_sw_id_mapping(int sensor_hw_num, int *sensor_sw_idx)
 {
@@ -1633,6 +1675,32 @@ static int __devinit _tsens_register_thermal(void)
 	platform_set_drvdata(pdev, tmdev);
 
 	INIT_WORK(&tmdev->tsens_work, tsens_scheduler_fn);
+#ifdef CONFIG_LGE_THERMAL_NOTIFICATION
+/* mansu.lee@lge.com Implements thermal notify sequence by sysfs uevent */
+		/* create thermal notify sysfs */
+	rc = device_create_file(&pdev->dev, &dev_attr_lge_thermal_xotherm);
+	if (rc)
+		dev_err(&pdev->dev, "failed to create sysfs entry:"
+					"(dev_attr_perf) error: %d\n", rc);
+/*
+	rc = device_create_file(&pdev->dev, &dev_attr_lge_thermal_lcdbr);
+	if (rc)
+		dev_err(&pdev->dev, "failed to create sysfs entry:"
+					"(dev_attr_perf) error: %d\n", rc);
+
+	rc = device_create_file(&pdev->dev, &dev_attr_lge_thermal_shutdown);
+	if (rc)
+		dev_err(&pdev->dev, "failed to create sysfs entry:"
+					"(dev_attr_perf) error: %d\n", rc);
+*/
+	/* if fsg common object is cdrom, register autorun misc device */
+	rc = misc_register(&lge_thermal_device);
+	if (rc) {
+		printk(KERN_ERR "lge thermal notify driver failed to initialize %d\n", rc);
+		goto fail;
+	}
+/* mansu.lee@lge.com */
+#endif
 
 	return 0;
 fail:
@@ -1668,6 +1736,14 @@ static int __devexit tsens_tm_remove(struct platform_device *pdev)
 			tmdev->tsens_len);
 	free_irq(tmdev->tsens_irq, tmdev);
 	destroy_workqueue(tmdev->tsens_wq);
+#ifdef CONFIG_LGE_THERMAL_NOTIFICATION
+/* mansu.lee@lge.com Implements thermal notify sequence by sysfs uevent */
+        /* remove thermal notify sysfs */
+        device_remove_file(&pdev->dev, &dev_attr_lge_thermal_xotherm);
+        //device_remove_file(&pdev->dev, &dev_attr_lge_thermal_lcdbr);
+        //device_remove_file(&pdev->dev, &dev_attr_lge_thermal_shutdown);
+/* mansu.lee@lge.com */
+#endif
 	wake_lock_destroy(&tmdev->wakelock);
 	platform_set_drvdata(pdev, NULL);
 
