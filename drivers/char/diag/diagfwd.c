@@ -56,12 +56,10 @@
 #define STM_COMMAND_VALID 1
 
 #define SMD_DRAIN_BUF_SIZE 4096
-
-//                                                                             
+                                                                
 #ifdef CONFIG_LGE_DM_DEV
 #include "lg_dm_dev_tty.h"
-#endif /*                 */
-//                                                                           
+#endif                                                                      
 
 #ifdef CONFIG_LGE_DM_APP
 #include "lg_dm_tty.h"
@@ -835,41 +833,32 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 	} else if (smd_info->ch && !buf &&
 		(driver->logging_mode == MEMORY_DEVICE_MODE)) {
 			chk_logging_wakeup();
-	} else {
-		if ((smd_info->type == SMD_DATA_TYPE ||
-		     smd_info->type == SMD_CMD_TYPE) &&
-		     driver->logging_mode == MEMORY_DEVICE_MODE) {
-			diag_ws_on_read(0);
-		}
-	}
-
-     else if (smd_info->ch && !buf &&
+	} else if (smd_info->ch && !buf &&
 		(driver->logging_mode == DM_DEV_MODE)) {
-//			chk_logging_wakeup();
-/*                                                                                                 */
 	  	  lge_dm_dev_tty->set_logging = 1;
 		  wake_up_interruptible(&lge_dm_dev_tty->waitq);
-/*                                                                                                 */
-	}
 
-    else if (smd_info->ch && (driver->logging_mode == DM_APP_MODE)) {
+		if ((smd_info->type == SMD_DATA_TYPE ||
+		     smd_info->type == SMD_CMD_TYPE) &&
+		     driver->logging_mode == MEMORY_DEVICE_MODE)
+			diag_ws_on_read(0);
+	} else if (smd_info->ch && (driver->logging_mode == DM_APP_MODE)) {
 			chk_logging_wakeup();
-/*                                                                                                 */
-/*                                                                                                                                       */
+
 			if( buf != NULL && smd_info->in_busy_1 == 0){
 				smd_info->in_busy_1 = 1;
 			}
 			else if(buf != NULL && smd_info->in_busy_2 == 0){
 				smd_info->in_busy_2 = 1;
 			}
-/*                                                                                                                                       */
-
-
 		lge_dm_tty->set_logging = 1;
 		wake_up_interruptible(&lge_dm_tty->waitq);
-		/*                                                                                                 */
-	}
 
+		if ((smd_info->type == SMD_DATA_TYPE ||
+		     smd_info->type == SMD_CMD_TYPE) &&
+		     driver->logging_mode == MEMORY_DEVICE_MODE)
+			diag_ws_on_read(0);
+	}
 	return;
 
 fail_return:
@@ -1152,7 +1141,6 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 	}
 #endif
 
-//                                                                             
 #ifdef CONFIG_LGE_DM_DEV
 		if (driver->logging_mode == DM_DEV_MODE) {
 			/* only diag cmd #250 for supporting testmode tool */
@@ -1177,8 +1165,8 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 		wake_up_interruptible(&lge_dm_dev_tty->waitq);
 
 	}
-#endif /*                 */
-//                                                                           
+#endif
+
     return err;
 }
 
@@ -2120,7 +2108,6 @@ int diagfwd_connect(void)
 	int err;
 	int i;
 
-//                                                                             
 #ifdef CONFIG_LGE_DM_DEV
 	if (driver->logging_mode == DM_DEV_MODE) {
 		driver->usb_connected = 1;
@@ -2135,8 +2122,7 @@ int diagfwd_connect(void)
 
 		return 0;
 	}
-#endif /*                 */
-//                                                                           
+#endif
 
 #ifdef CONFIG_LGE_DM_APP
 	if (driver->logging_mode == DM_APP_MODE) {
@@ -2194,7 +2180,6 @@ int diagfwd_disconnect(void)
 	unsigned long flags;
 	struct diag_smd_info *smd_info = NULL;
 
-//                                                                             
 #ifdef CONFIG_LGE_DM_DEV
 	if (driver->logging_mode == DM_DEV_MODE) {
 		driver->usb_connected = 0;
@@ -2203,8 +2188,7 @@ int diagfwd_disconnect(void)
 
 		return 0;
 	}
-#endif /*                 */
-//                                                                           
+#endif
 
 #ifdef CONFIG_LGE_DM_APP
 	if (driver->logging_mode == DM_APP_MODE) {
@@ -2348,7 +2332,6 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 						 &(driver->diag_read_work));
 		}
 
-//                                                                             
 #ifdef CONFIG_LGE_DM_DEV
 		if (driver->logging_mode == DM_DEV_MODE) {
 			if (status != -ECONNRESET && status != -ESHUTDOWN)
@@ -2358,8 +2341,7 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 				queue_work(driver->diag_wq,
 						 &(driver->diag_read_work));
 		}
-#endif /*                 */
-//                                                                           
+#endif
 
 #ifdef CONFIG_LGE_DM_APP
 		if (driver->logging_mode == DM_APP_MODE) {
