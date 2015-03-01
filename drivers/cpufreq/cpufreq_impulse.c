@@ -1363,7 +1363,7 @@ static int cpufreq_governor_impulse(struct cpufreq_policy *policy,
 	return 0;
 }
 
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_impulse
+#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_IMPULSE
 static
 #endif
 struct cpufreq_governor cpufreq_gov_impulse = {
@@ -1415,7 +1415,7 @@ static int __init cpufreq_impulse_init(void)
 	return cpufreq_register_governor(&cpufreq_gov_impulse);
 }
 
-#ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_impulse
+#ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_IMPULSE
 fs_initcall(cpufreq_impulse_init);
 #else
 module_init(cpufreq_impulse_init);
