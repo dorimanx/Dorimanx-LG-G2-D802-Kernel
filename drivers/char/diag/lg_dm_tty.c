@@ -266,7 +266,7 @@ static int lge_dm_tty_read_thread(void *data)
 {
 	int i = 0;
 	struct dm_tty *lge_dm_tty_drv = NULL;
-	int clear_read_wakelock;
+	int copy_data = 0;
 
 	lge_dm_tty_drv = lge_dm_tty;
 
@@ -281,7 +281,6 @@ static int lge_dm_tty_read_thread(void *data)
 
 		mutex_lock(&driver->diagchar_mutex);
 
-		clear_read_wakelock = 0;
 		if ((lge_dm_tty->set_logging == 1)
 				&& (driver->logging_mode == DM_APP_MODE)) {
 
@@ -315,10 +314,8 @@ static int lge_dm_tty_read_thread(void *data)
 					data->buf_in_1,
 					data->write_ptr_1->length);
 
-					if (!driver->real_time_mode) {
-						process_lock_on_copy(&data->nrt_lock);
-						clear_read_wakelock++;
-					}
+					diag_ws_on_copy();
+					copy_data = 1;
 					
 					data->in_busy_1 = 0;
 				}
@@ -330,10 +327,8 @@ static int lge_dm_tty_read_thread(void *data)
 					Primary_modem_chip,
 					data->buf_in_2,
 					data->write_ptr_2->length);
-					if (!driver->real_time_mode) {
-						process_lock_on_copy(&data->nrt_lock);
-						clear_read_wakelock++;
-					}
+					diag_ws_on_copy();
+					copy_data = 1;
 					data->in_busy_2 = 0;
 				}
 			}
@@ -377,13 +372,18 @@ static int lge_dm_tty_read_thread(void *data)
 
 			}
 
-		if (clear_read_wakelock) {
-			for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++)
-				process_lock_on_copy_complete(
-					&driver->smd_data[i].nrt_lock);
-	}
-
 		mutex_unlock(&driver->diagchar_mutex);
+		if (copy_data) {
+			/*
+			 * Flush any work that is currently pending on the data
+			 * channels. This will ensure that the next read is not
+			 * missed.
+			 */
+			for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++)
+				flush_workqueue(driver->smd_data[i].wq);
+			wake_up(&driver->smd_wait_q);
+			diag_ws_on_copy_complete();
+	}
 
 		if (kthread_should_stop())
 			break;
