@@ -236,11 +236,6 @@ int snd_hax_reg_access(unsigned int reg)
 		/* Analog Power Amp (PA) */
 		case TAIKO_A_RX_HPH_L_GAIN:
 		case TAIKO_A_RX_HPH_R_GAIN:
-#ifdef CONFIG_MACH_LGE
-			if (lge_snd_ctrl_locked > 0)
-				ret = 0;
-			break;
-#endif
 		case TAIKO_A_RX_HPH_L_STATUS:
 		case TAIKO_A_RX_HPH_R_STATUS:
 #ifdef CONFIG_MACH_LGE
@@ -516,15 +511,17 @@ static ssize_t headphone_pa_gain_store(struct kobject *kobj,
 		struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	unsigned int lval, rval, chksum;
+#ifndef CONFIG_MACH_LGE
 	unsigned int gain, status;
 	unsigned int out;
+#endif
 
 	sscanf(buf, "%u %u %u", &lval, &rval, &chksum);
 
-	if (calc_checksum(lval, rval, chksum)) {
 #ifdef CONFIG_MACH_LGE
-		lge_snd_ctrl_locked = 0;
-#endif
+		return count;
+#else
+	if (calc_checksum(lval, rval, chksum)) {
 		gain = taiko_read(fauxsound_codec_ptr, TAIKO_A_RX_HPH_L_GAIN);
 		out = (gain & 0xf0) | lval;
 		taiko_write(fauxsound_codec_ptr, TAIKO_A_RX_HPH_L_GAIN, out);
@@ -542,11 +539,9 @@ static ssize_t headphone_pa_gain_store(struct kobject *kobj,
 				TAIKO_A_RX_HPH_R_STATUS);
 		out = (status & 0x0f) | (rval << 4);
 		taiko_write(fauxsound_codec_ptr, TAIKO_A_RX_HPH_R_STATUS, out);
-#ifdef CONFIG_MACH_LGE
-		lge_snd_ctrl_locked = 1;
-#endif
 	}
 	return count;
+#endif
 }
 
 #ifdef CONFIG_MACH_LGE
