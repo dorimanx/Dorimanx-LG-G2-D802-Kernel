@@ -24,7 +24,6 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/fb.h>
-#include <linux/notifier.h>
 
 #define DEBUG 0
 
@@ -38,7 +37,7 @@
 #define DEFAULT_SUSPEND_DEFER_TIME	10
 #define DEFAULT_DOWN_LOCK_DUR		500
 
-#define MSM_MPDEC_IDLE_FREQ		300000
+#define MSM_MPDEC_IDLE_FREQ		499200
 
 enum {
 	MSM_MPDEC_DISABLED = 0,
@@ -340,7 +339,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 		blank = evdata->data;
 		switch (*blank) {
 			case FB_BLANK_UNBLANK:
-				//display on
+				/* display on */
 				flush_workqueue(susp_wq);
 				cancel_delayed_work_sync(&suspend_work);
 				queue_work_on(0, susp_wq, &resume_work);
@@ -349,9 +348,9 @@ static int fb_notifier_callback(struct notifier_block *self,
 			case FB_BLANK_HSYNC_SUSPEND:
 			case FB_BLANK_VSYNC_SUSPEND:
 			case FB_BLANK_NORMAL:
-				//display off
+				/* display off */
 				INIT_DELAYED_WORK(&suspend_work, bricked_hotplug_suspend);
-				queue_delayed_work_on(0, susp_wq, &suspend_work, 
+				mod_delayed_work_on(0, susp_wq, &suspend_work,
 					msecs_to_jiffies(hotplug.suspend_defer_time * 1000)); 
 				break;
 		}
@@ -378,10 +377,15 @@ static int bricked_hotplug_start(void)
 		pr_err("%s: Failed to allocate suspend workqueue\n",
 		       MPDEC_TAG);
 		ret = -ENOMEM;
-		goto err_out;
+		goto err_dev;
 	}
 
 	notif.notifier_call = fb_notifier_callback;
+	if (fb_register_client(&notif)) {
+		pr_err("%s: Failed to register FB notifier callback\n",
+			MPDEC_TAG);
+		goto err_susp;
+	}
 
 	mutex_init(&hotplug.bricked_cpu_mutex);
 	mutex_init(&hotplug.bricked_hotplug_mutex);
@@ -400,6 +404,10 @@ static int bricked_hotplug_start(void)
 					msecs_to_jiffies(hotplug.startdelay));
 
 	return ret;
+err_susp:
+	destroy_workqueue(susp_wq);
+err_dev:
+	destroy_workqueue(hotplug_wq);
 err_out:
 	hotplug.bricked_enabled = 0;
 	return ret;
@@ -421,6 +429,7 @@ static void bricked_hotplug_stop(void)
 	cancel_delayed_work_sync(&hotplug_work);
 	mutex_destroy(&hotplug.bricked_hotplug_mutex);
 	mutex_destroy(&hotplug.bricked_cpu_mutex);
+	fb_unregister_client(&notif);
 	notif.notifier_call = NULL;
 	destroy_workqueue(susp_wq);
 	destroy_workqueue(hotplug_wq);
