@@ -424,10 +424,8 @@ static int hotplug_start(void)
 
 	mutex_init(&hotplug_tuners_ins.alu_hotplug_mutex);
 	notif.notifier_call = fb_notifier_callback;
-	if (fb_register_client(&notif)) {
+	if (fb_register_client(&notif))
 		pr_err("Failed to register FB notifier callback for Alucard Hotplug\n");
-		destroy_workqueue(system_wq);
-	}
 
 	return 0;
 }
