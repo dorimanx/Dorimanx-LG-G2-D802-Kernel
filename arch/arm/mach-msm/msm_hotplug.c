@@ -546,7 +546,7 @@ static void __ref msm_hotplug_resume(struct work_struct *work)
 
 static void __msm_hotplug_suspend(void)
 {
-	if (!hotplug.msm_enabled)
+	if (!hotplug.msm_enabled || hotplug.suspended)
 		return;
 
 	if (!hotplug_suspend)

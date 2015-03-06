@@ -253,7 +253,7 @@ static void bricked_hotplug_suspend(struct work_struct *work)
 {
 	int cpu;
 
-	if (!hotplug.bricked_enabled)
+	if (!hotplug.bricked_enabled || hotplug.suspended)
 		return;
 
 	if (!hotplug.hotplug_suspend)
