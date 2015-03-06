@@ -66,7 +66,7 @@ static void msm_limit_suspend(struct work_struct *work)
 	/* Save current instance */
 	limit.resume_max_freq = get_max_lock(0);
 
-	if (!limit.resume_max_freq)
+	if (!limit.resume_max_freq || limit.suspended)
 		return;
 
 	mutex_lock(&limit.msm_limiter_mutex);

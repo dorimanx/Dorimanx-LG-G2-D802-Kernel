@@ -343,7 +343,8 @@ static void __ref intelli_plug_resume(struct work_struct *work)
 
 static void __intelli_plug_suspend(void)
 {
-	if (atomic_read(&intelli_plug_active) == 0)
+	if ((atomic_read(&intelli_plug_active) == 0) ||
+			hotplug_suspended)
 		return;
 
 	if (!hotplug_suspend)
