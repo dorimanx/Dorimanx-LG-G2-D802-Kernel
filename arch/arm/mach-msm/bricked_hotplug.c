@@ -326,6 +326,8 @@ static void __ref bricked_hotplug_resume(struct work_struct *work)
 	}
 }
 
+static int prev_fb = FB_BLANK_UNBLANK;
+
 static int fb_notifier_callback(struct notifier_block *self,
 				unsigned long event, void *data)
 {
@@ -339,19 +341,22 @@ static int fb_notifier_callback(struct notifier_block *self,
 		blank = evdata->data;
 		switch (*blank) {
 			case FB_BLANK_UNBLANK:
-				/* display on */
-				flush_workqueue(susp_wq);
-				cancel_delayed_work_sync(&suspend_work);
-				queue_work_on(0, susp_wq, &resume_work);
+				if (prev_fb == FB_BLANK_POWERDOWN) {
+					/* display on */
+					flush_workqueue(susp_wq);
+					cancel_delayed_work_sync(&suspend_work);
+					queue_work_on(0, susp_wq, &resume_work);
+					prev_fb = FB_BLANK_UNBLANK;
+				}
 				break;
 			case FB_BLANK_POWERDOWN:
-			case FB_BLANK_HSYNC_SUSPEND:
-			case FB_BLANK_VSYNC_SUSPEND:
-			case FB_BLANK_NORMAL:
-				/* display off */
-				INIT_DELAYED_WORK(&suspend_work, bricked_hotplug_suspend);
-				mod_delayed_work_on(0, susp_wq, &suspend_work,
-					msecs_to_jiffies(hotplug.suspend_defer_time * 1000)); 
+				if (prev_fb == FB_BLANK_UNBLANK) {
+					/* display off */
+					INIT_DELAYED_WORK(&suspend_work, bricked_hotplug_suspend);
+					mod_delayed_work_on(0, susp_wq, &suspend_work,
+						msecs_to_jiffies(hotplug.suspend_defer_time * 1000));
+					prev_fb = FB_BLANK_POWERDOWN;
+				}
 				break;
 		}
 	}
