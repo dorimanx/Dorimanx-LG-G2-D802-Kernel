@@ -642,6 +642,9 @@ static ssize_t headphone_pa_gain_store(struct kobject *kobj,
 #endif
 
 	if (calc_checksum(lval, rval, chksum)) {
+#ifdef CONFIG_MACH_LGE
+		lge_snd_ctrl_locked = 0;
+#endif
 		gain = taiko_read(fauxsound_codec_ptr, TAIKO_A_RX_HPH_L_GAIN);
 		out = (gain & 0xf0) | lval;
 		taiko_write(fauxsound_codec_ptr, TAIKO_A_RX_HPH_L_GAIN, out);
@@ -659,6 +662,9 @@ static ssize_t headphone_pa_gain_store(struct kobject *kobj,
 				TAIKO_A_RX_HPH_R_STATUS);
 		out = (status & 0x0f) | (rval << 4);
 		taiko_write(fauxsound_codec_ptr, TAIKO_A_RX_HPH_R_STATUS, out);
+#ifdef CONFIG_MACH_LGE
+		lge_snd_ctrl_locked = 1;
+#endif
 	}
 	return count;
 }
