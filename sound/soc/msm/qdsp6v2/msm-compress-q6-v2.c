@@ -1903,11 +1903,7 @@ static int msm_compr_get_codec_caps(struct snd_compr_stream *cstream,
 	case SND_AUDIOCODEC_PCM:
 		codec->num_descriptors = 5;
 		codec->descriptor[4].max_ch = 2;
-		memcpy(codec->descriptor[4].sample_rates,
-			supported_sample_rates,
-			sizeof(supported_sample_rates));
-		codec->descriptor[4].num_sample_rates =
-			sizeof(supported_sample_rates)/sizeof(unsigned int);
+		codec->descriptor[4].sample_rates = SNDRV_PCM_RATE_8000_192000;
 		codec->descriptor[4].bit_rate[0] = 192; /* 192kbps */
 		codec->descriptor[4].bit_rate[1] = 8;
 		codec->descriptor[4].num_bitrates = 2;
