@@ -463,7 +463,7 @@ static int kgsl_pwrctrl_gpuclk_show(struct device *dev,
 	pwr = &device->pwrctrl;
 
 	if (device->state == KGSL_STATE_SLUMBER)
-		freq = 27000000;
+		freq = 100000000;
 	else
 		freq = kgsl_pwrctrl_active_freq(pwr);
 
