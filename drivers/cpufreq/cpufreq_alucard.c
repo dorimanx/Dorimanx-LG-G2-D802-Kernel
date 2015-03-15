@@ -528,8 +528,6 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 			dec_cpu_load = alucard_tuners_ins.dec_cpu_load_at_min_freq;
 			pump_inc_step = this_alucard_cpuinfo->pump_inc_step_at_min_freq;
 			hi_index = this_alucard_cpuinfo->max_index;
-			check_up = true;
-			check_down = true;
 		}
 		/* Check for frequency increase or for frequency decrease */
 		if (cur_load >= inc_cpu_load && index < hi_index) {
