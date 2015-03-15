@@ -4496,6 +4496,14 @@ static void smb349_monitor_batt_temp(struct work_struct *work)
 #endif
 	}
 
+#ifdef CONFIG_LGE_THERMALE_CHG_CONTROL
+	if (usb_power_curr_now < 300 &&
+			wake_lock_active(&smb349_chg->lcs_wake_lock)) {
+		wake_unlock(&smb349_chg->lcs_wake_lock);
+		pr_info("thermal-engine: Releasing LGE charging scenario wakelock\n");
+	}
+#endif
+
 	if (smb349_chg->pseudo_ui_chg ^ res.pseudo_chg_ui) {
 		is_changed = true;
 		smb349_chg->pseudo_ui_chg = res.pseudo_chg_ui;
