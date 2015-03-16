@@ -18,12 +18,16 @@
 #include <linux/slab.h>
 #include <linux/input.h>
 #include <linux/kobject.h>
-#include <linux/fb.h>
 #include <linux/cpufreq.h>
+#ifdef CONFIG_POWERSUSPEND
+#include <linux/powersuspend.h>
+#else
+#include <linux/fb.h>
+#endif
 
 #define INTELLI_PLUG			"intelli_plug"
 #define INTELLI_PLUG_MAJOR_VERSION	5
-#define INTELLI_PLUG_MINOR_VERSION	3
+#define INTELLI_PLUG_MINOR_VERSION	4
 
 #define DEF_SAMPLING_MS			30
 #define RESUME_SAMPLING_MS		HZ / 10
@@ -61,7 +65,9 @@ static struct workqueue_struct *susp_wq;
 static struct delayed_work suspend_work;
 static struct work_struct resume_work;
 static struct mutex intelli_plug_mutex;
+#ifndef CONFIG_POWERSUSPEND
 static struct notifier_block notif;
+#endif
 
 struct ip_cpu_info {
 	unsigned long cpu_nr_running;
@@ -341,7 +347,11 @@ static void __ref intelli_plug_resume(struct work_struct *work)
 				      msecs_to_jiffies(RESUME_SAMPLING_MS));
 }
 
+#ifdef CONFIG_POWERSUSPEND
+static void __intelli_plug_suspend(struct power_suspend *handler)
+#else
 static void __intelli_plug_suspend(void)
+#endif
 {
 	if ((atomic_read(&intelli_plug_active) == 0) ||
 			hotplug_suspended)
@@ -355,7 +365,11 @@ static void __intelli_plug_suspend(void)
 				 msecs_to_jiffies(suspend_defer_time * 1000));
 }
 
+#ifdef CONFIG_POWERSUSPEND
+static void __ref __intelli_plug_resume(struct power_suspend *handler)
+#else
 static void __ref __intelli_plug_resume(void)
+#endif
 {
 	int cpu;
 
@@ -380,6 +394,12 @@ static void __ref __intelli_plug_resume(void)
 	queue_work_on(0, susp_wq, &resume_work);
 }
 
+#ifdef CONFIG_POWERSUSPEND
+static struct power_suspend intelli_plug_power_suspend_driver = {
+	.suspend = __intelli_plug_suspend,
+	.resume = __intelli_plug_resume,
+};
+#else
 static int prev_fb = FB_BLANK_UNBLANK;
 
 static int fb_notifier_callback(struct notifier_block *self,
@@ -410,6 +430,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 
 	return NOTIFY_OK;
 }
+#endif
 
 static void intelli_plug_input_event(struct input_handle *handle,
 		unsigned int type, unsigned int code, int value)
@@ -522,12 +543,16 @@ static int __ref intelli_plug_start(void)
 		goto err_out;
 	}
 
+#ifdef CONFIG_POWERSUSPEND
+	register_power_suspend(&intelli_plug_power_suspend_driver);
+#else
 	notif.notifier_call = fb_notifier_callback;
 	if (fb_register_client(&notif)) {
 		pr_err("%s: Failed to register FB notifier callback\n",
 			INTELLI_PLUG);
 		goto err_dev;
 	}
+#endif
 
 	ret = input_register_handler(&intelli_plug_input_handler);
 	if (ret) {
@@ -583,8 +608,12 @@ static void intelli_plug_stop(void)
 	cancel_work_sync(&up_down_work);
 	cancel_delayed_work_sync(&intelli_plug_work);
 	mutex_destroy(&intelli_plug_mutex);
+#ifdef CONFIG_POWERSUSPEND
+	unregister_power_suspend(&intelli_plug_power_suspend_driver);
+#else
 	fb_unregister_client(&notif);
 	notif.notifier_call = NULL;
+#endif
 
 	input_unregister_handler(&intelli_plug_input_handler);
 	destroy_workqueue(susp_wq);
