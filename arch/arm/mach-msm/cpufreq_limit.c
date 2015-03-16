@@ -23,10 +23,14 @@
 #include <linux/cpu.h>
 #include <linux/cpufreq.h>
 #include <mach/cpufreq.h>
+#ifdef CONFIG_POWERSUSPEND
+#include <linux/powersuspend.h>
+#else
 #include <linux/fb.h>
+#endif
 
-#define MSM_CPUFREQ_LIMIT_MAJOR		4
-#define MSM_CPUFREQ_LIMIT_MINOR		8
+#define MSM_CPUFREQ_LIMIT_MAJOR		5
+#define MSM_CPUFREQ_LIMIT_MINOR		0
 
 #define MSM_LIMIT			"msm_cpufreq_limit"
 
@@ -53,7 +57,9 @@ static struct cpu_limit {
 	struct delayed_work suspend_work;
 	struct work_struct resume_work;
 	struct mutex msm_limiter_mutex;
+#ifndef CONFIG_POWERSUSPEND
 	struct notifier_block notif;
+#endif
 } limit = {
 	.suspend_max_freq = DEFAULT_SUSPEND_FREQUENCY,
 	.resume_max_freq = DEFAULT_RESUME_FREQUENCY,
@@ -95,7 +101,11 @@ static void __ref msm_limit_resume(struct work_struct *work)
 		limit.resume_max_freq);
 }
 
+#ifdef CONFIG_POWERSUSPEND
+static void __msm_limit_suspend(struct power_suspend *handler)
+#else
 static void __msm_limit_suspend(void)
+#endif
 {
 	/* Do not suspend if suspend freq is not available */
 	if (limit.suspend_max_freq == 0)
@@ -106,7 +116,11 @@ static void __msm_limit_suspend(void)
 			msecs_to_jiffies(limit.suspend_defer_time * 1000));
 }
 
-static void __msm_limit_resume(void)
+#ifdef CONFIG_POWERSUSPEND
+static void __ref __msm_limit_resume(struct power_suspend *handler)
+#else
+static void __ref __msm_limit_resume(void)
+#endif
 {
 	/* Do not resume if suspend freq is not available */
 	if (limit.suspend_max_freq == 0)
@@ -117,6 +131,12 @@ static void __msm_limit_resume(void)
 	queue_work_on(0, limiter_wq, &limit.resume_work);
 }
 
+#ifdef CONFIG_POWERSUSPEND
+static struct power_suspend msm_limit_power_suspend_driver = {
+	.suspend = __msm_limit_suspend,
+	.resume = __msm_limit_resume,
+};
+#else
 static int prev_fb = FB_BLANK_UNBLANK;
 
 static int fb_notifier_callback(struct notifier_block *self,
@@ -147,6 +167,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 
 	return NOTIFY_OK;
 }
+#endif
 
 static int msm_cpufreq_limit_start(void)
 {
@@ -161,12 +182,16 @@ static int msm_cpufreq_limit_start(void)
 		goto err_out;
 	}
 
+#ifdef CONFIG_POWERSUSPEND
+	register_power_suspend(&msm_limit_power_suspend_driver);
+#else
 	limit.notif.notifier_call = fb_notifier_callback;
 	if (fb_register_client(&limit.notif)) {
 		pr_err("%s: Failed to register FB notifier callback\n",
 			MSM_LIMIT);
 		goto err_dev;
 	}
+#endif
 
 	mutex_init(&limit.msm_limiter_mutex);
 	INIT_DELAYED_WORK(&limit.suspend_work, msm_limit_suspend);
@@ -175,8 +200,10 @@ static int msm_cpufreq_limit_start(void)
 	queue_work_on(0, limiter_wq, &limit.resume_work);
 
 	return ret;
+#ifndef CONFIG_POWERSUSPEND
 err_dev:
 	destroy_workqueue(limiter_wq);
+#endif
 err_out:
 	return ret;
 }
@@ -188,8 +215,12 @@ static void msm_cpufreq_limit_stop(void)
 	cancel_work_sync(&limit.resume_work);
 	cancel_delayed_work_sync(&limit.suspend_work);
 	mutex_destroy(&limit.msm_limiter_mutex);
+#ifdef CONFIG_POWERSUSPEND
+	unregister_power_suspend(&msm_limit_power_suspend_driver);
+#else
 	fb_unregister_client(&limit.notif);
 	limit.notif.notifier_call = NULL;
+#endif
 	destroy_workqueue(limiter_wq);
 }
 
