@@ -37,12 +37,12 @@
 /* Tuning Interface */
 #define MIN_SAMPLING_RATE		10000
 #define SAMPLING_RATE			50000
-#define INC_CPU_LOAD_AT_MIN_FREQ	70
-#define INC_CPU_LOAD			70
+#define INC_CPU_LOAD_AT_MIN_FREQ	80
+#define INC_CPU_LOAD			80
 #define DEC_CPU_LOAD_AT_MIN_FREQ	70
 #define DEC_CPU_LOAD 			70
 
-#define CPUS_UP_RATE			1
+#define CPUS_UP_RATE			3
 #define CPUS_DOWN_RATE			2
 
 #ifdef CONFIG_MACH_LGE
