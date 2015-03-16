@@ -494,7 +494,7 @@ static ssize_t store_##file_name					\
 		pr_err("cpufreq: Frequency verification failed\n");	\
 									\
 	if (new_policy.min > 1036800)					\
-		new_policy.min = 300000;				\
+		return ret ? ret : count;				\
 									\
 	policy->user_policy.min = new_policy.min;			\
 									\
