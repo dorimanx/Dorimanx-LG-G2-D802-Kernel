@@ -553,8 +553,8 @@ static ssize_t kgsl_pwrctrl_pmqos_wakeup_latency_store(struct device *dev,
 	if (device == NULL)
 		return 0;
 
-	ret = kgsl_sysfs_store(buf, &val);
-	if (ret)
+	ret = kgsl_sysfs_store(buf, count, &val);
+	if (ret != count)
 		return ret;
 
 	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
