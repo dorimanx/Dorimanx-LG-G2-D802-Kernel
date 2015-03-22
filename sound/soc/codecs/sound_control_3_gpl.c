@@ -24,7 +24,7 @@
 #include <linux/mfd/wcd9xxx/wcd9320_registers.h>
 
 #define SOUND_CONTROL_MAJOR_VERSION	3
-#define SOUND_CONTROL_MINOR_VERSION	6
+#define SOUND_CONTROL_MINOR_VERSION	7
 
 #ifdef CONFIG_MACH_LGE
 static int lge_snd_ctrl_locked = 1;
@@ -512,8 +512,14 @@ static ssize_t cam_mic_gain_store(struct kobject *kobj,
 #endif
 
 	if (calc_checksum(lval, 0, chksum)) {
+#ifdef CONFIG_MACH_LGE
+		lge_snd_ctrl_locked = 0;
+#endif
 		taiko_write(fauxsound_codec_ptr,
 			TAIKO_A_CDC_TX7_VOL_CTL_GAIN, lval);
+#ifdef CONFIG_MACH_LGE
+		lge_snd_ctrl_locked = 1;
+#endif
 	}
 
 	return count;
@@ -540,8 +546,14 @@ static ssize_t mic_gain_store(struct kobject *kobj,
 #endif
 
 	if (calc_checksum(lval, 0, chksum)) {
+#ifdef CONFIG_MACH_LGE
+		lge_snd_ctrl_locked = 0;
+#endif
 		taiko_write(fauxsound_codec_ptr,
 			TAIKO_A_CDC_TX6_VOL_CTL_GAIN, lval);
+#ifdef CONFIG_MACH_LGE
+		lge_snd_ctrl_locked = 1;
+#endif
 	}
 
 	return count;
@@ -572,11 +584,17 @@ static ssize_t speaker_gain_store(struct kobject *kobj,
 #endif
 
 	if (calc_checksum(lval, rval, chksum)) {
+#ifdef CONFIG_MACH_LGE
+		lge_snd_ctrl_locked = 0;
+#endif
 		/* we have mono speaker! lval = rval */
 		taiko_write(fauxsound_codec_ptr,
 			TAIKO_A_CDC_RX7_VOL_CTL_B2_CTL, lval);
 		taiko_write(fauxsound_codec_ptr,
 			TAIKO_A_CDC_RX7_VOL_CTL_B2_CTL, rval);
+#ifdef CONFIG_MACH_LGE
+		lge_snd_ctrl_locked = 1;
+#endif
 	}
 
 	return count;
