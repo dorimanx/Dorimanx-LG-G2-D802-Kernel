@@ -2435,7 +2435,7 @@ int security_set_bools(int len, int *values)
 		goto out;
 
 	for (i = 0; i < len; i++) {
-		if (!!values[i] != policydb.bool_val_to_struct[i]->state) {
+		if ((!!values[i]) != policydb.bool_val_to_struct[i]->state) {
 			audit_log(current->audit_context, GFP_ATOMIC,
 				AUDIT_MAC_CONFIG_CHANGE,
 				"bool=%s val=%d old_val=%d auid=%u ses=%u",
