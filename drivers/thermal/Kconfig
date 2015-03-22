@@ -124,3 +124,11 @@ config THERMAL_QPNP_ADC_TM
 	  Disabling the thermal zone device via the mode file results in disabling
 	  the sensor. Also able to set threshold temperature for both hot and cold
 	  and update when a threshold is reached.
+
+config LGE_THERMAL_NOTIFICATION
+	tristate "lge thermal notify misc driver"
+	depends on THERMAL_TSENS8974
+	default n
+	help
+	  This makes sysfs and register misc driver for notify each sysfs's
+	  uevents to framework.

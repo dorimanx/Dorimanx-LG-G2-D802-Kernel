@@ -60,6 +60,7 @@ CLEANUP()
 	BUILD_320=0
 	BUILD_LS_980=0
 	BUILD_VS_980=0
+	BUILD_L01F=0
 }
 CLEANUP;
 
@@ -99,6 +100,8 @@ BUILD_NOW()
 			cp arch/arm/configs/dorimanx_ls980_defconfig .config
 		elif [ "$BUILD_VS_980" -eq "1" ]; then
 			cp arch/arm/configs/dorimanx_vs980_defconfig .config
+		elif [ "$BUILD_L01F" -eq "1" ]; then
+			cp arch/arm/configs/dorimanx_l01f_defconfig .config
 		fi;
 	fi;
 
@@ -110,6 +113,7 @@ BUILD_NOW()
 		BRANCH_320=$(grep -R "CONFIG_MACH_MSM8974_G2_KR=y" .config | wc -l)
 		BRANCH_LS_980=$(grep -R "CONFIG_MACH_MSM8974_G2_SPR=y" .config | wc -l)
 		BRANCH_VS_980=$(grep -R "CONFIG_MACH_MSM8974_G2_VZW=y" .config | wc -l)
+		BRANCH_L01F=$(grep -R "CONFIG_MACH_MSM8974_G2_DCM=y" .config | wc -l)
 		if [ "$BRANCH_800" -eq "0" ] && [ "$BUILD_800" -eq "1" ]; then
 			cp arch/arm/configs/dorimanx_d800_defconfig ./.config
 		fi;
@@ -130,6 +134,9 @@ BUILD_NOW()
 		fi;
 		if [ "$BRANCH_VS_980" -eq "0" ] && [ "$BUILD_VS_980" -eq "1" ]; then
 			cp arch/arm/configs/dorimanx_vs980_defconfig ./.config
+		fi;
+		if [ "$BRANCH_L01F" -eq "0" ] && ["$BUILD_L01F" -eq "1" ]; then
+			cp arch/arm/configs/dorimanx_l01f_defconfig ./.config
 		fi;
 	fi;
 
@@ -209,6 +216,8 @@ BUILD_NOW()
 		cp -a ../LG-G2-D802-Ramdisk/LS980-RAMDISK/* ../ramdisk-tmp/
 	elif [ "$BUILD_VS_980" == "1" ]; then
 		cp -a ../LG-G2-D802-Ramdisk/VS980-RAMDISK/* ../ramdisk-tmp/
+	elif [ "$BUILD_L01F" == "1" ]; then
+		cp -a ../LG-G2-D802-Ramdisk/L01F-RAMDISK/* ../ramdisk-tmp/
 	fi;
 
 	for i in $(find "$KERNELDIR" -name '*.ko'); do
@@ -317,7 +326,7 @@ CLEAN_KERNEL()
 }
 
 echo "What to cook for you?!";
-select CHOICE in D800 D801 D802 D803 F320 LS980 VS980 ALL; do
+select CHOICE in D800 D801 D802 D803 F320 LS980 VS980 L01F ALL; do
 	case "$CHOICE" in
 		"D800")
 			export KERNEL_CONFIG=dorimanx_d800_defconfig
@@ -359,6 +368,12 @@ select CHOICE in D800 D801 D802 D803 F320 LS980 VS980 ALL; do
 			export KERNEL_CONFIG=dorimanx_vs980_defconfig
 			KERNEL_CONFIG_FILE=dorimanx_vs980_defconfig
 			BUILD_VS_980=1;
+			BUILD_NOW;
+			break;;
+		"L01F")
+			export KERNEL_CONFIG=dorimanx_l01f_defconfig
+			KERNEL_CONFIG_FILE=dorimanx_l01f_defconfig
+			BUILD_L01F=1;
 			BUILD_NOW;
 			break;;
 		"ALL")
