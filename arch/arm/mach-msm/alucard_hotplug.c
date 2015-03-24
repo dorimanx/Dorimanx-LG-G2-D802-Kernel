@@ -120,7 +120,7 @@ static void stop_rq_work(void)
 	return;
 }
 
-static int __init init_rq_avg(void)
+static int init_rq_avg(void)
 {
 	rq_data = kzalloc(sizeof(struct runqueue_data), GFP_KERNEL);
 	if (rq_data == NULL) {
