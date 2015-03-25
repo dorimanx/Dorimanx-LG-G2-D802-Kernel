@@ -108,7 +108,7 @@ static void start_rq_work(void)
 		rq_data->nr_run_wq =
 			create_singlethread_workqueue("nr_run_avg");
 
-	mod_delayed_work(rq_data->nr_run_wq, &rq_data->work,
+	mod_delayed_work_on(BOOT_CPU, rq_data->nr_run_wq, &rq_data->work,
 			   msecs_to_jiffies(rq_data->update_rate));
 	return;
 }
@@ -167,7 +167,7 @@ static void rq_work_fn(struct work_struct *work)
 	rq_data->last_time = cur_time;
 
 	if (rq_data->update_rate != 0)
-		mod_delayed_work(rq_data->nr_run_wq, &rq_data->work,
+		mod_delayed_work_on(BOOT_CPU, rq_data->nr_run_wq, &rq_data->work,
 				   msecs_to_jiffies(rq_data->update_rate));
 
 	spin_unlock_irqrestore(&rq_data->lock, flags);
@@ -219,7 +219,6 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 #endif
 		unsigned int cur_load = 0;
 		unsigned int cur_freq = 0;
-		bool check_up = false, check_down = false;
 
 #ifdef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
 		cur_load = cpufreq_quick_get_util(cpu);
@@ -252,16 +251,6 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 		/* cur_freq = acpuclk_get_rate(cpu); */
 		cur_freq = cpufreq_quick_get(cpu);
 
-		if (pcpu_info->cur_up_rate > pcpu_info->up_rate)
-			pcpu_info->cur_up_rate = 1;
-
-		if (pcpu_info->cur_down_rate > pcpu_info->down_rate)
-			pcpu_info->cur_down_rate = 1;
-
-		check_up = (pcpu_info->cur_up_rate % pcpu_info->up_rate == 0);
-		check_down = (pcpu_info->cur_down_rate %
-					pcpu_info->down_rate == 0);
-
 		if (cpu > 0
 			&& ((online_cpus - offline_cpu) > upmaxcoreslimit)) {
 				pcpu_info->cur_up_rate = 1;
@@ -289,8 +278,8 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 		    && cur_load >= pcpu_info->up_load
 			&& cur_freq >= pcpu_info->up_freq
 			&& rq_avg > pcpu_info->up_rq) {
-				++pcpu_info->cur_up_rate;
-				if (check_up) {
+				if (pcpu_info->cur_up_rate %
+						pcpu_info->up_rate == 0) {
 #if 0
 					pr_info("CPU[%u], UPCPU[%u], \
 						cur_freq[%u], cur_load[%u], \
@@ -303,13 +292,18 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 					pcpu_info->cur_down_rate = 1;
 					++online_cpu;
 					cpu_up(upcpu);
+				} else {
+					if (pcpu_info->cur_up_rate < pcpu_info->up_rate)
+						++pcpu_info->cur_up_rate;
+					else
+						pcpu_info->cur_up_rate = 1;
 				}
 		} else if (cpu >= min_cpus_online && (
 				cur_load < pcpu_info->down_load
 				|| (cur_freq <= pcpu_info->down_freq
 				&& rq_avg <= pcpu_info->down_rq))) {
-					++pcpu_info->cur_down_rate;
-					if (check_down) {
+					if (pcpu_info->cur_down_rate %
+							pcpu_info->down_rate == 0) {
 #if 0
 						pr_info("CPU[%u], \
 							cur_freq[%u], \
@@ -325,6 +319,11 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 						pcpu_info->cur_down_rate = 1;
 						++offline_cpu;
 						cpu_down(cpu);
+					} else {
+						if (pcpu_info->cur_down_rate < pcpu_info->down_rate)
+							++pcpu_info->cur_down_rate;
+						else
+							pcpu_info->cur_down_rate = 1;
 					}
 		} else {
 			pcpu_info->cur_up_rate = 1;
@@ -334,7 +333,8 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 
 	if (force_up == true)
 		hotplug_tuners_ins.force_cpu_up = false;
-	mod_delayed_work_on(0, system_wq,
+
+	mod_delayed_work_on(BOOT_CPU, system_wq,
 				&alucard_hotplug_work,
 				msecs_to_jiffies(
 				hotplug_tuners_ins.hotplug_sampling_rate));
@@ -354,7 +354,6 @@ static void __alucard_hotplug_suspend(void)
 			mutex_unlock(&hotplug_tuners_ins.alu_hotplug_mutex);
 			pr_info("Alucard HotPlug suspended.\n");
 	}
-	stop_rq_work();
 }
 
 #ifdef CONFIG_POWERSUSPEND
@@ -372,7 +371,6 @@ static void __ref __alucard_hotplug_resume(void)
 			mutex_unlock(&hotplug_tuners_ins.alu_hotplug_mutex);
 			pr_info("Alucard HotPlug Resumed.\n");
 	}
-	start_rq_work();
 }
 
 #ifdef CONFIG_POWERSUSPEND
@@ -442,7 +440,7 @@ static int hotplug_start(void)
 	start_rq_work();
 
 	INIT_DEFERRABLE_WORK(&alucard_hotplug_work, hotplug_work_fn);
-	mod_delayed_work_on(0, system_wq,
+	mod_delayed_work_on(BOOT_CPU, system_wq,
 				&alucard_hotplug_work,
 				msecs_to_jiffies(
 				hotplug_tuners_ins.hotplug_sampling_rate));
