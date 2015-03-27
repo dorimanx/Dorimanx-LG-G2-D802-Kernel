@@ -483,7 +483,6 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 	int io_busy = alucard_tuners_ins.io_is_busy;
 	unsigned int cpus_up_rate = alucard_tuners_ins.cpus_up_rate;
 	unsigned int cpus_down_rate = alucard_tuners_ins.cpus_down_rate;
-	bool check_up = false, check_down = false;
 
 	cpu = this_alucard_cpuinfo->cpu;
 	cpu_policy = this_alucard_cpuinfo->cur_policy;
@@ -506,21 +505,12 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 
 		cpufreq_notify_utilization(cpu_policy, cur_load);
 
-		if (this_alucard_cpuinfo->up_rate > cpus_up_rate)
-				this_alucard_cpuinfo->up_rate = 1;
-
-		if (this_alucard_cpuinfo->down_rate > cpus_down_rate)
-				this_alucard_cpuinfo->down_rate = 1;
-
 		/* Maximum increasing frequency possible */
 		cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, max(cur_load * (cpu_policy->max / 100), cpu_policy->min),
 				CPUFREQ_RELATION_L, &hi_index);
 
 		cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, cpu_policy->cur,
 				CPUFREQ_RELATION_C, &index);
-
-		check_up = (this_alucard_cpuinfo->up_rate % cpus_up_rate == 0);
-		check_down = (this_alucard_cpuinfo->down_rate % cpus_down_rate == 0);
 
 		/* CPUs Online Scale Frequency*/
 		if (cpu_policy->cur < freq_responsiveness) {
@@ -531,8 +521,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 		}
 		/* Check for frequency increase or for frequency decrease */
 		if (cur_load >= inc_cpu_load && index < hi_index) {
-			++this_alucard_cpuinfo->up_rate;
-			if (check_up) {
+			if (this_alucard_cpuinfo->up_rate % cpus_up_rate == 0) {
 				if ((index + pump_inc_step) <= hi_index)
 					index += pump_inc_step;
 				else
@@ -540,10 +529,14 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 
 				this_alucard_cpuinfo->up_rate = 1;
 				this_alucard_cpuinfo->down_rate = 1;
+			} else {
+				if (this_alucard_cpuinfo->up_rate < cpus_up_rate)
+					++this_alucard_cpuinfo->up_rate;
+				else
+					this_alucard_cpuinfo->up_rate = 1;
 			}
 		} else if (cur_load < dec_cpu_load && index > this_alucard_cpuinfo->min_index) {
-			++this_alucard_cpuinfo->down_rate;
-			if (check_down) {
+			if (this_alucard_cpuinfo->down_rate % cpus_down_rate == 0) {
 				if ((index - this_alucard_cpuinfo->min_index) >= pump_dec_step)
 					index -= pump_dec_step;
 				else
@@ -551,6 +544,11 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 
 				this_alucard_cpuinfo->up_rate = 1;
 				this_alucard_cpuinfo->down_rate = 1;
+			} else {
+				if (this_alucard_cpuinfo->down_rate < cpus_down_rate)
+					++this_alucard_cpuinfo->down_rate;
+				else
+					this_alucard_cpuinfo->down_rate = 1;
 			}
 		}
 
