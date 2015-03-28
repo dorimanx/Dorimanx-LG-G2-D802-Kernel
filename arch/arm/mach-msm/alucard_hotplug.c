@@ -236,15 +236,11 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 					pcpu_info->prev_cpu_idle);
 		pcpu_info->prev_cpu_idle = cur_idle_time;
 
-		/* if wall_time < idle_time, evaluate cpu load next time */
-		if (wall_time < idle_time)
+		/* if wall_time < idle_time or wall_time == 0, evaluate cpu load next time */
+		if (unlikely(!wall_time || wall_time < idle_time))
 			continue;
-		/*
-		 * if wall_time is equal to idle_time,
-		 * cpu_load is equal to 0
-		 */
-		cur_load = wall_time > idle_time ? (100 *
-			(wall_time - idle_time)) / wall_time : 0;
+
+		cur_load = 100 * (wall_time - idle_time) / wall_time;
 #endif
 
 		/* get the cpu current frequency */
