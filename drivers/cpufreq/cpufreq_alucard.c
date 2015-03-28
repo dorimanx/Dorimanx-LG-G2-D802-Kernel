@@ -498,59 +498,60 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 			(cur_idle_time - this_alucard_cpuinfo->prev_cpu_idle);
 	this_alucard_cpuinfo->prev_cpu_idle = cur_idle_time;
 
-	/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",cpu, wall_time, idle_time);*/
-	if (wall_time >= idle_time) { /*if wall_time < idle_time, evaluate cpu load next time*/
-		cur_load = wall_time > idle_time ? (100 * (wall_time - idle_time)) / wall_time : 1;/*if wall_time is equal to idle_time cpu_load is equal to 1*/
+	/*if wall_time < idle_time or wall_time == 0, evaluate cpu load next time*/
+	if (unlikely(!wall_time || wall_time < idle_time))
+		return;
 
-		cpufreq_notify_utilization(cpu_policy, cur_load);
+	cur_load = 100 * (wall_time - idle_time) / wall_time;
 
-		/* Maximum increasing frequency possible */
-		cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, max(cur_load * (cpu_policy->max / 100), cpu_policy->min),
-				CPUFREQ_RELATION_L, &hi_index);
+	cpufreq_notify_utilization(cpu_policy, cur_load);
 
-		/* CPUs Online Scale Frequency*/
-		if (cpu_policy->cur < freq_responsiveness) {
-			inc_cpu_load = alucard_tuners_ins.inc_cpu_load_at_min_freq;
-			dec_cpu_load = alucard_tuners_ins.dec_cpu_load_at_min_freq;
-			pump_inc_step = this_alucard_cpuinfo->pump_inc_step_at_min_freq;
-			hi_index = this_alucard_cpuinfo->max_index;
-		}
-		/* Check for frequency increase or for frequency decrease */
-		if (cur_load >= inc_cpu_load && this_alucard_cpuinfo->index < hi_index) {
-			if (this_alucard_cpuinfo->up_rate % cpus_up_rate == 0) {
-				if ((this_alucard_cpuinfo->index + pump_inc_step) <= hi_index)
-					this_alucard_cpuinfo->index += pump_inc_step;
-				else
-					this_alucard_cpuinfo->index = hi_index;
+	/* Maximum increasing frequency possible */
+	cpufreq_frequency_table_target(cpu_policy, this_alucard_cpuinfo->freq_table, max(cur_load * (cpu_policy->max / 100), cpu_policy->min),
+			CPUFREQ_RELATION_L, &hi_index);
 
+	/* CPUs Online Scale Frequency*/
+	if (cpu_policy->cur < freq_responsiveness) {
+		inc_cpu_load = alucard_tuners_ins.inc_cpu_load_at_min_freq;
+		dec_cpu_load = alucard_tuners_ins.dec_cpu_load_at_min_freq;
+		pump_inc_step = this_alucard_cpuinfo->pump_inc_step_at_min_freq;
+		hi_index = this_alucard_cpuinfo->max_index;
+	}
+	/* Check for frequency increase or for frequency decrease */
+	if (cur_load >= inc_cpu_load && this_alucard_cpuinfo->index < hi_index) {
+		if (this_alucard_cpuinfo->up_rate % cpus_up_rate == 0) {
+			if ((this_alucard_cpuinfo->index + pump_inc_step) <= hi_index)
+				this_alucard_cpuinfo->index += pump_inc_step;
+			else
+				this_alucard_cpuinfo->index = hi_index;
+
+			this_alucard_cpuinfo->up_rate = 1;
+			this_alucard_cpuinfo->down_rate = 1;
+		} else {
+			if (this_alucard_cpuinfo->up_rate < cpus_up_rate)
+				++this_alucard_cpuinfo->up_rate;
+			else
 				this_alucard_cpuinfo->up_rate = 1;
-				this_alucard_cpuinfo->down_rate = 1;
-			} else {
-				if (this_alucard_cpuinfo->up_rate < cpus_up_rate)
-					++this_alucard_cpuinfo->up_rate;
-				else
-					this_alucard_cpuinfo->up_rate = 1;
-			}
-		} else if (cur_load < dec_cpu_load && this_alucard_cpuinfo->index > this_alucard_cpuinfo->min_index) {
-			if (this_alucard_cpuinfo->down_rate % cpus_down_rate == 0) {
-				if ((this_alucard_cpuinfo->index - this_alucard_cpuinfo->min_index) >= pump_dec_step)
-					this_alucard_cpuinfo->index -= pump_dec_step;
-				else
-					this_alucard_cpuinfo->index = this_alucard_cpuinfo->min_index;
-
-				this_alucard_cpuinfo->up_rate = 1;
-				this_alucard_cpuinfo->down_rate = 1;
-			} else {
-				if (this_alucard_cpuinfo->down_rate < cpus_down_rate)
-					++this_alucard_cpuinfo->down_rate;
-				else
-					this_alucard_cpuinfo->down_rate = 1;
-			}
 		}
+	} else if (cur_load < dec_cpu_load && this_alucard_cpuinfo->index > this_alucard_cpuinfo->min_index) {
+		if (this_alucard_cpuinfo->down_rate % cpus_down_rate == 0) {
+			if ((this_alucard_cpuinfo->index - this_alucard_cpuinfo->min_index) >= pump_dec_step)
+				this_alucard_cpuinfo->index -= pump_dec_step;
+			else
+				this_alucard_cpuinfo->index = this_alucard_cpuinfo->min_index;
 
-		if (this_alucard_cpuinfo->freq_table[this_alucard_cpuinfo->index].frequency != cpu_policy->cur) {
-			__cpufreq_driver_target(cpu_policy, this_alucard_cpuinfo->freq_table[this_alucard_cpuinfo->index].frequency, CPUFREQ_RELATION_C);
+			this_alucard_cpuinfo->up_rate = 1;
+			this_alucard_cpuinfo->down_rate = 1;
+		} else {
+			if (this_alucard_cpuinfo->down_rate < cpus_down_rate)
+				++this_alucard_cpuinfo->down_rate;
+			else
+				this_alucard_cpuinfo->down_rate = 1;
 		}
+	}
+
+	if (this_alucard_cpuinfo->freq_table[this_alucard_cpuinfo->index].frequency != cpu_policy->cur) {
+		__cpufreq_driver_target(cpu_policy, this_alucard_cpuinfo->freq_table[this_alucard_cpuinfo->index].frequency, CPUFREQ_RELATION_C);
 	}
 }
 

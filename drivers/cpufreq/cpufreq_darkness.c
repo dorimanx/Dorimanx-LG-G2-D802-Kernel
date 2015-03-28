@@ -186,33 +186,34 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 
 	/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",cpu, wall_time, idle_time);*/
 
-	if (wall_time >= idle_time) { /*if wall_time < idle_time, evaluate cpu load next time*/
-		cur_load = wall_time > idle_time ? (100 * (wall_time - idle_time)) / wall_time : 1;/*if wall_time is equal to idle_time cpu_load is equal to 1*/
+	/*if wall_time < idle_time or wall_time == 0, evaluate cpu load next time*/
+	if (unlikely(!wall_time || wall_time < idle_time))
+		return;
 
-		cpufreq_notify_utilization(cpu_policy, cur_load);
+	cur_load = 100 * (wall_time - idle_time) / wall_time;
 
-		/* Checking Frequency Limit */
-		min_freq = cpu_policy->min;
-		max_freq = cpu_policy->max;
+	cpufreq_notify_utilization(cpu_policy, cur_load);
 
-		/* CPUs Online Scale Frequency*/
-		next_freq = max(min(cur_load * (max_freq / 100), max_freq), min_freq);
+	/* Checking Frequency Limit */
+	min_freq = cpu_policy->min;
+	max_freq = cpu_policy->max;
+
+	/* CPUs Online Scale Frequency*/
+	next_freq = max(min(cur_load * (max_freq / 100), max_freq), min_freq);
+	cpufreq_frequency_table_target(cpu_policy, this_darkness_cpuinfo->freq_table, next_freq,
+		CPUFREQ_RELATION_H, &index);
+	if (this_darkness_cpuinfo->freq_table[index].frequency != cpu_policy->cur) {
 		cpufreq_frequency_table_target(cpu_policy, this_darkness_cpuinfo->freq_table, next_freq,
-			CPUFREQ_RELATION_H, &index);
-		if (this_darkness_cpuinfo->freq_table[index].frequency != cpu_policy->cur) {
-			cpufreq_frequency_table_target(cpu_policy, this_darkness_cpuinfo->freq_table, next_freq,
-				CPUFREQ_RELATION_L, &index);
-		} else {
-			return;
-		}
-
-		next_freq = this_darkness_cpuinfo->freq_table[index].frequency;
-		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq);*/
-		if (next_freq != cpu_policy->cur) {
-			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
-		}
+			CPUFREQ_RELATION_L, &index);
+	} else {
+		return;
 	}
 
+	next_freq = this_darkness_cpuinfo->freq_table[index].frequency;
+	/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq);*/
+	if (next_freq != cpu_policy->cur) {
+		__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
+	}
 }
 
 static void do_darkness_timer(struct work_struct *work)

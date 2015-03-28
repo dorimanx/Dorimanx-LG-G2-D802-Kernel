@@ -472,41 +472,41 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 			(cur_idle_time - this_nightmare_cpuinfo->prev_cpu_idle);
 	this_nightmare_cpuinfo->prev_cpu_idle = cur_idle_time;
 
-	/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",cpu, wall_time, idle_time);*/
-	if (wall_time >= idle_time) { /*if wall_time < idle_time, evaluate cpu load next time*/
-		cur_load = wall_time > idle_time ? (100 * (wall_time - idle_time)) / wall_time : 1;/*if wall_time is equal to idle_time cpu_load is equal to 1*/
+	/*if wall_time < idle_time or wall_time == 0, evaluate cpu load next time*/
+	if (unlikely(!wall_time || wall_time < idle_time))
+		return;
 
-		cpufreq_notify_utilization(cpu_policy, cur_load);
+	cur_load = 100 * (wall_time - idle_time) / wall_time;
 
-		/* Checking Frequency Limit */
-		min_freq = cpu_policy->min;
-		max_freq = cpu_policy->max;
-		/* CPUs Online Scale Frequency*/
-		if (cpu_policy->cur < freq_for_responsiveness) {
-			inc_cpu_load = nightmare_tuners_ins.inc_cpu_load_at_min_freq;
-			freq_step = nightmare_tuners_ins.freq_step_at_min_freq;
-			freq_up_brake = nightmare_tuners_ins.freq_up_brake_at_min_freq;
-		} else if (cpu_policy->cur > freq_for_responsiveness_max) {
-			freq_step_dec = nightmare_tuners_ins.freq_step_dec_at_max_freq;
-		}
-		/* Check for frequency increase or for frequency decrease */
-		if (cur_load >= inc_cpu_load && cpu_policy->cur < max_freq) {
-			tmp_freq = max(min((cpu_policy->cur + ((cur_load + freq_step - freq_up_brake == 0 ? 1 : cur_load + freq_step - freq_up_brake) * 3780)), max_freq), min_freq);
-		} else if (cur_load < dec_cpu_load && cpu_policy->cur > min_freq) {
-			tmp_freq = max(min((cpu_policy->cur - ((100 - cur_load + freq_step_dec == 0 ? 1 : 100 - cur_load + freq_step_dec) * 3780)), max_freq), min_freq);
-		} else {
-			/* if cpu frequency is already at maximum or minimum or cur_load is between inc_cpu_load and dec_cpu_load var, we don't need to set frequency! */
-			return;
-		}
-		cpufreq_frequency_table_target(cpu_policy, this_nightmare_cpuinfo->freq_table, tmp_freq,
-			CPUFREQ_RELATION_L, &index);
-		next_freq = this_nightmare_cpuinfo->freq_table[index].frequency;
-		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq);*/
-		if (next_freq != cpu_policy->cur) {
-			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
-		}
+	cpufreq_notify_utilization(cpu_policy, cur_load);
+
+	/* Checking Frequency Limit */
+	min_freq = cpu_policy->min;
+	max_freq = cpu_policy->max;
+	/* CPUs Online Scale Frequency*/
+	if (cpu_policy->cur < freq_for_responsiveness) {
+		inc_cpu_load = nightmare_tuners_ins.inc_cpu_load_at_min_freq;
+		freq_step = nightmare_tuners_ins.freq_step_at_min_freq;
+		freq_up_brake = nightmare_tuners_ins.freq_up_brake_at_min_freq;
+	} else if (cpu_policy->cur > freq_for_responsiveness_max) {
+		freq_step_dec = nightmare_tuners_ins.freq_step_dec_at_max_freq;
 	}
-
+	/* Check for frequency increase or for frequency decrease */
+	if (cur_load >= inc_cpu_load && cpu_policy->cur < max_freq) {
+		tmp_freq = max(min((cpu_policy->cur + ((cur_load + freq_step - freq_up_brake == 0 ? 1 : cur_load + freq_step - freq_up_brake) * 3780)), max_freq), min_freq);
+	} else if (cur_load < dec_cpu_load && cpu_policy->cur > min_freq) {
+		tmp_freq = max(min((cpu_policy->cur - ((100 - cur_load + freq_step_dec == 0 ? 1 : 100 - cur_load + freq_step_dec) * 3780)), max_freq), min_freq);
+	} else {
+		/* if cpu frequency is already at maximum or minimum or cur_load is between inc_cpu_load and dec_cpu_load var, we don't need to set frequency! */
+		return;
+	}
+	cpufreq_frequency_table_target(cpu_policy, this_nightmare_cpuinfo->freq_table, tmp_freq,
+		CPUFREQ_RELATION_L, &index);
+	next_freq = this_nightmare_cpuinfo->freq_table[index].frequency;
+	/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq);*/
+	if (next_freq != cpu_policy->cur) {
+		__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
+	}
 }
 
 static void do_nightmare_timer(struct work_struct *work)
