@@ -35,26 +35,29 @@
  */
 
 /* Tuning Interface */
-#define MIN_SAMPLING_RATE		10000
-#define SAMPLING_RATE			50000
-#define INC_CPU_LOAD_AT_MIN_FREQ	80
-#define INC_CPU_LOAD			80
-#define DEC_CPU_LOAD_AT_MIN_FREQ	70
-#define DEC_CPU_LOAD 			70
-
-#define CPUS_UP_RATE			3
-#define CPUS_DOWN_RATE			2
-
 #ifdef CONFIG_MACH_LGE
-#define FREQ_RESPONSIVENESS		1574400
+#define FREQ_RESPONSIVENESS		2265600
 #else
 #define FREQ_RESPONSIVENESS		1134000
 #endif
 
+#define CPUS_DOWN_RATE			2
+#define CPUS_UP_RATE			2
+
+#define DEC_CPU_LOAD			70
+#define DEC_CPU_LOAD_AT_MIN_FREQ	70
+
+#define INC_CPU_LOAD			70
+#define INC_CPU_LOAD_AT_MIN_FREQ	70
+
 /* Pump Inc/Dec for all cores */
-#define PUMP_INC_STEP_AT_MIN_FREQ	6
+#define PUMP_INC_STEP_AT_MIN_FREQ	4
 #define PUMP_INC_STEP			1
 #define PUMP_DEC_STEP			1
+
+/* sample rate */
+#define MIN_SAMPLING_RATE		10000
+#define SAMPLING_RATE			50000
 
 static void do_alucard_timer(struct work_struct *work);
 
@@ -240,7 +243,7 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(input,10000);
+	input = max(input, 10000);
 
 	if (input == alucard_tuners_ins.sampling_rate)
 		return count;
@@ -262,7 +265,7 @@ static ssize_t store_inc_cpu_load_at_min_freq(struct kobject *a, struct attribut
 		return -EINVAL;
 	}
 
-	input = min(input,alucard_tuners_ins.inc_cpu_load);
+	input = min(input, alucard_tuners_ins.inc_cpu_load);
 
 	if (input == alucard_tuners_ins.inc_cpu_load_at_min_freq)
 		return count;
@@ -283,7 +286,7 @@ static ssize_t store_inc_cpu_load(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(min(input,100),0);
+	input = max(min(input, 100),0);
 
 	if (input == alucard_tuners_ins.inc_cpu_load)
 		return count;
@@ -305,7 +308,7 @@ static ssize_t store_dec_cpu_load_at_min_freq(struct kobject *a, struct attribut
 		return -EINVAL;
 	}
 
-	input = min(input,alucard_tuners_ins.dec_cpu_load);
+	input = min(input, alucard_tuners_ins.dec_cpu_load);
 
 	if (input == alucard_tuners_ins.dec_cpu_load_at_min_freq)
 		return count;
@@ -326,7 +329,7 @@ static ssize_t store_dec_cpu_load(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(min(input,95),5);
+	input = max(min(input, 95),5);
 
 	if (input == alucard_tuners_ins.dec_cpu_load)
 		return count;
@@ -597,8 +600,8 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if ((!cpu_online(cpu)) || 
-			(!policy->cur) || 
+		if ((!cpu_online(cpu)) ||
+			(!policy->cur) ||
 			(cpu != this_alucard_cpuinfo->cpu))
 			return -EINVAL;
 
