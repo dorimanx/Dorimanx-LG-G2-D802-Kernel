@@ -80,15 +80,15 @@ static struct nightmare_tuners {
 	unsigned int io_is_busy;
 
 } nightmare_tuners_ins = {
-	.sampling_rate = 60000,
+	.sampling_rate = 50000,
 	.inc_cpu_load_at_min_freq = 40,
-	.inc_cpu_load = 70,
-	.dec_cpu_load = 50,
+	.inc_cpu_load = 60,
+	.dec_cpu_load = 60,
 	.freq_for_responsiveness = 1728000,
 	.freq_for_responsiveness_max = 2265600,
 	.freq_step_at_min_freq = 40,
-	.freq_step = 40,
-	.freq_up_brake_at_min_freq = 30,
+	.freq_step = 50,
+	.freq_up_brake_at_min_freq = 40,
 	.freq_up_brake = 30,
 	.freq_step_dec = 10,
 	.freq_step_dec_at_max_freq = 10,
