@@ -407,6 +407,32 @@ static int fb_notifier_callback(struct notifier_block *self,
 }
 #endif
 
+#ifndef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
+static int alucard_hotplug_callback(struct notifier_block *nb,
+			unsigned long action, void *data)
+{
+	struct hotplug_cpuinfo *pcpu_info;
+	unsigned int cpu = (int)data;
+
+	switch (action & (~CPU_TASKS_FROZEN)) {
+	case CPU_ONLINE:
+		pcpu_info = &per_cpu(od_hotplug_cpuinfo, cpu);
+		pcpu_info->prev_cpu_wall = ktime_to_us(ktime_get());
+		pcpu_info->prev_cpu_idle = get_cpu_idle_time(cpu,
+				&pcpu_info->prev_cpu_wall,
+				hotplug_tuners_ins.hp_io_is_busy);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block alucard_hotplug_nb =
+{
+   .notifier_call = alucard_hotplug_callback,
+};
+#endif
+
 static int hotplug_start(void)
 {
 	unsigned int cpu;
@@ -420,18 +446,28 @@ static int hotplug_start(void)
 	hotplug_tuners_ins.suspended = false;
 	hotplug_tuners_ins.force_cpu_up = false;
 
+#ifndef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
+	get_online_cpus();
+	register_hotcpu_notifier(&alucard_hotplug_nb);
+#endif
 	for_each_possible_cpu(cpu) {
 		struct hotplug_cpuinfo *pcpu_info =
 				&per_cpu(od_hotplug_cpuinfo, cpu);
 
 #ifndef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
-		pcpu_info->prev_cpu_idle = get_cpu_idle_time(cpu,
-				&pcpu_info->prev_cpu_wall,
-				hotplug_tuners_ins.hp_io_is_busy);
+		if (cpu_online(cpu)) {
+			pcpu_info->prev_cpu_wall = ktime_to_us(ktime_get());
+			pcpu_info->prev_cpu_idle = get_cpu_idle_time(cpu,
+					&pcpu_info->prev_cpu_wall,
+					hotplug_tuners_ins.hp_io_is_busy);
+		}
 #endif
 		pcpu_info->cur_up_rate = 1;
 		pcpu_info->cur_down_rate = 1;
 	}
+#ifndef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
+	put_online_cpus();
+#endif
 
 	start_rq_work();
 
@@ -462,6 +498,11 @@ static void hotplug_stop(void)
 #else
 	fb_unregister_client(&notif);
 	notif.notifier_call = NULL;
+#endif
+#ifndef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
+	get_online_cpus();
+	unregister_hotcpu_notifier(&alucard_hotplug_nb);
+	put_online_cpus();
 #endif
 	stop_rq_work();
 	exit_rq_avg();

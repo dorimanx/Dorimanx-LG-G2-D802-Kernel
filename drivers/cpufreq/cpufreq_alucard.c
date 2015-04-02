@@ -609,6 +609,8 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 
 		this_alucard_cpuinfo->cur_policy = policy;
 
+		this_alucard_cpuinfo->prev_cpu_wall = ktime_to_us(ktime_get());
+
 		this_alucard_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_alucard_cpuinfo->prev_cpu_wall, io_busy);
 
 		cpufreq_frequency_table_target(policy, this_alucard_cpuinfo->freq_table, policy->min,
