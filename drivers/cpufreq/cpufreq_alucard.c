@@ -53,7 +53,7 @@
 /* Pump Inc/Dec for all cores */
 #define PUMP_INC_STEP_AT_MIN_FREQ	4
 #define PUMP_INC_STEP			1
-#define PUMP_DEC_STEP			1
+#define PUMP_DEC_STEP			2
 
 /* sample rate */
 #define MIN_SAMPLING_RATE		10000
