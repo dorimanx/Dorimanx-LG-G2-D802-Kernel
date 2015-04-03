@@ -258,7 +258,6 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 #endif
 					++offline_cpu;
 				}
-				continue;
 		} else if (force_up == true ||
 				(online_cpus + online_cpu) < min_cpus_online) {
 				if (upcpu < upmaxcoreslimit) {
@@ -271,10 +270,7 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 						}
 					}
 				}
-				continue;
-		}
-
-		if (upcpu > 0
+		} else if (upcpu > 0
 			&& upcpu < upmaxcoreslimit
 			&& (cpu_is_offline(upcpu))
 			&& (online_cpus + online_cpu) < upmaxcoreslimit
