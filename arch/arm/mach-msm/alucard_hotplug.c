@@ -219,6 +219,7 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 #endif
 		unsigned int cur_load = 0;
 		unsigned int cur_freq = 0;
+		int ret;
 
 #ifdef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
 		cur_load = cpufreq_quick_get_util(cpu);
@@ -249,19 +250,25 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 
 		if (cpu > 0
 			&& ((online_cpus - offline_cpu) > upmaxcoreslimit)) {
-				pcpu_info->cur_up_rate = 1;
-				pcpu_info->cur_down_rate = 1;
-				++offline_cpu;
-				cpu_down(cpu);
+				ret = cpu_down(cpu);
+				if (!ret) {
+#ifdef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
+					pcpu_info->cur_up_rate = 1;
+					pcpu_info->cur_down_rate = 1;
+#endif
+					++offline_cpu;
+				}
 				continue;
 		} else if (force_up == true ||
 				(online_cpus + online_cpu) < min_cpus_online) {
 				if (upcpu < upmaxcoreslimit) {
 					if (cpu_is_offline(upcpu)) {
-						pcpu_info->cur_up_rate = 1;
-						pcpu_info->cur_down_rate = 1;
-						++online_cpu;
-						cpu_up(upcpu);
+						ret = cpu_up(upcpu);
+						if (!ret) {
+							pcpu_info->cur_up_rate = 1;
+							pcpu_info->cur_down_rate = 1;
+							++online_cpu;
+						}
 					}
 				}
 				continue;
@@ -284,10 +291,12 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 						cur_load, rq_avg,
 						pcpu_info->cur_up_rate);
 #endif
-					pcpu_info->cur_up_rate = 1;
-					pcpu_info->cur_down_rate = 1;
-					++online_cpu;
-					cpu_up(upcpu);
+					ret = cpu_up(upcpu);
+					if (!ret) {
+						pcpu_info->cur_up_rate = 1;
+						pcpu_info->cur_down_rate = 1;
+						++online_cpu;
+					}
 				} else {
 					if (pcpu_info->cur_up_rate < pcpu_info->up_rate)
 						++pcpu_info->cur_up_rate;
@@ -311,10 +320,14 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 							pcpu_info->
 							cur_down_rate);
 #endif
-						pcpu_info->cur_up_rate = 1;
-						pcpu_info->cur_down_rate = 1;
-						++offline_cpu;
-						cpu_down(cpu);
+						ret = cpu_down(cpu);
+						if (!ret) {
+#ifdef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
+							pcpu_info->cur_up_rate = 1;
+							pcpu_info->cur_down_rate = 1;
+#endif
+							++offline_cpu;
+						}
 					} else {
 						if (pcpu_info->cur_down_rate < pcpu_info->down_rate)
 							++pcpu_info->cur_down_rate;
@@ -421,6 +434,8 @@ static int alucard_hotplug_callback(struct notifier_block *nb,
 		pcpu_info->prev_cpu_idle = get_cpu_idle_time(cpu,
 				&pcpu_info->prev_cpu_wall,
 				hotplug_tuners_ins.hp_io_is_busy);
+		pcpu_info->cur_up_rate = 1;
+		pcpu_info->cur_down_rate = 1;
 		break;
 	}
 
