@@ -157,7 +157,6 @@ static void cpuidle_idle_call(void)
 	 */
 	cpuidle_reflect(dev, entered_state);
 
-exit_idle:
 	__current_set_polling();
 
 	/*
