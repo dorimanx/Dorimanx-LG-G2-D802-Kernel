@@ -258,8 +258,10 @@ static ssize_t store_hotplug_enable(struct kobject *kobj,
 
 	spin_lock_irqsave(&rq_lock, flags);
 	ret = sscanf(buf, "%u", &val);
-	if (ret != 1 || val < 0 || val > 1)
+	if (ret != 1 || val < 0 || val > 1) {
+		spin_unlock_irqrestore(&rq_lock, flags);
 		return -EINVAL;
+	}
 
 	rq_info.hotplug_enabled = val;
 
