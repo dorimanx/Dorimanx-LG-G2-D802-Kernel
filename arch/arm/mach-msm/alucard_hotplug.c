@@ -480,6 +480,13 @@ static int hotplug_start(void)
 	put_online_cpus();
 #endif
 
+	/* Put all sibling cores to sleep */
+	for_each_online_cpu(cpu) {
+		if (cpu == 0)
+			continue;
+		cpu_down(cpu);
+	}
+
 	start_rq_work();
 
 	INIT_DEFERRABLE_WORK(&alucard_hotplug_work, hotplug_work_fn);

@@ -572,12 +572,11 @@ static int __ref intelli_plug_start(void)
 	INIT_DELAYED_WORK(&suspend_work, intelli_plug_suspend);
 	INIT_WORK(&resume_work, intelli_plug_resume);
 
-	/* Fire up all CPUs */
-	for_each_cpu_not(cpu, cpu_online_mask) {
+	/* Put all sibling cores to sleep */
+	for_each_online_cpu(cpu) {
 		if (cpu == 0)
 			continue;
-		cpu_up(cpu);
-		apply_down_lock(cpu);
+		cpu_down(cpu);
 	}
 
 	mod_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
