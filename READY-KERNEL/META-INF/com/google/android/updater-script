@@ -1,9 +1,6 @@
 ui_print("LG G2 Dorimanx Kernel installer");
 
-#mount system
-mount("ext4", "EMMC", "/dev/block/platform/msm_sdcc.1/by-name/system", "/system");
-mount("ext4", "EMMC", "/dev/block/platform/msm_sdcc.1/by-name/userdata", "/data");
-
+#mount system/data
 package_extract_file("mount.sh", "/tmp/mount.sh");
 package_extract_file("busybox_tiny", "/tmp/busybox");
 set_perm(0, 0, 0755, "/tmp/mount.sh");
