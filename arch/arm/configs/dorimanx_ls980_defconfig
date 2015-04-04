@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.4.105 Kernel Configuration
+# Linux/arm 3.4.106 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -491,6 +491,7 @@ CONFIG_MSM_QMI_INTERFACE=y
 # CONFIG_MSM_DALRPC is not set
 CONFIG_INTELLI_HOTPLUG=y
 CONFIG_ALUCARD_HOTPLUG=y
+# CONFIG_BRICKED_HOTPLUG is not set
 # CONFIG_MSM_CPU_FREQ_SET_MIN_MAX is not set
 CONFIG_MSM_CPUFREQ_LIMITER=y
 # CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL is not set
