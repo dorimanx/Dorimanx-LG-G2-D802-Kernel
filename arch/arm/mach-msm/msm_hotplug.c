@@ -35,7 +35,7 @@
 #define MSM_HOTPLUG			"msm_hotplug"
 #define HOTPLUG_ENABLED			1
 #define DEFAULT_UPDATE_RATE		HZ / 10
-#define START_DELAY			HZ * 5
+#define START_DELAY			HZ * 10
 #define MIN_INPUT_INTERVAL		150 * 1000L
 #define DEFAULT_HISTORY_SIZE		10
 #define DEFAULT_DOWN_LOCK_DUR		1000
@@ -786,12 +786,11 @@ static int __ref msm_hotplug_start(void)
 	INIT_DELAYED_WORK(&hotplug.suspend_work, msm_hotplug_suspend);
 	INIT_WORK(&hotplug.resume_work, msm_hotplug_resume);
 
-	/* Fire up all CPUs */
-	for_each_cpu_not(cpu, cpu_online_mask) {
+	/* Put all sibling cores to sleep */
+	for_each_online_cpu(cpu) {
 		if (cpu == 0)
 			continue;
-		cpu_up(cpu);
-		apply_down_lock(cpu);
+		cpu_down(cpu);
 	}
 
 	mod_delayed_work_on(0, hotplug_wq, &hotplug_work,
@@ -836,13 +835,6 @@ static void msm_hotplug_stop(void)
 
 	destroy_workqueue(susp_wq);
 	destroy_workqueue(hotplug_wq);
-
-	/* Put all sibling cores to sleep */
-	for_each_online_cpu(cpu) {
-		if (cpu == 0)
-			continue;
-		cpu_down(cpu);
-	}
 }
 
 static unsigned int *get_tokenized_data(const char *buf, int *num_tokens)
