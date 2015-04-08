@@ -1141,7 +1141,7 @@ static int voice_send_tty_mode_cmd(struct voice_data *v)
 	ret = apr_send_pkt(apr_mvm, (uint32_t *) &mvm_tty_mode_cmd);
 	if (ret < 0) {
 		pr_err("%s: Error %d sending SET_TTY_MODE\n",
-		       __func__, ret);
+			   __func__, ret);
 		goto fail;
 	}
 	ret = wait_event_timeout(v->mvm_wait,
@@ -3202,6 +3202,7 @@ static int voice_setup_vocproc(struct voice_data *v)
 		voice_send_netid_timing_cmd(v);
 	}
 
+	/* enable slowtalk if st_enable is set and tty_mode is 0 */
 	if (v->st_enable && !v->tty_mode)
 		voice_send_set_pp_enable_cmd(v,
 					     MODULE_ID_VOICE_MODULE_ST,
@@ -4590,6 +4591,7 @@ static int voc_enable_cvp(uint32_t session_id)
 		}
 
 		voice_send_tty_mode_cmd(v);
+		/* enable slowtalk if st_enable is set and tty_mode is 0 */
 		if (v->st_enable && !v->tty_mode)
 			voice_send_set_pp_enable_cmd(v,
 					     MODULE_ID_VOICE_MODULE_ST,
@@ -5064,7 +5066,7 @@ int voc_disable_device(uint32_t session_id)
 		ret = voice_pause_voice_call(v);
 		if (ret < 0) {
 			pr_err("%s: Pause Voice Call failed for session 0x%x, err %d!\n",
-			       __func__, v->session_id, ret);
+				__func__, v->session_id, ret);
 			goto done;
 		}
 		rtac_remove_voice(voice_get_cvs_handle(v));

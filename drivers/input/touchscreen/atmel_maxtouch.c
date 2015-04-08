@@ -1766,7 +1766,7 @@ static int mxt_suspend(struct device *dev)
 
 	disable_irq(mxt->irq);
 
-	flush_delayed_work_sync(&mxt->dwork);
+	flush_delayed_work(&mxt->dwork);
 
 	for (i = 0; i < T7_DATA_SIZE; i++)
 		t7_deepsl_data[i] = 0;

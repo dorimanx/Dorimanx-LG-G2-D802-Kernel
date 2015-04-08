@@ -43,9 +43,10 @@
 #include <linux/mutex.h>
 #include <linux/delay.h>
 #include <linux/swap.h>
-#include <linux/fs.h>
-
 #include <linux/powersuspend.h>
+#include <linux/fs.h>
+#include <linux/cpuset.h>
+
 #include <trace/events/memkill.h>
 
 #ifdef CONFIG_HIGHMEM
@@ -61,35 +62,27 @@ static short lowmem_adj[6] = {
 	1,
 	6,
 	12,
-	13,
-	15,
 };
-static int lowmem_adj_size = 6;
+static int lowmem_adj_size = 4;
 static int lowmem_minfree[6] = {
 	3 * 512,	/* 6MB */
 	2 * 1024,	/* 8MB */
 	4 * 1024,	/* 16MB */
 	16 * 1024,	/* 64MB */
-	28 * 1024,	/* 112MB */
-	32 * 1024,	/* 131MB */
 };
 static int lowmem_minfree_screen_off[6] = {
 	3 * 512,	/* 6MB */
 	2 * 1024,	/* 8MB */
 	4 * 1024,	/* 16MB */
 	16 * 1024,	/* 64MB */
-	28 * 1024,	/* 112MB */
-	32 * 1024,	/* 131MB */
 };
 static int lowmem_minfree_screen_on[6] = {
 	3 * 512,	/* 6MB */
 	2 * 1024,	/* 8MB */
 	4 * 1024,	/* 16MB */
 	16 * 1024,	/* 64MB */
-	28 * 1024,	/* 112MB */
-	32 * 1024,	/* 131MB */
 };
-static int lowmem_minfree_size = 6;
+static int lowmem_minfree_size = 4;
 static int lmk_fast_run = 1;
 
 static unsigned long lowmem_deathpending_timeout;
@@ -130,16 +123,16 @@ static bool protected_apps(char *comm)
 
 static int test_task_flag(struct task_struct *p, int flag)
 {
-	struct task_struct *t;
+	struct task_struct *t = p;
 
-	for_each_thread(p,t) {
+	do {
 		task_lock(t);
 		if (test_tsk_thread_flag(t, flag)) {
 			task_unlock(t);
 			return 1;
 		}
 		task_unlock(t);
-	}
+	} while_each_thread(p, t);
 
 	return 0;
 }
@@ -197,7 +190,7 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 		za->file = zone_page_state(zone, NR_FILE_PAGES)
 					- zone_page_state(zone, NR_SHMEM);
 		if (zone_idx == ZONE_MOVABLE) {
-			if (!use_cma_pages) {
+			if (!use_cma_pages && other_free) {
 				unsigned long free_cma = zone_page_state(zone,
 						NR_FREE_CMA_PAGES);
 				za->free -= free_cma;
@@ -213,7 +206,8 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 				*other_file -= za->file;
 			za->free = za->file = 0;
 		} else if (zone_idx < classzone_idx) {
-			if (zone_watermark_ok(zone, 0, 0, classzone_idx, 0)) {
+			if (zone_watermark_ok(zone, 0, 0, classzone_idx, 0) &&
+			    other_free) {
 				unsigned long lowmem_reserve =
 					  zone->lowmem_reserve[classzone_idx];
 				if (!use_cma_pages) {
@@ -230,41 +224,13 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 					za->free -= lowmem_reserve;
 				}
 			} else {
-				*other_free -= za->free;
+				if (other_free)
+					*other_free -= za->free;
 				za->free = 0;
 			}
 		}
 	}
 }
-
-#ifdef CONFIG_HIGHMEM
-void adjust_gfp_mask(gfp_t *gfp_mask)
-{
-	struct zone *preferred_zone;
-	struct zonelist *zonelist;
-	enum zone_type high_zoneidx;
-
-	if (current_is_kswapd()) {
-		zonelist = node_zonelist(0, *gfp_mask);
-		high_zoneidx = gfp_zone(*gfp_mask);
-		first_zones_zonelist(zonelist, high_zoneidx, NULL,
-				&preferred_zone);
-
-		if (high_zoneidx == ZONE_NORMAL) {
-			if (zone_watermark_ok_safe(preferred_zone, 0,
-					high_wmark_pages(preferred_zone), 0,
-					0))
-				*gfp_mask |= __GFP_HIGHMEM;
-		} else if (high_zoneidx == ZONE_HIGHMEM) {
-			*gfp_mask |= __GFP_HIGHMEM;
-		}
-	}
-}
-#else
-void adjust_gfp_mask(gfp_t *unused)
-{
-}
-#endif
 
 void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc,
 				struct zone_avail zall[][MAX_NR_ZONES])
@@ -278,8 +244,6 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc,
 	struct zone_avail *za;
 
 	gfp_mask = sc->gfp_mask;
-	adjust_gfp_mask(&gfp_mask);
-
 	zonelist = node_zonelist(0, gfp_mask);
 	high_zoneidx = gfp_zone(gfp_mask);
 	first_zones_zonelist(zonelist, high_zoneidx, NULL, &preferred_zone);
@@ -364,11 +328,14 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	unsigned long nr_to_scan = sc->nr_to_scan;
 	struct zone_avail zall[MAX_NUMNODES][MAX_NR_ZONES];
 
+	rcu_read_lock();
 	tsk = current->group_leader;
 	if ((tsk->flags & PF_EXITING) && test_task_flag(tsk, TIF_MEMDIE)) {
 		set_tsk_thread_flag(current, TIF_MEMDIE);
+		rcu_read_unlock();
 		return 0;
 	}
+	rcu_read_unlock();
 
 	if (nr_to_scan > 0) {
 		if (mutex_lock_interruptible(&scan_mutex) < 0)
@@ -503,8 +470,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			selected = p;
 			selected_tasksize = tasksize;
 			selected_oom_score_adj = oom_score_adj;
-			lowmem_print(2, "select %s' (%d), adj %hd, size %ldkB, to kill\n",
-				p->comm, p->pid, oom_score_adj, tasksize * (long)(PAGE_SIZE / 1024));
+			lowmem_print(3, "select %s' (%d), adj %hd, size %ldkB, to kill\n",
+				     p->comm, p->pid, oom_score_adj, tasksize * (long)(PAGE_SIZE / 1024));
 		}
 	}
 	if (selected) {
@@ -514,7 +481,12 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
 				"   to free %ldkB on behalf of '%s' (%d) because\n" \
 				"   cache %ldkB is below limit %ldkB for oom_score_adj %hd\n" \
-				"   Free memory is %ldkB above reserved\n",
+				"   Free memory is %ldkB above reserved.\n" \
+				"   Free CMA is %ldkB\n" \
+				"   Total reserve is %ldkB\n" \
+				"   Total free pages is %ldkB\n" \
+				"   Total file cache is %ldkB\n" \
+				"   GFP mask is 0x%x\n",
 			     selected->comm, selected->pid,
 			     selected_oom_score_adj,
 			     selected_tasksize * (long)(PAGE_SIZE / 1024),
@@ -522,21 +494,29 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     other_file * (long)(PAGE_SIZE / 1024),
 			     minfree * (long)(PAGE_SIZE / 1024),
 			     min_score_adj,
-			     other_free * (long)(PAGE_SIZE / 1024));
-		lowmem_deathpending_timeout = jiffies + HZ;
+			     other_free * (long)(PAGE_SIZE / 1024),
+			     global_page_state(NR_FREE_CMA_PAGES) *
+				(long)(PAGE_SIZE / 1024),
+			     totalreserve_pages * (long)(PAGE_SIZE / 1024),
+			     global_page_state(NR_FREE_PAGES) *
+				(long)(PAGE_SIZE / 1024),
+			     global_page_state(NR_FILE_PAGES) *
+				(long)(PAGE_SIZE / 1024),
+			     sc->gfp_mask);
 
-		/* Due to MotoCare parser can't handle unfixed column,
-		 * show all zones info even its free & file are zero.
-		 * it will show as the following examples:
-		 *   0:0:756:1127 0:1:0:0 0:2:0:0
-		 *   0:0:767:322 0:1:152:2364 0:2:0:0
-		 */
+		if (lowmem_debug_level >= 2 && selected_oom_score_adj == 0) {
+			show_mem(SHOW_MEM_FILTER_NODES);
+			dump_tasks(NULL, NULL);
+		}
+
+		lowmem_deathpending_timeout = jiffies + HZ;
 		for (i = 0; i < MAX_NUMNODES; i++)
 			for (j = 0; j < MAX_NR_ZONES; j++)
-				p += snprintf(p, ZINFO_DIGITS,
-					"%d:%d:%lu:%lu ", i, j,
-					zall[i][j].free,
-					zall[i][j].file);
+				if (zall[i][j].free || zall[i][j].file)
+					p += snprintf(p, ZINFO_DIGITS,
+						"%d:%d:%lu:%lu ", i, j,
+						zall[i][j].free,
+						zall[i][j].file);
 
 		trace_lmk_kill(selected->pid, selected->comm,
 				selected_oom_score_adj, selected_tasksize,
@@ -659,7 +639,7 @@ static void lowmem_autodetect_oom_adj_values(void)
 		oom_adj = lowmem_adj[i];
 		oom_score_adj = lowmem_oom_adj_to_oom_score_adj(oom_adj);
 		lowmem_adj[i] = oom_score_adj;
-		lowmem_print(1, "oom_adj %d => oom_score_adj %d\n",
+		lowmem_print(1, "oom_adj %hd => oom_score_adj %hd\n",
 			     oom_adj, oom_score_adj);
 	}
 }
@@ -785,7 +765,7 @@ module_param_named(cost, lowmem_shrinker.seeks, int, S_IRUGO | S_IWUSR);
 __module_param_call(MODULE_PARAM_PREFIX, adj,
 		    &lowmem_adj_array_ops,
 		    .arr = &__param_arr_adj,
-		    S_IRUGO | S_IWUSR, 0664);
+		    S_IRUGO | S_IWUSR, -1);
 __MODULE_PARM_TYPE(adj, "array of short");
 #else
 module_param_array_named(adj, lowmem_adj, short, &lowmem_adj_size,

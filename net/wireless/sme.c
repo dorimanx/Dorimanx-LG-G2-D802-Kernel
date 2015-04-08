@@ -724,19 +724,22 @@ void __cfg80211_disconnected(struct net_device *dev, const u8 *ie,
 	ASSERT_WDEV_LOCK(wdev);
 
 	if (WARN_ON(wdev->iftype != NL80211_IFTYPE_STATION &&
-		    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT))
+		    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT)
+#ifndef CONFIG_CFG80211_ALLOW_RECONNECT
+//#if 1 // FOR WIFI HANG-UP EVENT
+	&& !((wdev->iftype == NL80211_IFTYPE_AP)
+		&& (reason == WLAN_REASON_UNSPECIFIED))
+#endif
+)
 		return;
 
-#ifndef CONFIG_CFG80211_ALLOW_RECONNECT_VU3
-	#ifndef CONFIG_CFG80211_ALLOW_RECONNECT
-	//                                                                                     
-		//if (wdev->sme_state != CFG80211_SME_CONNECTED)
-		if ((wdev->sme_state != CFG80211_SME_CONNECTED) 
-			&&  (reason != WLAN_REASON_UNSPECIFIED))
-	//                                                                                     
-		return;
-	#endif
+#ifdef CONFIG_CFG80211_ALLOW_RECONNECT
+	if (wdev->sme_state != CFG80211_SME_CONNECTED)
+#else
+	if ((wdev->sme_state != CFG80211_SME_CONNECTED)
+		&&  (reason != WLAN_REASON_UNSPECIFIED))
 #endif
+		return;
 
 	if (wdev->current_bss) {
 		cfg80211_unhold_bss(wdev->current_bss);

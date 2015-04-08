@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -82,6 +82,7 @@ static uint32_t bam_dmux_write_cpy_cnt;
 static uint32_t bam_dmux_write_cpy_bytes;
 static uint32_t bam_dmux_tx_sps_failure_cnt;
 static uint32_t bam_dmux_tx_stall_cnt;
+static uint32_t bam_dmux_ratelimit;
 static atomic_t bam_dmux_ack_out_cnt = ATOMIC_INIT(0);
 static atomic_t bam_dmux_ack_in_cnt = ATOMIC_INIT(0);
 static atomic_t bam_dmux_a2_pwr_cntl_in_cnt = ATOMIC_INIT(0);
@@ -482,6 +483,8 @@ static void bam_mux_process_data(struct sk_buff *rx_skb)
 	unsigned long flags;
 	struct bam_mux_hdr *rx_hdr;
 	unsigned long event_data;
+	void (*notify)(void *, int, unsigned long);
+	void *priv;
 
 	rx_hdr = (struct bam_mux_hdr *)rx_skb->data;
 
@@ -491,15 +494,19 @@ static void bam_mux_process_data(struct sk_buff *rx_skb)
 	rx_skb->truesize = rx_hdr->pkt_len + sizeof(struct sk_buff);
 
 	event_data = (unsigned long)(rx_skb);
+	notify = NULL;
+	priv = NULL;
 
 	spin_lock_irqsave(&bam_ch[rx_hdr->ch_id].lock, flags);
-	if (bam_ch[rx_hdr->ch_id].notify)
-		bam_ch[rx_hdr->ch_id].notify(
-			bam_ch[rx_hdr->ch_id].priv, BAM_DMUX_RECEIVE,
-							event_data);
+	if (bam_ch[rx_hdr->ch_id].notify) {
+		notify = bam_ch[rx_hdr->ch_id].notify;
+		priv = bam_ch[rx_hdr->ch_id].priv;
+	}
+	spin_unlock_irqrestore(&bam_ch[rx_hdr->ch_id].lock, flags);
+	if (notify)
+		notify(priv, BAM_DMUX_RECEIVE, event_data);
 	else
 		dev_kfree_skb_any(rx_skb);
-	spin_unlock_irqrestore(&bam_ch[rx_hdr->ch_id].lock, flags);
 
 	queue_rx();
 }
@@ -1511,6 +1518,7 @@ static inline void ul_powerdown_finish(void)
 		unvote_dfab();
 		complete_all(&dfab_unvote_completion);
 		wait_for_dfab = 0;
+		bam_dmux_ratelimit = 0;
 	}
 }
 
@@ -1592,8 +1600,13 @@ static void ul_timeout(struct work_struct *work)
 
 				info = list_first_entry(&bam_tx_pool,
 						struct tx_pkt_info, list_node);
-				DMUX_LOG_KERR("%s: UL delayed ts=%u.%09lu\n",
-					__func__, info->ts_sec, info->ts_nsec);
+				if (!bam_dmux_ratelimit) {
+					DMUX_LOG_KERR
+					    ("%s: UL delayed ts=%u.%09lu\n",
+					     __func__, info->ts_sec,
+					     info->ts_nsec);
+					bam_dmux_ratelimit++;
+				}
 				DBG_INC_TX_STALL_CNT();
 				ul_packet_written = 1;
 			}
@@ -2035,6 +2048,8 @@ static int bam_init(void)
 	void *a2_virt_addr;
 	int skip_iounmap = 0;
 
+	in_global_reset = 0;
+	in_ssr = 0;
 	vote_dfab();
 	/* init BAM */
 	a2_virt_addr = ioremap_nocache((unsigned long)(a2_phys_base),
@@ -2048,7 +2063,7 @@ static int bam_init(void)
 	a2_props.virt_addr = a2_virt_addr;
 	a2_props.virt_size = a2_phys_size;
 	a2_props.irq = a2_bam_irq;
-	a2_props.options = SPS_BAM_OPT_IRQ_WAKEUP;
+	a2_props.options = SPS_BAM_OPT_IRQ_WAKEUP | SPS_BAM_ATMC_MEM;
 	a2_props.num_pipes = A2_NUM_PIPES;
 	a2_props.summing_threshold = A2_SUMMING_THRESHOLD;
 	a2_props.constrained_logging = true;
@@ -2497,7 +2512,8 @@ static int __init bam_dmux_init(void)
 	}
 #endif
 
-	bam_ipc_log_txt = ipc_log_context_create(BAM_IPC_LOG_PAGES, "bam_dmux");
+	bam_ipc_log_txt = ipc_log_context_create(BAM_IPC_LOG_PAGES, "bam_dmux",
+			0);
 	if (!bam_ipc_log_txt) {
 		pr_err("%s : unable to create IPC Logging Context", __func__);
 	}

@@ -117,6 +117,23 @@
 # define F_SETLKW64	14	/* Set record locking info (blocking).	*/
 #endif
 
+/* open file description locks.
+
+   Usually record locks held by a process are released on *any* close and are
+   not inherited across a fork.
+
+   These cmd values will set locks that conflict with process-associated record
+   locks, but are "owned" by the opened file description, not the process.
+   This means that they are inherited across fork or clone with CLONE_FILES
+   like BSD (flock) locks, and they are only released automatically when the
+   last reference to the the file description against which they were acquired
+   is put. */
+#ifdef __USE_GNU
+# define F_OFD_GETLK	36
+# define F_OFD_SETLK	37
+# define F_OFD_SETLKW	38
+#endif
+
 #ifdef __USE_LARGEFILE64
 # define O_LARGEFILE __O_LARGEFILE
 #endif
@@ -158,7 +175,7 @@
 # define __F_GETOWN	9
 #endif
 
-#if defined __USE_BSD || defined __USE_UNIX98 || defined __USE_XOPEN2K8
+#if defined __USE_UNIX98 || defined __USE_XOPEN2K8
 # define F_SETOWN	__F_SETOWN /* Get owner (process receiving SIGIO).  */
 # define F_GETOWN	__F_GETOWN /* Set owner (process receiving SIGIO).  */
 #endif
@@ -208,7 +225,7 @@
 # define F_SHLCK		8	/* or 4 */
 #endif
 
-#ifdef __USE_BSD
+#ifdef __USE_MISC
 /* Operations for BSD flock, also used by the kernel implementation.  */
 # define LOCK_SH	1	/* Shared lock.  */
 # define LOCK_EX	2	/* Exclusive lock.  */
@@ -256,13 +273,13 @@ struct f_owner_ex
 
 /* Define some more compatibility macros to be backward compatible with
    BSD systems which did not managed to hide these kernel macros.  */
-#ifdef	__USE_BSD
+#ifdef	__USE_MISC
 # define FAPPEND	O_APPEND
 # define FFSYNC		O_FSYNC
 # define FASYNC		O_ASYNC
 # define FNONBLOCK	O_NONBLOCK
 # define FNDELAY	O_NDELAY
-#endif /* Use BSD.  */
+#endif /* Use misc.  */
 
 #ifndef __POSIX_FADV_DONTNEED
 #  define __POSIX_FADV_DONTNEED	4
@@ -305,6 +322,11 @@ struct f_owner_ex
 					     even if offset + len is
 					     greater than file size.  */
 # define FALLOC_FL_PUNCH_HOLE		2 /* Create a hole in the file.  */
+# define FALLOC_FL_COLLAPSE_RANGE	8 /* Remove a range of a file
+					     without leaving a
+					     hole.  */
+# define FALLOC_FL_ZERO_RANGE		16 /* Convert a range of a
+					      file to zeros.  */
 
 
 /* File handle structure.  */

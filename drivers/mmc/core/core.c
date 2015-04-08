@@ -90,6 +90,17 @@ MODULE_PARM_DESC(
 	removable,
 	"MMC/SD cards are removable and may be removed during suspend");
 
+#if defined(CONFIG_LGE_MMC_DYNAMIC_LOG)
+
+uint32_t mmc_debug_level = 6;                   // show pr_info.
+
+module_param_named(debug_level, mmc_debug_level, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(
+    debug_level,
+    "MMC/SD cards debug_level");
+
+#endif	/*                     */
+
 #define MMC_UPDATE_BKOPS_STATS_HPI(stats)	\
 	do {					\
 		spin_lock(&stats.lock);		\
@@ -416,7 +427,7 @@ void mmc_start_delayed_bkops(struct mmc_card *card)
 	 * it was removed from the queue work but not started yet
 	 */
 	card->bkops_info.cancel_delayed_work = false;
-	queue_delayed_work(system_nrt_wq, &card->bkops_info.dw,
+	schedule_delayed_work(&card->bkops_info.dw,
 			   msecs_to_jiffies(
 				   card->bkops_info.delay_ms));
 }
@@ -508,17 +519,8 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 	}
 	pr_info("%s: %s: Starting bkops\n", mmc_hostname(card->host), __func__);
 
-	#ifdef CONFIG_MACH_LGE
-		printk(KERN_INFO "[LGE][MMC][%-18s( )] before %s bkops operation\n", __func__, mmc_hostname(card->host));
-	#endif
-
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			EXT_CSD_BKOPS_START, 1, 0, false, false);
-
-	#ifdef CONFIG_MACH_LGE
-		printk(KERN_INFO "[LGE][MMC][%-18s( )] after %s bkops operation\n", __func__, mmc_hostname(card->host));
-	#endif
-
 	if (err) {
 		pr_warn("%s: %s: Error %d when starting bkops\n",
 			mmc_hostname(card->host), __func__, err);
@@ -625,8 +627,10 @@ static bool mmc_should_stop_curr_req(struct mmc_host *host)
 	    (host->areq->cmd_flags & REQ_FUA))
 		return false;
 
+	mmc_host_clk_hold(host);
 	remainder = (host->ops->get_xfer_remain) ?
 		host->ops->get_xfer_remain(host) : -1;
+	mmc_host_clk_release(host);
 	return (remainder > 0);
 }
 
@@ -651,6 +655,7 @@ static int mmc_stop_request(struct mmc_host *host)
 				mmc_hostname(host));
 		return -ENOTSUPP;
 	}
+	mmc_host_clk_hold(host);
 	err = host->ops->stop_request(host);
 	if (err) {
 		pr_err("%s: Call to host->ops->stop_request() failed (%d)\n",
@@ -685,6 +690,7 @@ static int mmc_stop_request(struct mmc_host *host)
 		goto out;
 	}
 out:
+	mmc_host_clk_release(host);
 	return err;
 }
 
@@ -1322,12 +1328,6 @@ void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card)
 			limit_us = 3000000;
 		else
 			#ifdef CONFIG_MACH_LGE
-			/*           
-                                              
-                                                                         
-                                        
-                               
-    */
 			limit_us = 300000;
 			#else
 			limit_us = 100000;
@@ -1961,15 +1961,11 @@ void mmc_power_up(struct mmc_host *host)
 	 * This delay should be sufficient to allow the power supply
 	 * to reach the minimum voltage.
 	 */
-	#ifdef CONFIG_MACH_LGE
-	/*           
-                                              
-                            
- */
+#ifdef CONFIG_MACH_LGE
 	mmc_delay(20);
-	#else
+#else
 	mmc_delay(10);
-	#endif
+#endif
 
 	host->ios.clock = host->f_init;
 
@@ -1981,10 +1977,6 @@ void mmc_power_up(struct mmc_host *host)
 	 * time required to reach a stable voltage.
 	 */
 #ifdef CONFIG_MACH_LGE
-	/*           
-                                              
-                            
- */
 	mmc_delay(20);
 #else
 	mmc_delay(10);
@@ -1996,11 +1988,8 @@ void mmc_power_up(struct mmc_host *host)
 void mmc_power_off(struct mmc_host *host)
 {
 	#ifdef CONFIG_MACH_LGE
-		/*                                      
-                                           
-  */
 		if (host->ios.power_mode == MMC_POWER_OFF) {
-			printk(KERN_INFO "[LGE][MMC][%-18s( )] host->index:%d, already power-off, skip below\n", __func__, host->index);
+            pr_info("[LGE][MMC][%-18s( )] host->index:%d, already power-off, skip below\n", __func__, host->index);
 			return;
 		}
 	#endif
@@ -2175,10 +2164,6 @@ void mmc_detect_change(struct mmc_host *host, unsigned long delay)
 #endif
 	host->detect_change = 1;
 #ifdef CONFIG_MACH_LGE
-/*
-                                           
-                                                                           
- */
 	wake_lock(&host->detect_wake_lock);
 #endif
 	mmc_schedule_delayed_work(&host->detect, delay);
@@ -2697,14 +2682,14 @@ int mmc_can_reset(struct mmc_card *card)
 		rst_n_function = card->ext_csd.rst_n_function;
 		if ((rst_n_function & EXT_CSD_RST_N_EN_MASK) !=
 		    EXT_CSD_RST_N_ENABLED)
-	#ifdef CONFIG_MACH_LGE
+#ifdef CONFIG_MACH_LGE
 		{
-			printk("%s: mmc, MMC_CAP_HW_RESET, rst_n_function=0x%02x\n", __func__, rst_n_function);
+            pr_info("%s: mmc, MMC_CAP_HW_RESET, rst_n_function=0x%02x\n", __func__, rst_n_function);
 			return 0;
 		}
-	#else
+#else
 			return 0;
-	#endif
+#endif
 	}
 	return 1;
 }
@@ -2903,7 +2888,7 @@ static void mmc_clk_scale_work(struct work_struct *work)
 	mmc_rpm_hold(host, &host->card->dev);
 	if (!mmc_try_claim_host(host)) {
 		/* retry after a timer tick */
-		queue_delayed_work(system_nrt_wq, &host->clk_scaling.work, 1);
+		schedule_delayed_work(&host->clk_scaling.work, 1);
 		goto out;
 	}
 
@@ -3066,8 +3051,7 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq)
 			 * work, so delay atleast one timer tick to release
 			 * host and re-claim while scaling down the clocks.
 			 */
-			queue_delayed_work(system_nrt_wq,
-					&host->clk_scaling.work, 1);
+			schedule_delayed_work(&host->clk_scaling.work, 1);
 			goto no_reset_stats;
 		}
 	}
@@ -3214,7 +3198,7 @@ int _mmc_detect_card_removed(struct mmc_host *host)
 	}
 
 	#ifdef CONFIG_MACH_LGE
-	printk(KERN_INFO "[LGE][MMC][%-18s( )] end, mmc%d, return %d\n", __func__, host->index, ret);
+    pr_info("[LGE][MMC][%-18s( )] end, mmc%d, return %d\n", __func__, host->index, ret);
 	#endif
 
 	return ret;
@@ -3263,11 +3247,7 @@ void mmc_rescan(struct work_struct *work)
 	bool extend_wakelock = false;
 
 #ifdef CONFIG_MACH_LGE
-	/*           
-               
-                                 
- */
-	printk(KERN_INFO "[LGE][MMC][%-18s( ) START!] %d\n", __func__, host->index);
+    pr_info("[LGE][MMC][%-18s( ) START!] mmc%d\n", __func__, host->index);
 #endif
 
 	if (host->rescan_disable)
@@ -3331,10 +3311,6 @@ void mmc_rescan(struct work_struct *work)
 	if (extend_wakelock && !host->rescan_disable)
 		wake_lock_timeout(&host->detect_wake_lock, HZ / 2);
 #ifdef CONFIG_MACH_LGE
-/*
-                                           
-                                                                           
- */
 	else
 		wake_unlock(&host->detect_wake_lock);
 #endif
@@ -3771,10 +3747,10 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 #ifdef CONFIG_BCMDHD_MODULE
 		/* This patch is for nonremovable 0 case of BCM WiFi */
 		if (host->card && mmc_card_sdio(host->card)) {
-			printk("J:%s-mmc_card_sdio, host->index=%d\n", __FUNCTION__, host->index);
+            pr_info("J:%s-mmc_card_sdio, host->index=%d\n", __FUNCTION__, host->index);
 			return 0;
 		}
-#endif  /* CONFIG_BCMDHD_MODULE */
+#endif /* CONFIG_BCMDHD_MODULE */
 		mmc_detect_change(host, 0);
 		break;
 

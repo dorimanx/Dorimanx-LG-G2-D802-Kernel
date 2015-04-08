@@ -140,6 +140,8 @@ static void sdhci_dumpregs(struct sdhci_host *host)
 		       readl(host->ioaddr + SDHCI_ADMA_ERROR),
 		       readl(host->ioaddr + SDHCI_ADMA_ADDRESS));
 
+	if (host->ops->dump_vendor_regs)
+		host->ops->dump_vendor_regs(host);
 	sdhci_dump_state(host);
 	pr_info(DRIVER_NAME ": ===========================================\n");
 }
@@ -518,7 +520,7 @@ static int sdhci_pre_dma_transfer(struct sdhci_host *host,
 
 	if (!next && data->host_cookie &&
 	    data->host_cookie != host->next_data.cookie) {
-		printk(KERN_WARNING "[%s] invalid cookie: data->host_cookie %d"
+        printk(KERN_WARNING "[%s] invalid cookie: data->host_cookie %d"
 		       " host->next_data.cookie %d\n",
 		       __func__, data->host_cookie, host->next_data.cookie);
 		data->host_cookie = 0;
@@ -752,18 +754,7 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 	 */
 	if (host->quirks & SDHCI_QUIRK_BROKEN_TIMEOUT_VAL)
 		return 0xE;
-#ifndef CONFIG_MACH_LGE
-	/*                                          */
-	/* QCT Case : 01383733 TD: 135796/OFFICIAL EVENT */
-	/* we agree that below code is not appied */
-	/* Hardware Interrupt occurs, since Data Timeout is longer than hadware interrupt time */
 
-	/* During initialization, don't use max timeout as the clock is slow */
-	if ((host->quirks2 & SDHCI_QUIRK2_USE_RESERVED_MAX_TIMEOUT) &&
-		(host->clock > 400000)) {
-		return 0xF;
-	}
-#endif
 	/* Unspecified timeout, assume max */
 	if (!data && !cmd->cmd_timeout_ms)
 		return 0xE;
@@ -1550,19 +1541,12 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	/* If polling, assume that the card is always present. */
 	if (host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION)
 #ifdef CONFIG_MACH_LGE
-	/*                                      
-                                                                 
-  */
 		{
-#ifndef CONFIG_MACH_MSM8974_B1_KR
-			if (mmc->index == 2)
-#else
-			if (mmc->index == 1)
-#endif
-				present = mmc_cd_get_status(mmc);
-			else
-				present = true;
-		}
+		if (mmc->index == MMC_HOST_DRIVER_INDEX_MMC1)
+			present = mmc_cd_get_status(mmc);
+		else
+			present = true;
+	}
 #else
 		present = true;
 #endif
@@ -1582,7 +1566,10 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		 * is no on-going data transfer. If so, we need to execute
 		 * tuning procedure before sending command.
 		 */
-		if ((host->flags & SDHCI_NEEDS_RETUNING) &&
+		if ((mrq->cmd->opcode != MMC_SEND_TUNING_BLOCK) &&
+		    (mrq->cmd->opcode != MMC_SEND_TUNING_BLOCK_HS400) &&
+		    (mrq->cmd->opcode != MMC_SEND_TUNING_BLOCK_HS200) &&
+		    (host->flags & SDHCI_NEEDS_RETUNING) &&
 		    !(present_state & (SDHCI_DOING_WRITE | SDHCI_DOING_READ))) {
 			if (mmc->card) {
 				/* eMMC uses cmd21 but sd and sdio use cmd19 */
@@ -1590,6 +1577,8 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 					mmc->card->type == MMC_TYPE_MMC ?
 					MMC_SEND_TUNING_BLOCK_HS200 :
 					MMC_SEND_TUNING_BLOCK;
+				host->mrq = NULL;
+				host->flags &= ~SDHCI_NEEDS_RETUNING;
 				spin_unlock_irqrestore(&host->lock, flags);
 				sdhci_execute_tuning(mmc, tuning_opcode);
 				spin_lock_irqsave(&host->lock, flags);
@@ -2074,16 +2063,8 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 		if (host->ops->check_power_status)
 			host->ops->check_power_status(host, REQ_BUS_OFF);
 
-		#ifdef CONFIG_MACH_LGE
-		/*                                      
-                             
-   */
-		usleep_range(10000, 15000);
-		#else
 		/* Wait for 1ms as per the spec */
 		usleep_range(1000, 1500);
-		#endif
-
 		pwr |= SDHCI_POWER_ON;
 		sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
 		if (host->ops->check_power_status)
@@ -2107,19 +2088,6 @@ static int sdhci_start_signal_voltage_switch(struct mmc_host *mmc,
 		return 0;
 	sdhci_runtime_pm_get(host);
 	err = sdhci_do_start_signal_voltage_switch(host, ios);
-
-	#ifdef CONFIG_MACH_LGE
-	/*                                      
-                                            
-  */
-	if (err == -EAGAIN)
-	{
-		usleep_range(5000, 5500);
-		err = sdhci_do_start_signal_voltage_switch(host, ios);
-		printk(KERN_INFO "[LGE][MMC][%-18s( )] check-point : %d)\n", __func__, err);
-	}
-	#endif
-
 	sdhci_runtime_pm_put(host);
 	return err;
 }
@@ -2605,6 +2573,7 @@ static void sdhci_tuning_timer(unsigned long data)
 static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 {
 	u16 auto_cmd_status;
+	u32 command;
 	BUG_ON(intmask == 0);
 
 	if (!host->cmd) {
@@ -2636,6 +2605,13 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 	}
 
 	if (host->cmd->error) {
+		command = SDHCI_GET_CMD(sdhci_readw(host,
+						    SDHCI_COMMAND));
+		if (host->cmd->error == -EILSEQ &&
+		    (command != MMC_SEND_TUNING_BLOCK_HS400) &&
+		    (command != MMC_SEND_TUNING_BLOCK_HS200) &&
+		    (command != MMC_SEND_TUNING_BLOCK))
+				host->flags |= SDHCI_NEEDS_RETUNING;
 		tasklet_schedule(&host->finish_tasklet);
 		return;
 	}
@@ -2752,20 +2728,15 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 							    SDHCI_COMMAND));
 			if ((command != MMC_SEND_TUNING_BLOCK_HS400) &&
 			    (command != MMC_SEND_TUNING_BLOCK_HS200) &&
-			    (command != MMC_SEND_TUNING_BLOCK))
+			    (command != MMC_SEND_TUNING_BLOCK)) {
 				pr_msg = true;
+				if (intmask & SDHCI_INT_DATA_CRC)
+					host->flags |= SDHCI_NEEDS_RETUNING;
+			}
 		} else {
 			pr_msg = true;
 		}
 		if (pr_msg) {
-#ifdef CONFIG_MACH_LGE
-			if (intmask & SDHCI_INT_DATA_CRC)
-				printk(KERN_INFO "[LGE][MMC][%-18s( )]intmask is SDHCI_INT_DATA_CRC\n", __func__);
-
-			if (intmask & SDHCI_INT_DATA_TIMEOUT)
-				printk(KERN_INFO "[LGE][MMC][%-18s( )]intmask is SDHCI_INT_DATA_TIMEOUT\n", __func__);
-#endif
-
 			pr_err("%s: data txfr (0x%08x) error: %d after %lld ms\n",
 			       mmc_hostname(host->mmc), intmask,
 			       host->data->error, ktime_to_ms(ktime_sub(
@@ -3212,6 +3183,12 @@ int sdhci_add_host(struct sdhci_host *host)
 
 	caps[1] = (host->version >= SDHCI_SPEC_300) ?
 		sdhci_readl(host, SDHCI_CAPABILITIES_1) : 0;
+
+#ifdef CONFIG_LGE_MMC_SD_USE_SDCC3
+	if (strcmp(host->hw_name, "msm_sdcc.3") == 0) {
+		caps[0] |= (SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_300 | SDHCI_CAN_VDD_180);
+	}
+#endif
 
 	if (host->quirks & SDHCI_QUIRK_FORCE_DMA)
 		host->flags |= SDHCI_USE_SDMA;

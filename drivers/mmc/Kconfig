@@ -27,12 +27,27 @@ config MMC_PERF_PROFILING
 	  If you say Y here, support will be added for collecting
 	  performance numbers at the MMC Queue and Host layers.
 
-config MACH_MSM8974_EMMC_HW_RESET
-	bool "MMC re-initialization support"
-	default n
+config LGE_MMC_SD_USE_SDCC3
+	bool "microSD use SDCC3 instead of SDCC2"
+	depends on MMC != n
 	help
-		If you say Y here, mmc re-initialization code will be active
-		when there's no response from eMMC.
+	  If you use SDCC3 for microSD, you have to set Y in kernel/arch/arm/configs/XXXX_defconfig file.
+
+config LGE_MMC_BKOPS_ENABLE
+	bool "enable BKOPS for eMMC"
+	depends on MMC != n
+	help
+	  If you want to use BKOPS for eMMC, you have to set Y in kernel/arch/arm/configs/XXXX_defconfig file.
+
+# LGE_CHANGE_S : bohyun.jung@lge.com
+config LGE_MMC_DYNAMIC_LOG
+    bool "MMC debugging - enable logs through adb"
+    default n
+    help
+        If you say Y here, developers can enable/disable mmc logs through adb
+        by accessing /sys/module/mmc_core/parameters/debug_level
+        ex. echo {debug_level} > /sys/module/mmc_core/parameters/debug_level
+# LGE_CHANGE_E : bohyun.jung@lge.com
 
 if MMC
 

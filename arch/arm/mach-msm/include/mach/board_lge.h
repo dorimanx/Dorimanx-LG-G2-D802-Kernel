@@ -96,6 +96,10 @@ enum lge_boot_mode_type {
 int lge_get_factory_boot(void);
 int get_lge_frst_status(void);
 
+#ifdef CONFIG_MACH_MSM8974_G2_VZW
+int lge_get_battery_low(void);
+#endif
+
 #if defined(CONFIG_LCD_KCAL)
 /*             
                           

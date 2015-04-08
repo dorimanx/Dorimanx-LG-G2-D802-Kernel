@@ -17,10 +17,6 @@ cfg80211-$(CONFIG_CFG80211_INTERNAL_REGDB) += regdb.o
 
 ccflags-y += -D__CHECK_ENDIAN__
 
-ifneq ($(CONFIG_BCM4334),)
-ccflags-y += -DCONFIG_CFG80211_ALLOW_RECONNECT_VU3
-endif
-
 $(obj)/regdb.c: $(src)/db.txt $(src)/genregdb.awk
 	@$(AWK) -f $(srctree)/$(src)/genregdb.awk < $< > $@
 

@@ -211,6 +211,7 @@ struct pnfs_layout_segment *pnfs_update_layout(struct inode *ino,
 					       gfp_t gfp_flags);
 
 void nfs4_deviceid_mark_client_invalid(struct nfs_client *clp);
+struct nfs4_threshold *pnfs_mdsthreshold_alloc(void);
 
 /* nfs4_deviceid_flags */
 enum {
@@ -327,6 +328,14 @@ static inline int pnfs_return_layout(struct inode *ino)
 	return 0;
 }
 
+static inline bool
+pnfs_use_threshold(struct nfs4_threshold **dst, struct nfs4_threshold *src,
+		   struct nfs_server *nfss)
+{
+	return (dst && src && src->bm != 0 &&
+					nfss->pnfs_curr_ld->id == src->l_type);
+}
+
 #ifdef NFS_DEBUG
 void nfs4_print_deviceid(const struct nfs4_deviceid *dev_id);
 #else
@@ -433,6 +442,18 @@ pnfs_scan_commit_lists(struct inode *inode, int max, spinlock_t *lock)
 static inline int pnfs_layoutcommit_inode(struct inode *inode, bool sync)
 {
 	return 0;
+}
+
+static inline bool
+pnfs_use_threshold(struct nfs4_threshold **dst, struct nfs4_threshold *src,
+		   struct nfs_server *nfss)
+{
+	return false;
+}
+
+static inline struct nfs4_threshold *pnfs_mdsthreshold_alloc(void)
+{
+	return NULL;
 }
 
 #endif /* CONFIG_NFS_V4_1 */

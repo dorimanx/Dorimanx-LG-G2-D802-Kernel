@@ -13,6 +13,10 @@
 
 #include <linux/delay.h>
 
+#if defined(CONFIG_LGE_MMC_DYNAMIC_LOG)
+#include <linux/mmc/debug_log.h>
+#endif
+
 #define MMC_CMD_RETRIES        3
 
 struct mmc_bus_ops {

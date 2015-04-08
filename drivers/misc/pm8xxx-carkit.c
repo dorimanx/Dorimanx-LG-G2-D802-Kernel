@@ -207,8 +207,8 @@ static int __devinit pm8xxx_carkit_probe(struct platform_device *pdev)
 		pdata = devm_kzalloc(&pdev->dev,
 				sizeof(struct pm8xxx_carkit_platform_data),
 				GFP_KERNEL);
-    	if (pdata == NULL) {
-	    	pr_err("%s: no pdata\n", __func__);
+		if (pdata == NULL) {
+			pr_err("%s: no pdata\n", __func__);
 		   return -ENOMEM;
 		}
 		pdev->dev.platform_data = pdata;

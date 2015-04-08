@@ -497,7 +497,7 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 	}
 
 	if (flush_wq)
-		flush_work_sync(&ctx->pp_done_work);
+		flush_work(&ctx->pp_done_work);
 
 	return rc;
 }

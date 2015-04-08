@@ -53,6 +53,10 @@ extern short test_set_oom_score_adj(short new_val);
 extern unsigned long oom_badness(struct task_struct *p,
 		struct mem_cgroup *memcg, const nodemask_t *nodemask,
 		unsigned long totalpages);
+
+extern int oom_kills_count(void);
+extern void note_oom_kill(void);
+
 extern void oom_kill_process(struct task_struct *p, gfp_t gfp_mask, int order,
 			     unsigned int points, unsigned long totalpages,
 			     struct mem_cgroup *memcg, nodemask_t *nodemask,
@@ -86,6 +90,9 @@ static inline void oom_killer_enable(void)
 }
 
 extern struct task_struct *find_lock_task_mm(struct task_struct *p);
+
+extern void dump_tasks(const struct mem_cgroup *memcg,
+		const nodemask_t *nodemask);
 
 /* sysctls */
 extern int sysctl_oom_dump_tasks;

@@ -134,7 +134,7 @@ struct kmem_cache *kmem_cache_create(const char *name, size_t size, size_t align
 	get_online_cpus();
 	mutex_lock(&slab_mutex);
 
-	if (!kmem_cache_sanity_check(name, size) == 0)
+	if (kmem_cache_sanity_check(name, size) != 0)
 		goto out_locked;
 
 	/*

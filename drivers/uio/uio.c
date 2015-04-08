@@ -648,7 +648,7 @@ static const struct vm_operations_struct uio_logical_vm_ops = {
 
 static int uio_mmap_logical(struct vm_area_struct *vma)
 {
-	vma->vm_flags |= VM_DONTEXPAND | VM_NODUMP;
+	vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP;
 	vma->vm_ops = &uio_logical_vm_ops;
 	uio_vma_open(vma);
 	return 0;
@@ -672,8 +672,7 @@ static int uio_mmap_physical(struct vm_area_struct *vma)
 	if (vma->vm_end - vma->vm_start > mem->size)
 		return -EINVAL;
 
-	vma->vm_flags |= VM_IO | VM_RESERVED;
-
+	vma->vm_ops = &uio_physical_vm_ops;
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
 	/*

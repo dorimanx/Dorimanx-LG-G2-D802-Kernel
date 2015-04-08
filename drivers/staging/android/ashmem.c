@@ -367,18 +367,8 @@ static int ashmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	if (!sc->nr_to_scan)
 		return lru_count;
 
-/*                                                                                    
-                                                                                                        
-                                                                   
-                                                   */
-#if 0
-	mutex_lock(&ashmem_mutex);
-#else
-	if (!mutex_trylock(&ashmem_mutex)) {
+	if (!mutex_trylock(&ashmem_mutex))
 		return -1; 
-	}
-#endif
-/*                                                                                     */
 
 	list_for_each_entry_safe(range, next, &ashmem_lru_list, lru) {
 		struct inode *inode = range->asma->file->f_dentry->d_inode;
@@ -432,6 +422,16 @@ static int set_name(struct ashmem_area *asma, void __user *name)
 	int len;
 	int ret = 0;
 
+	/*
+	 * Holding the ashmem_mutex while doing a copy_from_user might cause
+	 * an data abort which would try to access mmap_sem. If another
+	 * thread has invoked ashmem_mmap then it will be holding the
+	 * semaphore and will be waiting for ashmem_mutex, there by leading to
+	 * deadlock. We'll release the mutex and take the name to a local
+	 * variable that does not need protection and later copy the local
+	 * variable to the structure member with lock held.
+	 */
+
 	len = strncpy_from_user(lname, name, ASHMEM_NAME_LEN);
 	if (len < 0)
 		return len;
@@ -455,6 +455,13 @@ static int get_name(struct ashmem_area *asma, void __user *name)
 	char lname[ASHMEM_NAME_LEN];
 	size_t len;
 
+	/*
+	 * Have a local variable to which we'll copy the content
+	 * from asma with the lock held. Later we can copy this to the user
+	 * space safely without holding any locks. So even if we proceed to
+	 * wait for mmap_sem, it won't lead to deadlock.
+	 */
+
 	mutex_lock(&ashmem_mutex);
 	if (asma->name[ASHMEM_NAME_PREFIX_LEN] != '\0') {
 		/*
@@ -468,6 +475,11 @@ static int get_name(struct ashmem_area *asma, void __user *name)
 		memcpy(lname, ASHMEM_NAME_DEF, len);
 	}
 	mutex_unlock(&ashmem_mutex);
+
+	/*
+	 * Now we are just copying from the stack variable to userland
+	 * No lock held
+	 */
 	if (unlikely(copy_to_user(name, lname, len)))
 		ret = -EFAULT;
 	return ret;

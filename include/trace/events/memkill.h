@@ -13,7 +13,7 @@
 TRACE_EVENT(oom_kill,
 		TP_PROTO(pid_t pid_nr, const char *comm,
 			unsigned long total_vm, unsigned long anon_rss,
-			unsigned long file_rss, short oom_score_adj, int order,
+			unsigned long file_rss, int oom_score_adj, int order,
 			unsigned int victim_points),
 
 		TP_ARGS(pid_nr, comm, total_vm, anon_rss, file_rss,
@@ -25,7 +25,7 @@ TRACE_EVENT(oom_kill,
 			__field(unsigned long,	total_vm)
 			__field(unsigned long,	anon_rss)
 			__field(unsigned long,	file_rss)
-			__field(short,		oom_score_adj)
+			__field(int,		oom_score_adj)
 			__field(int,		order)
 			__field(unsigned int,	victim_points)
 			__field(long,		cached)
@@ -55,7 +55,7 @@ TRACE_EVENT(oom_kill,
 			__entry->freeswap = i.freeswap << (PAGE_SHIFT - 10);
 		),
 
-		TP_printk("%d %s %lu %lu %lu %hd %d %u %ld %lu",
+		TP_printk("%d %s %lu %lu %lu %d %d %u %ld %lu",
 				__entry->pid_nr, __entry->comm,
 				__entry->total_vm, __entry->anon_rss,
 				__entry->file_rss, __entry->oom_score_adj,
@@ -92,8 +92,8 @@ TRACE_EVENT(oom_kill_shared,
 
 TRACE_EVENT(lmk_kill,
 		TP_PROTO(pid_t pid_nr, const char *comm,
-			short selected_oom_adj, int selected_tasksize,
-			short min_adj, gfp_t gfp_mask, const char *zinfo),
+			int selected_oom_adj, int selected_tasksize,
+			int min_adj, gfp_t gfp_mask, const char *zinfo),
 
 		TP_ARGS(pid_nr, comm, selected_oom_adj, selected_tasksize,
 			min_adj, gfp_mask, zinfo),
@@ -101,9 +101,9 @@ TRACE_EVENT(lmk_kill,
 		TP_STRUCT__entry(
 			__field(pid_t,		pid_nr)
 			__array(char,		comm,	TASK_COMM_LEN)
-			__field(short,		selected_oom_adj)
+			__field(int,		selected_oom_adj)
 			__field(int,		selected_tasksize)
-			__field(short,		min_adj)
+			__field(int,		min_adj)
 			__field(long,		cached)
 			__field(unsigned long,	freeswap)
 			__field(gfp_t,		gfp_mask)
@@ -132,7 +132,7 @@ TRACE_EVENT(lmk_kill,
 			strlcpy(__entry->zinfo, zinfo, ZINFO_LENGTH);
 		),
 
-		TP_printk("%d %s %hd %d %hd %ld %lu 0x%x %s", __entry->pid_nr,
+		TP_printk("%d %s %d %d %d %ld %lu 0x%x %s", __entry->pid_nr,
 				__entry->comm, __entry->selected_oom_adj,
 				__entry->selected_tasksize, __entry->min_adj,
 				__entry->cached, __entry->freeswap,

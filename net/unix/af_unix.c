@@ -892,19 +892,16 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 		 */
 		mode = S_IFSOCK |
 		       (SOCK_INODE(sock)->i_mode & ~current_umask());
-		err = mnt_want_write(path.mnt);
-		if (err)
-			goto out_mknod_dput;
 		err = security_path_mknod(&path, dentry, mode, 0);
 		if (err)
 			goto out_mknod_drop_write;
 		err = vfs_mknod(path.dentry->d_inode, dentry, mode, 0);
 out_mknod_drop_write:
-		mnt_drop_write(path.mnt);
 		if (err)
 			goto out_mknod_dput;
-		mutex_unlock(&path.dentry->d_inode->i_mutex);
-		dput(path.dentry);
+		mntget(path.mnt);
+		dget(dentry);
+		done_path_create(&path, dentry);
 		path.dentry = dentry;
 
 		addr->hash = UNIX_HASH_SIZE;
@@ -939,9 +936,7 @@ out:
 	return err;
 
 out_mknod_dput:
-	dput(dentry);
-	mutex_unlock(&path.dentry->d_inode->i_mutex);
-	path_put(&path);
+	done_path_create(&path, dentry);
 out_mknod_parent:
 	if (err == -EEXIST)
 		err = -EADDRINUSE;
@@ -1821,10 +1816,6 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
 	wake_up_interruptible_sync_poll(&u->peer_wait,
 					POLLOUT | POLLWRNORM | POLLWRBAND);
 
-	if (ccs_socket_post_recvmsg_permission(sk, skb, flags)) {
-		err = -EAGAIN; /* Hope less harmful than -EPERM. */
-		goto out_unlock;
-	}
 	if (msg->msg_name)
 		unix_copy_addr(msg, skb->sk);
 
@@ -2421,7 +2412,7 @@ static int __net_init unix_net_init(struct net *net)
 {
 	int error = -ENOMEM;
 
-	net->unx.sysctl_max_dgram_qlen = 10;
+	net->unx.sysctl_max_dgram_qlen = 300;
 	if (unix_sysctl_register(net))
 		goto out;
 

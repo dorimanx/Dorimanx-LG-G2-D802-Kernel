@@ -4,7 +4,7 @@ clear
 # Initia script by @glewarne big thanks!
 
 # What you need installed to compile
-# gcc, gpp, cpp, c++, g++, lzma, lzop, ia32-libs
+# gcc, gpp, cpp, c++, g++, lzma, lzop, ia32-libs flex
 
 # What you need to make configuration easier by using xconfig
 # qt4-dev, qmake-qt4, pkg-config
@@ -65,9 +65,21 @@ CLEANUP;
 
 BUILD_NOW()
 {
-	if [ -e /usr/bin/python3 ]; then
-		rm /usr/bin/python
-		ln -s /usr/bin/python2.7 /usr/bin/python
+	PYTHON_CHECK=$(ls -la /usr/bin/python | grep python3 | wc -l);
+	PYTHON_WAS_3=0;
+
+	if [ "$PYTHON_CHECK" -eq "1" ] && [ -e /usr/bin/python2 ]; then
+		if [ -e /usr/bin/python2 ]; then
+			rm /usr/bin/python
+			ln -s /usr/bin/python2 /usr/bin/python
+			echo "Switched to Python2 for building kernel will switch back when done";
+			PYTHON_WAS_3=1;
+		else
+			echo "You need Python2 to build this kernel. install and come back."
+			exit 1;
+		fi;
+	else
+		echo "Python2 is used! all good, building!";
 	fi;
 
 	# move into the kernel directory and compile the main image
@@ -226,7 +238,7 @@ BUILD_NOW()
 		echo "Create dt.img................"
 		./scripts/dtbTool -v -s 2048 -o READY-KERNEL/boot/dt.img arch/arm/boot/
 
-		if [ -e /usr/bin/python3 ]; then
+		if [ "$PYTHON_WAS_3" -eq "1" ]; then
 			rm /usr/bin/python
 			ln -s /usr/bin/python3 /usr/bin/python
 		fi;
@@ -250,6 +262,13 @@ BUILD_NOW()
 		cd ..
 		rm -rf boot
 
+		# BUMP boot.img with magic key to install on JB/KK bootloader
+		cd ..
+		sh kernel_bump.sh
+		mv READY-KERNEL/boot_bumped.img READY-KERNEL/boot.img
+		echo "Kernel BUMP done!";
+		cd READY-KERNEL/
+
 		# create the flashable zip file from the contents of the output directory
 		echo "Make flashable zip..........."
 		zip -r Kernel-"${GETVER}"-KK-"$(date +"[%H-%M]-[%d-%m]-LG-${GETBRANCH}-PWR-CORE")".zip * >/dev/null
@@ -257,7 +276,7 @@ BUILD_NOW()
 		rm -f ./*.img
 		cd ..
 	else
-		if [ -e /usr/bin/python3 ]; then
+		if [ "$PYTHON_WAS_3" -eq "1" ]; then
 			rm /usr/bin/python
 			ln -s /usr/bin/python3 /usr/bin/python
 		fi;
@@ -269,10 +288,21 @@ BUILD_NOW()
 
 CLEAN_KERNEL()
 {
-	# fix python
-	if [ -e /usr/bin/python3 ]; then
-		rm /usr/bin/python
-		ln -s /usr/bin/python2.7 /usr/bin/python
+	PYTHON_CHECK=$(ls -la /usr/bin/python | grep python3 | wc -l);
+	CLEAN_PYTHON_WAS_3=0;
+
+	if [ "$PYTHON_CHECK" -eq "1" ] && [ -e /usr/bin/python2 ]; then
+		if [ -e /usr/bin/python2 ]; then
+			rm /usr/bin/python
+			ln -s /usr/bin/python2 /usr/bin/python
+			echo "Switched to Python2 for building kernel will switch back when done";
+			CLEAN_PYTHON_WAS_3=1;
+		else
+			echo "You need Python2 to build this kernel. install and come back."
+			exit 1;
+		fi;
+	else
+		echo "Python2 is used! all good, building!";
 	fi;
 
 	cp -pv .config .config.bkp;
@@ -280,8 +310,7 @@ CLEAN_KERNEL()
 	make clean;
 	cp -pv .config.bkp .config;
 
-	# resore python3
-	if [ -e /usr/bin/python3 ]; then
+	if [ "$CLEAN_PYTHON_WAS_3" -eq "1" ]; then
 		rm /usr/bin/python
 		ln -s /usr/bin/python3 /usr/bin/python
 	fi;

@@ -14,6 +14,10 @@
 #ifndef _MMC_SDIO_CIS_H
 #define _MMC_SDIO_CIS_H
 
+#if defined(CONFIG_LGE_MMC_DYNAMIC_LOG)
+#include <linux/mmc/debug_log.h>
+#endif
+
 int sdio_read_common_cis(struct mmc_card *card);
 void sdio_free_common_cis(struct mmc_card *card);
 

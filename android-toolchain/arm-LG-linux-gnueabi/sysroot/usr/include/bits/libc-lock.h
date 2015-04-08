@@ -24,14 +24,6 @@
 #include <stddef.h>
 
 
-#ifdef _LIBC
-# include <lowlevellock.h>
-# include <tls.h>
-# include <pthread-functions.h>
-# include <errno.h> /* For EBUSY.  */
-# include <gnu/option-groups.h> /* For __OPTION_EGLIBC_BIG_MACROS.  */
-#endif
-
 /* Mutex type.  */
 #if defined _LIBC || defined _IO_MTSAFE_IO
 # if (defined NOT_IN_libc && !defined IS_IN_libpthread) || !defined _LIBC
@@ -56,13 +48,8 @@ typedef struct __libc_lock_recursive_opaque__ __libc_lock_recursive_t;
 /* Define an initialized recursive lock variable NAME with storage
    class CLASS.  */
 #if defined _LIBC && (!defined NOT_IN_libc || defined IS_IN_libpthread)
-# if LLL_LOCK_INITIALIZER == 0
-#  define __libc_lock_define_initialized_recursive(CLASS,NAME) \
-  CLASS __libc_lock_recursive_t NAME;
-# else
-#  define __libc_lock_define_initialized_recursive(CLASS,NAME) \
+# define __libc_lock_define_initialized_recursive(CLASS, NAME) \
   CLASS __libc_lock_recursive_t NAME = _LIBC_LOCK_RECURSIVE_INITIALIZER;
-# endif
 # define _LIBC_LOCK_RECURSIVE_INITIALIZER \
   { LLL_LOCK_INITIALIZER, 0, NULL }
 #else
@@ -100,14 +87,6 @@ typedef struct __libc_lock_recursive_opaque__ __libc_lock_recursive_t;
 
 /* Lock the recursive named lock variable.  */
 #if defined _LIBC && (!defined NOT_IN_libc || defined IS_IN_libpthread)
-# if __OPTION_EGLIBC_BIG_MACROS != 1
-/* EGLIBC: Declare wrapper function for a big macro if either
-   !__OPTION_EGLIBC_BIG_MACROS or we are using a back door from
-   small-macros-fns.c (__OPTION_EGLIBC_BIG_MACROS == 2).  */
-extern void __libc_lock_lock_recursive_fn (__libc_lock_recursive_t *);
-libc_hidden_proto (__libc_lock_lock_recursive_fn);
-# endif /* __OPTION_EGLIBC_BIG_MACROS != 1 */
-# if __OPTION_EGLIBC_BIG_MACROS
 # define __libc_lock_lock_recursive(NAME) \
   do {									      \
     void *self = THREAD_SELF;						      \
@@ -118,10 +97,6 @@ libc_hidden_proto (__libc_lock_lock_recursive_fn);
       }									      \
     ++(NAME).cnt;							      \
   } while (0)
-# else
-# define __libc_lock_lock_recursive(NAME)				\
-  __libc_lock_lock_recursive_fn (&(NAME))
-# endif /* __OPTION_EGLIBC_BIG_MACROS */
 #else
 # define __libc_lock_lock_recursive(NAME) \
   __libc_maybe_call (__pthread_mutex_lock, (&(NAME).mutex), 0)
@@ -129,14 +104,6 @@ libc_hidden_proto (__libc_lock_lock_recursive_fn);
 
 /* Try to lock the recursive named lock variable.  */
 #if defined _LIBC && (!defined NOT_IN_libc || defined IS_IN_libpthread)
-# if __OPTION_EGLIBC_BIG_MACROS != 1
-/* EGLIBC: Declare wrapper function for a big macro if either
-   !__OPTION_EGLIBC_BIG_MACROS or we are using a back door from
-   small-macros-fns.c (__OPTION_EGLIBC_BIG_MACROS == 2).  */
-extern int __libc_lock_trylock_recursive_fn (__libc_lock_recursive_t *);
-libc_hidden_proto (__libc_lock_trylock_recursive_fn);
-# endif /* __OPTION_EGLIBC_BIG_MACROS != 1 */
-# if __OPTION_EGLIBC_BIG_MACROS
 # define __libc_lock_trylock_recursive(NAME) \
   ({									      \
     int result = 0;							      \
@@ -155,10 +122,6 @@ libc_hidden_proto (__libc_lock_trylock_recursive_fn);
       ++(NAME).cnt;							      \
     result;								      \
   })
-# else
-# define __libc_lock_trylock_recursive(NAME) \
-  __libc_lock_trylock_recursive_fn (&(NAME))
-# endif /* __OPTION_EGLIBC_BIG_MACROS */
 #else
 # define __libc_lock_trylock_recursive(NAME) \
   __libc_maybe_call (__pthread_mutex_trylock, (&(NAME).mutex), 0)
@@ -166,14 +129,6 @@ libc_hidden_proto (__libc_lock_trylock_recursive_fn);
 
 /* Unlock the recursive named lock variable.  */
 #if defined _LIBC && (!defined NOT_IN_libc || defined IS_IN_libpthread)
-# if __OPTION_EGLIBC_BIG_MACROS != 1
-/* EGLIBC: Declare wrapper function for a big macro if either
-   !__OPTION_EGLIBC_BIG_MACROS, or we are using a back door from
-   small-macros-fns.c (__OPTION_EGLIBC_BIG_MACROS == 2).  */
-extern void __libc_lock_unlock_recursive_fn (__libc_lock_recursive_t *);
-libc_hidden_proto (__libc_lock_unlock_recursive_fn);
-# endif /* __OPTION_EGLIBC_BIG_MACROS != 1 */
-# if __OPTION_EGLIBC_BIG_MACROS
 /* We do no error checking here.  */
 # define __libc_lock_unlock_recursive(NAME) \
   do {									      \
@@ -183,10 +138,6 @@ libc_hidden_proto (__libc_lock_unlock_recursive_fn);
 	lll_unlock ((NAME).lock, LLL_PRIVATE);				      \
       }									      \
   } while (0)
-# else
-# define __libc_lock_unlock_recursive(NAME) \
-  __libc_lock_unlock_recursive_fn (&(NAME))
-# endif /* __OPTION_EGLIBC_BIG_MACROS */
 #else
 # define __libc_lock_unlock_recursive(NAME) \
   __libc_maybe_call (__pthread_mutex_unlock, (&(NAME).mutex), 0)

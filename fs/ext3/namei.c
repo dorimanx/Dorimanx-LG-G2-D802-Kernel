@@ -1042,7 +1042,7 @@ static struct dentry *ext3_lookup(struct inode * dir, struct dentry *dentry, str
 struct dentry *ext3_get_parent(struct dentry *child)
 {
 	unsigned long ino;
-	struct qstr dotdot = {.name = "..", .len = 2};
+	struct qstr dotdot = QSTR_INIT("..", 2);
 	struct ext3_dir_entry_2 * de;
 	struct buffer_head *bh;
 
@@ -1668,8 +1668,8 @@ static int ext3_add_nondir(handle_t *handle,
 	int err = ext3_add_entry(handle, dentry, inode);
 	if (!err) {
 		ext3_mark_inode_dirty(handle, inode);
-		d_instantiate(dentry, inode);
 		unlock_new_inode(inode);
+		d_instantiate(dentry, inode);
 		return 0;
 	}
 	drop_nlink(inode);
@@ -1833,8 +1833,8 @@ out_clear_inode:
 	if (err)
 		goto out_clear_inode;
 
-	d_instantiate(dentry, inode);
 	unlock_new_inode(inode);
+	d_instantiate(dentry, inode);
 out_stop:
 	brelse(dir_block);
 	ext3_journal_stop(handle);

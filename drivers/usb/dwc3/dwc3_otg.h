@@ -27,6 +27,7 @@
 #endif
 
 #define DWC3_IDEV_CHG_MAX 1600
+#define DWC3_IDEV_CHG_MIN 500
 
 struct dwc3_charger;
 
@@ -49,7 +50,6 @@ struct dwc3_otg {
 	struct work_struct      touch_work;
 #endif
 	struct delayed_work	sm_work;
-	struct workqueue_struct *sm_wq;
 	struct dwc3_charger	*charger;
 	struct dwc3_ext_xceiv	*ext_xceiv;
 #define ID		0
@@ -86,7 +86,7 @@ enum dwc3_chg_type {
 
 struct dwc3_charger {
 	enum dwc3_chg_type	chg_type;
-	unsigned		max_power;
+	int			max_power;
 	bool			charging_disabled;
 
 	bool			skip_chg_detect;

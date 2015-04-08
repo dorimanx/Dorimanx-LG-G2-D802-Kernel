@@ -1188,6 +1188,12 @@ config NETFILTER_XT_MATCH_U32
 
 endif # NETFILTER_XTABLES
 
+config LG_VPN
+	tristate "LG VPN Support"
+	default n
+	---help---
+	  This feature is for LG VPN support. It includes interceptor netfilter.
+
 endmenu
 
 source "net/netfilter/ipset/Kconfig"

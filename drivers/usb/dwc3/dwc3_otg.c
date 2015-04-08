@@ -409,13 +409,13 @@ static int dwc3_otg_set_peripheral(struct usb_otg *otg,
 		dev_dbg(otg->phy->dev, "%s: set gadget %s\n",
 					__func__, gadget->name);
 		otg->gadget = gadget;
-		queue_delayed_work_on(0, dotg->sm_wq, &dotg->sm_work, 0);
+		queue_delayed_work(system_nrt_wq, &dotg->sm_work, 0);
 	} else {
 		if (otg->phy->state == OTG_STATE_B_PERIPHERAL) {
 			dwc3_otg_start_peripheral(otg, 0);
 			otg->gadget = NULL;
 			otg->phy->state = OTG_STATE_UNDEFINED;
-			queue_delayed_work_on(0, dotg->sm_wq, &dotg->sm_work, 0);
+			queue_delayed_work(system_nrt_wq, &dotg->sm_work, 0);
 		} else {
 			otg->gadget = NULL;
 		}
@@ -440,7 +440,7 @@ static void dwc3_ext_chg_det_done(struct usb_otg *otg, struct dwc3_charger *chg)
 	 * STOP chg_det as part of !BSV handling would reset the chg_det flags
 	 */
 	if (test_bit(B_SESS_VLD, &dotg->inputs))
-		queue_delayed_work_on(0, dotg->sm_wq, &dotg->sm_work, 0);
+		queue_delayed_work(system_nrt_wq, &dotg->sm_work, 0);
 }
 
 /**
@@ -527,7 +527,7 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 		if (!init) {
 			init = true;
 			if (!work_busy(&dotg->sm_work.work))
-				queue_delayed_work_on(0, dotg->sm_wq,
+				queue_delayed_work(system_nrt_wq,
 							&dotg->sm_work, 0);
 
 			complete(&dotg->dwc3_xcvr_vbus_init);
@@ -535,7 +535,7 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 			return;
 		}
 
-		queue_delayed_work_on(0, dotg->sm_wq, &dotg->sm_work, 0);
+		queue_delayed_work(system_nrt_wq, &dotg->sm_work, 0);
 	}
 }
 
@@ -597,7 +597,7 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 			dotg->charger->chg_type == DWC3_PROPRIETARY_CHARGER)
 		power_supply_type = POWER_SUPPLY_TYPE_USB_DCP;
 	else
-		power_supply_type = POWER_SUPPLY_TYPE_UNKNOWN;
+		power_supply_type = POWER_SUPPLY_TYPE_USB;
 
 	power_supply_set_supply_type(dotg->psy, power_supply_type);
 
@@ -682,7 +682,7 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 			dotg->psy = power_supply_get_by_name("ac");
 		}
 #endif
-	} else if (dotg->charger->max_power > 0 && (mA == 0 || mA == 2)) {
+	} else if (mA == 0 || mA == 2) {
 		/* Disable charging */
 		if (power_supply_set_online(dotg->psy, false))
 			goto psy_error;
@@ -768,7 +768,7 @@ static irqreturn_t dwc3_otg_interrupt(int irq, void *_dotg)
 			handled_irqs |= DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT;
 		}
 
-		queue_delayed_work_on(0, dotg->sm_wq, &dotg->sm_work, 0);
+		queue_delayed_work(system_nrt_wq, &dotg->sm_work, 0);
 
 		ret = IRQ_HANDLED;
 
@@ -822,7 +822,6 @@ static void touch_otg_work(struct work_struct *w)
 {
 	struct dwc3_otg *dotg = container_of(w, struct dwc3_otg, touch_work);
 
-/*                                                      */
 #if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4) || defined(CONFIG_TOUCHSCREEN_ATMEL_S540)
 	if (dotg->charger->max_power == 0) {
 		trigger_baseline_state_machine(0, -1);
@@ -837,7 +836,6 @@ static void touch_otg_work(struct work_struct *w)
 		}
 	}
 #endif
- /*                                                    */
 }
 
 /**
@@ -940,9 +938,10 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 						dwc3_otg_set_power(phy,
 							DWC3_IDEV_CHG_MAX);
 					else
-						dwc3_otg_set_power(phy, IUNIT);
+						dwc3_otg_set_power(phy,
+								DWC3_IDEV_CHG_MIN);
 #else
-					dwc3_otg_set_power(phy, IUNIT);
+					dwc3_otg_set_power(phy, DWC3_IDEV_CHG_MIN);
 #endif
 
 #ifdef CONFIG_LGE_PM
@@ -1097,7 +1096,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	}
 
 	if (work)
-		queue_delayed_work_on(0, dotg->sm_wq, &dotg->sm_work, delay);
+		queue_delayed_work(system_nrt_wq, &dotg->sm_work, delay);
 }
 
 
@@ -1234,7 +1233,6 @@ int dwc3_otg_init(struct dwc3 *dwc)
 #endif
 
 	INIT_DELAYED_WORK(&dotg->sm_work, dwc3_otg_sm_work);
-	dotg->sm_wq = alloc_workqueue("sm_work", WQ_NON_REENTRANT, 0);
 
 	ret = request_irq(dotg->irq, dwc3_otg_interrupt, IRQF_SHARED,
 				"dwc3_otg", dotg);

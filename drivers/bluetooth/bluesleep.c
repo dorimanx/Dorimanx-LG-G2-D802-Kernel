@@ -59,22 +59,46 @@
 #include <net/bluetooth/hci_core.h> /* event notifications */
 #include "hci_uart.h"
 
+static unsigned int bt_debug = 0;
+module_param_named(bt_debug_mask, bt_debug, uint, 0644);
+
 /*                                                                                            */
 #ifdef CONFIG_LGE_BLUESLEEP
-#undef BT_INFO
-#define BT_INFO(fmt, arg...) printk(KERN_INFO "*[bluesleep(%d)-%s()] " fmt "\n" , __LINE__, __FUNCTION__, ## arg)
 #undef BT_ERR
 #define BT_ERR(fmt, arg...)  printk(KERN_ERR "*[bluesleep(%d)-%s()] " fmt "\n" , __LINE__, __FUNCTION__, ## arg)
-#undef BT_DBG
-#define BT_DBG(fmt, arg...)  printk(KERN_ERR "*[bluesleep(%d)-%s()] " fmt "\n" , __LINE__, __FUNCTION__, ## arg)
 
 #define BT_PORT_ID	99
+
+#undef BT_INFO
+#define BT_INFO(fmt, arg...)										\
+do {													\
+	if (bt_debug)											\
+		printk(KERN_INFO "*[bluesleep(%d)-%s()] " fmt "\n" , __LINE__, __FUNCTION__, ## arg);	\
+} while (0)
+
+#undef BT_DBG
+#define BT_DBG(fmt, arg...)										\
+do {													\
+	if (bt_debug)											\
+		printk(KERN_ERR "*[bluesleep(%d)-%s()] " fmt "\n" , __LINE__, __FUNCTION__, ## arg);	\
+} while (0)
+
+//BT_S : [PSIX-6850] LPM_SLEEP_MODE_DO_NOT_UART_CLOSE
+#define UART_OFF 1
+#define UART_NOT_OFF 0
+//BT_E : [PSIX-6850] LPM_SLEEP_MODE_DO_NOT_UART_CLOSE
 #endif /*                      */
 /*                                                        */
 
+//BT_S : [CONBT-952] Remove duplicate bluesleep log
+#define REMOVE_DUPLICATE_BT_LOG
+//BT_E : [CONBT-952] Remove duplicate bluesleep log
+
+#ifndef REMOVE_DUPLICATE_BT_LOG     // Not Used
 #define BT_SLEEP_DBG
 #ifndef BT_SLEEP_DBG
 #define BT_DBG(fmt, arg...)
+#endif
 #endif
 
 /* BT DMA Request / For UART */
@@ -225,7 +249,12 @@ static void hsuart_power(int on)
  */
 static inline int bluesleep_can_sleep(void)
 {
+//BT_S : [CONBT-952] Remove duplicate bluesleep log
+#ifndef REMOVE_DUPLICATE_BT_LOG
 	BT_INFO("");
+#endif
+//BT_E : [CONBT-952] Remove duplicate bluesleep log
+
 	/* check if MSM_WAKE_BT_GPIO and BT_WAKE_MSM_GPIO are both deasserted */
 	return gpio_get_value(bsi->ext_wake) &&
 		gpio_get_value(bsi->host_wake) &&
@@ -234,7 +263,12 @@ static inline int bluesleep_can_sleep(void)
 
 void bluesleep_sleep_wakeup(void)
 {
+//BT_S : [CONBT-952] Remove duplicate bluesleep log
+#ifndef REMOVE_DUPLICATE_BT_LOG
 	BT_INFO("");
+#endif
+//BT_E : [CONBT-952] Remove duplicate bluesleep log
+
 	if (test_bit(BT_ASLEEP, &flags)) {
 		BT_DBG("waking up...");
 /*                                                      */
@@ -285,7 +319,11 @@ void bluesleep_sleep_wakeup(void)
  */
 static void bluesleep_sleep_work(struct work_struct *work)
 {
+//BT_S : [CONBT-952] Remove duplicate bluesleep log
+#ifndef REMOVE_DUPLICATE_BT_LOG
 	BT_INFO("+++++");
+#endif
+//BT_E : [CONBT-952] Remove duplicate bluesleep log
 
 	if (bluesleep_can_sleep()) {
 		/* already asleep, this is an error case */
@@ -327,10 +365,19 @@ static void bluesleep_sleep_work(struct work_struct *work)
 #endif /*                      */
 /*                                                      */
 	} else {
+//BT_S : [CONBT-952] Remove duplicate bluesleep log
+#ifdef REMOVE_DUPLICATE_BT_LOG
+		BT_DBG("bluesleep_sleep_wakeup() called...");
+#endif
+//BT_E : [CONBT-952] Remove duplicate bluesleep log
 		bluesleep_sleep_wakeup();
 	}
 
+//BT_S : [CONBT-952] Remove duplicate bluesleep log
+#ifndef REMOVE_DUPLICATE_BT_LOG
 	BT_INFO("-----");
+#endif
+//BT_E : [CONBT-952] Remove duplicate bluesleep log
 }
 
 /**
@@ -340,7 +387,11 @@ static void bluesleep_sleep_work(struct work_struct *work)
  */
 static void bluesleep_hostwake_task(unsigned long data)
 {
+//BT_S : [CONBT-952] Remove duplicate bluesleep log
+#ifndef REMOVE_DUPLICATE_BT_LOG
 	BT_DBG("hostwake line change");
+#endif
+//BT_E : [CONBT-952] Remove duplicate bluesleep log
 
 	spin_lock(&rw_lock);
 
@@ -486,7 +537,11 @@ static irqreturn_t bluesleep_hostwake_isr(int irq, void *dev_id)
 	/* schedule a tasklet to handle the change in the host wake line */
 	int ext_wake, host_wake;
 
+//BT_S : [CONBT-952] Remove duplicate bluesleep log
+#ifndef REMOVE_DUPLICATE_BT_LOG
 	BT_INFO("");
+#endif
+//BT_E : [CONBT-952] Remove duplicate bluesleep log
 
 	ext_wake = gpio_get_value(bsi->ext_wake);
 	host_wake = gpio_get_value(bsi->host_wake);
@@ -495,7 +550,11 @@ static irqreturn_t bluesleep_hostwake_isr(int irq, void *dev_id)
 	irq_set_irq_type(irq, host_wake ? IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH);
 
 	if (host_wake == 0)	{
-		BT_DBG("bluesleep_hostwake_isr : Registration Tasklet");
+//BT_S : [CONBT-952] Remove duplicate bluesleep log
+#ifndef REMOVE_DUPLICATE_BT_LOG
+		BT_DBG("Registration Tasklet");
+#endif
+//BT_E : [CONBT-952] Remove duplicate bluesleep log
 		tasklet_schedule(&hostwake_task);
 	}
 #else /*                      */
@@ -553,7 +612,11 @@ static int bluesleep_start(void)
 /*                                               */
 /* ADD: 0019639: [F200][BT] Support Bluetooth low power mode */
 #ifdef CONFIG_LGE_BLUESLEEP
+//BT_S : [CONBT-952] Remove duplicate bluesleep log
+#ifndef REMOVE_DUPLICATE_BT_LOG
 	BT_DBG("bluesleep_start");
+#endif
+//BT_E : [CONBT-952] Remove duplicate bluesleep log
 	hsuart_power(1);
 #endif /*                      */
 /*                                             */
@@ -607,7 +670,10 @@ fail:
 /**
  * Stops the Sleep-Mode Protocol on the Host.
  */
-static void bluesleep_stop(void)
+//BT_S : [PSIX-6850] LPM_SLEEP_MODE_DO_NOT_UART_CLOSE
+static void bluesleep_stop(int uart_off)
+//static void bluesleep_stop(void)
+//BT_E : [PSIX-6850] LPM_SLEEP_MODE_DO_NOT_UART_CLOSE
 {
 	unsigned long irq_flags;
 
@@ -643,14 +709,26 @@ static void bluesleep_stop(void)
 	}
 /*                                                                                            */
 /* To avoid L2 error crash that occurs when 'msm_hs_tx_empty'is executed in clock_off state. */
-#if 0
+#if 1
 /*                                               */
 /* ADD: 0019639: [F200][BT] Support Bluetooth low power mode */
 #ifdef CONFIG_LGE_BLUESLEEP	
 	else
 	{
 		//set_bit(BT_ASLEEP, &flags);
-		hsuart_power(0);
+//BT_S : [PSIX-6850] LPM_SLEEP_MODE_DO_NOT_UART_CLOSE
+		printk(KERN_DEBUG "bluesleep_stop uart_off : %d", uart_off);
+		if(bsi->uport != NULL && msm_hs_get_bt_uport_clock_state(bsi->uport) == CLOCK_REQUEST_UNAVAILABLE && uart_off)
+		{
+			BT_DBG("UART On Status... UART Clock Off...");
+			hsuart_power(0);
+		}
+		else
+		{
+			BT_DBG("if UART Already Off... don't off UART Clock");
+		}
+		//hsuart_power(0);
+//BT_E : [PSIX-6850] LPM_SLEEP_MODE_DO_NOT_UART_CLOSE
 	}
 #endif /*                    */
 /*                                             */
@@ -712,7 +790,11 @@ static int bluepower_write_proc_btwake(struct file *file, const char *buffer,
 {
 	char *buf;
 
+//BT_S : [CONBT-952] Remove duplicate bluesleep log
+#ifndef REMOVE_DUPLICATE_BT_LOG
 	BT_INFO("");
+#endif
+//BT_E : [CONBT-952] Remove duplicate bluesleep log
 
 	if (count < 1)
 		return -EINVAL;
@@ -844,8 +926,14 @@ static int bluesleep_write_proc_proto(struct file *file, const char *buffer,
 	if (copy_from_user(&proto, buffer, 1))
 		return -EFAULT;
 
-	if (proto == '0')
-		bluesleep_stop();
+//BT_S : [PSIX-6850] LPM_SLEEP_MODE_DO_NOT_UART_CLOSE
+	if (proto == '0' || proto == '2')
+	{
+		bluesleep_stop(proto == '0' ? UART_OFF : UART_NOT_OFF);
+	}
+//	if (proto == '0')
+//		bluesleep_stop();
+//BT_E : [PSIX-6850] LPM_SLEEP_MODE_DO_NOT_UART_CLOSE
 	else
 		bluesleep_start();
 
@@ -857,7 +945,8 @@ static int bluesleep_write_proc_proto(struct file *file, const char *buffer,
 #ifdef CONFIG_LGE_BLUESLEEP
 void bluesleep_forced_stop(void) {
 	BT_DBG("");
-	bluesleep_stop();
+	bluesleep_stop(UART_OFF);
+//	bluesleep_stop();
 }
 EXPORT_SYMBOL(bluesleep_forced_stop);
 

@@ -58,13 +58,13 @@ struct passwd
 };
 
 
-#if defined __USE_SVID || defined __USE_GNU
+#ifdef __USE_MISC
 # define __need_FILE
 # include <stdio.h>
 #endif
 
 
-#if defined __USE_SVID || defined __USE_MISC || defined __USE_XOPEN_EXTENDED
+#if defined __USE_MISC || defined __USE_XOPEN_EXTENDED
 /* Rewind the password-file stream.
 
    This function is a possible cancellation point and therefore not
@@ -84,7 +84,7 @@ extern void endpwent (void);
 extern struct passwd *getpwent (void);
 #endif
 
-#ifdef	__USE_SVID
+#ifdef	__USE_MISC
 /* Read an entry from STREAM.
 
    This function is not part of POSIX and therefore no official
@@ -115,7 +115,7 @@ extern struct passwd *getpwuid (__uid_t __uid);
    marked with __THROW.  */
 extern struct passwd *getpwnam (const char *__name);
 
-#if defined __USE_POSIX || defined __USE_MISC
+#ifdef __USE_POSIX
 
 # ifdef __USE_MISC
 /* Reasonable value for the buffer sized used in the reentrant
@@ -131,7 +131,7 @@ extern struct passwd *getpwnam (const char *__name);
    other reentrant functions so the chances are good this is what the
    POSIX people would choose.  */
 
-# if defined __USE_SVID || defined __USE_MISC
+# ifdef __USE_MISC
 /* This function is not part of POSIX and therefore no official
    cancellation point.  But due to similarity with an POSIX interface
    or due to the implementation it is a cancellation point and
@@ -152,7 +152,7 @@ extern int getpwnam_r (const char *__restrict __name,
 		       struct passwd **__restrict __result);
 
 
-# ifdef	__USE_SVID
+# ifdef	__USE_MISC
 /* Read an entry from STREAM.  This function is not standardized and
    probably never will.
 

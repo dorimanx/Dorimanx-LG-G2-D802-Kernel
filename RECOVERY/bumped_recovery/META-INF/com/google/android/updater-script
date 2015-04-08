@@ -1,0 +1,28 @@
+ui_print(" ");
+ui_print("-----------------------------------");
+ui_print("-    Blastagator's LG G2 TWRP     -");
+ui_print("-            2.8.x.x              -");
+ui_print("-          LG G2 Models           -");
+ui_print("- (with F2FS and Thermal Control) -");
+ui_print("-----------------------------------");
+ui_print(" ");
+
+ui_print(" ");
+show_progress(0.9, 5);
+ui_print("Installing New Recovery");
+
+package_extract_dir("tmp", "/tmp");
+package_extract_file("recovery.img", "/tmp/panelfix/recovery.img");
+set_perm(0, 0, 0755, "/tmp/panelfix.sh");
+set_perm_recursive(0, 0, 0755, 0755, "/tmp/panelfix");
+assert(run_program("/tmp/panelfix.sh") == 0);
+delete("/tmp/panelfix.sh");
+ui_print(" ");
+
+
+ui_print(" ");
+set_progress(1.0);
+ui_print("-------- Recovery is Bumped! ------");
+ui_print("------------ Finished -------------");
+ui_print("-----------------------------------");
+ui_print(" ");

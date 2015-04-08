@@ -54,7 +54,7 @@
 #define IP_ADD_SOURCE_MEMBERSHIP 39 /* ip_mreq_source: join source group */
 #define IP_DROP_SOURCE_MEMBERSHIP 40 /* ip_mreq_source: leave source group */
 #define IP_MSFILTER 41
-#if defined __USE_MISC || defined __USE_GNU
+#ifdef __USE_MISC
 # define MCAST_JOIN_GROUP 42	/* group_req: join any-source group */
 # define MCAST_BLOCK_SOURCE 43	/* group_source_req: block from given group */
 # define MCAST_UNBLOCK_SOURCE 44 /* group_source_req: unblock from given group*/
@@ -90,13 +90,39 @@
 #define IP_RECVORIGDSTADDR   IP_ORIGDSTADDR
 
 #define IP_MINTTL       21
-
+#define IP_NODEFRAG     22
 
 /* IP_MTU_DISCOVER arguments.  */
 #define IP_PMTUDISC_DONT   0	/* Never send DF frames.  */
 #define IP_PMTUDISC_WANT   1	/* Use per route hints.  */
 #define IP_PMTUDISC_DO     2	/* Always DF.  */
 #define IP_PMTUDISC_PROBE  3	/* Ignore dst pmtu.  */
+/* Always use interface mtu (ignores dst pmtu) but don't set DF flag.
+   Also incoming ICMP frag_needed notifications will be ignored on
+   this socket to prevent accepting spoofed ones.  */
+#define IP_PMTUDISC_INTERFACE           4
+/* Like IP_PMTUDISC_INTERFACE but allow packets to be fragmented.  */
+#define IP_PMTUDISC_OMIT		5
+
+#define IP_MULTICAST_IF			32
+#define IP_MULTICAST_TTL 		33
+#define IP_MULTICAST_LOOP 		34
+#define IP_ADD_MEMBERSHIP		35
+#define IP_DROP_MEMBERSHIP		36
+#define IP_UNBLOCK_SOURCE		37
+#define IP_BLOCK_SOURCE			38
+#define IP_ADD_SOURCE_MEMBERSHIP	39
+#define IP_DROP_SOURCE_MEMBERSHIP	40
+#define IP_MSFILTER			41
+#define MCAST_JOIN_GROUP		42
+#define MCAST_BLOCK_SOURCE		43
+#define MCAST_UNBLOCK_SOURCE		44
+#define MCAST_LEAVE_GROUP		45
+#define MCAST_JOIN_SOURCE_GROUP		46
+#define MCAST_LEAVE_SOURCE_GROUP	47
+#define MCAST_MSFILTER			48
+#define IP_MULTICAST_ALL		49
+#define IP_UNICAST_IF			50
 
 /* To select the IP level.  */
 #define SOL_IP	0
@@ -105,7 +131,7 @@
 #define IP_DEFAULT_MULTICAST_LOOP       1
 #define IP_MAX_MEMBERSHIPS              20
 
-#if defined __USE_MISC || defined __USE_GNU
+#ifdef __USE_MISC
 /* Structure used to describe IP options for IP_OPTIONS and IP_RETOPTS.
    The `ip_dst' field is used for the first-hop gateway when using a
    source route (this gets put into the header proper).  */
@@ -190,6 +216,8 @@ struct in_pktinfo
 #define IPV6_PMTUDISC_WANT	1	/* Use per route hints.  */
 #define IPV6_PMTUDISC_DO	2	/* Always DF.  */
 #define IPV6_PMTUDISC_PROBE	3	/* Ignore dst pmtu.  */
+#define IPV6_PMTUDISC_INTERFACE	4	/* See IP_PMTUDISC_INTERFACE.  */
+#define IPV6_PMTUDISC_OMIT	5	/* See IP_PMTUDISC_OMIT.  */
 
 /* Socket level values for IPv6.  */
 #define SOL_IPV6        41

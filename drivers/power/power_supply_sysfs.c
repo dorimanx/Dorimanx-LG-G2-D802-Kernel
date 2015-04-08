@@ -56,7 +56,7 @@
 	.show = power_supply_show_property,				\
 	.store = power_supply_store_property,				\
 }
-#else //QCT ORG
+#else
 #define POWER_SUPPLY_ATTR(_name)					\
 {									\
 	.attr = { .name = #_name },					\
@@ -64,6 +64,7 @@
 	.store = power_supply_store_property,				\
 }
 #endif
+/* QCT origin */
 /*                                        */
 
 static struct device_attribute power_supply_attrs[];
@@ -187,7 +188,8 @@ static ssize_t pseudo_batt_show_property(struct device *dev,
 	}
 	if (off == POWER_SUPPLY_PROP_PSEUDO_BATT)
 		return sprintf(buf, "[%s] \nusage: echo \
-				[mode] [ID] [therm] [temp] [volt] [cap] [charging] > pseudo_batt\n",
+				[mode] [ID] [therm] [temp] \
+				[volt] [cap] [charging] > pseudo_batt\n",
 				pseudo_batt[value.intval]);
 
 	return 0;
@@ -200,13 +202,13 @@ static ssize_t pseudo_batt_store_property(struct device *dev,
 	int ret = -EINVAL;
 	struct pseudo_batt_info_type info;
 
-	if (sscanf(buf, "%d %d %d %d %d %d %d", &info.mode, &info.id, &info.therm,
-				&info.temp, &info.volt, &info.capacity, &info.charging) != 7)
-	{
-		if(info.mode == 1) //pseudo mode
-		{
+	if (sscanf(buf, "%d %d %d %d %d %d %d",
+			&info.mode, &info.id, &info.therm, &info.temp,
+			&info.volt, &info.capacity, &info.charging) != 7) {
+		if (info.mode == 1) {
 			printk(KERN_ERR "usage : echo \
-				[mode] [ID] [therm] [temp] [volt] [cap] [charging] > pseudo_batt");
+				[mode] [ID] [therm] [temp] \
+				[volt] [cap] [charging] > pseudo_batt");
 			goto out;
 		}
 	}
@@ -281,18 +283,13 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(removed),
 #endif
 #if defined(CONFIG_LGE_CURRENTNOW)
-	/*                                                
-                                 
-  */
 	POWER_SUPPLY_CN_ATTR(current_now, 0444),
 	POWER_SUPPLY_CN_ATTR(enable_bms, 0644),
-	/*                                                 */
 #endif
 #ifdef CONFIG_FTT_CHARGER_V3
 	POWER_SUPPLY_ATTR(ftt_anntena_level),
 #endif
 #ifdef CONFIG_MAX17050_FUELGAUGE
-	/*                                                       */
 	POWER_SUPPLY_ATTR(battery_condition),
 	POWER_SUPPLY_ATTR(battery_age),
 #endif

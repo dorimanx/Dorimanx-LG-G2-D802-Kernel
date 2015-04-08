@@ -107,5 +107,12 @@ struct mmc_ioc_rpmb {
  * is enforced per ioctl call.  For larger data transfers, use the normal
  * block device operations.
  */
+#if defined (CONFIG_MMC_FFU) && defined (CONFIG_MACH_MSM8974_G3_GLOBAL_COM)
+#define MMC_IOC_MAX_BYTES  (768L * 1024) // sandisk test (FW size is 568K)
+#elif defined (CONFIG_MMC_FFU)
+#define MMC_IOC_MAX_BYTES  (512L * 1024)
+#else
 #define MMC_IOC_MAX_BYTES  (512L * 256)
+#endif
+
 #endif /* LINUX_MMC_IOCTL_H */

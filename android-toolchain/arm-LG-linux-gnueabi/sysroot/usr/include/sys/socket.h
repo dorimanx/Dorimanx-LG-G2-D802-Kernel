@@ -37,7 +37,7 @@ __BEGIN_DECLS
    `struct msghdr', and `struct linger' types.  */
 #include <bits/socket.h>
 
-#ifdef __USE_BSD
+#ifdef __USE_MISC
 /* This is the 4.3 BSD `struct sockaddr' format, which is used as wire
    format in the grotty old 4.3 `talk' protocol.  */
 struct osockaddr
@@ -203,7 +203,7 @@ extern ssize_t recvmsg (int __fd, struct msghdr *__message, int __flags);
 
 #ifdef __USE_GNU
 /* Receive up to VLEN messages as described by VMESSAGES from socket FD.
-   Returns the number of bytes read or -1 for errors.
+   Returns the number of messages received or -1 for errors.
 
    This function is a cancellation point and therefore not marked with
    __THROW.  */

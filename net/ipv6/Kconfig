@@ -256,4 +256,10 @@ config LGP_DATA_TCPIP_SLAAC_IPV6_ALLOCATION_BOOSTER
 	  When the SLAAC(StateLess Address AoutoCongifutation) process is being operated,
 	  we will set the value of waiting time to 0.02 sec for Link-local IPv6 address and will not operate the DAD process for Global IPv6 address.
 
+config LGE_DHCPV6_WIFI
+	bool "IPv6: Stateless DHCPV6 support"
+	default n
+	---help---
+	  If you enable stateless dhcpv6 feature in Wi-Fi network, say Y
+
 endif # IPV6

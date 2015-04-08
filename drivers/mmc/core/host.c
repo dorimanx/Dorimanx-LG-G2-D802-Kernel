@@ -318,7 +318,7 @@ void mmc_host_clk_release(struct mmc_host *host)
 	host->clk_requests--;
 	if (mmc_host_may_gate_card(host->card) &&
 	    !host->clk_requests)
-		queue_delayed_work(system_nrt_wq, &host->clk_gate_work,
+		schedule_delayed_work(&host->clk_gate_work,
 				msecs_to_jiffies(host->clkgate_delay));
 	spin_unlock_irqrestore(&host->clk_lock, flags);
 }
@@ -722,9 +722,7 @@ int mmc_add_host(struct mmc_host *host)
 	if (err)
 		return err;
 
-#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
 	device_enable_async_suspend(&host->class_dev);
-#endif
 	led_trigger_register_simple(dev_name(&host->class_dev), &host->led);
 
 #ifdef CONFIG_DEBUG_FS

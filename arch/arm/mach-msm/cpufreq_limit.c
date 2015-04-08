@@ -22,25 +22,19 @@
 #include <linux/workqueue.h>
 #include <linux/cpu.h>
 #include <linux/cpufreq.h>
-#ifdef CONFIG_LCD_NOTIFY
-#include <linux/lcd_notify.h>
-#elif defined(CONFIG_POWERSUSPEND)
-#include <linux/powersuspend.h>
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-#include <linux/earlysuspend.h>
-#endif
 #include <mach/cpufreq.h>
+#ifdef CONFIG_POWERSUSPEND
+#include <linux/powersuspend.h>
+#else
+#include <linux/fb.h>
+#endif
 
-#define MSM_CPUFREQ_LIMIT_MAJOR		4
-#define MSM_CPUFREQ_LIMIT_MINOR		7
+#define MSM_CPUFREQ_LIMIT_MAJOR		5
+#define MSM_CPUFREQ_LIMIT_MINOR		0
 
 #define MSM_LIMIT			"msm_cpufreq_limit"
 
 static struct workqueue_struct *limiter_wq;
-
-#if defined(CONFIG_LCD_NOTIFY) || \
-	defined(CONFIG_POWERSUSPEND) || \
-	defined(CONFIG_HAS_EARLYSUSPEND)
 
 #define DEFAULT_SUSPEND_DEFER_TIME	10
 #define DEFAULT_SUSPEND_FREQUENCY	0
@@ -63,7 +57,7 @@ static struct cpu_limit {
 	struct delayed_work suspend_work;
 	struct work_struct resume_work;
 	struct mutex msm_limiter_mutex;
-#ifdef CONFIG_LCD_NOTIFY
+#ifndef CONFIG_POWERSUSPEND
 	struct notifier_block notif;
 #endif
 } limit = {
@@ -72,17 +66,13 @@ static struct cpu_limit {
 	.suspended = 0,
 	.suspend_defer_time = DEFAULT_SUSPEND_DEFER_TIME,
 };
-#endif
 
-#if defined(CONFIG_LCD_NOTIFY) || \
-	defined(CONFIG_POWERSUSPEND) || \
-	defined(CONFIG_HAS_EARLYSUSPEND)
 static void msm_limit_suspend(struct work_struct *work)
 {
 	/* Save current instance */
 	limit.resume_max_freq = get_max_lock(0);
 
-	if (!limit.resume_max_freq)
+	if (!limit.resume_max_freq || limit.suspended)
 		return;
 
 	mutex_lock(&limit.msm_limiter_mutex);
@@ -111,12 +101,10 @@ static void __ref msm_limit_resume(struct work_struct *work)
 		limit.resume_max_freq);
 }
 
-#ifdef CONFIG_LCD_NOTIFY
-static void __msm_limit_suspend(void)
-#elif defined(CONFIG_POWERSUSPEND)
+#ifdef CONFIG_POWERSUSPEND
 static void __msm_limit_suspend(struct power_suspend *handler)
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-static void __msm_limit_suspend(struct early_suspend *handler)
+#else
+static void __msm_limit_suspend(void)
 #endif
 {
 	/* Do not suspend if suspend freq is not available */
@@ -124,16 +112,14 @@ static void __msm_limit_suspend(struct early_suspend *handler)
 		return;
 
 	INIT_DELAYED_WORK(&limit.suspend_work, msm_limit_suspend);
-	queue_delayed_work_on(0, limiter_wq, &limit.suspend_work,
+	mod_delayed_work_on(0, limiter_wq, &limit.suspend_work,
 			msecs_to_jiffies(limit.suspend_defer_time * 1000));
 }
 
-#ifdef CONFIG_LCD_NOTIFY
-static void __msm_limit_resume(void)
-#elif defined(CONFIG_POWERSUSPEND)
-static void __msm_limit_resume(struct power_suspend *handler)
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-static void __msm_limit_resume(struct early_suspend *handler)
+#ifdef CONFIG_POWERSUSPEND
+static void __ref __msm_limit_resume(struct power_suspend *handler)
+#else
+static void __ref __msm_limit_resume(void)
 #endif
 {
 	/* Do not resume if suspend freq is not available */
@@ -145,38 +131,42 @@ static void __msm_limit_resume(struct early_suspend *handler)
 	queue_work_on(0, limiter_wq, &limit.resume_work);
 }
 
-#ifdef CONFIG_LCD_NOTIFY
-static int lcd_notifier_callback(struct notifier_block *nb,
-                                 unsigned long event, void *data)
+#ifdef CONFIG_POWERSUSPEND
+static struct power_suspend msm_limit_power_suspend_driver = {
+	.suspend = __msm_limit_suspend,
+	.resume = __msm_limit_resume,
+};
+#else
+static int prev_fb = FB_BLANK_UNBLANK;
+
+static int fb_notifier_callback(struct notifier_block *self,
+				unsigned long event, void *data)
 {
-	switch (event) {
-	case LCD_EVENT_ON_END:
-	case LCD_EVENT_OFF_START:
-		break;
-	case LCD_EVENT_ON_START:
-		__msm_limit_resume();
-		break;
-	case LCD_EVENT_OFF_END:
-		__msm_limit_suspend();
-		break;
-	default:
-		break;
+	struct fb_event *evdata = data;
+	int *blank;
+
+	if (evdata && evdata->data && event == FB_EVENT_BLANK) {
+		blank = evdata->data;
+		switch (*blank) {
+			case FB_BLANK_UNBLANK:
+				if (prev_fb == FB_BLANK_POWERDOWN) {
+					/* display on */
+					__msm_limit_resume();
+					prev_fb = FB_BLANK_UNBLANK;
+				}
+				break;
+			case FB_BLANK_POWERDOWN:
+				if (prev_fb == FB_BLANK_UNBLANK) {
+					/* display off */
+					__msm_limit_suspend();
+					prev_fb = FB_BLANK_POWERDOWN;
+				}
+				break;
+		}
 	}
 
 	return NOTIFY_OK;
 }
-
-#elif defined CONFIG_POWERSUSPEND
-static struct power_suspend msm_limit_power_suspend_driver = {
-#else
-static struct early_suspend msm_limit_early_suspend_driver = {
-	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 10,
-#endif
-#ifndef CONFIG_LCD_NOTIFY
-	.suspend = __msm_limit_suspend,
-	.resume = __msm_limit_resume,
-};
-#endif
 #endif
 
 static int msm_cpufreq_limit_start(void)
@@ -192,32 +182,25 @@ static int msm_cpufreq_limit_start(void)
 		goto err_out;
 	}
 
-#ifdef CONFIG_LCD_NOTIFY
-	limit.notif.notifier_call = lcd_notifier_callback;
-	ret = lcd_register_client(&limit.notif);
-	if (ret != 0) {
-		pr_err("%s: Failed to register LCD notifier callback\n",
+#ifdef CONFIG_POWERSUSPEND
+	register_power_suspend(&msm_limit_power_suspend_driver);
+#else
+	limit.notif.notifier_call = fb_notifier_callback;
+	if (fb_register_client(&limit.notif)) {
+		pr_err("%s: Failed to register FB notifier callback\n",
 			MSM_LIMIT);
 		goto err_dev;
 	}
-#elif defined(CONFIG_POWERSUSPEND)
-	register_power_suspend(&msm_limit_power_suspend_driver);
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-	register_early_suspend(&msm_limit_early_suspend_driver);
 #endif
 
 	mutex_init(&limit.msm_limiter_mutex);
-#if defined(CONFIG_LCD_NOTIFY) || \
-	defined(CONFIG_POWERSUSPEND) || \
-	defined(CONFIG_HAS_EARLYSUSPEND)
 	INIT_DELAYED_WORK(&limit.suspend_work, msm_limit_suspend);
 	INIT_WORK(&limit.resume_work, msm_limit_resume);
 
 	queue_work_on(0, limiter_wq, &limit.resume_work);
-#endif
 
 	return ret;
-#ifdef CONFIG_LCD_NOTIFY
+#ifndef CONFIG_POWERSUSPEND
 err_dev:
 	destroy_workqueue(limiter_wq);
 #endif
@@ -227,36 +210,20 @@ err_out:
 
 static void msm_cpufreq_limit_stop(void)
 {
-#if defined(CONFIG_LCD_NOTIFY) || \
-	defined(CONFIG_POWERSUSPEND) || \
-	defined(CONFIG_HAS_EARLYSUSPEND)
 	limit.suspended = 1;
-#endif
-
 	flush_workqueue(limiter_wq);
-
-#if defined(CONFIG_LCD_NOTIFY) || \
-	defined(CONFIG_POWERSUSPEND) || \
-	defined(CONFIG_HAS_EARLYSUSPEND)
 	cancel_work_sync(&limit.resume_work);
 	cancel_delayed_work_sync(&limit.suspend_work);
-#endif
 	mutex_destroy(&limit.msm_limiter_mutex);
-
-#ifdef CONFIG_LCD_NOTIFY
-	lcd_unregister_client(&limit.notif);
-	limit.notif.notifier_call = NULL;
-#elif defined(CONFIG_POWERSUSPEND)
+#ifdef CONFIG_POWERSUSPEND
 	unregister_power_suspend(&msm_limit_power_suspend_driver);
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-	unregister_early_suspend(&msm_limit_early_suspend_driver);
+#else
+	fb_unregister_client(&limit.notif);
+	limit.notif.notifier_call = NULL;
 #endif
 	destroy_workqueue(limiter_wq);
 }
 
-#if defined(CONFIG_LCD_NOTIFY) || \
-	defined(CONFIG_POWERSUSPEND) || \
-	defined(CONFIG_HAS_EARLYSUSPEND)
 static ssize_t suspend_defer_time_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
@@ -313,7 +280,6 @@ out:
 
 	return count;
 }
-#endif
 
 static ssize_t msm_cpufreq_limit_cpu0_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
@@ -455,9 +421,6 @@ static struct kobj_attribute msm_cpufreq_limit_version_attribute =
 		msm_cpufreq_limit_version_show,
 		NULL);
 
-#if defined(CONFIG_LCD_NOTIFY) || \
-	defined(CONFIG_POWERSUSPEND) || \
-	defined(CONFIG_HAS_EARLYSUSPEND)
 static struct kobj_attribute suspend_defer_time_attribute =
 	__ATTR(suspend_defer_time, 0666,
 		suspend_defer_time_show,
@@ -467,7 +430,6 @@ static struct kobj_attribute suspend_max_freq_attribute =
 	__ATTR(suspend_max_freq, 0666,
 		suspend_max_freq_show,
 		suspend_max_freq_store);
-#endif
 
 static struct attribute *msm_cpufreq_limit_attrs[] =
 	{
@@ -476,12 +438,8 @@ static struct attribute *msm_cpufreq_limit_attrs[] =
 		&msm_cpufreq_limit_cpu2_attribute.attr,
 		&msm_cpufreq_limit_cpu3_attribute.attr,
 		&msm_cpufreq_limit_version_attribute.attr,
-#if defined(CONFIG_LCD_NOTIFY) || \
-	defined(CONFIG_POWERSUSPEND) || \
-	defined(CONFIG_HAS_EARLYSUSPEND)
 		&suspend_defer_time_attribute.attr,
 		&suspend_max_freq_attribute.attr,
-#endif
 		NULL,
 	};
 
@@ -533,8 +491,8 @@ static void msm_cpufreq_limit_exit(void)
 module_init(msm_cpufreq_limit_init);
 module_exit(msm_cpufreq_limit_exit);
 
-MODULE_AUTHOR("Paul Reioux <reioux@gmail.com>");
-MODULE_AUTHOR("Dorimanx <yuri@bynet.co.il>");
-MODULE_AUTHOR("Pranav Vashi <neobuddy89@gmail.com>");
+MODULE_AUTHOR("Paul Reioux <reioux@gmail.com>, \
+		Dorimanx <yuri@bynet.co.il>, \
+		Pranav Vashi <neobuddy89@gmail.com>");
 MODULE_DESCRIPTION("MSM Krait CPU Frequency Limiter Driver");
 MODULE_LICENSE("GPL v2");

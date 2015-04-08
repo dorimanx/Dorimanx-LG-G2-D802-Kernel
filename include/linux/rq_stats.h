@@ -21,6 +21,7 @@ struct rq_data {
 	unsigned int def_interval;
 	unsigned int hotplug_disabled;
 	unsigned int hotplug_enabled;
+	unsigned int bricked_hotplug_enabled;
 	int64_t def_start_time;
 	struct attribute_group *attr_group;
 	struct kobject *kobj;

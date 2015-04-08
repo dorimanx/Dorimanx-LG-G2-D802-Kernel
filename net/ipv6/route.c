@@ -935,6 +935,8 @@ struct dst_entry * ip6_route_output(struct net *net, const struct sock *sk,
 {
 	int flags = 0;
 
+	fl6->flowi6_iif = net->loopback_dev->ifindex;
+
 	if ((sk && sk->sk_bound_dev_if) || rt6_need_strict(&fl6->daddr))
 		flags |= RT6_LOOKUP_F_IFACE;
 
@@ -2491,6 +2493,12 @@ static int rt6_fill_node(struct net *net,
 		NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
 	}
 
+    /* G3L netlink kernel crash in case of WiFi on/off repeat */
+    if (unlikely((unsigned long)dst_metrics_ptr(&rt->dst) < 2)) {
+        WARN(1, "Got null _metrics from rt->dst");
+        printk(KERN_DEBUG "Got null _metrics from rt->dst \n");
+        goto nla_put_failure;
+    }
 	if (rtnetlink_put_metrics(skb, dst_metrics_ptr(&rt->dst)) < 0)
 		goto nla_put_failure;
 
@@ -2587,6 +2595,9 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
 
 	if (tb[RTA_OIF])
 		oif = nla_get_u32(tb[RTA_OIF]);
+
+	if (tb[RTA_MARK])
+		fl6.flowi6_mark = nla_get_u32(tb[RTA_MARK]);
 
 	if (tb[RTA_UID])
 		fl6.flowi6_uid = nla_get_u32(tb[RTA_UID]);

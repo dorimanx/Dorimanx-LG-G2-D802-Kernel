@@ -18,7 +18,6 @@
  *
  */
 
-#include <linux/export.h>
 #include <net/addrconf.h>
 #include <net/ipv6.h>
 #include <net/ip6_route.h>
@@ -26,6 +25,7 @@
 #include <net/udp.h>
 #include <net/transp_v6.h>
 #include <net/ping.h>
+#include <linux/module.h>
 
 struct proto pingv6_prot = {
 	.name =		"PINGv6",
@@ -128,9 +128,10 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 
 	if (msg->msg_name) {
 		struct sockaddr_in6 *u = (struct sockaddr_in6 *) msg->msg_name;
-		if (msg->msg_namelen < sizeof(struct sockaddr_in6) ||
-		    u->sin6_family != AF_INET6) {
+		if (msg->msg_namelen < sizeof(*u))
 			return -EINVAL;
+		if (u->sin6_family != AF_INET6) {
+			return -EAFNOSUPPORT;
 		}
 		if (sk->sk_bound_dev_if &&
 		    sk->sk_bound_dev_if != u->sin6_scope_id) {
@@ -201,10 +202,7 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	if (hlimit < 0)
 		hlimit = ip6_dst_hoplimit(dst);
 
-/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [START] */
 	lock_sock(sk);
-/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [END] */
-
 	err = ip6_append_data(sk, ping_getfrag, &pfh, len,
 			      0, hlimit,
 			      np->tclass, NULL, &fl6, rt,
@@ -219,15 +217,10 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 						 (struct icmp6hdr *) &pfh.icmph,
 						 len);
 	}
-
-/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [START] */
 	release_sock(sk);
-	if(err)
-/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [END] */		
+
+	if (err)
 		return err;
 
-/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [START] */
 	return len;
-/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [END] */
-
 }

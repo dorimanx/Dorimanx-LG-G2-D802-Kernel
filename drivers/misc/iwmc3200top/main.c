@@ -601,8 +601,8 @@ static void iwmct_remove(struct sdio_func *func)
 	sdio_release_host(func);
 
 	/* Make sure works are finished */
-	flush_work_sync(&priv->bus_rescan_worker);
-	flush_work_sync(&priv->isr_worker);
+	flush_work(&priv->bus_rescan_worker);
+	flush_work(&priv->isr_worker);
 
 	sdio_claim_host(func);
 	sdio_disable_func(func);

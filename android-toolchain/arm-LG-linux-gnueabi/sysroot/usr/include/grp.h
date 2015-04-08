@@ -48,13 +48,13 @@ struct group
   };
 
 
-#if defined __USE_SVID || defined __USE_GNU
+#ifdef __USE_MISC
 # define __need_FILE
 # include <stdio.h>
 #endif
 
 
-#if defined __USE_SVID || defined __USE_BSD || defined __USE_XOPEN_EXTENDED
+#if defined __USE_MISC || defined __USE_XOPEN_EXTENDED
 /* Rewind the group-file stream.
 
    This function is a possible cancellation point and therefore not
@@ -62,8 +62,7 @@ struct group
 extern void setgrent (void);
 #endif
 
-#if defined __USE_SVID || defined __USE_BSD || defined __USE_XOPEN_EXTENDED \
-    || defined __USE_XOPEN2K8
+#if defined __USE_XOPEN_EXTENDED || defined __USE_XOPEN2K8
 /* Close the group-file stream.
 
    This function is a possible cancellation point and therefore not
@@ -77,7 +76,7 @@ extern void endgrent (void);
 extern struct group *getgrent (void);
 #endif
 
-#ifdef	__USE_SVID
+#ifdef	__USE_MISC
 /* Read a group entry from STREAM.
 
    This function is not part of POSIX and therefore no official
@@ -110,7 +109,7 @@ extern struct group *getgrgid (__gid_t __gid);
    marked with __THROW.  */
 extern struct group *getgrnam (const char *__name);
 
-#if defined __USE_POSIX || defined __USE_MISC
+#ifdef __USE_POSIX
 
 # ifdef __USE_MISC
 /* Reasonable value for the buffer sized used in the reentrant
@@ -154,7 +153,7 @@ extern int getgrnam_r (const char *__restrict __name,
 		       char *__restrict __buffer, size_t __buflen,
 		       struct group **__restrict __result);
 
-# ifdef	__USE_SVID
+# ifdef	__USE_MISC
 /* Read a group entry from STREAM.  This function is not standardized
    an probably never will.
 
@@ -171,7 +170,7 @@ extern int fgetgrent_r (FILE *__restrict __stream,
 #endif	/* POSIX or reentrant */
 
 
-#ifdef	__USE_BSD
+#ifdef	__USE_MISC
 
 # define __need_size_t
 # include <stddef.h>
@@ -200,7 +199,7 @@ extern int getgrouplist (const char *__user, __gid_t __group,
    therefore not marked with __THROW.  */
 extern int initgroups (const char *__user, __gid_t __group);
 
-#endif /* Use BSD.  */
+#endif /* Use misc.  */
 
 __END_DECLS
 

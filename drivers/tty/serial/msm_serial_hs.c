@@ -1254,6 +1254,11 @@ unsigned int msm_hs_tx_empty(struct uart_port *uport)
 	unsigned int ret = 0;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 
+	if (msm_uport->clk_state == MSM_HS_CLK_PORT_OFF) {
+		printk(KERN_ERR "%s:UART port is closed\n", __func__);
+		return -EPERM;
+	}
+
 	ret = msm_hs_clock_vote(msm_uport);
 	if (ret) {
 		printk(KERN_ERR "%s: Error could not turn on UART clk\n",
@@ -1907,6 +1912,11 @@ void msm_hs_set_mctrl(struct uart_port *uport,
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	int ret;
 
+	if (msm_uport->clk_state == MSM_HS_CLK_PORT_OFF) {
+		printk(KERN_ERR "%s:UART port is closed\n", __func__);
+		return ;
+	}
+
 	ret = msm_hs_clock_vote(msm_uport);
 	if (ret) {
 		printk(KERN_ERR "%s: Error could not turn on UART clk\n",
@@ -2257,6 +2267,10 @@ void msm_hs_request_clock_off(struct uart_port *uport) {
 	unsigned long flags;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 
+	if (msm_uport->clk_state == MSM_HS_CLK_PORT_OFF) {
+		printk(KERN_ERR "%s:UART port is closed\n", __func__);
+		return ;
+	}
 	spin_lock_irqsave(&uport->lock, flags);
 	if (msm_uport->clk_state == MSM_HS_CLK_ON) {
 		msm_uport->clk_state = MSM_HS_CLK_REQUEST_OFF;
@@ -2279,6 +2293,11 @@ void msm_hs_request_clock_on(struct uart_port *uport)
 	unsigned long flags;
 	unsigned int data;
 	int ret = 0;
+
+	if (msm_uport->clk_state == MSM_HS_CLK_PORT_OFF) {
+		printk(KERN_ERR "%s:UART port is closed\n", __func__);
+		return ;
+	}
 
 	mutex_lock(&msm_uport->clk_mutex);
 	spin_lock_irqsave(&uport->lock, flags);
@@ -3109,7 +3128,9 @@ int msm_hs_get_bt_uport_clock_state(struct uart_port *uport)
 	switch (msm_uport->clk_state) {
 		case MSM_HS_CLK_ON:
 		case MSM_HS_CLK_PORT_OFF:
+#ifdef JUNK
 			printk(KERN_ERR "UART Clock already on or port not use : %d\n", msm_uport->clk_state);
+#endif
 			ret = CLOCK_REQUEST_UNAVAILABLE;
 			break;
 		case MSM_HS_CLK_REQUEST_OFF:
@@ -3460,7 +3481,7 @@ static int __init msm_serial_hs_init(void)
 	int i;
 
 	ipc_msm_hs_log_ctxt = ipc_log_context_create(IPC_MSM_HS_LOG_PAGES,
-							"msm_serial_hs");
+							"msm_serial_hs", 0);
 	if (!ipc_msm_hs_log_ctxt)
 		MSM_HS_WARN("%s: error creating logging context", __func__);
 

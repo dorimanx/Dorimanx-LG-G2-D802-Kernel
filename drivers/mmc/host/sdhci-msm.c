@@ -43,14 +43,8 @@
 #include <linux/iopoll.h>
 
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/*           
-                                                    
-                                              
-                            
- */
 #include <linux/debugfs.h>
 #endif
-
 #include "sdhci-pltfm.h"
 
 enum sdc_mpm_pin_state {
@@ -141,9 +135,14 @@ enum sdc_mpm_pin_state {
 #define CORE_MCI_DATA_CTRL	0x2C
 #define CORE_MCI_DPSM_ENABLE	(1 << 0)
 
+#define CORE_MCI_DATA_CNT 0x30
+#define CORE_MCI_STATUS 0x34
+#define CORE_MCI_FIFO_CNT 0x44
+
 #define CORE_TESTBUS_CONFIG	0x0CC
+#define CORE_TESTBUS_SEL2_BIT	4
 #define CORE_TESTBUS_ENA	(1 << 3)
-#define CORE_TESTBUS_SEL2	(1 << 4)
+#define CORE_TESTBUS_SEL2	(1 << CORE_TESTBUS_SEL2_BIT)
 
 #define CORE_MCI_VERSION	0x050
 #define CORE_VERSION_310	0x10000011
@@ -355,13 +354,7 @@ enum vdd_io_level {
 	 */
 	VDD_IO_SET_LEVEL,
 };
-
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/*           
-                                                    
-                                              
-                            
- */
 static void msmsdhci_dbg_createhost(struct sdhci_msm_host *);
 #endif
 
@@ -1104,6 +1097,10 @@ static int sdhci_msm_dt_parse_vreg_info(struct device *dev,
 	if (of_get_property(np, prop_name, NULL))
 		vreg->lpm_sup = true;
 
+	prop = of_get_property(np, prop_name, &len);
+    if (prop != NULL && len >0 && of_compat_cmp((const char*)prop, "disable", strlen("disable")) == 0)
+        vreg->lpm_sup = false;
+
 	snprintf(prop_name, MAX_PROP_SIZE,
 			"qcom,%s-voltage-level", vreg_name);
 	prop = of_get_property(np, prop_name, &len);
@@ -1373,7 +1370,9 @@ out:
 }
 
 /* Parse platform data */
-static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
+static
+struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
+						struct sdhci_msm_host *msm_host)
 {
 	struct sdhci_msm_pltfm_data *pdata = NULL;
 	struct device_node *np = dev->of_node;
@@ -1479,6 +1478,8 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 		pdata->mpm_sdiowakeup_int = mpm_int;
 	else
 		pdata->mpm_sdiowakeup_int = -1;
+
+	msm_host->mmc->wakeup_on_idle = true;
 
 	return pdata;
 out:
@@ -2209,10 +2210,25 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 	unsigned long flags;
 	bool done = false;
 
+#ifdef CONFIG_LGE_MMC_SD_USE_SDCC3
+	if (strcmp(host->hw_name, "msm_sdcc.3") == 0) {
+		if (req_type == REQ_IO_HIGH) {
+			/* Switch voltage High */
+			sdhci_msm_set_vdd_io_vol(msm_host->pdata, VDD_IO_HIGH, 0);
+			msm_host->curr_io_level = REQ_IO_HIGH;
+		} else if (req_type == REQ_IO_LOW) {
+			/* Switch voltage Low */
+			sdhci_msm_set_vdd_io_vol(msm_host->pdata, VDD_IO_LOW, 0);
+			msm_host->curr_io_level = REQ_IO_LOW;
+		}
+	}
+#endif
+
 	spin_lock_irqsave(&host->lock, flags);
 	pr_debug("%s: %s: request %d curr_pwr_state %x curr_io_level %x\n",
 			mmc_hostname(host->mmc), __func__, req_type,
 			msm_host->curr_pwr_state, msm_host->curr_io_level);
+
 	if ((req_type & msm_host->curr_pwr_state) ||
 			(req_type & msm_host->curr_io_level))
 		done = true;
@@ -2676,6 +2692,61 @@ static void sdhci_msm_disable_data_xfer(struct sdhci_host *host)
 	udelay(CORE_AHB_DESC_DELAY_US);
 }
 
+#define MAX_TEST_BUS 20
+
+void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int tbsel, tbsel2;
+	int i, index = 0;
+	u32 test_bus_val = 0;
+	u32 debug_reg[MAX_TEST_BUS] = {0};
+
+	pr_info("----------- VENDOR REGISTER DUMP -----------\n");
+	pr_info("Data cnt: 0x%08x | Fifo cnt: 0x%08x | Int sts: 0x%08x\n",
+			readl_relaxed(msm_host->core_mem + CORE_MCI_DATA_CNT),
+			readl_relaxed(msm_host->core_mem + CORE_MCI_FIFO_CNT),
+			readl_relaxed(msm_host->core_mem + CORE_MCI_STATUS));
+	pr_info("DLL cfg:  0x%08x | DLL sts:  0x%08x | SDCC ver: 0x%08x\n",
+			readl_relaxed(host->ioaddr + CORE_DLL_CONFIG),
+			readl_relaxed(host->ioaddr + CORE_DLL_STATUS),
+			readl_relaxed(msm_host->core_mem + CORE_MCI_VERSION));
+	pr_info("Vndr func: 0x%08x | Vndr adma err : addr0: 0x%08x addr1: 0x%08x\n",
+			readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC),
+			readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC_ADMA_ERR_ADDR0),
+			readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC_ADMA_ERR_ADDR1));
+
+	/*
+	 * tbsel indicates [2:0] bits and tbsel2 indicates [7:4] bits
+	 * of CORE_TESTBUS_CONFIG register.
+	 *
+	 * To select test bus 0 to 7 use tbsel and to select any test bus
+	 * above 7 use (tbsel2 | tbsel) to get the test bus number. For eg,
+	 * to select test bus 14, write 0x1E to CORE_TESTBUS_CONFIG register
+	 * i.e., tbsel2[7:4] = 0001, tbsel[2:0] = 110.
+	 */
+	for (tbsel2 = 0; tbsel2 < 3; tbsel2++) {
+		for (tbsel = 0; tbsel < 8; tbsel++) {
+			if (index >= MAX_TEST_BUS)
+				break;
+			test_bus_val = (tbsel2 << CORE_TESTBUS_SEL2_BIT) |
+				tbsel | CORE_TESTBUS_ENA;
+			writel_relaxed(test_bus_val,
+					msm_host->core_mem + CORE_TESTBUS_CONFIG);
+			debug_reg[index++] = readl_relaxed(msm_host->core_mem +
+					CORE_SDCC_DEBUG_REG);
+		}
+	}
+	for (i = 0; i < MAX_TEST_BUS; i = i + 4)
+		pr_info(" Test bus[%d to %d]: 0x%08x 0x%08x 0x%08x 0x%08x\n",
+				i, i + 3, debug_reg[i], debug_reg[i+1],
+				debug_reg[i+2], debug_reg[i+3]);
+	/* Disable test bus */
+	writel_relaxed(~CORE_TESTBUS_ENA, msm_host->core_mem +
+			CORE_TESTBUS_CONFIG);
+}
+
 static struct sdhci_ops sdhci_msm_ops = {
 	.set_uhs_signaling = sdhci_msm_set_uhs_signaling,
 	.check_power_status = sdhci_msm_check_power_status,
@@ -2686,25 +2757,9 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.get_min_clock = sdhci_msm_get_min_clock,
 	.get_max_clock = sdhci_msm_get_max_clock,
 	.disable_data_xfer = sdhci_msm_disable_data_xfer,
+	.dump_vendor_regs = sdhci_msm_dump_vendor_regs,
 	.enable_controller_clock = sdhci_msm_enable_controller_clock,
 };
-
-#ifdef CONFIG_MMC_SDHCI_MSM_DISABLE_HPI
-static void populate_hpi_mode(struct platform_device *pdev,
-					struct sdhci_msm_host *msm_host)
-{
-	dev_dbg(&pdev->dev,"%s: Disabling HPI mode\n", __func__);
-	return;
-}
-#else
-static void populate_hpi_mode(struct platform_device *pdev,
-					struct sdhci_msm_host *msm_host)
-{
-	msm_host->mmc->caps2 |= MMC_CAP2_STOP_REQUEST;
-	dev_dbg(&pdev->dev,"%s: Enabling HPI mode\n", __func__);
-	return;
-}
-#endif
 
 static int sdhci_msm_cfg_mpm_pin_wakeup(struct sdhci_host *host, unsigned mode)
 {
@@ -2737,6 +2792,23 @@ static int sdhci_msm_cfg_mpm_pin_wakeup(struct sdhci_host *host, unsigned mode)
 	}
 	return ret;
 }
+
+#ifdef CONFIG_MMC_SDHCI_MSM_DISABLE_HPI
+static void populate_hpi_mode(struct platform_device *pdev,
+					struct sdhci_msm_host *msm_host)
+{
+	dev_dbg(&pdev->dev,"%s: Disabling HPI mode\n", __func__);
+	return;
+}
+#else
+static void populate_hpi_mode(struct platform_device *pdev,
+					struct sdhci_msm_host *msm_host)
+{
+	msm_host->mmc->caps2 |= MMC_CAP2_STOP_REQUEST;
+	dev_dbg(&pdev->dev,"%s: Enabling HPI mode\n", __func__);
+	return;
+}
+#endif
 
 static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 {
@@ -2785,7 +2857,8 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 			goto pltfm_free;
 		}
 
-		msm_host->pdata = sdhci_msm_populate_pdata(&pdev->dev);
+		msm_host->pdata = sdhci_msm_populate_pdata(&pdev->dev,
+							   msm_host);
 		if (!msm_host->pdata) {
 			dev_err(&pdev->dev, "DT parsing error\n");
 			goto pltfm_free;
@@ -3017,18 +3090,16 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 				MMC_CAP2_DETECT_ON_ERR);
 	msm_host->mmc->caps2 |= MMC_CAP2_SANITIZE;
 	msm_host->mmc->caps2 |= MMC_CAP2_CACHE_CTRL;
-	#ifdef CONFIG_MACH_LGE
-	/*
-                          
-                                                           
- */
-	msm_host->mmc->caps2 |= MMC_CAP2_INIT_BKOPS;
-	#endif
 	msm_host->mmc->caps2 |= MMC_CAP2_POWEROFF_NOTIFY;
 	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
-	msm_host->mmc->caps2 |= MMC_CAP2_STOP_REQUEST;
+
 	msm_host->mmc->caps2 |= MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE;
 	msm_host->mmc->caps2 |= MMC_CAP2_CORE_PM;
+#ifdef CONFIG_MACH_LGE
+#if defined (CONFIG_LGE_MMC_BKOPS_ENABLE) && defined(CONFIG_MMC_SDHCI_MSM)
+	msm_host->mmc->caps2 |= MMC_CAP2_INIT_BKOPS;
+#endif
+#endif
 	msm_host->mmc->pm_caps |= MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ;
 
 	populate_hpi_mode(pdev, msm_host);
@@ -3049,10 +3120,6 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 			goto vreg_deinit;
 		}
 	}
-
-    #ifdef CONFIG_MACH_LGE
-	irq_set_irq_wake(host->mmc->hotplug.irq, 1);
-    #endif
 
 	if (dma_supported(mmc_dev(host->mmc), DMA_BIT_MASK(32))) {
 		host->dma_mask = DMA_BIT_MASK(32);
@@ -3127,16 +3194,9 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 
 	device_enable_async_suspend(&pdev->dev);
 	/* Successful initialization */
-
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/*           
-                                                    
-                                        
-                            
- */
     msmsdhci_dbg_createhost(msm_host);
 #endif
-
 	goto out;
 
 remove_max_bus_bw_file:
@@ -3323,18 +3383,12 @@ skip_enable_host_irq:
 static int sdhci_msm_suspend(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
-
-    #ifndef CONFIG_MACH_LGE
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
-    #endif
-
 	int ret = 0;
 
-    #ifndef CONFIG_MACH_LGE
 	if (gpio_is_valid(msm_host->pdata->status_gpio))
 		mmc_cd_gpio_free(msm_host->mmc);
-    #endif
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: already runtime suspended\n",
@@ -3350,15 +3404,10 @@ out:
 static int sdhci_msm_resume(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
-
-    #ifndef CONFIG_MACH_LGE
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
-    #endif
-
 	int ret = 0;
 
-    #ifndef CONFIG_MACH_LGE
 	if (gpio_is_valid(msm_host->pdata->status_gpio)) {
 		ret = mmc_cd_gpio_request(msm_host->mmc,
 				msm_host->pdata->status_gpio);
@@ -3366,7 +3415,6 @@ static int sdhci_msm_resume(struct device *dev)
 			pr_err("%s: %s: Failed to request card detection IRQ %d\n",
 					mmc_hostname(host->mmc), __func__, ret);
 	}
-    #endif
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: runtime suspended, defer system resume\n",
@@ -3434,13 +3482,7 @@ module_platform_driver(sdhci_msm_driver);
 
 MODULE_DESCRIPTION("Qualcomm Secure Digital Host Controller Interface driver");
 MODULE_LICENSE("GPL v2");
-
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/*           
-                                                    
-                                        
-                            
- */
 static int gpio_to_value(int cfg)
 {
 	switch (cfg) {

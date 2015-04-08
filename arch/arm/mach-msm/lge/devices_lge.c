@@ -607,6 +607,25 @@ enum lge_boot_mode_type lge_get_boot_mode(void)
 	return lge_boot_mode;
 }
 
+#ifdef CONFIG_MACH_MSM8974_G2_VZW
+static int lge_battery_low = 0;
+int __init lge_is_battery_low(char *status)
+{
+
+	if(!strcmp(status, "trickle"))
+		lge_battery_low = 1;
+
+	return 1;
+	printk("charging status : %s/n", status);
+}
+__setup("is_battery_low=", lge_is_battery_low);
+
+int lge_get_battery_low(void)
+{
+	return lge_battery_low;
+}
+#endif
+
 int lge_get_factory_boot(void)
 {
 	int res;

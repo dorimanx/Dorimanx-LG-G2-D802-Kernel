@@ -574,7 +574,7 @@ static int audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			}
 			audio->audio_ep_enabled = true;
 			if (audio->triggered) {
-				// resume playing if we are still triggered
+				/* resume playing if we are still triggered */
 				audio_pcm_playback_start(audio);
 			}
 		} else if (!alt && audio->audio_ep_enabled) {

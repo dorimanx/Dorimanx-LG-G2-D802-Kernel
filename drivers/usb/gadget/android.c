@@ -226,6 +226,9 @@ struct android_dev {
 	struct usb_composite_dev *cdev;
 	struct device *dev;
 
+	void (*setup_complete)(struct usb_ep *ep,
+				struct usb_request *req);
+
 	bool enabled;
 	int disable_depth;
 	struct mutex mutex;
@@ -293,7 +296,6 @@ extern enum tri_state_lpm_type get_tri_state_lpm(void);
 #define LGE_PIF_PID 0x6000
 #define LGE_PIF_SN 0
 #endif
-
 static char manufacturer_string[256];
 static char product_string[256];
 static char serial_string[256];
@@ -382,7 +384,6 @@ static void android_pm_qos_update_latency(struct android_dev *dev, int vote)
 }
 
 extern int lge_get_sbl_cable_type(void);
-
 static void android_work(struct work_struct *data)
 {
 	struct android_dev *dev = container_of(data, struct android_dev, work);
@@ -474,23 +475,21 @@ static void android_work(struct work_struct *data)
     if (uevent_envp == connected) {
 #endif
 		if (lge_pm_get_cable_type() == CABLE_56K &&
-				lge_get_boot_mode() == LGE_BOOT_MODE_NORMAL) {
+			lge_get_boot_mode() == LGE_BOOT_MODE_NORMAL) {
 			usb_gadget_disconnect(cdev->gadget);
 			usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
 			pr_info("[FACTORY] PIF_56K detected in NORMAL BOOT, reboot!!\n");
-			/* wait for usb gadget disconnect */
-			msleep(50);
+			msleep(50); /*wait for usb gadget disconnect*/
 			kernel_restart(NULL);
 		} else if (lge_pm_get_cable_type() == CABLE_910K &&
-				(lge_get_sbl_cable_type() != 11 || !firstboot_check)) {
+					(lge_get_sbl_cable_type() != 11 || !firstboot_check)) {
 			usb_gadget_disconnect(cdev->gadget);
 			usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
 			pr_info("[FACTORY] reset due to 910K cable, pm:%d, sbl:%d, firstboot_check:%d\n",
-					lge_pm_get_cable_type(), lge_get_sbl_cable_type(), firstboot_check);
-			/* wait for usb gadget disconnect */
-			msleep(50);
+			lge_pm_get_cable_type(), lge_get_sbl_cable_type(), firstboot_check);
+			msleep(50); /*wait for usb gadget disconnect*/
 
-			/* write magic number for laf mode */
+			/*write magic number for laf mode*/
 			msm_set_restart_mode(RESTART_DLOAD);
 			kernel_restart(NULL);
 		}
@@ -499,9 +498,9 @@ static void android_work(struct work_struct *data)
 #endif
 	}
 
-	if (uevent_envp == configured)	{
+	if (uevent_envp == configured) {
 		pr_info("[cable info] boot_mode:%d, dlcomplete:%d\n",
-				lge_get_boot_mode(), lge_get_android_dlcomplete());
+					lge_get_boot_mode(), lge_get_android_dlcomplete());
 		firstboot_check = 0;
 	}
 #endif
@@ -736,7 +735,6 @@ static void laf_closed_callback(void)
 
 	data->opened = false;
 }
-
 
 /*-------------------------------------------------------------------------*/
 /* Supported functions initialization */
@@ -2085,8 +2083,6 @@ static struct android_usb_function ecm_function = {
 	.attributes	= ecm_function_attributes,
 };
 
-
-
 #ifdef CONFIG_USB_G_LGE_ANDROID
 static const char lge_vendor_name[] = "LGE";
 static const char lge_product_name[] = CONFIG_USB_G_LGE_ANDROID_STORAGE_NAME;
@@ -2968,17 +2964,18 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 
 	if (!cdev)
 		return -ENODEV;
+
+	mutex_lock(&dev->mutex);
 #ifdef CONFIG_USB_G_LGE_ANDROID
 	dev_info(dev->dev, "gadget enable(%s)\n", buff);
 #endif
 #if defined CONFIG_USB_G_LGE_ANDROID && defined CONFIG_LGE_PM
 	if (dev->check_pif) {
 		dev_info(dev->dev, "pif cable is plugged, not permitted\n");
+		mutex_unlock(&dev->mutex);
 		return -EPERM;
 	}
 #endif
-
-	mutex_lock(&dev->mutex);
 
 	sscanf(buff, "%d", &enabled);
 	if (enabled && !dev->enabled) {
@@ -3030,6 +3027,7 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 			cdev->desc.iSerialNumber = 0;
 		}
 #endif
+
 		/* Audio dock accessory is unable to enumerate device if
 		 * pull-up is enabled immediately. The enumeration is
 		 * reliable with 100 msec delay.
@@ -3152,12 +3150,12 @@ field ## _show(struct device *dev, struct device_attribute *attr,	\
 }									\
 static ssize_t								\
 field ## _store(struct device *dev, struct device_attribute *attr,	\
-		const char *buf, size_t size)		       		\
+		const char *buf, size_t size)				\
 {									\
-	int value;					       		\
-	struct android_dev *adev = dev_get_drvdata(dev); \
-	if (adev->check_pif) \
-		return -EPERM; \
+	int value;							\
+	struct android_dev *adev = dev_get_drvdata(dev);		\
+	if (adev->check_pif)						\
+		return -EPERM;						\
 	if (sscanf(buf, format_string, &value) == 1) {			\
 		device_desc.field = value;				\
 		return size;						\
@@ -3175,17 +3173,16 @@ field ## _show(struct device *dev, struct device_attribute *attr,	\
 }									\
 static ssize_t								\
 field ## _store(struct device *dev, struct device_attribute *attr,	\
-		const char *buf, size_t size)		       		\
+		const char *buf, size_t size)				\
 {									\
-	struct android_dev *adev = dev_get_drvdata(dev); \
-	if (adev->check_pif) \
-		return -EPERM; \
-	if (size >= sizeof(buffer)) \
-		return -EINVAL;			\
-	if (sscanf(buf, "%255s", buffer) == 1) {			\
-		return size;						\
-	}								\
-	return -1;							\
+	struct android_dev *adev = dev_get_drvdata(dev);		\
+	if (adev->check_pif)						\
+		return -EPERM;						\
+	if (size >= sizeof(buffer))					\
+		return -EINVAL;						\
+	strlcpy(buffer, buf, sizeof(buffer));				\
+	strim(buffer);							\
+	return size;							\
 }									\
 static DEVICE_ATTR(field, S_IRUGO | S_IWUSR, field ## _show, field ## _store);
 #else /* google original */
@@ -3435,6 +3432,9 @@ static int android_bind(struct usb_composite_dev *cdev)
 
 	dev->cdev = cdev;
 
+	/* Save the default handler */
+	dev->setup_complete = cdev->req->complete;
+
 	/*
 	 * Start disconnected. Userspace will connect the gadget once
 	 * it is done configuring the functions.
@@ -3570,6 +3570,7 @@ android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 	req->zero = 0;
 	req->complete = composite_setup_complete;
 	req->length = 0;
+	req->complete = dev->setup_complete;
 	gadget->ep0->driver_data = cdev;
 
 	list_for_each_entry(conf, &dev->configs, list_item)
