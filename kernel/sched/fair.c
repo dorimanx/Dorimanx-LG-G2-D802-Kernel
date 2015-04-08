@@ -2445,7 +2445,7 @@ static void check_spread(struct cfs_rq *cfs_rq, struct sched_entity *se)
 }
 
 static unsigned int Lgentle_fair_sleepers = 1;
-static unsigned int Larch_power = 0;
+static unsigned int Larch_power = 1;
 
 void relay_gfs(unsigned int gfs)
 {
@@ -5147,6 +5147,9 @@ static unsigned long default_scale_smt_power(struct sched_domain *sd, int cpu)
 	return smt_gain;
 }
 
+/* if architecture dependent power
+ *  function not defined, return default one
+ *   - comment by duki994 */
 unsigned long __weak arch_scale_smt_power(struct sched_domain *sd, int cpu)
 {
 	return default_scale_smt_power(sd, cpu);
@@ -5189,6 +5192,8 @@ static void update_cpu_power(struct sched_domain *sd, int cpu)
 
 	if ((sd->flags & SD_SHARE_CPUPOWER) && weight > 1) {
 		if (Larch_power)
+			/* uses architecture dependent
+			 * cpu power function - comment by duki994 */
 			power *= arch_scale_smt_power(sd, cpu);
 		else
 			power *= default_scale_smt_power(sd, cpu);
@@ -5202,6 +5207,8 @@ static void update_cpu_power(struct sched_domain *sd, int cpu)
 	power >>= SCHED_POWER_SHIFT;
 
 	if (Larch_power)
+		/* uses architecture dependent
+		 * cpu power function - comment by duki994 */
 		power *= arch_scale_freq_power(sd, cpu);
 	else
 		power *= default_scale_freq_power(sd, cpu);
