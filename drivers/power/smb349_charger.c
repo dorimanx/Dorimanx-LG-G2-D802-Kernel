@@ -671,8 +671,13 @@ static bool smb349_is_charger_present_rt(struct i2c_client *client)
 	if (power_ok) {
 		voltage = smb349_get_usbin_adc();
 		pr_err("DC is present. DC_IN volt:%d\n", voltage);
-	} else
+	} else {
 		pr_err("DC is missing.\n");
+#ifdef CONFIG_LGE_THERMALE_CHG_CONTROL
+		if (wake_lock_active(&smb349_chg->lcs_wake_lock))
+			wake_unlock(&smb349_chg->lcs_wake_lock);
+#endif
+	}
 
 	return power_ok;
 
@@ -715,6 +720,16 @@ static bool smb349_is_charger_present(struct i2c_client *client)
 	} else {
 		pr_err("DC is missing.\n");
 		power_source_state = 0;
+
+		/*
+		 * Release LGE Charging Scenario wakelock if stuck.
+		 * usb_power_curr_now is now unneeded
+		 * since function determined that there is no DC current
+		 */
+		if (wake_lock_active(&smb349_chg->lcs_wake_lock)) {
+			wake_unlock(&smb349_chg->lcs_wake_lock);
+			pr_info("thermal-engine: Releasing LGE charging scenario wakelock\n");
+		}
 	}
 
 	return power_ok;
