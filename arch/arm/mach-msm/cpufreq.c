@@ -314,23 +314,6 @@ static unsigned int msm_cpufreq_get_freq(unsigned int cpu)
 	return acpuclk_get_rate(cpu);
 }
 
-/* This function is used in MSM_THERMAL DRIVER */
-int msm_cpufreq_get_index(struct cpufreq_policy *policy, unsigned int freq)
-{
-	int index;
-	struct cpufreq_frequency_table *table;
-
-	table = cpufreq_frequency_get_table(policy->cpu);
-	if (unlikely(!table))
-		return -ENODEV;
-
-	for (index = 0; table[index].frequency != CPUFREQ_TABLE_END; index++)
-		if (table[index].frequency == freq)
-			return index;
-
-	return -EINVAL;
-}
-
 static int __cpuinit msm_cpufreq_init(struct cpufreq_policy *policy)
 {
 	int cur_freq;
