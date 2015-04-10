@@ -36,7 +36,9 @@ obj-$(CONFIG_LGE_BOOTLOADER_TIME_CHECKER) += lge_bootloader_time_checker.o
 obj-$(CONFIG_LGE_ECO_MODE) += lge_kernel_driver.o
 obj-$(CONFIG_LGE_BLUETOOTH) += board-8974-g2-rfkill.o
 obj-$(CONFIG_LGE_QFPROM_INTERFACE) += lge_qfprom_access.o
+ifeq ($(CONFIG_DEBUG_FS),y)
 obj-$(CONFIG_LGE_PM) += lge_gpio_debug.o
+endif
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_VU3EVB) +=board-vu3evb-input.o
 obj-$(CONFIG_MACH_LGE) += lge_kcal_ctrl.o
 
