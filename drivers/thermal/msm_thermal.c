@@ -696,20 +696,6 @@ fail:
 	return ret;
 }
 
-static int update_cpu_max_freq(int cpu, uint32_t max_freq)
-{
-	int ret = 0;
-
-	get_online_cpus();
-	for_each_online_cpu(cpu) {
-		if (cpufreq_update_policy(cpu))
-			pr_info("Unable to update policy for cpu:%d\n", cpu);
-	}
-	put_online_cpus();
-
-	return ret;
-}
-
 #ifdef CONFIG_SMP
 static void __ref do_core_control(long temp)
 {
@@ -948,7 +934,10 @@ static void __ref do_freq_control(long temp)
 		if (!(msm_thermal_info_local.freq_control_mask & BIT(cpu)))
 			continue;
 		cpus[cpu].limited_max_freq = max_freq;
-		update_cpu_max_freq(cpu, max_freq);
+		if (cpu_online(cpu)) {
+			if (cpufreq_update_policy(cpu))
+				pr_info("Unable to update policy for cpu:%d\n", cpu);
+		}
 	}
 	put_online_cpus();
 }
