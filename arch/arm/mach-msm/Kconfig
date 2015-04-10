@@ -278,10 +278,10 @@ config ARCH_MSM8974
 	select ARM_HAS_SG_CHAIN
 	select MSM_RUN_QUEUE_STATS
 	select MEMORY_HOLE_CARVEOUT
-	select MSM_RPM_STATS_LOG
+#	select MSM_RPM_STATS_LOG
 	select QMI_ENCDEC
 	select MSM_ULTRASOUND_B
-	select MSM_RPM_LOG
+#	select MSM_RPM_LOG
 	select ARCH_WANT_KMAP_ATOMIC_FLUSH
 	select KRAIT_REGULATOR
 	select ENABLE_VMALLOC_SAVINGS
@@ -2382,7 +2382,7 @@ config MSM_RPM_LOG
 	tristate "MSM Resource Power Manager Log Driver"
 	depends on DEBUG_FS
 	depends on MSM_RPM || MSM_RPM_SMD
-	default n
+	default y
 	help
 	  This option enables a driver which can read from a circular buffer
 	  of messages produced by the RPM. These messages provide diagnostic
@@ -2393,7 +2393,7 @@ config MSM_RPM_STATS_LOG
 	tristate "MSM Resource Power Manager Stat Driver"
 	depends on DEBUG_FS
 	depends on MSM_RPM || MSM_RPM_SMD
-	default n
+	default y
 	  help
 	  This option enables a driver which reads RPM messages from a shared
 	  memory location. These messages provide statistical information about
