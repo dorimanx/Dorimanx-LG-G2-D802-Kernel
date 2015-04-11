@@ -2644,7 +2644,6 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = copy_from_user(&dsi_panel_invert, argp, sizeof(int));
 		if (ret)
 			return ret;
-		ret = mdss_dsi_panel_invert(dsi_panel_invert);
 		break;
 #endif
 #if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG)

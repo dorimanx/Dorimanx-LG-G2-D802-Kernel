@@ -29,10 +29,6 @@ config LGE_SUPPORT_LCD_MAKER_ID
 	bool "LGE LCD MAKER ID support configuration"
 	help
 	Say Y here to enable support for LCD MAKER ID lge feature.
-config LCD_KCAL
-	depends on MACH_LGE
-	bool "Enable sysfs for LCD KCAL"
-	default n
 config MACH_MSM8974_A1
 	depends on MACH_LGE
 	bool "LGE LCD support configuration for A1"
