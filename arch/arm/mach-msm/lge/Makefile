@@ -40,6 +40,5 @@ ifeq ($(CONFIG_DEBUG_FS),y)
 obj-$(CONFIG_LGE_PM) += lge_gpio_debug.o
 endif
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_VU3EVB) +=board-vu3evb-input.o
-obj-$(CONFIG_MACH_LGE) += lge_kcal_ctrl.o
 
 CFLAGS_devices_lge.o += -Idrivers/staging/android

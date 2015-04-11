@@ -50,16 +50,6 @@
 #include "../platsmp.h"
 #include <mach/board_lge.h>
 
-#if defined(CONFIG_LCD_KCAL)
-/*             
-                          
-                                
-*/
-#include <linux/module.h>
-#include "../../../../drivers/video/msm/mdss/mdss_fb.h"
-extern int update_preset_lcdc_lut(void);
-#endif /* CONFIG_LCD_KCAL */
-
 static struct memtype_reserve msm8974_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
 	},
@@ -110,72 +100,6 @@ void __init lge_add_lcd_misc_devices(void)
 }
 #endif
 
-#if defined(CONFIG_LCD_KCAL)
-/*             
-                          
-                                
-*/
-extern int g_kcal_r;
-extern int g_kcal_g;
-extern int g_kcal_b;
-
-int kcal_set_values(int kcal_r, int kcal_g, int kcal_b)
-{
-#if defined(CONFIG_MACH_MSM8974_A1)
-		int is_update = 0;
-
-		int kcal_r_limit = 0;
-		int kcal_g_limit = 0;
-		int kcal_b_limit = 0;
-
-		g_kcal_r = kcal_r < kcal_r_limit ? kcal_r_limit : kcal_r;
-		g_kcal_g = kcal_g < kcal_g_limit ? kcal_g_limit : kcal_g;
-		g_kcal_b = kcal_b < kcal_b_limit ? kcal_b_limit : kcal_b;
-
-		if (kcal_r < kcal_r_limit || kcal_g < kcal_g_limit || kcal_b < kcal_b_limit)
-			is_update = 1;
-		if (is_update)
-			update_preset_lcdc_lut();
-#else
-		g_kcal_r = kcal_r;
-		g_kcal_g = kcal_g;
-		g_kcal_b = kcal_b;
-#endif
-	return 0;
-}
-
-static int kcal_get_values(int *kcal_r, int *kcal_g, int *kcal_b)
-{
-	*kcal_r = g_kcal_r;
-	*kcal_g = g_kcal_g;
-	*kcal_b = g_kcal_b;
-	return 0;
-}
-
-static int kcal_refresh_values(void)
-{
-	return update_preset_lcdc_lut();
-}
-
-static struct kcal_platform_data kcal_pdata = {
-	.set_values = kcal_set_values,
-	.get_values = kcal_get_values,
-	.refresh_display = kcal_refresh_values
-};
-
-static struct platform_device kcal_platrom_device = {
-	.name   = "kcal_ctrl",
-	.dev = {
-		.platform_data = &kcal_pdata,
-	}
-};
-
-void __init lge_add_lcd_kcal_devices(void)
-{
-	pr_info(" KCAL_DEBUG : %s\n", __func__);
-	platform_device_register(&kcal_platrom_device);
-}
-#endif /* CONFIG_LCD_KCAL */
 /*
  * Used to satisfy dependencies for devices that need to be
  * run early or in a particular order. Most likely your device doesn't fall
@@ -219,13 +143,6 @@ void __init msm8974_add_drivers(void)
 	init_bcm_wifi();
 #endif
 /*                                                                    */
-#if defined(CONFIG_LCD_KCAL)
-/*             
-                          
-                                
-*/
-	lge_add_lcd_kcal_devices();
-#endif /* CONFIG_LCD_KCAL */
 
 #if defined(CONFIG_LGE_PM_BATTERY_ID_CHECKER)
 	lge_battery_id_devices();
