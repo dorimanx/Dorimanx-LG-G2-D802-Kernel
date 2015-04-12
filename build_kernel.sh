@@ -223,7 +223,7 @@ BUILD_NOW()
 	done;
 
 	if [ -e "$KERNELDIR"/arch/arm/boot/zImage ]; then
-		cp arch/arm/boot/zImage READY-KERNEL/boot
+		cp arch/arm/boot/zImage READY-KERNEL/boot/
 
 		# strip not needed debugs from modules.
 		android-toolchain/bin/arm-LG-linux-gnueabi-strip --strip-unneeded ../ramdisk-tmp/lib/modules/* 2>/dev/null
@@ -232,7 +232,7 @@ BUILD_NOW()
 		# create the ramdisk and move it to the output working directory
 		echo "Create ramdisk..............."
 		scripts/mkbootfs ../ramdisk-tmp | gzip > ramdisk.gz 2>/dev/null
-		mv ramdisk.gz READY-KERNEL/boot
+		mv ramdisk.gz READY-KERNEL/boot/
 
 		# create the dt.img from the compiled device files, necessary for msm8974 boot images
 		echo "Create dt.img................"
@@ -248,11 +248,11 @@ BUILD_NOW()
 
 		# build the final boot.img ready for inclusion in flashable zip
 		echo "Build boot.img..............."
-		cp scripts/mkbootimg READY-KERNEL/boot
-		cd READY-KERNEL/boot
+		cp scripts/mkbootimg READY-KERNEL/boot/
+		cd READY-KERNEL/boot/
 		base=0x00000000
 		offset=0x05000000
-		tags_addr=0x04800000
+		tags_addr=0x00000100
 		cmd_line="console=ttyHSL0,115200,n8 androidboot.hardware=g2 user_debug=31 msm_rtb.filter=0x0 mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_lgd_cmd"
 		./mkbootimg --kernel zImage --ramdisk ramdisk.gz --cmdline "$cmd_line" --base $base --offset $offset --tags-addr $tags_addr --pagesize 2048 --dt dt.img -o newboot.img
 		mv newboot.img ../boot.img
