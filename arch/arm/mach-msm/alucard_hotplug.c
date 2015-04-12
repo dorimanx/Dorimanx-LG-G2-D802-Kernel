@@ -243,7 +243,10 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 
 		/* get the cpu current frequency */
 		/* cur_freq = acpuclk_get_rate(cpu); */
-		cur_freq = cpufreq_quick_get(cpu);
+		if (!force_up)
+			cur_freq = cpufreq_quick_get(cpu);
+		else
+			cur_freq = MAX_FREQ_LIMIT;
 		/* get nr online cpus */
 		online_cpus = num_online_cpus();
 
