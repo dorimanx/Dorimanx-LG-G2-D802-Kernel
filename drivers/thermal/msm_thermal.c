@@ -933,8 +933,10 @@ static void __ref do_freq_control(long temp)
 		if (!(msm_thermal_info_local.freq_control_mask & BIT(cpu)))
 			continue;
 		cpus[cpu].limited_max_freq = max_freq;
-		if (cpufreq_update_policy(cpu))
-			pr_info("Unable to update policy for cpu:%d\n", cpu);
+		if (cpu_online(cpu)) {
+			if (cpufreq_update_policy(cpu))
+				pr_info("Unable to update policy for cpu:%d\n", cpu);
+		}
 	}
 }
 
