@@ -138,7 +138,7 @@ static int touchboost_input_connect(struct input_handler *handler,
 
 	handle->dev = dev;
 	handle->handler = handler;
-	handle->name = "cpufreq";
+	handle->name = handler->name;
 
 	error = input_register_handle(handle);
 	if (error)
