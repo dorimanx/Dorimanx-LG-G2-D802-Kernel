@@ -43,9 +43,10 @@
 	defined(CONFIG_MACH_MSM8974_G2_CA) || \
 	defined(CONFIG_MACH_MSM8974_G2_SPR) || \
 	defined(CONFIG_MACH_MSM8974_G2_VZW) || \
-	defined(CONFIG_MACH_MSM8974_G2_KR)
-#include "D800_801_803_F320_LS980_VS980_driver/SynaImage_for_G2_LGIT_revB.h"
-#include "D800_801_803_F320_LS980_VS980_driver/SynaImage_for_G2_TPK.h"
+	defined(CONFIG_MACH_MSM8974_G2_KR) || \
+	defined(CONFIG_MACH_MSM8974_G2_DCM)
+#include "D800_801_803_F320_LS980_VS980_L01F_driver/SynaImage_for_G2_LGIT_revB.h"
+#include "D800_801_803_F320_LS980_VS980_L01F_driver/SynaImage_for_G2_TPK.h"
 #else
 #include "SynaImage_for_G2_LGIT_revB.h"
 #include "SynaImage_for_G2_TPK.h"
@@ -331,8 +332,8 @@ touch_maker_id get_touch_maker_id(void)
 		defined(CONFIG_MACH_MSM8974_G2_TMO_US) || \
 		defined(CONFIG_MACH_MSM8974_G2_CA) || \
 		defined(CONFIG_MACH_MSM8974_G2_KR) || \
-		defined(CONFIG_MACH_MSM8974_G2_SPR) || \
-		defined(CONFIG_MACH_MSM8974_G2_VZW)
+		defined(CONFIG_MACH_MSM8974_G2_VZW) || \
+		defined(CONFIG_MACH_MSM8974_G2_DCM)
 	while ((qpnp_vadc_is_ready() != 0) && (trial_us < (200 * 1000))) {
 		udelay(1);
 #else
