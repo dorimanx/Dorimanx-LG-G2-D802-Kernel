@@ -74,6 +74,11 @@ struct max17050_platform_data {
 #define MAX17050_V_FOCV				0xFB
 #define MAX17050_SOC_VF				0xFF
 
+#ifdef CONFIG_MACH_MSM8974_G2_DCM
+#define BATT_ID         13
+#define BATT_ID_PULLUP  14
+#endif
+
 #ifdef CONFIG_LGE_PM
 int max17050_get_battery_capacity_percent(void);
 int max17050_get_battery_mvolts(void);
