@@ -61,6 +61,7 @@
 #include <linux/gpio.h>
 #include <asm/atomic.h>
 #include <asm/irq.h>
+#include <linux/pm_qos.h>
 
 #include <mach/hardware.h>
 #include <mach/dma.h>
@@ -269,6 +270,7 @@ struct msm_hs_port {
 	struct msm_bus_scale_pdata *bus_scale_table;
 	bool rx_discard_flush_issued;
 	int rx_count_callback;
+	struct pm_qos_request pm_qos;
 	bool rx_bam_inprogress;
 	unsigned int *reg_ptr;
 };
@@ -403,6 +405,9 @@ static int msm_hs_clock_vote(struct msm_hs_port *msm_uport)
 	int rc = 0;
 
 	if (1 == atomic_inc_return(&msm_uport->clk_count)) {
+		pr_err("%s: entering\n", __func__);
+		MSM_HS_INFO("%s: QOS set 1\n", __func__);
+		pm_qos_update_request(&msm_uport->pm_qos, 1);
 		msm_hs_bus_voting(msm_uport, BUS_SCALING);
 		/* Turn on core clk and iface clk */
 		rc = clk_prepare_enable(msm_uport->clk);
@@ -441,6 +446,8 @@ static void msm_hs_clock_unvote(struct msm_hs_port *msm_uport)
 		if (msm_uport->pclk)
 			clk_disable_unprepare(msm_uport->pclk);
 		msm_uport->clk_state = MSM_HS_CLK_OFF;
+		pm_qos_update_request(&msm_uport->pm_qos, PM_QOS_DEFAULT_VALUE);
+		MSM_HS_INFO("%s: QOS set Default\n", __func__);
 	}
 }
 
@@ -3228,7 +3235,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 					IORESOURCE_MEM, "bam_mem");
 		core_irqres = platform_get_irq_byname(pdev, "core_irq");
 		bam_irqres = platform_get_irq_byname(pdev, "bam_irq");
-#if 0  //                                                       
+#if 0
 		wakeup_irqres = platform_get_irq_byname(pdev, "wakeup_irq");
 #else
 		wakeup_irqres = 0;
@@ -3407,6 +3414,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 		}
 	}
 
+	pm_qos_add_request(&msm_uport->pm_qos, PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
 	ret = msm_hs_clock_vote(msm_uport);
 	if (ret) {
 		printk(KERN_ERR "%s: Error could not turn on UART clk\n",
