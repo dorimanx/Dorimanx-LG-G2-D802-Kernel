@@ -2176,15 +2176,14 @@ static void a2xx_postmortem_dump(struct adreno_device *adreno_dev)
 	kgsl_regread(device, REG_CP_STAT, &cp_stat);
 	KGSL_LOG_DUMP(device, "CP_STAT      = %08X\n", cp_stat);
 #ifndef CONFIG_MSM_KGSL_PSTMRTMDMP_CP_STAT_NO_DETAIL
+/*
 	{
 		struct log_field lns[] = {
 			{cp_stat &  BIT(0), "WR_BSY     0"},
 			{cp_stat &  BIT(1), "RD_RQ_BSY  1"},
 			{cp_stat &  BIT(2), "RD_RTN_BSY 2"},
 		};
-/*
 		adreno_dump_fields(device, "    MIU=", lns, ARRAY_SIZE(lns));
-*/
 	}
 	{
 		struct log_field lns[] = {
@@ -2194,9 +2193,7 @@ static void a2xx_postmortem_dump(struct adreno_device *adreno_dev)
 			{cp_stat &  BIT(9), "ST_BUSY    9"},
 			{cp_stat & BIT(10), "BUSY      10"},
 		};
-/*
 		adreno_dump_fields(device, "    CSF=", lns, ARRAY_SIZE(lns));
-*/
 	}
 	{
 		struct log_field lns[] = {
@@ -2206,9 +2203,7 @@ static void a2xx_postmortem_dump(struct adreno_device *adreno_dev)
 			{cp_stat & BIT(16), "ST_QUEUE_B16"},
 			{cp_stat & BIT(17), "PFP_BUSY  17"},
 		};
-/*
 		adreno_dump_fields(device, "   RING=", lns, ARRAY_SIZE(lns));
-*/
 	}
 	{
 		struct log_field lns[] = {
@@ -2225,10 +2220,9 @@ static void a2xx_postmortem_dump(struct adreno_device *adreno_dev)
 			{cp_stat & BIT(30), "MIU_FF EM 30"},
 			{cp_stat & BIT(31), "CP_BUSY   31"},
 		};
-/*
 		adreno_dump_fields(device, " CP_STT=", lns, ARRAY_SIZE(lns));
-*/
 	}
+*/
 #endif
 
 	kgsl_regread(device, REG_SCRATCH_REG0, &r1);
