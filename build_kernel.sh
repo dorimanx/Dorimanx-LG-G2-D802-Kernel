@@ -135,7 +135,7 @@ BUILD_NOW()
 		if [ "$BRANCH_VS_980" -eq "0" ] && [ "$BUILD_VS_980" -eq "1" ]; then
 			cp arch/arm/configs/dorimanx_vs980_defconfig ./.config
 		fi;
-		if [ "$BRANCH_L01F" -eq "0" ] && ["$BUILD_L01F" -eq "1" ]; then
+		if [ "$BRANCH_L01F" -eq "0" ] && [ "$BUILD_L01F" -eq "1" ]; then
 			cp arch/arm/configs/dorimanx_l01f_defconfig ./.config
 		fi;
 	fi;
