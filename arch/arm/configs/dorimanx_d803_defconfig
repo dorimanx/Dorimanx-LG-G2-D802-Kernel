@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.4.106 Kernel Configuration
+# Linux/arm 3.4.107 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -3211,7 +3211,6 @@ CONFIG_MMC_BLOCK_MINORS=32
 # CONFIG_MMC_BLOCK_DEFERRED_RESUME is not set
 # CONFIG_SDIO_UART is not set
 CONFIG_MMC_TEST=m
-# CONFIG_LGE_MMC_RESET_IF_HANG is not set
 # CONFIG_LGE_MMC_SEND_HPI_SANITIZE_TIMEOUT is not set
 # CONFIG_MMC_FFU is not set
 
