@@ -206,7 +206,7 @@ BUILD_NOW()
 		cp -a ../LG-G2-D802-Ramdisk/D800-RAMDISK/* ../ramdisk-tmp/
 	elif [ "$BUILD_801" == "1" ]; then
 		cp -a ../LG-G2-D802-Ramdisk/D801-RAMDISK/* ../ramdisk-tmp/
-	elif [ "$BUILD_802" == "1" ] || [ "$BUILD_L01F" == "1" ]; then
+	elif [ "$BUILD_802" == "1" ]; then
 		cp -a ../LG-G2-D802-Ramdisk/D802-RAMDISK/* ../ramdisk-tmp/
 	elif [ "$BUILD_803" == "1" ]; then
 		cp -a ../LG-G2-D802-Ramdisk/D803-RAMDISK/* ../ramdisk-tmp/
@@ -216,6 +216,8 @@ BUILD_NOW()
 		cp -a ../LG-G2-D802-Ramdisk/LS980-RAMDISK/* ../ramdisk-tmp/
 	elif [ "$BUILD_VS_980" == "1" ]; then
 		cp -a ../LG-G2-D802-Ramdisk/VS980-RAMDISK/* ../ramdisk-tmp/
+	elif [ "$BUILD_L01F" == "1" ]; then
+		cp -a ../LG-G2-D802-Ramdisk/L01F-RAMDISK/* ../ramdisk-tmp/
 	fi;
 
 	for i in $(find "$KERNELDIR" -name '*.ko'); do
