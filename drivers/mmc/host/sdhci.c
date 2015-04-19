@@ -1541,7 +1541,7 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	/* If polling, assume that the card is always present. */
 	if (host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION)
 #ifdef CONFIG_MACH_LGE
-		{
+	{
 		if (mmc->index == MMC_HOST_DRIVER_INDEX_MMC1)
 			present = mmc_cd_get_status(mmc);
 		else

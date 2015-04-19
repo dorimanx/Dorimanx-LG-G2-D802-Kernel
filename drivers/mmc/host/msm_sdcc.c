@@ -6297,7 +6297,6 @@ msmsdcc_probe(struct platform_device *pdev)
 				bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC3;  /* sdcc 3 */
 			}
 #endif
-
 		printk("jaewoo :%s-%d> plat->nonremovable = %d\n", __FUNCTION__, host->pdev->id, plat->nonremovable );
 		if( host->pdev->id == bcmdhd_id ) {
 			plat->register_status_notify = sdc2_status_register;
