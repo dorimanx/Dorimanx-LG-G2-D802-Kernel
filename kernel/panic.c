@@ -125,8 +125,6 @@ void panic(const char *fmt, ...)
 	 */
 	crash_kexec(NULL);
 
-	kmsg_dump(KMSG_DUMP_PANIC);
-
 	if (is_console_locked())
 		console_unlock();
 
