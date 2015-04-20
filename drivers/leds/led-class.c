@@ -18,7 +18,6 @@
 #include <linux/timer.h>
 #include <linux/err.h>
 #include <linux/ctype.h>
-#include <linux/zwait.h>
 #include <linux/leds.h>
 #include "leds.h"
 #if defined(CONFIG_MACH_LGE)
@@ -280,9 +279,6 @@ static ssize_t set_pattern(struct device *dev, struct device_attribute *attr, co
 		printk("[RGB LED] bad arguments ");
 	}
 	ret = size;
-
-	if (zw_no_charger_in_zwait())
-		return ret;
 
 	if(lge_get_boot_mode() <= LGE_BOOT_MODE_CHARGERLOGO) {
 		printk("[RGB LED] pattern_num=%d\n", pattern_num);

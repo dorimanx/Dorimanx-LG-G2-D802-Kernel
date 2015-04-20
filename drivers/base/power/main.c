@@ -57,10 +57,6 @@ static LIST_HEAD(dpm_suspended_list);
 static LIST_HEAD(dpm_late_early_list);
 static LIST_HEAD(dpm_noirq_list);
 
-#ifdef CONFIG_ZERO_WAIT
-LIST_HEAD(dpm_wakeup_dev_list);
-#endif
-
 struct suspend_stats suspend_stats;
 static DEFINE_MUTEX(dpm_list_mtx);
 static pm_message_t pm_transition;
@@ -119,73 +115,6 @@ void device_pm_add(struct device *dev)
 	mutex_unlock(&dpm_list_mtx);
 }
 
-#ifdef CONFIG_ZERO_WAIT
-static inline void dpm_wakeup_dev_remove(struct device *dev)
-{
-	struct dpm_zw_wakeup *zw_wakeup;
-
-	list_for_each_entry(zw_wakeup, &dpm_wakeup_dev_list, entry) {
-		if (zw_wakeup->dev == dev) {
-			device_set_wakeup_capable(dev, true);
-			list_del_init(&zw_wakeup->entry);
-			zw_wakeup->dev = NULL;
-			kfree(zw_wakeup);
-			break;
-		}
-	}
-}
-
-void dpm_wakeup_dev_list_set(void)
-{
-	struct device *dev;
-	struct dpm_zw_wakeup *zw_wakeup;
-
-	mutex_lock(&dpm_list_mtx);
-	if (!list_empty(&dpm_wakeup_dev_list)) {
-		mutex_unlock(&dpm_list_mtx);
-		return;
-	}
-
-	list_for_each_entry(dev, &dpm_list, power.entry) {
-		get_device(dev);
-		if (device_can_wakeup(dev)) {
-			zw_wakeup = kzalloc(sizeof(struct dpm_zw_wakeup),
-						GFP_KERNEL);
-			if (zw_wakeup == NULL) {
-				put_device(dev);
-				mutex_unlock(&dpm_list_mtx);
-				return;
-			}
-
-			zw_wakeup->dev = dev;
-			list_add_tail(&zw_wakeup->entry, &dpm_wakeup_dev_list);
-			device_set_wakeup_capable(zw_wakeup->dev, false);
-		}
-		put_device(dev);
-	}
-	mutex_unlock(&dpm_list_mtx);
-}
-
-void dpm_wakeup_dev_list_clean(void)
-{
-	struct dpm_zw_wakeup *zw_wakeup;
-	struct dpm_zw_wakeup *n;
-
-	mutex_lock(&dpm_list_mtx);
-	list_for_each_entry_safe_reverse(zw_wakeup, n,
-				&dpm_wakeup_dev_list, entry) {
-		get_device(zw_wakeup->dev);
-		device_set_wakeup_capable(zw_wakeup->dev, true);
-		put_device(zw_wakeup->dev);
-
-		list_del_init(&zw_wakeup->entry);
-		zw_wakeup->dev = NULL;
-		kfree(zw_wakeup);
-	}
-	mutex_unlock(&dpm_list_mtx);
-}
-#endif /* CONFIG_ZERO_WAIT */
-
 /**
  * device_pm_remove - Remove a device from the PM core's list of active devices.
  * @dev: Device to be removed from the list.
@@ -197,7 +126,6 @@ void device_pm_remove(struct device *dev)
 	complete_all(&dev->power.completion);
 	mutex_lock(&dpm_list_mtx);
 	list_del_init(&dev->power.entry);
-	dpm_wakeup_dev_remove(dev);
 	mutex_unlock(&dpm_list_mtx);
 	device_wakeup_disable(dev);
 	pm_runtime_remove(dev);

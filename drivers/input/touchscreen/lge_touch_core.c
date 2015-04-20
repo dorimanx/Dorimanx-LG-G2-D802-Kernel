@@ -40,7 +40,6 @@
 #include <linux/of_gpio.h>
 #include <mach/board.h>
 #include <linux/regulator/consumer.h>
-#include <linux/zwait.h>
 
 #include <linux/input/lge_touch_core.h>
 #define CUST_G2_TOUCH_WAKEUP_GESTURE

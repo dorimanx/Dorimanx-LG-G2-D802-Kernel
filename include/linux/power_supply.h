@@ -274,11 +274,6 @@ extern int power_supply_register(struct device *parent,
 extern void power_supply_unregister(struct power_supply *psy);
 extern int power_supply_powers(struct power_supply *psy, struct device *dev);
 
-#ifdef CONFIG_ZERO_WAIT
-extern void power_supply_forbid_change_all(void);
-extern void power_supply_permit_change_all(void);
-#endif	/* CONFIG_ZERO_WAIT */
-
 #else
 static inline struct power_supply *power_supply_get_by_name(char *name)
 							{ return NULL; }
@@ -316,11 +311,6 @@ static inline void power_supply_unregister(struct power_supply *psy) { }
 static inline int power_supply_powers(struct power_supply *psy,
 				      struct device *dev)
 							{ return -ENOSYS; }
-
-#ifdef CONFIG_ZERO_WAIT
-static inline void power_supply_forbid_change_all(struct power_supply *psy) { }
-static inline void power_supply_permit_change_all(struct power_supply *psy) { }
-#endif	/* CONFIG_ZERO_WAIT */
 
 #endif
 

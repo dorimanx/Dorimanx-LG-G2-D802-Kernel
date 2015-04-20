@@ -52,9 +52,6 @@
 #if defined(CONFIG_MACH_MSM8974_B1_KR)
 #include <linux/qpnp/qpnp-temp-alarm.h>
 #endif
-#ifdef CONFIG_ZERO_WAIT
-#include <linux/zwait.h>
-#endif
 
 #ifndef BIT
 #define BIT(x)	(1 << (x))
@@ -1078,9 +1075,6 @@ static void bq24192_irq_worker(struct work_struct *work)
 		chip->wlc_present = wlc_present;
 #else
 	if (chip->usb_present ^ usb_present) {
-#endif
-#ifdef CONFIG_ZERO_WAIT
-		zw_psy_irq_handler(usb_present);
 #endif
 #ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
 		cancel_delayed_work_sync(&chip->battemp_work);
@@ -2916,21 +2910,12 @@ static int bq24192_probe(struct i2c_client *client,
 		MONITOR_BATTEMP_POLLING_PERIOD / 3);
 #endif
 	schedule_delayed_work(&chip->irq_work, msecs_to_jiffies(2000));
-#ifdef CONFIG_ZERO_WAIT
-	ret = zw_psy_wakeup_source_register(&chip->chg_wake_lock.ws);
-	if (ret < 0)
-		goto err_zw_ws_register;
-#endif
 #if defined(CONFIG_MACH_MSM8974_B1_KR)
 	qpnp_batif_regist_batt_present(&bq24192_batt_remove_insert_cb);
 #endif
 	pr_info("probe success\n");
 
 	return 0;
-#ifdef CONFIG_ZERO_WAIT
-err_zw_ws_register:
-	device_remove_file(&client->dev, &dev_attr_at_otg);
-#endif
 err_at_otg:
 	device_remove_file(&client->dev, &dev_attr_at_pmrst);
 err_at_pmrst:
@@ -2966,9 +2951,6 @@ error:
 static int bq24192_remove(struct i2c_client *client)
 {
 	struct bq24192_chip *chip = i2c_get_clientdata(client);
-#ifdef CONFIG_ZERO_WAIT
-	zw_psy_wakeup_source_unregister(&chip->chg_wake_lock.ws);
-#endif
 	bq24192_remove_debugfs_entries(chip);
 	device_remove_file(&client->dev, &dev_attr_at_charge);
 	device_remove_file(&client->dev, &dev_attr_at_chcomp);

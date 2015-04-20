@@ -27,8 +27,6 @@
 #include <linux/wakelock.h>
 #endif
 
-#include <linux/zwait.h>
-
 /* Common PNP defines */
 #define QPNP_PON_REVISION2(base)		(base + 0x01)
 
@@ -1030,25 +1028,6 @@ free_input_dev:
 	return rc;
 }
 
-#ifdef CONFIG_ZERO_WAIT
-static DEFINE_ZW_PWRKEY_INFO(zw_pwrkey, ZW_PWRKEY_UNITE_IRQ);
-
-static inline int pwrkey_is_pressed(void *ptr)
-{
-	int err;
-	struct qpnp_pon *pon = (struct qpnp_pon *)ptr;
-	u8 pon_rt_sts = 0;
-
-	/* check the RT status to get the current status of the line */
-	err = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
-				QPNP_PON_RT_STS(pon->base), &pon_rt_sts, 1);
-	if (err)
-		return err;
-
-	return (pon_rt_sts & QPNP_PON_KPDPWR_N_SET);
-}
-#endif
-
 static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 {
 	struct qpnp_pon *pon;
@@ -1207,19 +1186,6 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 	wake_lock_init(&kpdpwr_irq_wake_lock, WAKE_LOCK_SUSPEND, "kpdpwr_irq");
 #endif
 
-#ifdef CONFIG_ZERO_WAIT
-	zw_pwrkey.check_func = pwrkey_is_pressed;
-	zw_pwrkey.func_param = (void *)pon;
-	zw_pwrkey.input = pon->pon_input;
-	zw_pwrkey.wdev = &spmi->dev;
-	zw_pwrkey.code = pon->pon_cfg[PON_KPDPWR].key_code;
-	zw_pwrkey.state_irq = pon->pon_cfg[PON_KPDPWR].state_irq;
-	zw_pwrkey.bark_irq = pon->pon_cfg[PON_KPDPWR].bark_irq;
-	zw_pwrkey.state_irq_handler = qpnp_kpdpwr_irq;
-
-	zw_pwrkey_info_register(&zw_pwrkey);
-#endif
-
 	return rc;
 }
 
@@ -1227,14 +1193,7 @@ static int qpnp_pon_remove(struct spmi_device *spmi)
 {
 	struct qpnp_pon *pon = dev_get_drvdata(&spmi->dev);
 
-#ifdef CONFIG_ZERO_WAIT
-	zw_pwrkey_info_unregister();
-#endif
-
 	cancel_delayed_work_sync(&pon->bark_work);
-#ifdef CONFIG_MACH_LGE
-	wake_lock_destroy(&kpdpwr_irq_wake_lock);
-#endif
 
 	if (pon->pon_input)
 		input_unregister_device(pon->pon_input);
