@@ -45,8 +45,6 @@
 #include <linux/of_gpio.h>
 #include <mach/board_lge.h>
 
-#include <linux/zwait.h>
-
 /* When use SM100 with GP_CLK
   175Hz motor : 22.4KHz - M=1, N=214 ,
   205Hz motor : 26.24Khz - M=1, N=183 ,
@@ -471,9 +469,6 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpDisable(VibeUInt8 nActuatorIndex
 */
 IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpEnable(VibeUInt8 nActuatorIndex)
 {
-    if (is_zw_mode())
-	return VIBE_S_SUCCESS;
-
     if (!g_bAmpEnabled)
     {
         DbgOut((KERN_DEBUG "ImmVibeSPI_ForceOut_AmpEnable.\n"));

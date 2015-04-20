@@ -799,54 +799,6 @@ void pm_wakep_autosleep_enabled(bool set)
 }
 #endif /* CONFIG_PM_AUTOSLEEP */
 
-#ifdef CONFIG_ZERO_WAIT_DEBUGFS
-int dump_wakeup_source_list(char *buf, size_t max, int which)
-{
-	unsigned long flags;
-	int count = 0;
-	struct wakeup_source *ws;
-
-	switch (which) {
-	case 2:
-		list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
-			spin_lock_irqsave(&ws->lock, flags);
-			count += scnprintf(buf + count, max - count,
-					"%s ws name = %s\n",
-					ws->active ? "[ active ]" : "[deactive]",
-					ws->name);
-			spin_unlock_irqrestore(&ws->lock, flags);
-		}
-		break;
-
-	case 1:
-		list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
-			spin_lock_irqsave(&ws->lock, flags);
-			if (ws->active) {
-				count += scnprintf(buf + count, max - count,
-						"[ active ] ws name = %s\n", ws->name);
-			}
-			spin_unlock_irqrestore(&ws->lock, flags);
-		}
-		break;
-
-	case 0:
-		list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
-			spin_lock_irqsave(&ws->lock, flags);
-			if (!ws->active) {
-				count += scnprintf(buf + count, max - count,
-						"[deactive] ws name = %s\n", ws->name);
-			}
-			spin_unlock_irqrestore(&ws->lock, flags);
-		}
-		break;
-
-	default:
-		break;
-	}
-	return count;
-}
-#endif /* CONFIG_ZERO_WAIT_DEBUGFS */
-
 static struct dentry *wakeup_sources_stats_dentry;
 
 /**

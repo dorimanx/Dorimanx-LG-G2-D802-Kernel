@@ -9,7 +9,6 @@
 #include <linux/device.h>
 #include <linux/mutex.h>
 #include <linux/pm_wakeup.h>
-#include <linux/zwait.h>
 
 #ifdef CONFIG_POWERSUSPEND
 #include <linux/powersuspend.h>
@@ -109,7 +108,6 @@ int pm_autosleep_set_state(suspend_state_t state)
 
 	if (state > PM_SUSPEND_ON) {
 		pm_wakep_autosleep_enabled(true);
-		zw_queue_up_suspend_work(state);
 		queue_up_suspend_work();
 #ifdef CONFIG_POWERSUSPEND
 		/* Yank555.lu : hook to handle powersuspend tasks (sleep) */

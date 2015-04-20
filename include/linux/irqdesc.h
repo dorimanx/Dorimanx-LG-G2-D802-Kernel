@@ -76,9 +76,6 @@ struct irq_desc {
 	int			parent_irq;
 	struct module		*owner;
 	const char		*name;
-#ifdef CONFIG_ZERO_WAIT
-	unsigned int            zw_wake_depth;
-#endif
 } ____cacheline_internodealigned_in_smp;
 
 #ifndef CONFIG_SPARSE_IRQ

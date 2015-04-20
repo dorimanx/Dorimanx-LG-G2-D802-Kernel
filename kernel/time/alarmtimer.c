@@ -26,7 +26,6 @@
 #include <linux/workqueue.h>
 #include <linux/freezer.h>
 #include <linux/export.h>
-#include <linux/zwait.h>
 
 #define ALARM_DELTA 120
 
@@ -875,31 +874,6 @@ static struct platform_driver alarmtimer_driver = {
 	}
 };
 
-#ifdef CONFIG_ZERO_WAIT
-static int zw_alarm_notifier_call(struct notifier_block *nb,
-                        unsigned long state, void *ptr)
-{
-        switch (state) {
-        case ZW_STATE_OFF:
-                alarm_driver.suspend = alarm_suspend;
-                alarm_driver.resume = alarm_resume;
-                break;
-
-        case ZW_STATE_ON_SYSTEM:
-        case ZW_STATE_ON_USER:
-                alarm_driver.suspend = NULL;
-                alarm_driver.resume = NULL;
-                break;
-        }
-
-        return NOTIFY_DONE;
-}
-
-static struct notifier_block zw_alarm_nb = {
-        .notifier_call = zw_alarm_notifier_call,
-};
-#endif /* CONFIG_ZERO_WAIT */
-
 /**
  * alarmtimer_init - Initialize alarm timer code
  *
@@ -950,10 +924,6 @@ static int __init alarmtimer_init(void)
 		error = PTR_ERR(pdev);
 		goto out_drv;
 	}
-
-#ifdef CONFIG_ZERO_WAIT
-        zw_notifier_chain_register(&zw_alarm_nb, NULL);
-#endif
 
 	ws = wakeup_source_register("alarmtimer");
 	return 0;

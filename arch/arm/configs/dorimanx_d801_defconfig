@@ -3455,7 +3455,6 @@ CONFIG_MSM_AVTIMER=y
 # LGE specific device drivers
 #
 # CONFIG_MOCK_POWER is not set
-# CONFIG_ZERO_WAIT is not set
 CONFIG_CLKDEV_LOOKUP=y
 CONFIG_HAVE_CLK_PREPARE=y
 
