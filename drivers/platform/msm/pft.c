@@ -209,10 +209,10 @@ static char *inode_to_filename(struct inode *inode)
 	struct dentry *dentry = NULL;
 	char *filename = NULL;
 
-	if (list_empty(&inode->i_dentry))
+	if (hlist_empty(&inode->i_dentry))
 		return "unknown";
 
-	dentry = list_first_entry(&inode->i_dentry, struct dentry, d_alias);
+	dentry = hlist_entry(inode->i_dentry.first, struct dentry, d_u.d_alias);
 
 	filename = dentry->d_iname;
 
