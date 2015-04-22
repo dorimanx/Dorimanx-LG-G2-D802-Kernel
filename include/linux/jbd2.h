@@ -397,10 +397,15 @@ struct jbd2_journal_handle
 	int			h_err;
 
 	/* Flags [no locking] */
-	unsigned int	h_sync:1;	/* sync-on-close */
-	unsigned int	h_jdata:1;	/* force data journaling */
-	unsigned int	h_aborted:1;	/* fatal error on handle */
-	unsigned int	h_cowing:1;	/* COWing block to snapshot */
+	unsigned int	h_sync:		1;	/* sync-on-close */
+	unsigned int	h_jdata:	1;	/* force data journaling */
+	unsigned int	h_aborted:	1;	/* fatal error on handle */
+	unsigned int	h_cowing:	1;	/* COWing block to snapshot */
+	unsigned int	h_type:		8;	/* for handle statistics */
+	unsigned int	h_line_no:	16;	/* for handle statistics */
+
+	unsigned long	h_start_jiffies;
+	unsigned int	h_requested_credits;
 
 	/* Number of buffers requested by user:
 	 * (before adding the COW credits factor) */
@@ -1087,7 +1092,8 @@ static inline handle_t *journal_current_handle(void)
  */
 
 extern handle_t *jbd2_journal_start(journal_t *, int nblocks);
-extern handle_t *jbd2__journal_start(journal_t *, int nblocks, gfp_t gfp_mask);
+extern handle_t *jbd2__journal_start(journal_t *, int nblocks, gfp_t gfp_mask,
+				    unsigned int type, unsigned int line_no);
 extern int	 jbd2_journal_restart(handle_t *, int nblocks);
 extern int	 jbd2__journal_restart(handle_t *, int nblocks, gfp_t gfp_mask);
 extern int	 jbd2_journal_extend (handle_t *, int nblocks);
