@@ -4283,8 +4283,6 @@ static ssize_t store_touch_gesture(struct lge_touch_data *ts, const char *buf, s
 
 	cancel_delayed_work_sync(&ts->work_f54);
 
-	if (is_zw_mode())
-		value = 0;
 #if !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) && !defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
 	if(ts->fw_info.fw_setting.ic_chip_rev == TOUCH_CHIP_REV_A){
 		touch_gesture_enable = 0;
