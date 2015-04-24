@@ -321,7 +321,7 @@ static inline int is_vmalloc_or_module_addr(const void *x)
 }
 #endif
 
-extern void kvfree(const void *addr);
+extern void kvfree(void *addr);
 
 static inline void compound_lock(struct page *page)
 {

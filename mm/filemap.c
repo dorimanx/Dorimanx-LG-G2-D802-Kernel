@@ -769,12 +769,25 @@ struct page *find_or_create_page(struct address_space *mapping,
 {
 	struct page *page;
 	int err;
+	//[LGE_S] (2014.04.15) Avoid ion memory allocation failure when Miracast connects
+	gfp_t gfp_notmask = 0;
+	//[LGE_E] (2014.04.15) Avoid ion memory allocation failure when Miracast connects
+
 repeat:
 	page = find_lock_page(mapping, index);
+	//[LGE_S] (2014.04.15) Avoid ion memory allocation failure when Miracast connects
 	if (!page) {
-		page = __page_cache_alloc(gfp_mask);
+	retry:
+		page = __page_cache_alloc(gfp_mask & ~gfp_notmask);
 		if (!page)
 			return NULL;
+		if (is_cma_pageblock(page)) {
+			__free_page(page);
+			gfp_notmask |= __GFP_MOVABLE;
+			goto retry;
+		}
+ 	//[LGE_E] (2014.04.15) Avoid ion memory allocation failure when Miracast connects
+
 		/*
 		 * We want a regular kernel memory (not highmem or DMA etc)
 		 * allocation for the radix tree nodes, but we need to honour
@@ -1599,15 +1612,15 @@ int filemap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		/* No page in the page cache at all */
 		do_sync_mmap_readahead(vma, ra, file, offset);
 		count_vm_event(PGMAJFAULT);
-		/*             
-   
-                                                          
-                                              
-   
-                              
-  */
+		/* LGE_CHANGE_S
+		*
+		* Profile files related to pgmajfault during 1st booting
+		* in order to use the data as readahead args
+		*
+		* matia.kim@lge.com 20130612
+		*/
 		sreadahead_prof(file, 0, 0);
-		/*              */
+		/* LGE_CHANGE_E */
 		mem_cgroup_count_vm_event(vma->vm_mm, PGMAJFAULT);
 		ret = VM_FAULT_MAJOR;
 retry_find:
