@@ -421,10 +421,10 @@ static int alucard_hotplug_callback(struct notifier_block *nb,
 	struct hotplug_cpuinfo *pcpu_info;
 	unsigned int cpu = (int)data;
 
-	switch (action & (~CPU_TASKS_FROZEN)) {
+	switch (action) {
 	case CPU_ONLINE:
+	case CPU_ONLINE_FROZEN:
 		pcpu_info = &per_cpu(od_hotplug_cpuinfo, cpu);
-		pcpu_info->prev_cpu_wall = ktime_to_us(ktime_get());
 		pcpu_info->prev_cpu_idle = get_cpu_idle_time(cpu,
 				&pcpu_info->prev_cpu_wall,
 				hotplug_tuners_ins.hp_io_is_busy);
@@ -465,7 +465,6 @@ static int hotplug_start(void)
 
 #ifndef CONFIG_ALUCARD_HOTPLUG_USE_CPU_UTIL
 		if (cpu_online(cpu)) {
-			pcpu_info->prev_cpu_wall = ktime_to_us(ktime_get());
 			pcpu_info->prev_cpu_idle = get_cpu_idle_time(cpu,
 					&pcpu_info->prev_cpu_wall,
 					hotplug_tuners_ins.hp_io_is_busy);

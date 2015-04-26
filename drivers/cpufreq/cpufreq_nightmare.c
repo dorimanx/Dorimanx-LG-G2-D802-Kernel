@@ -456,7 +456,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 
 	cpu = this_nightmare_cpuinfo->cpu;
 	cpu_policy = this_nightmare_cpuinfo->cur_policy;
-	if (cpu_policy == NULL)
+	if (!cpu_policy)
 		return;
 
 	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, io_busy);
@@ -534,31 +534,27 @@ static void do_nightmare_timer(struct work_struct *work)
 static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 				unsigned int event)
 {
-	unsigned int cpu;
+	unsigned int cpu = policy->cpu;
 	struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo;
 	int rc, delay;
-	int io_busy;
+	int io_busy = nightmare_tuners_ins.io_is_busy;
 
-	cpu = policy->cpu;
-	io_busy = nightmare_tuners_ins.io_is_busy;
 	this_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, cpu);
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if ((!cpu_online(cpu)) ||
-			(!policy->cur) ||
+		if ((!policy->cur) ||
 			(cpu != this_nightmare_cpuinfo->cpu))
 			return -EINVAL;
 
 		mutex_lock(&nightmare_mutex);
 
+		if (!this_nightmare_cpuinfo->freq_table)
+			this_nightmare_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
+
 		this_nightmare_cpuinfo->cur_policy = policy;
 
-		this_nightmare_cpuinfo->prev_cpu_wall = ktime_to_us(ktime_get());
-
 		this_nightmare_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_nightmare_cpuinfo->prev_cpu_wall, io_busy);
-
-		this_nightmare_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
 
 		nightmare_enable++;
 		/*
