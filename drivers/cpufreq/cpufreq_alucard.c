@@ -488,7 +488,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 
 	cpu = this_alucard_cpuinfo->cpu;
 	cpu_policy = this_alucard_cpuinfo->cur_policy;
-	if (cpu_policy == NULL)
+	if (!cpu_policy)
 		return;
 
 	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, io_busy);
@@ -588,28 +588,25 @@ static void do_alucard_timer(struct work_struct *work)
 static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 				unsigned int event)
 {
-	unsigned int cpu;
+	unsigned int cpu = policy->cpu;
 	struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo;
 	int rc, delay;
-	int io_busy;
+	int io_busy = alucard_tuners_ins.io_is_busy;
 
-	cpu = policy->cpu;
-	io_busy = alucard_tuners_ins.io_is_busy;
 	this_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, cpu);
-	this_alucard_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if ((!cpu_online(cpu)) ||
-			(!policy->cur) ||
+		if ((!policy->cur) ||
 			(cpu != this_alucard_cpuinfo->cpu))
 			return -EINVAL;
 
 		mutex_lock(&alucard_mutex);
 
-		this_alucard_cpuinfo->cur_policy = policy;
+		if (!this_alucard_cpuinfo->freq_table)
+			this_alucard_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
 
-		this_alucard_cpuinfo->prev_cpu_wall = ktime_to_us(ktime_get());
+		this_alucard_cpuinfo->cur_policy = policy;
 
 		this_alucard_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_alucard_cpuinfo->prev_cpu_wall, io_busy);
 
@@ -685,6 +682,9 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 			return -EPERM;
 		}
 		mutex_lock(&this_alucard_cpuinfo->timer_mutex);
+		if (!this_alucard_cpuinfo->freq_table)
+			this_alucard_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
+
 		cpufreq_frequency_table_target(policy, this_alucard_cpuinfo->freq_table, policy->min,
 			CPUFREQ_RELATION_L, &this_alucard_cpuinfo->min_index);
 
