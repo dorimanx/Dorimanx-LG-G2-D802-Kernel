@@ -1836,7 +1836,11 @@ free_interfaces:
 	dev->actconfig = cp;
 	mutex_unlock(hcd->bandwidth_mutex);
 
+	if (cp)
+		usb_notify_config_device(dev);
+
 	if (!cp) {
+		usb_notify_config_device(dev);
 		usb_set_device_state(dev, USB_STATE_ADDRESS);
 
 		/* Leave LPM disabled while the device is unconfigured. */
