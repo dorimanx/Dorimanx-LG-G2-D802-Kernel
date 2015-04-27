@@ -552,13 +552,13 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		mutex_lock(&nightmare_mutex);
 
-		this_nightmare_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
-
 		this_nightmare_cpuinfo->cur_policy = policy;
 
 		this_nightmare_cpuinfo->prev_cpu_wall = ktime_to_us(ktime_get());
 
 		this_nightmare_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_nightmare_cpuinfo->prev_cpu_wall, io_busy);
+
+		this_nightmare_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
 
 		nightmare_enable++;
 		/*
