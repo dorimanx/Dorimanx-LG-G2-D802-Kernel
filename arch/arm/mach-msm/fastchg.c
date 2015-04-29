@@ -51,9 +51,10 @@
  * removed updating charging scenario when no charger connected. no point to do so.
  * version 2.4 allowed full 2000ma to be set in charger driver.
  * version 2.5 fixed broken mitigation set if USB is connected.
+ * version 2.6 fixed activation of force fast charge when no power connected. and rom set thermal mitigation.
  */
 
-#define FAST_CHARGE_VERSION	"Version 2.5"
+#define FAST_CHARGE_VERSION	"Version 2.6"
 
 int force_fast_charge;
 int force_fast_charge_temp;
