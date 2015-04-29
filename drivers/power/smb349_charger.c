@@ -1719,18 +1719,20 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 				POWER_SUPPLY_PROP_CURRENT_NOW, &pwr);
 		current_now = pwr.intval / 1000;
 
-		if (batt_charge >= 95) {
-			batt_state_check = 1;
-			if (force_fast_charge != 0) {
-				force_fast_charge_on_off = force_fast_charge;
-				force_fast_charge = 0;
-				pr_info("thermal-engine: FFC disabled! battery is above 95 percent\n");
+		if (usb_power_curr_now > 100) {
+			if (batt_charge >= 95) {
+				batt_state_check = 1;
+				if (force_fast_charge != 0) {
+					force_fast_charge_on_off = force_fast_charge;
+					force_fast_charge = 0;
+					pr_info("thermal-engine: FFC disabled! battery is above 95 percent\n");
+				}
+			} else {
+				if (force_fast_charge != force_fast_charge_on_off)
+					force_fast_charge = force_fast_charge_on_off;
+				if (force_fast_charge != 0)
+					pr_info("thermal-engine: FFC active! battery is below 95 percent\n");
 			}
-		} else {
-			if (force_fast_charge != force_fast_charge_on_off)
-				force_fast_charge = force_fast_charge_on_off;
-			if (force_fast_charge != 0)
-				pr_info("thermal-engine: FFC active! battery is below 95 percent\n");
 		}
 
 		if (batt_temp >= 550)
