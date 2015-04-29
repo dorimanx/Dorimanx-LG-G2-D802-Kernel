@@ -54,8 +54,6 @@
  * version 2.6 fixed activation of force fast charge when no power connected. and rom set thermal mitigation.
  */
 
-#define FAST_CHARGE_VERSION	"Version 2.6"
-
 int force_fast_charge;
 int force_fast_charge_temp;
 int fast_charge_level;

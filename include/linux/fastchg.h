@@ -18,6 +18,8 @@
 #ifndef _LINUX_FASTCHG_H
 #define _LINUX_FASTCHG_H
 
+#define FAST_CHARGE_VERSION "Version 2.6"
+
 extern int force_fast_charge;
 extern int force_fast_charge_temp;
 extern int fast_charge_level;
