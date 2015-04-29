@@ -46,6 +46,7 @@ struct hotplug_cpuinfo {
 	unsigned int cpu;
 	struct work_struct up_work;
 	struct work_struct down_work;
+	struct mutex timer_mutex;
 };
 
 static DEFINE_PER_CPU(struct hotplug_cpuinfo, od_hotplug_cpuinfo);
@@ -65,7 +66,6 @@ static struct hotplug_tuners {
 	unsigned int hotplug_suspend;
 	bool suspended;
 	bool force_cpu_up;
-	struct mutex alu_hotplug_mutex;
 } hotplug_tuners_ins = {
 	.hotplug_sampling_rate = 30,
 #ifdef CONFIG_MACH_JF
@@ -240,6 +240,7 @@ static void hotplug_work_fn(struct work_struct *work)
 		unsigned int cur_freq = 0;
 		int online_cpus;
 
+		mutex_lock(&pcpu_info->timer_mutex);
 		cur_idle_time = get_cpu_idle_time(
 				cpu, &cur_wall_time, io_busy);
 
@@ -254,8 +255,10 @@ static void hotplug_work_fn(struct work_struct *work)
 		pcpu_info->prev_cpu_idle = cur_idle_time;
 
 		/* if wall_time < idle_time or wall_time == 0, evaluate cpu load next time */
-		if (unlikely(!wall_time || wall_time < idle_time))
+		if (unlikely(!wall_time || wall_time < idle_time)) {
+			mutex_unlock(&pcpu_info->timer_mutex);
 			continue;
+		}
 
 		cur_load = 100 * (wall_time - idle_time) / wall_time;
 
@@ -330,6 +333,7 @@ static void hotplug_work_fn(struct work_struct *work)
 			pcpu_info->cur_up_rate = 1;
 			pcpu_info->cur_down_rate = 1;
 		}
+		mutex_unlock(&pcpu_info->timer_mutex);
 	}
 
 	if (force_up == true)
@@ -350,9 +354,7 @@ static void __alucard_hotplug_suspend(void)
 	if (hotplug_tuners_ins.hotplug_enable > 0
 				&& hotplug_tuners_ins.hotplug_suspend == 1 &&
 				hotplug_tuners_ins.suspended == false) {
-			mutex_lock(&hotplug_tuners_ins.alu_hotplug_mutex);
 			hotplug_tuners_ins.suspended = true;
-			mutex_unlock(&hotplug_tuners_ins.alu_hotplug_mutex);
 			pr_info("Alucard HotPlug suspended.\n");
 	}
 }
@@ -364,12 +366,11 @@ static void __ref __alucard_hotplug_resume(void)
 #endif
 {
 	if (hotplug_tuners_ins.hotplug_enable > 0
-		&& hotplug_tuners_ins.hotplug_suspend == 1) {
-			mutex_lock(&hotplug_tuners_ins.alu_hotplug_mutex);
+		&& hotplug_tuners_ins.suspended == true) {
 			hotplug_tuners_ins.suspended = false;
 			/* wake up everyone */
-			hotplug_tuners_ins.force_cpu_up = true;
-			mutex_unlock(&hotplug_tuners_ins.alu_hotplug_mutex);
+			if (hotplug_tuners_ins.hotplug_suspend == 1)
+				hotplug_tuners_ins.force_cpu_up = true;
 			pr_info("Alucard HotPlug Resumed.\n");
 	}
 }
@@ -422,11 +423,13 @@ static int alucard_hotplug_callback(struct notifier_block *nb,
 	case CPU_ONLINE:
 	case CPU_ONLINE_FROZEN:
 		pcpu_info = &per_cpu(od_hotplug_cpuinfo, cpu);
+		mutex_lock(&pcpu_info->timer_mutex);
 		pcpu_info->prev_cpu_idle = get_cpu_idle_time(cpu,
 				&pcpu_info->prev_cpu_wall,
 				hotplug_tuners_ins.hp_io_is_busy);
 		pcpu_info->cur_up_rate = 1;
 		pcpu_info->cur_down_rate = 1;
+		mutex_unlock(&pcpu_info->timer_mutex);
 		break;
 	}
 
@@ -465,6 +468,7 @@ static int hotplug_start(void)
 		}
 		pcpu_info->cur_up_rate = 1;
 		pcpu_info->cur_down_rate = 1;
+		mutex_init(&pcpu_info->timer_mutex);
 		INIT_WORK(&pcpu_info->up_work, cpu_up_work);
 		INIT_WORK(&pcpu_info->down_work, cpu_down_work);
 	}
@@ -478,7 +482,6 @@ static int hotplug_start(void)
 				msecs_to_jiffies(
 				hotplug_tuners_ins.hotplug_sampling_rate));
 
-	mutex_init(&hotplug_tuners_ins.alu_hotplug_mutex);
 #ifdef CONFIG_POWERSUSPEND
 	register_power_suspend(&alucard_hotplug_power_suspend_driver);
 #else
@@ -500,8 +503,6 @@ static void hotplug_stop(void)
 	fb_unregister_client(&notif);
 	notif.notifier_call = NULL;
 #endif
-	mutex_destroy(&hotplug_tuners_ins.alu_hotplug_mutex);
-
 	get_online_cpus();
 	unregister_hotcpu_notifier(&alucard_hotplug_nb);
 	put_online_cpus();
@@ -512,6 +513,7 @@ static void hotplug_stop(void)
 				&per_cpu(od_hotplug_cpuinfo, cpu);
 		cancel_work_sync(&pcpu_info->up_work);
 		cancel_work_sync(&pcpu_info->down_work);
+		mutex_destroy(&pcpu_info->timer_mutex);
 	}
 	stop_rq_work();
 
@@ -797,9 +799,11 @@ static ssize_t store_hp_io_is_busy(struct kobject *a, struct attribute *b,
 		for_each_online_cpu(j) {
 			struct hotplug_cpuinfo *pcpu_info =
 					&per_cpu(od_hotplug_cpuinfo, j);
+			mutex_lock(&pcpu_info->timer_mutex);
 			pcpu_info->prev_cpu_idle = get_cpu_idle_time(j,
 					&pcpu_info->prev_cpu_wall,
 					!!input);
+			mutex_unlock(&pcpu_info->timer_mutex);
 		}
 	}
 	hotplug_tuners_ins.hp_io_is_busy = !!input;
@@ -830,10 +834,8 @@ static ssize_t store_hotplug_suspend(struct kobject *a,
 
 	if (input > 0)
 		hotplug_tuners_ins.hotplug_suspend = 1;
-	else {
+	else
 		hotplug_tuners_ins.hotplug_suspend = 0;
-		hotplug_tuners_ins.suspended = false;
-	}
 
 	return count;
 }
