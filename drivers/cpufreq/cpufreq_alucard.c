@@ -67,7 +67,6 @@ struct cpufreq_alucard_cpuinfo {
 	struct cpufreq_frequency_table *freq_table;
 	struct delayed_work work;
 	struct cpufreq_policy *cur_policy;
-	int cpu;
 	int min_index;
 	int max_index;
 	int pump_inc_step;
@@ -362,7 +361,7 @@ static ssize_t store_freq_responsiveness(struct kobject *a, struct attribute *b,
 static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
 {
-	unsigned int input, j;
+	unsigned int input, cpu;
 	int ret;
 
 	ret = sscanf(buf, "%u", &input);
@@ -378,14 +377,17 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 	alucard_tuners_ins.io_is_busy = !!input;
 
 	/* we need to re-evaluate prev_cpu_idle */
-	for_each_online_cpu(j) {
-		struct cpufreq_alucard_cpuinfo *j_alucard_cpuinfo;
+	get_online_cpus();
+	for_each_online_cpu(cpu) {
+		struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo = 
+			&per_cpu(od_alucard_cpuinfo, cpu);
 
-		j_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, j);
-
-		j_alucard_cpuinfo->prev_cpu_idle = get_cpu_idle_time(j,
-			&j_alucard_cpuinfo->prev_cpu_wall, alucard_tuners_ins.io_is_busy);
+		mutex_lock(&this_alucard_cpuinfo->timer_mutex);
+		this_alucard_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu,
+			&this_alucard_cpuinfo->prev_cpu_wall, alucard_tuners_ins.io_is_busy);
+		mutex_unlock(&this_alucard_cpuinfo->timer_mutex);
 	}
+	put_online_cpus();
 	return count;
 }
 
@@ -469,8 +471,9 @@ static struct attribute_group alucard_attr_group = {
 
 /************************** sysfs end ************************/
 
-static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo)
+static void alucard_check_cpu(unsigned int cpu)
 {
+	struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, cpu);
 	struct cpufreq_policy *cpu_policy;
 	unsigned int freq_responsiveness = alucard_tuners_ins.freq_responsiveness;
 	int dec_cpu_load = alucard_tuners_ins.dec_cpu_load;
@@ -481,14 +484,12 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 	unsigned int wall_time, idle_time;
 	unsigned int hi_index = 0;
 	int cur_load = -1;
-	unsigned int cpu;
 	int io_busy = alucard_tuners_ins.io_is_busy;
 	unsigned int cpus_up_rate = alucard_tuners_ins.cpus_up_rate;
 	unsigned int cpus_down_rate = alucard_tuners_ins.cpus_down_rate;
 
-	cpu = this_alucard_cpuinfo->cpu;
 	cpu_policy = this_alucard_cpuinfo->cur_policy;
-	if (!cpu_policy)
+	if (!cpu_policy->cur)
 		return;
 
 	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, io_busy);
@@ -560,45 +561,38 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 
 static void do_alucard_timer(struct work_struct *work)
 {
-	struct cpufreq_alucard_cpuinfo *alucard_cpuinfo;
+	struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo = 
+		container_of(work, struct cpufreq_alucard_cpuinfo, work.work);
+	unsigned int cpu = this_alucard_cpuinfo->cur_policy->cpu;
 	int delay;
-	unsigned int cpu;
+	
+	mutex_lock(&this_alucard_cpuinfo->timer_mutex);
 
-	alucard_cpuinfo = container_of(work, struct cpufreq_alucard_cpuinfo, work.work);
-	cpu = alucard_cpuinfo->cpu;
-
-	mutex_lock(&alucard_cpuinfo->timer_mutex);
-
-	alucard_check_cpu(alucard_cpuinfo);
+	alucard_check_cpu(cpu);
 
 	delay = usecs_to_jiffies(alucard_tuners_ins.sampling_rate);
 
 	/* We want all CPUs to do sampling nearly on same jiffy */
-	if (num_online_cpus() > 1)
-		delay -= jiffies % delay;
+	if (num_online_cpus() > 1) {
+		delay = max(delay - (jiffies % delay), usecs_to_jiffies(alucard_tuners_ins.sampling_rate / 2));
+	}
 
-	if (delay <= 0)
-		delay = usecs_to_jiffies(MIN_SAMPLING_RATE);
+	mod_delayed_work_on(cpu, system_wq, &this_alucard_cpuinfo->work, delay);
 
-	mod_delayed_work_on(cpu, system_wq, &alucard_cpuinfo->work, delay);
-
-	mutex_unlock(&alucard_cpuinfo->timer_mutex);
+	mutex_unlock(&this_alucard_cpuinfo->timer_mutex);
 }
 
 static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 				unsigned int event)
 {
+	struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, policy->cpu);
 	unsigned int cpu = policy->cpu;
-	struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo;
 	int rc, delay;
 	int io_busy = alucard_tuners_ins.io_is_busy;
 
-	this_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, cpu);
-
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if ((!policy->cur) ||
-			(cpu != this_alucard_cpuinfo->cpu))
+		if (!policy->cur)
 			return -EINVAL;
 
 		mutex_lock(&alucard_mutex);
@@ -607,7 +601,7 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 			this_alucard_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
 
 		this_alucard_cpuinfo->cur_policy = policy;
-
+	
 		this_alucard_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_alucard_cpuinfo->prev_cpu_wall, io_busy);
 
 		cpufreq_frequency_table_target(policy, this_alucard_cpuinfo->freq_table, policy->min,
@@ -642,15 +636,13 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 
 		delay = usecs_to_jiffies(alucard_tuners_ins.sampling_rate);
 		/* We want all CPUs to do sampling nearly on same jiffy */
-		if (num_online_cpus() > 1)
-			delay -= jiffies % delay;
-
-		if (delay <= 0)
-			delay = usecs_to_jiffies(MIN_SAMPLING_RATE);
+		if (num_online_cpus() > 1) {
+			delay = max(delay - (jiffies % delay), usecs_to_jiffies(alucard_tuners_ins.sampling_rate / 2));
+		}
 
 		INIT_DEFERRABLE_WORK(&this_alucard_cpuinfo->work, do_alucard_timer);
 
-		mod_delayed_work_on(this_alucard_cpuinfo->cpu, system_wq, &this_alucard_cpuinfo->work, delay);
+		mod_delayed_work_on(cpu, system_wq, &this_alucard_cpuinfo->work, delay);
 
 		break;
 
@@ -677,7 +669,7 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
-		if (!this_alucard_cpuinfo->cur_policy) {
+		if (!this_alucard_cpuinfo->cur_policy->cur) {
 			pr_debug("Unable to limit cpu freq due to cur_policy == NULL\n");
 			return -EPERM;
 		}
@@ -727,7 +719,6 @@ static int __init cpufreq_gov_alucard_init(void)
 	for_each_possible_cpu(cpu) {
 		struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, cpu);
 
-		this_alucard_cpuinfo->cpu = cpu;
 		this_alucard_cpuinfo->pump_inc_step_at_min_freq = PUMP_INC_STEP_AT_MIN_FREQ;
 		this_alucard_cpuinfo->pump_inc_step = PUMP_INC_STEP;
 		this_alucard_cpuinfo->pump_dec_step = PUMP_DEC_STEP;
