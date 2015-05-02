@@ -881,12 +881,12 @@ static void kgsl_destroy_process_private(struct kref *kref)
 		return;
 	}
 	list_del(&private->list);
-	mutex_unlock(&kgsl_driver.process_mutex);
 
 	if (private->kobj.state_in_sysfs)
 		kgsl_process_uninit_sysfs(private);
 	if (private->debug_root)
 		debugfs_remove_recursive(private->debug_root);
+	mutex_unlock(&kgsl_driver.process_mutex);
 
 	idr_destroy(&private->mem_idr);
 	kgsl_mmu_putpagetable(private->pagetable);
