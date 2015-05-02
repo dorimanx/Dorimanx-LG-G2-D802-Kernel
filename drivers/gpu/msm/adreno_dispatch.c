@@ -1684,7 +1684,13 @@ void adreno_dispatcher_irq_fault(struct kgsl_device *device)
  */
 void adreno_dispatcher_start(struct kgsl_device *device)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
 	complete_all(&device->cmdbatch_gate);
+
+	/* a305b & a305c GPUs are slower than a330 and needs a larger timer */
+	if (adreno_is_a305b(adreno_dev) || adreno_is_a305c(adreno_dev))
+		_fault_timer_interval = 200;
 
 	/* Schedule the work loop to get things going */
 	adreno_dispatcher_schedule(device);
