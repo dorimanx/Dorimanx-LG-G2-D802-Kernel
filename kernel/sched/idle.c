@@ -66,6 +66,18 @@ void __weak arch_cpu_idle(void)
 	local_irq_enable();
 }
 
+static void default_idle_call(void)
+{
+	/*
+	 * We can't use the cpuidle framework, let's use the default idle
+	 * routine.
+	 */
+	if (current_clr_polling_and_test())
+		local_irq_enable();
+	else
+		arch_cpu_idle();
+}
+
 /**
  * cpuidle_idle_call - the main idle function
  *
@@ -108,8 +120,10 @@ static void cpuidle_idle_call(void)
 	 * to the default arch specific idle method
 	 */
 	next_state = cpuidle_select(drv, dev);
-	if (next_state < 0)
-		goto use_default;
+	if (next_state < 0) {
+		default_idle_call();
+		goto exit_idle;
+	}
 
 	/*
 	 * The idle task must be scheduled, it is pointless to
@@ -136,8 +150,10 @@ static void cpuidle_idle_call(void)
 	/* The cpu is no longer idle or about to enter idle. */
 	idle_set_state(this_rq(), NULL);
 
-	if (entered_state == -EBUSY)
-		goto use_default;
+	if (entered_state == -EBUSY) {
+		default_idle_call();
+		goto exit_idle;
+	}
 
 	/*
 	 * Give the governor an opportunity to reflect on the outcome
@@ -154,19 +170,6 @@ static void cpuidle_idle_call(void)
 
 	rcu_idle_exit();
 	start_critical_timings();
-	return;
-
-use_default:
-	/*
-	 * We can't use the cpuidle framework, let's use the default
-	 * idle routine.
-	 */
-	if (current_clr_polling_and_test())
-		local_irq_enable();
-	else
-		arch_cpu_idle();
-
-	goto exit_idle;
 }
 
 /*
