@@ -697,6 +697,10 @@ static int raw_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	skb = skb_recv_datagram(sk, flags, noblock, &err);
 	if (!skb)
 		goto out;
+	if (ccs_socket_post_recvmsg_permission(sk, skb, flags)) {
+		err = -EAGAIN; /* Hope less harmful than -EPERM. */
+		goto out;
+	}
 
 	copied = skb->len;
 	if (len < copied) {
