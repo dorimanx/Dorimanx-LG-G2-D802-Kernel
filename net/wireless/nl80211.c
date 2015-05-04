@@ -5465,6 +5465,7 @@ static int nl80211_testmode_dump(struct sk_buff *skb,
 	cfg80211_unlock_rdev(rdev);
 	return err;
 }
+#endif
 
 struct sk_buff *__cfg80211_alloc_event_skb(struct wiphy *wiphy,
 					   enum nl80211_commands cmd,
@@ -5516,7 +5517,6 @@ void __cfg80211_send_event_skb(struct sk_buff *skb, gfp_t gfp)
 			nl80211_testmode_mcgrp.id, gfp);
 }
 EXPORT_SYMBOL(__cfg80211_send_event_skb);
-#endif
 
 static int nl80211_connect(struct sk_buff *skb, struct genl_info *info)
 {
@@ -7506,7 +7506,7 @@ static struct genl_ops nl80211_ops[] = {
 		.doit = nl80211_vendor_cmd,
 		.policy = nl80211_policy,
 		.flags = GENL_ADMIN_PERM,
-		.internal_flags = NL80211_FLAG_NEED_WIPHY |
+		.internal_flags = NL80211_FLAG_NEED_NETDEV |
 				  NL80211_FLAG_NEED_RTNL,
 	},
 	{
