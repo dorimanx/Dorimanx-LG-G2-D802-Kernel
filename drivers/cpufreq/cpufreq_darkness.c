@@ -158,21 +158,57 @@ static struct attribute_group darkness_attr_group = {
 
 /************************** sysfs end ************************/
 
+static unsigned int adjust_cpufreq_frequency_target(struct cpufreq_policy *policy,
+					struct cpufreq_frequency_table *table,
+					unsigned int tmp_freq)
+{
+	unsigned int i = 0, l_freq = 0, h_freq = 0, target_freq = 0;
+
+	if (tmp_freq < policy->min)
+		tmp_freq = policy->min;
+	if (tmp_freq > policy->max)
+		tmp_freq = policy->max;
+
+	for (i = 0; (table[i].frequency != CPUFREQ_TABLE_END); i++) {
+		unsigned int freq = table[i].frequency;
+		if (freq == CPUFREQ_ENTRY_INVALID) {
+			continue;
+		}
+		if (freq < tmp_freq) {
+			h_freq = freq;
+		}
+		if (freq == tmp_freq) {
+			target_freq = freq;
+			break;
+		}
+		if (freq > tmp_freq) {
+			l_freq = freq;
+			break;
+		}
+	}
+	if (!target_freq) {
+		if (policy->cur >= h_freq
+			 && policy->cur <= l_freq)
+			target_freq = policy->cur;
+		else
+			target_freq = l_freq;
+	}
+
+	return target_freq;
+}
+
 static void darkness_check_cpu(unsigned int cpu)
 {
 	struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, cpu);
-	struct cpufreq_policy *cpu_policy;
-	unsigned int min_freq;
-	unsigned int max_freq;
+	struct cpufreq_policy *policy;
 	u64 cur_wall_time, cur_idle_time;
 	unsigned int wall_time, idle_time;
-	unsigned int index = 0;
 	unsigned int next_freq = 0;
-	int cur_load = -1;
+	unsigned int cur_load = 0;
 	int io_busy = darkness_tuners_ins.io_is_busy;
 
-	cpu_policy = this_darkness_cpuinfo->cur_policy;
-	if (!cpu_policy->cur)
+	policy = this_darkness_cpuinfo->cur_policy;
+	if (!policy->cur)
 		return;
 
 	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, io_busy);
@@ -193,28 +229,13 @@ static void darkness_check_cpu(unsigned int cpu)
 
 	cur_load = 100 * (wall_time - idle_time) / wall_time;
 
-	cpufreq_notify_utilization(cpu_policy, cur_load);
-
-	/* Checking Frequency Limit */
-	min_freq = cpu_policy->min;
-	max_freq = cpu_policy->max;
+	cpufreq_notify_utilization(policy, cur_load);
 
 	/* CPUs Online Scale Frequency*/
-	next_freq = max(min(cur_load * (max_freq / 100), max_freq), min_freq);
-	cpufreq_frequency_table_target(cpu_policy, this_darkness_cpuinfo->freq_table, next_freq,
-		CPUFREQ_RELATION_H, &index);
-	if (this_darkness_cpuinfo->freq_table[index].frequency != cpu_policy->cur) {
-		cpufreq_frequency_table_target(cpu_policy, this_darkness_cpuinfo->freq_table, next_freq,
-			CPUFREQ_RELATION_L, &index);
-	} else {
-		return;
-	}
-
-	next_freq = this_darkness_cpuinfo->freq_table[index].frequency;
-	/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq);*/
-	if (next_freq != cpu_policy->cur) {
-		__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
-	}
+	next_freq = adjust_cpufreq_frequency_target(policy, this_darkness_cpuinfo->freq_table, 
+												cur_load * (policy->max / 100));
+	if (next_freq != policy->cur)
+		__cpufreq_driver_target(policy, next_freq, CPUFREQ_RELATION_L);
 }
 
 static void do_darkness_timer(struct work_struct *work)
