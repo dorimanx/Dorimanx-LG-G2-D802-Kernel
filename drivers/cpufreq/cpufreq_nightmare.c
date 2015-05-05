@@ -396,6 +396,7 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 			&this_nightmare_cpuinfo->prev_cpu_wall, nightmare_tuners_ins.io_is_busy);
 		mutex_unlock(&this_nightmare_cpuinfo->timer_mutex);
 	}
+	put_online_cpus();
 	return count;
 }
 
