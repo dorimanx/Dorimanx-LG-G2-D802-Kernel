@@ -548,6 +548,12 @@ static void compr_event_handler(uint32_t opcode,
 		snd_compr_fragment_elapsed(cstream);
 		prtd->copied_total = prtd->bytes_received;
 		atomic_set(&prtd->error, 1);
+		wake_up(&prtd->drain_wait);
+		if (atomic_read(&prtd->eos)) {
+			pr_debug("%s:unblock eos wait queues", __func__);
+			wake_up(&prtd->eos_wait);
+			atomic_set(&prtd->eos, 0);
+		}
 		spin_unlock_irqrestore(&prtd->lock, flags);
 		break;
 	default:
@@ -598,7 +604,37 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 	struct asm_flac_cfg flac_cfg;
 	int ret = 0;
 
+#ifndef CONFIG_HIFI_SOUND
+	uint16_t bit_width = 16;
+#endif
+
 	switch (prtd->codec) {
+#ifdef CONFIG_HIFI_SOUND
+	case FORMAT_LINEAR_PCM:
+		pr_err("%s :FORMAT_LINEAR_PCM SR %d CH %d bps %d\n", __func__,
+			prtd->sample_rate, prtd->num_channels,prtd->bits_per_sample);
+		ret = q6asm_media_format_block_pcm_format_support_v2(
+			prtd->audio_client, prtd->sample_rate,
+			prtd->num_channels, prtd->bits_per_sample,
+			stream_id);
+		if (ret < 0)
+		    pr_debug("%s: CMD Format block failed %d \n", __func__, ret);
+		 break;
+#else
+	case FORMAT_LINEAR_PCM:
+		pr_debug("SND_AUDIOCODEC_PCM\n");
+		if (prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S24_LE)
+			bit_width = 24;
+		ret = q6asm_media_format_block_pcm_format_support_v2(
+							prtd->audio_client,
+							prtd->sample_rate,
+							prtd->num_channels,
+							bit_width, stream_id);
+		if (ret < 0)
+			pr_err("%s: CMD Format block failed\n", __func__);
+
+		break;
+#endif
 	case FORMAT_MP3:
 		pr_debug("SND_AUDIOCODEC_MP3\n");
 		/* no media format block needed */
@@ -675,17 +711,6 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 	case FORMAT_MP2:
 		pr_debug("%s: SND_AUDIOCODEC_MP2\n", __func__);
 		break;
-#ifdef CONFIG_HIFI_SOUND
-	case FORMAT_LINEAR_PCM:
-		pr_err("%s :FORMAT_LINEAR_PCM SR %d CH %d bps %d\n", __func__,
-			prtd->sample_rate, prtd->num_channels,prtd->bits_per_sample);
-		ret = q6asm_media_format_block_pcm_format_support_v2(
-			prtd->audio_client, prtd->sample_rate,
-			prtd->num_channels, prtd->bits_per_sample,
-			stream_id);
-		if (ret < 0)
-		    pr_debug("%s: CMD Format block failed %d \n", __func__, ret);
-		 break;
 	case FORMAT_FLAC:
 		pr_debug("%s: SND_AUDIOCODEC_FLAC\n", __func__);
 		memset(&flac_cfg, 0x0, sizeof(struct asm_flac_cfg));
@@ -710,7 +735,6 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 				__func__, ret);
 
 		break;
-#endif
 	default:
 		pr_debug("%s, unsupported format, skip", __func__);
 		break;
@@ -1119,6 +1143,23 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	pr_debug("%s: sample_rate %d\n", __func__, prtd->sample_rate);
 
 	switch (params->codec.id) {
+#ifdef CONFIG_HIFI_SOUND
+	case SND_AUDIOCODEC_PCM: {
+		pr_err("%s: SND_AUDIOCODEC_PCM BPS: %d\n",\
+			 __func__, prtd->codec_param.codec.format);
+		prtd->codec = FORMAT_LINEAR_PCM;
+		prtd->bits_per_sample = prtd->codec_param.codec.format;
+		frame_sz = AAC_OUTPUT_FRAME_SZ;
+		break;
+	}
+#else
+	case SND_AUDIOCODEC_PCM: {
+		pr_debug("SND_AUDIOCODEC_PCM\n");
+		prtd->codec = FORMAT_LINEAR_PCM;
+		break;
+	}
+#endif
+
 	case SND_AUDIOCODEC_MP3: {
 		pr_debug("SND_AUDIOCODEC_MP3\n");
 		prtd->codec = FORMAT_MP3;
@@ -1153,16 +1194,6 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 		break;
 	}
 
-#ifdef CONFIG_HIFI_SOUND
-	case SND_AUDIOCODEC_PCM: {
-		pr_err("%s: SND_AUDIOCODEC_PCM BPS: %d\n",\
-			 __func__, prtd->codec_param.codec.format);
-		prtd->codec = FORMAT_LINEAR_PCM;
-		prtd->bits_per_sample = prtd->codec_param.codec.format;
-		break;
-	}
-#endif
-
 	case SND_AUDIOCODEC_WMA: {
 		pr_debug("SND_AUDIOCODEC_WMA\n");
 		prtd->codec = FORMAT_WMA_V9;
@@ -1186,12 +1217,6 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 		return -EINVAL;
 	}
 
-	delay_time_ms = ((DSP_NUM_OUTPUT_FRAME_BUFFERED * frame_sz * 1000) /
-			prtd->sample_rate) + DSP_PP_BUFFERING_IN_MSEC;
-	delay_time_ms = delay_time_ms > PARTIAL_DRAIN_ACK_EARLY_BY_MSEC ?
-			delay_time_ms - PARTIAL_DRAIN_ACK_EARLY_BY_MSEC : 0;
-	prtd->partial_drain_delay = delay_time_ms;
-
 #ifdef CONFIG_HIFI_SOUND
 	if((prtd->codec != FORMAT_LINEAR_PCM) && (prtd->sample_rate > 48000)) {
 		pr_err("%s: Out  of  bounds sample rate for codec %d\n",\
@@ -1199,6 +1224,13 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 		return -EINVAL;
 	}
 #endif
+
+	delay_time_ms = ((DSP_NUM_OUTPUT_FRAME_BUFFERED * frame_sz * 1000) /
+			prtd->sample_rate) + DSP_PP_BUFFERING_IN_MSEC;
+	delay_time_ms = delay_time_ms > PARTIAL_DRAIN_ACK_EARLY_BY_MSEC ?
+			delay_time_ms - PARTIAL_DRAIN_ACK_EARLY_BY_MSEC : 0;
+	prtd->partial_drain_delay = delay_time_ms;
+
 	ret = msm_compr_configure_dsp(cstream);
 
 	return ret;
@@ -1216,13 +1248,18 @@ static int msm_compr_drain_buffer(struct msm_compr_audio *prtd,
 	rc = wait_event_interruptible(prtd->drain_wait,
 					prtd->drain_ready ||
 					prtd->cmd_interrupt ||
-					atomic_read(&prtd->xrun));
+					atomic_read(&prtd->xrun) ||
+					atomic_read(&prtd->error));
 	pr_debug("%s: out of buffer drain wait with ret %d\n", __func__, rc);
 	spin_lock_irqsave(&prtd->lock, *flags);
 	if (prtd->cmd_interrupt) {
 		pr_debug("%s: buffer drain interrupted by flush)\n", __func__);
 		rc = -EINTR;
 		prtd->cmd_interrupt = 0;
+	}
+	if (atomic_read(&prtd->error)) {
+		pr_err("%s: Got RESET EVENTS notification, return\n", __func__);
+		rc = -ENETRESET;
 	}
 	return rc;
 }
@@ -1523,7 +1560,9 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 
 		/* Wait indefinitely for  DRAIN. Flush can also signal this*/
 		rc = wait_event_interruptible(prtd->eos_wait,
-				      (prtd->eos_ack || prtd->cmd_interrupt));
+						(prtd->eos_ack ||
+						prtd->cmd_interrupt ||
+						atomic_read(&prtd->error)));
 
 		if (rc < 0)
 			pr_err("%s: EOS wait failed\n", __func__);
@@ -1533,6 +1572,11 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 
 		if (prtd->cmd_interrupt)
 			rc = -EINTR;
+
+		if (atomic_read(&prtd->error)) {
+			pr_err("%s: Got RESET EVENTS notification, return\n", __func__);
+			rc = -ENETRESET;
+		}
 
 		/*FIXME : what if a flush comes while PC is here */
 		if (rc == 0) {
@@ -3236,13 +3280,14 @@ static struct snd_compr_ops msm_compr_ops = {
 static struct snd_soc_platform_driver msm_soc_platform = {
 	.probe		= msm_compr_probe,
 	.compr_ops	= &msm_compr_ops,
+	.pcm_new	= msm_compr_new,
 #if defined(CONFIG_SND_LGE_EFFECT) || defined(CONFIG_SND_LGE_NORMALIZER) || defined(CONFIG_SND_LGE_MABL)
 	.controls = msm_compr_lge_effect_controls,
 	.num_controls = ARRAY_SIZE(msm_compr_lge_effect_controls),
-#endif
-	.pcm_new	= msm_compr_new,
+#else
 	.controls       = msm_compr_gapless_controls,
 	.num_controls   = ARRAY_SIZE(msm_compr_gapless_controls),
+#endif
 };
 
 static __devinit int msm_compr_dev_probe(struct platform_device *pdev)

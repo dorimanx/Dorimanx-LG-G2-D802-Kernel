@@ -819,7 +819,6 @@ static struct lsm_client *q6lsm_get_lsm_client(int session_id)
 	else
 		client = lsm_session[session_id];
 	spin_unlock_irqrestore(&lsm_session_lock, flags);
-
 done:
 	return client;
 }

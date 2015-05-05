@@ -101,13 +101,8 @@ static const struct soc_enum mi2s_config_enum[] = {
 	SOC_ENUM_SINGLE_EXT(4, mi2s_format),
 };
 
-/*                                          
-                                                                                
-                                   
-*/
 static int aux_tx;
 static int aux_rx;
-/*              */
 
 static int msm_dai_q6_auxpcm_hw_params(
 				struct snd_pcm_substream *substream,

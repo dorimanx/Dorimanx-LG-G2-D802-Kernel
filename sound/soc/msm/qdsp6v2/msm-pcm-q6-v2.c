@@ -1127,8 +1127,7 @@ static __devinit int msm_pcm_probe(struct platform_device *pdev)
 			if (!strcmp(latency_level, "ultra"))
 				pdata->perf_mode = ULTRA_LOW_LATENCY_PCM_MODE;
 		}
-	}
-	else
+	} else
 		pdata->perf_mode = LEGACY_PCM_MODE;
 
 	dev_set_drvdata(&pdev->dev, pdata);
