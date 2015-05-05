@@ -346,6 +346,9 @@ int snd_usb_init_substream_urbs(struct snd_usb_substream *subs,
 			u->urb->context = u;
 			u->urb->complete = snd_complete_sync_urb;
 		}
+		if (chip->usb_id == USB_ID(0x0644, 0x8038) /* TEAC UD-H01 */ &&
+				subs->syncmaxsize == 4)
+			subs->udh01_fb_quirk = 1;
 	}
 	return 0;
 
@@ -561,7 +564,16 @@ static int retire_playback_sync_urb(struct snd_usb_substream *subs,
 	if (f == 0)
 		return 0;
 
-	if (unlikely(subs->freqshift == INT_MIN)) {
+	if (unlikely(subs->udh01_fb_quirk)) {
+		/*
+		 * The TEAC UD-H01 firmware sometimes changes the feedback value
+		 * by +/- 0x1.0000.
+		 */
+		if (f < subs->freqn - 0x8000)
+			f += 0x10000;
+		else if (f > subs->freqn + 0x8000)
+			f -= 0x10000;
+	} else if (unlikely(subs->freqshift == INT_MIN)) {
 		/*
 		 * The first time we see a feedback value, determine its format
 		 * by shifting it left or right until it matches the nominal
