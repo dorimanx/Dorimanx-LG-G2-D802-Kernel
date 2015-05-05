@@ -9,6 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
@@ -865,6 +866,7 @@ static void send_adm_cal(int port_id, int path, int perf_mode)
 
 		if (this_adm.mem_addr_audproc[acdb_path].cal_paddr != 0)
 			adm_memory_unmap_regions(port_id);
+
 		result = adm_memory_map_regions(port_id, &aud_cal.cal_paddr,
 						0, &size, 1);
 		if (result < 0) {

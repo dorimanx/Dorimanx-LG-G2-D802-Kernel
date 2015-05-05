@@ -29,7 +29,6 @@
 #include "q6voice.h"
 
 
-
 #define TIMEOUT_MS 500
 
 
@@ -101,28 +100,30 @@ static int voc_enable_cvp(uint32_t session_id);
 static struct voice_data *voice_get_session_by_idx(int idx);
 
 
-//                                      
+//[AUDIO_BSP_START]minyoung1.kim@lge.com
 static uint32_t audio_start = 0;
 //static String audio_start = "/sys/module/q6voice/parameters/audio_start";
 static int set_start_call(const char *buf, struct kernel_param *kp)
 {
-        audio_start = buf[0] - '0';
-		pr_info("%s: LG audio bsp: set  %d \n", __func__, audio_start);
-        return 1;
+	audio_start = buf[0] - '0';
+	pr_info("%s: LG audio bsp: set  %d \n", __func__, audio_start);
+
+	return 1;
 }
 
 
 
 static int get_start_call(char *buf, struct kernel_param *kp)
 {
-	    int ret = 0;
+	int ret = 0;
 
-		ret = sprintf(buf, "%d\n", audio_start);
-		pr_info("%s:LG audio bsp: get  %d \n", __func__, audio_start);
-	    return ret;
+	ret = sprintf(buf, "%d\n", audio_start);
+	pr_info("%s:LG audio bsp: get  %d \n", __func__, audio_start);
+
+	return ret;
 }
 module_param_call(audio_start,set_start_call, get_start_call, NULL, 0664);
-//                                    
+//[AUDIO_BSP_END]minyoung1.kim@lge.com
 
 
 
@@ -1010,21 +1011,6 @@ static int voice_destroy_mvm_cvs_session(struct voice_data *v)
 		}
 	}
 
-	/* Unmap physical memory for calibration */
-	pr_debug("%s: cal_mem_handle %d\n", __func__,
-				common.cal_mem_handle);
-	if (!is_other_session_active(v->session_id) &&
-					(common.cal_mem_handle != 0)) {
-		ret = voice_send_mvm_unmap_memory_physical_cmd(v,
-						common.cal_mem_handle);
-		if (ret < 0) {
-			pr_err("%s Fail at cal mem unmap %d\n",
-					__func__, ret);
-			goto fail;
-		}
-		common.cal_mem_handle = 0;
-	}
-
 	if (is_voip_session(v->session_id) ||
 	    is_qchat_session(v->session_id) ||
 	    is_volte_session(v->session_id) ||
@@ -1061,6 +1047,23 @@ static int voice_destroy_mvm_cvs_session(struct voice_data *v)
 		}
 		cvs_handle = 0;
 		voice_set_cvs_handle(v, cvs_handle);
+
+		/* Unmap physical memory for calibration */
+		pr_debug("%s: cal_mem_handle %d\n", __func__,
+			 common.cal_mem_handle);
+
+		if (!is_other_session_active(v->session_id) &&
+					    (common.cal_mem_handle != 0)) {
+			ret = voice_send_mvm_unmap_memory_physical_cmd(v,
+							common.cal_mem_handle);
+			if (ret < 0) {
+				pr_err("%s Fail at cal mem unmap %d\n",
+				       __func__, ret);
+
+				goto fail;
+			}
+			common.cal_mem_handle = 0;
+		}
 
 		/* Destroy MVM. */
 		pr_debug("MVM destroy session\n");
@@ -1141,7 +1144,7 @@ static int voice_send_tty_mode_cmd(struct voice_data *v)
 	ret = apr_send_pkt(apr_mvm, (uint32_t *) &mvm_tty_mode_cmd);
 	if (ret < 0) {
 		pr_err("%s: Error %d sending SET_TTY_MODE\n",
-			   __func__, ret);
+		       __func__, ret);
 		goto fail;
 	}
 	ret = wait_event_timeout(v->mvm_wait,
@@ -3792,7 +3795,7 @@ fail:
 	return -EINVAL;
 }
 
-//                                                              
+//[Audio][BSP] sehwan.lee@lge.com phonememo initial code [START]
 static int voice_send_phonememo_mute_cmd(struct voice_data *v)
 {
 	struct cvp_set_mute_cmd cvp_mute_cmd;
@@ -3840,8 +3843,8 @@ static int voice_send_phonememo_mute_cmd(struct voice_data *v)
 fail:
 	return -EINVAL;
 }
+//[Audio][BSP] sehwan.lee@lge.com phonememo initial code [END]
 
-//                                                            
 static int voice_send_stream_mute_cmd(struct voice_data *v, uint16_t direction,
 				     uint16_t mute_flag, uint32_t ramp_duration)
 {
@@ -4673,7 +4676,7 @@ int voc_set_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute,
 	return ret;
 }
 
-//                                                              
+//[Audio][BSP] sehwan.lee@lge.com phonememo initial code [START]
 int voc_set_phonememo_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute)
 {
 	struct voice_data *v = voice_get_session(session_id);
@@ -4698,7 +4701,7 @@ int voc_set_phonememo_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute)
 
 	return ret;
 }
-//                                                            
+//[Audio][BSP] sehwan.lee@lge.com phonememo initial code [END]
 
 int voc_set_device_mute(uint32_t session_id, uint32_t dir, uint32_t mute,
 			uint32_t ramp_duration)
@@ -4962,11 +4965,10 @@ int voc_end_voice_call(uint32_t session_id)
 {
 	struct voice_data *v = voice_get_session(session_id);
 	int ret = 0;
-  //                                      
-	char temp_buf[2] = "0";   
-
-   set_start_call(temp_buf,NULL); 
-  //                                    
+  //[AUDIO_BSP_START]minyoung1.kim@lge.com
+	char temp_buf[2] = "0";
+	set_start_call(temp_buf,NULL);
+  //[AUDIO_BSP_END]minyoung1.kim@lge.com
 
 	if (v == NULL) {
 		pr_err("%s: invalid session_id 0x%x\n", __func__, session_id);
@@ -5008,13 +5010,11 @@ int voc_standby_voice_call(uint32_t session_id)
 	u16 mvm_handle;
 	int ret = 0;
 
+	pr_debug("%s: voc state=%d", __func__, v->voc_state);
 	if (v == NULL) {
 		pr_err("%s: v is NULL\n", __func__);
 		return -EINVAL;
-	} else {
-        pr_debug("%s: voc state=%d", __func__, v->voc_state);
-    }
-
+	}
 	if (v->voc_state == VOC_RUN) {
 		apr_mvm = common.apr_q6_mvm;
 		if (!apr_mvm) {
@@ -5066,7 +5066,7 @@ int voc_disable_device(uint32_t session_id)
 		ret = voice_pause_voice_call(v);
 		if (ret < 0) {
 			pr_err("%s: Pause Voice Call failed for session 0x%x, err %d!\n",
-				__func__, v->session_id, ret);
+			       __func__, v->session_id, ret);
 			goto done;
 		}
 		rtac_remove_voice(voice_get_cvs_handle(v));
@@ -5187,7 +5187,6 @@ int voc_set_lch(uint32_t session_id, enum voice_lch_mode lch_mode)
 
 	/* Mute and topology_none will be set as part of voc_enable_cvp() */
 	ret = voc_enable_cvp(session_id);
-
 	if (ret < 0) {
 		pr_err("%s: voc_enable_cvp failed ret=%d\n", __func__, ret);
 
@@ -5218,7 +5217,7 @@ int voc_start_voice_call(uint32_t session_id)
 {
 	struct voice_data *v = voice_get_session(session_id);
 	int ret = 0;
-	char temp_buf[2] = "1";  //                                      
+	char temp_buf[2] = "1";  //[AUDIO_BSP_START]minyoung1.kim@lge.com
 
 	if (v == NULL) {
 		pr_err("%s: invalid session_id 0x%x\n", __func__, session_id);
@@ -5243,7 +5242,6 @@ int voc_start_voice_call(uint32_t session_id)
 			goto fail;
 		}
 		ret = voice_create_mvm_cvs_session(v);
-
 		if (ret < 0) {
 			pr_err("create mvm and cvs failed\n");
 			goto fail;
@@ -5286,12 +5284,12 @@ int voc_start_voice_call(uint32_t session_id)
 			goto fail;
 		}
 		ret = voice_setup_vocproc(v);
-		//                                      
+		//[AUDIO_BSP_START]minyoung1.kim@lge.com
 		if(ret == 0){
-			set_start_call(temp_buf,NULL); 
+			set_start_call(temp_buf,NULL);
 			pr_info("LG audio bsp - stated voice call \n");
 		}
-		//                                    
+		//[AUDIO_BSP_END]minyoung1.kim@lge.com
 		if (ret < 0) {
 			pr_err("setup voice failed\n");
 			goto fail;

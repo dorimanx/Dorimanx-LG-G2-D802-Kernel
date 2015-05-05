@@ -115,6 +115,22 @@ static int out_cold_index;
 static char *out_buffer;
 static char *in_buffer;
 
+int q6asm_mmap_apr_dereg(void)
+{
+	int c;
+
+	c = atomic_sub_return(1, &this_mmap.ref_cnt);
+	if (c == 0) {
+		apr_deregister(this_mmap.apr);
+		pr_debug("%s: APR De-Register common port\n", __func__);
+	} else if (c < 0) {
+		pr_err("%s: APR Common Port Already Closed\n", __func__);
+		atomic_set(&this_mmap.ref_cnt, 0);
+	}
+
+	return 0;
+}
+
 static int audio_output_latency_dbgfs_open(struct inode *inode,
 							struct file *file)
 {
@@ -352,21 +368,6 @@ static void config_debug_fs_init(void)
 }
 #endif
 
-int q6asm_mmap_apr_dereg(void)
-{
-	int c;
-
-	c = atomic_sub_return(1, &this_mmap.ref_cnt);
-	if (c == 0) {
-		apr_deregister(this_mmap.apr);
-		pr_debug("%s: APR De-Register common port\n", __func__);
-	} else if (c < 0) {
-		pr_err("%s: APR Common Port Already Closed\n", __func__);
-		atomic_set(&this_mmap.ref_cnt, 0);
-	}
-
-	return 0;
-}
 
 static int q6asm_session_alloc(struct audio_client *ac)
 {
@@ -687,7 +688,7 @@ int q6asm_audio_client_buf_free(unsigned int dir,
 
 		while (cnt >= 0) {
 			if (port->buf[cnt].data) {
-				if (!rc)
+				if (!rc || atomic_read(&ac->reset))
 					msm_audio_ion_free(
 						port->buf[cnt].client,
 						port->buf[cnt].handle);
@@ -737,7 +738,7 @@ int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 			(void *)&port->buf[0].phys,
 			(void *)port->buf[0].client,
 			(void *)port->buf[0].handle);
-		if (!rc)
+		if (!rc || atomic_read(&ac->reset))
 			msm_audio_ion_free(port->buf[0].client,
 					   port->buf[0].handle);
 		port->buf[0].client = NULL;
@@ -897,6 +898,7 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	init_waitqueue_head(&ac->time_wait);
 	init_waitqueue_head(&ac->mem_wait);
 	atomic_set(&ac->time_flag, 1);
+	atomic_set(&ac->reset, 0);
 	INIT_LIST_HEAD(&ac->port[0].mem_map_handle);
 	INIT_LIST_HEAD(&ac->port[1].mem_map_handle);
 	pr_debug("%s: mem_map_handle list init'ed\n", __func__);
@@ -1295,23 +1297,20 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 	}
 
 	if (data->opcode == RESET_EVENTS) {
-		if(ac->apr == NULL) {
-		    ac->apr = ac->apr2;
-		}
+		atomic_set(&ac->reset, 1);
+		if (ac->apr == NULL)
+			ac->apr = ac->apr2;
 		pr_debug("q6asm_callback: Reset event is received: %d %d apr[%p]\n",
 				data->reset_event, data->reset_proc, ac->apr);
-			if (ac->cb)
-				ac->cb(data->opcode, data->token,
-					(uint32_t *)data->payload, ac->priv);
-		apr_reset(ac->apr);
 		if (ac->cb)
 			ac->cb(data->opcode, data->token,
-				data->payload, ac->priv);
+				(uint32_t *)data->payload, ac->priv);
+		apr_reset(ac->apr);
+		ac->apr = NULL;
 		atomic_set(&ac->time_flag, 0);
 		atomic_set(&ac->cmd_state, 0);
 		wake_up(&ac->time_wait);
 		wake_up(&ac->cmd_wait);
-		ac->apr = NULL;
 		return 0;
 	}
 
@@ -1716,6 +1715,21 @@ static void __q6asm_add_hdr_async(struct audio_client *ac, struct apr_hdr *hdr,
 	return;
 }
 
+static void q6asm_add_hdr_async(struct audio_client *ac, struct apr_hdr *hdr,
+				uint32_t pkt_size, uint32_t cmd_flg)
+{
+	__q6asm_add_hdr_async(ac, hdr, pkt_size, cmd_flg, ac->stream_id);
+	return;
+}
+
+static void q6asm_stream_add_hdr_async(struct audio_client *ac,
+					struct apr_hdr *hdr, uint32_t pkt_size,
+					uint32_t cmd_flg, int32_t stream_id)
+{
+	__q6asm_add_hdr_async(ac, hdr, pkt_size, cmd_flg, stream_id);
+	return;
+}
+
 static void q6asm_add_hdr_custom_topology(struct audio_client *ac,
 					  struct apr_hdr *hdr,
 					  uint32_t pkt_size, uint32_t cmd_flg)
@@ -1742,22 +1756,6 @@ static void q6asm_add_hdr_custom_topology(struct audio_client *ac,
 	}
 	hdr->pkt_size  = pkt_size;
 	mutex_unlock(&ac->cmd_lock);
-	return;
-}
-
-
-static void q6asm_add_hdr_async(struct audio_client *ac, struct apr_hdr *hdr,
-				uint32_t pkt_size, uint32_t cmd_flg)
-{
-	__q6asm_add_hdr_async(ac, hdr, pkt_size, cmd_flg, ac->stream_id);
-	return;
-}
-
-static void q6asm_stream_add_hdr_async(struct audio_client *ac,
-					struct apr_hdr *hdr, uint32_t pkt_size,
-					uint32_t cmd_flg, int32_t stream_id)
-{
-	__q6asm_add_hdr_async(ac, hdr, pkt_size, cmd_flg, stream_id);
 	return;
 }
 
@@ -1899,7 +1897,7 @@ static int __q6asm_open_write(struct audio_client *ac, uint32_t format,
 	open.hdr.opcode = ASM_STREAM_CMD_OPEN_WRITE_V3;
 	open.mode_flags = 0x00;
 	if (ac->perf_mode == ULTRA_LOW_LATENCY_PCM_MODE)
- 		open.mode_flags |= ASM_ULTRA_LOW_LATENCY_STREAM_SESSION;
+		open.mode_flags |= ASM_ULTRA_LOW_LATENCY_STREAM_SESSION;
 	else if (ac->perf_mode == LOW_LATENCY_PCM_MODE)
 		open.mode_flags |= ASM_LOW_LATENCY_STREAM_SESSION;
 	else {
@@ -3876,6 +3874,7 @@ int q6asm_set_lgesoundeffect_enable(struct audio_client *ac, int enable)
 	struct asm_lgesoundeffect_param_enable lgesoundeffect_enable;
 	int sz = 0;
 	int rc  = 0;
+
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
 	pr_debug("%s: enable:%d\n", __func__, enable);
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
@@ -3891,7 +3890,6 @@ int q6asm_set_lgesoundeffect_enable(struct audio_client *ac, int enable)
 	lgesoundeffect_enable.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
 	lgesoundeffect_enable.param.data_payload_addr_lsw = 0;
 	lgesoundeffect_enable.param.data_payload_addr_msw = 0;
-
 
 	lgesoundeffect_enable.param.mem_map_handle = 0;
 	lgesoundeffect_enable.param.data_payload_size = sizeof(lgesoundeffect_enable) -
@@ -3928,6 +3926,7 @@ int q6asm_set_lgesoundeffect_modetype(struct audio_client *ac, int modetype)
 	struct asm_lgesoundeffect_param_modetype lgesoundeffect_modetype;
 	int sz = 0;
 	int rc  = 0;
+
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
 	pr_debug("%s: modetype:%d\n", __func__, modetype);
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
@@ -3943,7 +3942,6 @@ int q6asm_set_lgesoundeffect_modetype(struct audio_client *ac, int modetype)
 	lgesoundeffect_modetype.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
 	lgesoundeffect_modetype.param.data_payload_addr_lsw = 0;
 	lgesoundeffect_modetype.param.data_payload_addr_msw = 0;
-
 
 	lgesoundeffect_modetype.param.mem_map_handle = 0;
 	lgesoundeffect_modetype.param.data_payload_size = sizeof(lgesoundeffect_modetype) -
@@ -3980,6 +3978,7 @@ int q6asm_set_lgesoundeffect_outputdevicetype(struct audio_client *ac, int outpu
 	struct asm_lgesoundeffect_param_outputdevicetype lgesoundeffect_outputdevicetype;
 	int sz = 0;
 	int rc  = 0;
+
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
 	pr_debug("%s: outputdevicetype:%d\n", __func__, outputdevicetype);
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
@@ -3996,13 +3995,13 @@ int q6asm_set_lgesoundeffect_outputdevicetype(struct audio_client *ac, int outpu
 	lgesoundeffect_outputdevicetype.param.data_payload_addr_lsw = 0;
 	lgesoundeffect_outputdevicetype.param.data_payload_addr_msw = 0;
 
-
 	lgesoundeffect_outputdevicetype.param.mem_map_handle = 0;
 	lgesoundeffect_outputdevicetype.param.data_payload_size = sizeof(lgesoundeffect_outputdevicetype) -
 				sizeof(lgesoundeffect_outputdevicetype.hdr) - sizeof(lgesoundeffect_outputdevicetype.param);
 	lgesoundeffect_outputdevicetype.data.module_id = APPI_LGE_SOUNDEFFECT_MODULE_ID;
 	lgesoundeffect_outputdevicetype.data.param_id = APPI_LGE_SOUNDEFFECT_OUTPUTDEVICE_PARAMS;
-	lgesoundeffect_outputdevicetype.data.param_size = lgesoundeffect_outputdevicetype.param.data_payload_size - sizeof(lgesoundeffect_outputdevicetype.data);
+	lgesoundeffect_outputdevicetype.data.param_size =
+		lgesoundeffect_outputdevicetype.param.data_payload_size - sizeof(lgesoundeffect_outputdevicetype.data);
 	lgesoundeffect_outputdevicetype.data.reserved = 0;
 	lgesoundeffect_outputdevicetype.OutputDeviceType = outputdevicetype;
 
@@ -4032,6 +4031,7 @@ int q6asm_set_lgesoundeffect_mediatype(struct audio_client *ac, int mediatype)
 	struct asm_lgesoundeffect_param_mediatype lgesoundeffect_mediatype;
 	int sz = 0;
 	int rc  = 0;
+
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
 	pr_debug("%s: mediatype:%d\n", __func__,mediatype);
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
@@ -4047,7 +4047,6 @@ int q6asm_set_lgesoundeffect_mediatype(struct audio_client *ac, int mediatype)
 	lgesoundeffect_mediatype.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
 	lgesoundeffect_mediatype.param.data_payload_addr_lsw = 0;
 	lgesoundeffect_mediatype.param.data_payload_addr_msw = 0;
-
 
 	lgesoundeffect_mediatype.param.mem_map_handle = 0;
 	lgesoundeffect_mediatype.param.data_payload_size = sizeof(lgesoundeffect_mediatype) -
@@ -4084,6 +4083,7 @@ int q6asm_set_lgesoundeffect_geq(struct audio_client *ac, int geq_band, int geq_
 	struct asm_lgesoundeffect_param_geq lgesoundeffect_geq;
 	int sz = 0;
 	int rc  = 0;
+
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
 	pr_debug("%s: geq_band:%d, geq_gain:%d\n", __func__, geq_band, geq_gain);
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
@@ -4099,7 +4099,6 @@ int q6asm_set_lgesoundeffect_geq(struct audio_client *ac, int geq_band, int geq_
 	lgesoundeffect_geq.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
 	lgesoundeffect_geq.param.data_payload_addr_lsw = 0;
 	lgesoundeffect_geq.param.data_payload_addr_msw = 0;
-
 
 	lgesoundeffect_geq.param.mem_map_handle = 0;
 	lgesoundeffect_geq.param.data_payload_size = sizeof(lgesoundeffect_geq) -
@@ -4138,6 +4137,7 @@ int q6asm_set_lgesoundnormalizer_enable(struct audio_client *ac, int enable)
 	struct asm_lgesoundnormalizer_param_enable lgesoundnormalizer_enable;
 	int sz = 0;
 	int rc  = 0;
+
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
 	pr_debug("%s: enable:%d\n", __func__, enable);
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
@@ -4153,7 +4153,6 @@ int q6asm_set_lgesoundnormalizer_enable(struct audio_client *ac, int enable)
 	lgesoundnormalizer_enable.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
 	lgesoundnormalizer_enable.param.data_payload_addr_lsw = 0;
 	lgesoundnormalizer_enable.param.data_payload_addr_msw = 0;
-
 
 	lgesoundnormalizer_enable.param.mem_map_handle = 0;
 	lgesoundnormalizer_enable.param.data_payload_size = sizeof(lgesoundnormalizer_enable) -
@@ -4190,6 +4189,7 @@ int q6asm_set_lgesoundnormalizer_devicespeaker(struct audio_client *ac, int devi
 	struct asm_lgesoundnormalizer_param_devicespeaker lgesoundnormalizer_devicespeaker;
 	int sz = 0;
 	int rc  = 0;
+
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
 	pr_debug("%s: devicespeaker:%d\n", __func__, devicespeaker);
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
@@ -4205,7 +4205,6 @@ int q6asm_set_lgesoundnormalizer_devicespeaker(struct audio_client *ac, int devi
 	lgesoundnormalizer_devicespeaker.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
 	lgesoundnormalizer_devicespeaker.param.data_payload_addr_lsw = 0;
 	lgesoundnormalizer_devicespeaker.param.data_payload_addr_msw = 0;
-
 
 	lgesoundnormalizer_devicespeaker.param.mem_map_handle = 0;
 	lgesoundnormalizer_devicespeaker.param.data_payload_size = sizeof(lgesoundnormalizer_devicespeaker) -
@@ -4242,6 +4241,7 @@ int q6asm_set_lgesoundnormalizer_makeupgain(struct audio_client *ac, int makeupg
 	struct asm_lgesoundnormalizer_param_makeupgain lgesoundnormalizer_makeupgain;
 	int sz = 0;
 	int rc  = 0;
+
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
 	pr_debug("%s: makeupgain:%d\n", __func__, makeupgain);
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
@@ -4294,6 +4294,7 @@ int q6asm_set_lgesoundnormalizer_prefilter(struct audio_client *ac, int prefilte
 	struct asm_lgesoundnormalizer_param_prefilter lgesoundnormalizer_prefilter;
 	int sz = 0;
 	int rc  = 0;
+
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
 	pr_debug("%s: prefilter:%d\n", __func__, prefilter);
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
@@ -4346,6 +4347,7 @@ int q6asm_set_lgesoundnormalizer_limiterthreshold(struct audio_client *ac, int l
 	struct asm_lgesoundnormalizer_param_limiterthreshold lgesoundnormalizer_limiterthreshold;
 	int sz = 0;
 	int rc  = 0;
+
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
 	pr_debug("%s: limiterthreshold:%d\n", __func__, limiterthreshold);
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
@@ -4398,6 +4400,7 @@ int q6asm_set_lgesoundnormalizer_limiterslope(struct audio_client *ac, int limit
 	struct asm_lgesoundnormalizer_param_limiterslope lgesoundnormalizer_limiterslope;
 	int sz = 0;
 	int rc  = 0;
+
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
 	pr_debug("%s: limiterslope:%d\n", __func__, limiterslope);
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
@@ -4413,7 +4416,6 @@ int q6asm_set_lgesoundnormalizer_limiterslope(struct audio_client *ac, int limit
 	lgesoundnormalizer_limiterslope.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
 	lgesoundnormalizer_limiterslope.param.data_payload_addr_lsw = 0;
 	lgesoundnormalizer_limiterslope.param.data_payload_addr_msw = 0;
-
 
 	lgesoundnormalizer_limiterslope.param.mem_map_handle = 0;
 	lgesoundnormalizer_limiterslope.param.data_payload_size = sizeof(lgesoundnormalizer_limiterslope) -
@@ -4450,6 +4452,7 @@ int q6asm_set_lgesoundnormalizer_compressorthreshold(struct audio_client *ac, in
 	struct asm_lgesoundnormalizer_param_compressorthreshold lgesoundnormalizer_compressorthreshold;
 	int sz = 0;
 	int rc  = 0;
+
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
 	pr_debug("%s: compressorthreshold:%d\n", __func__, compressorthreshold);
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
@@ -4465,7 +4468,6 @@ int q6asm_set_lgesoundnormalizer_compressorthreshold(struct audio_client *ac, in
 	lgesoundnormalizer_compressorthreshold.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
 	lgesoundnormalizer_compressorthreshold.param.data_payload_addr_lsw = 0;
 	lgesoundnormalizer_compressorthreshold.param.data_payload_addr_msw = 0;
-
 
 	lgesoundnormalizer_compressorthreshold.param.mem_map_handle = 0;
 	lgesoundnormalizer_compressorthreshold.param.data_payload_size = sizeof(lgesoundnormalizer_compressorthreshold) -
@@ -4502,6 +4504,7 @@ int q6asm_set_lgesoundnormalizer_compressorslope(struct audio_client *ac, int co
 	struct asm_lgesoundnormalizer_param_compressorslope lgesoundnormalizer_compressorslope;
 	int sz = 0;
 	int rc  = 0;
+
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
 	pr_debug("%s: compressorslope:%d\n", __func__, compressorslope);
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
@@ -4517,7 +4520,6 @@ int q6asm_set_lgesoundnormalizer_compressorslope(struct audio_client *ac, int co
 	lgesoundnormalizer_compressorslope.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
 	lgesoundnormalizer_compressorslope.param.data_payload_addr_lsw = 0;
 	lgesoundnormalizer_compressorslope.param.data_payload_addr_msw = 0;
-
 
 	lgesoundnormalizer_compressorslope.param.mem_map_handle = 0;
 	lgesoundnormalizer_compressorslope.param.data_payload_size = sizeof(lgesoundnormalizer_compressorslope) -
@@ -4554,6 +4556,7 @@ int q6asm_set_lgesoundnormalizer_onoff(struct audio_client *ac, int onoff)
 	struct asm_lgesoundnormalizer_param_onoff lgesoundnormalizer_onoff;
 	int sz = 0;
 	int rc  = 0;
+
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");
 	pr_debug("%s: onoff:%d\n", __func__, onoff);
 	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++\n");

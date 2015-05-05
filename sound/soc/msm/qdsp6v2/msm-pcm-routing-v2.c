@@ -2109,10 +2109,13 @@ static const struct snd_kcontrol_new mmul2_mixer_controls[] = {
 };
 
 static const struct snd_kcontrol_new mmul4_mixer_controls[] = {
+/* LGE_CHANGE_S
+ * Add mixer controls for multimedia4
+ */
 #ifdef CONFIG_MACH_LGE
 	SOC_SINGLE_EXT("MI2S_TX", MSM_BACKEND_DAI_MI2S_TX,
- 	MSM_FRONTEND_DAI_MULTIMEDIA4, 1, 0, msm_routing_get_audio_mixer,
- 	msm_routing_put_audio_mixer),
+	MSM_FRONTEND_DAI_MULTIMEDIA4, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
 #endif
 	SOC_SINGLE_EXT("SLIM_0_TX", MSM_BACKEND_DAI_SLIMBUS_0_TX,
 	MSM_FRONTEND_DAI_MULTIMEDIA4, 1, 0, msm_routing_get_audio_mixer,
@@ -2420,6 +2423,9 @@ static const struct snd_kcontrol_new sec_aux_pcm_rx_voice_mixer_controls[] = {
 	msm_routing_put_voice_mixer),
 	SOC_SINGLE_EXT("VoWLAN", MSM_BACKEND_DAI_SEC_AUXPCM_RX,
 	MSM_FRONTEND_DAI_VOWLAN, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
+	SOC_SINGLE_EXT("Voice2", MSM_BACKEND_DAI_SEC_AUXPCM_RX,
+	MSM_FRONTEND_DAI_VOICE2, 1, 0, msm_routing_get_voice_mixer,
 	msm_routing_put_voice_mixer),
 	SOC_SINGLE_EXT("DTMF", MSM_BACKEND_DAI_SEC_AUXPCM_RX,
 	MSM_FRONTEND_DAI_DTMF_RX, 1, 0, msm_routing_get_voice_mixer,
@@ -3822,8 +3828,12 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MultiMedia5 Mixer", "MI2S_TX", "MI2S_TX"},
 	{"MultiMedia1 Mixer", "QUAT_MI2S_TX", "QUAT_MI2S_TX"},
 	{"MultiMedia1 Mixer", "TERT_MI2S_TX", "TERT_MI2S_TX"},
+	/* LGE_CHANGE_S
+	 * Add dapm route add for Multimedia4
+	 */
 	{"MultiMedia4 Mixer", "MI2S_TX", "MI2S_TX"},
 	{"MultiMedia4 Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
+	/* LGE_CHANGE_E */
 	{"MultiMedia1 Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
 	{"MultiMedia1 Mixer", "AUX_PCM_UL_TX", "AUX_PCM_TX"},
 	{"MultiMedia5 Mixer", "AUX_PCM_TX", "AUX_PCM_TX"},
@@ -3988,6 +3998,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SEC_AUX_PCM_RX_Voice Mixer", "CSVoice", "CS-VOICE_DL1"},
 	{"SEC_AUX_PCM_RX_Voice Mixer", "VoLTE", "VoLTE_DL"},
 	{"SEC_AUX_PCM_RX_Voice Mixer", "VoWLAN", "VoWLAN_DL"},
+	{"SEC_AUX_PCM_RX_Voice Mixer", "Voice2", "VOICE2_DL"},
 	{"SEC_AUX_PCM_RX_Voice Mixer", "Voip", "VOIP_DL"},
 	{"SEC_AUX_PCM_RX_Voice Mixer", "DTMF", "DTMF_DL_HL"},
 	{"SEC_AUX_PCM_RX_Voice Mixer", "Voice Stub", "VOICE_STUB_DL"},
@@ -4082,6 +4093,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"Voice2_Tx Mixer", "INTERNAL_BT_SCO_TX_Voice2", "INT_BT_SCO_TX"},
 	{"Voice2_Tx Mixer", "AFE_PCM_TX_Voice2", "PCM_TX"},
 	{"Voice2_Tx Mixer", "AUX_PCM_TX_Voice2", "AUX_PCM_TX"},
+	{"Voice2_Tx Mixer", "SEC_AUX_PCM_TX_Voice2", "SEC_AUX_PCM_TX"},
 	{"VOICE2_UL", NULL, "Voice2_Tx Mixer"},
 
 	{"VoLTE_Tx Mixer", "PRI_TX_VoLTE", "PRI_I2S_TX"},

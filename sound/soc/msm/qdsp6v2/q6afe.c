@@ -1438,7 +1438,6 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		pr_err("%s: AFE enable for port %#x failed\n", __func__,
 				port_id);
 		goto fail_cmd;
-
 	} else if (atomic_read(&this_afe.status) != 0) {
 		pr_err("%s: config cmd failed\n", __func__);
 		ret = -EINVAL;
@@ -2379,6 +2378,8 @@ int afe_unregister_get_events(u16 port_id)
 	int ret = 0;
 	struct afe_service_cmd_unregister_rt_port_driver rtproxy;
 	int index = 0;
+
+	pr_debug("%s:\n", __func__);
 
 	if (this_afe.apr == NULL) {
 		this_afe.apr = apr_register("ADSP", "AFE", afe_callback,
