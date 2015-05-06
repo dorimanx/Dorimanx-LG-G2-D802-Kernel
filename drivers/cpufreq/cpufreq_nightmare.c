@@ -495,7 +495,8 @@ static void nightmare_check_cpu(unsigned int cpu)
 	int io_busy = nightmare_tuners_ins.io_is_busy;
 
 	policy = this_nightmare_cpuinfo->cur_policy;
-	if (!policy->cur)
+	if ((!policy->cur)
+		 || (!this_nightmare_cpuinfo->freq_table))
 		return;
 
 	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, io_busy);
@@ -535,7 +536,7 @@ static void nightmare_check_cpu(unsigned int cpu)
 		/* if cpu frequency is already at maximum or minimum or cur_load is between inc_cpu_load and dec_cpu_load var, we don't need to set frequency! */
 		return;
 	}
-	if (tmp_freq != policy->cur)
+	if (tmp_freq != policy->cur && tmp_freq > 0)
 		__cpufreq_driver_target(policy, tmp_freq, CPUFREQ_RELATION_L);
 }
 
@@ -543,10 +544,11 @@ static void do_nightmare_timer(struct work_struct *work)
 {
 	struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo =
 		container_of(work, struct cpufreq_nightmare_cpuinfo, work.work);
-	unsigned int cpu = this_nightmare_cpuinfo->cur_policy->cpu;
+	unsigned int cpu;
 	int delay;
 
 	mutex_lock(&this_nightmare_cpuinfo->timer_mutex);
+	cpu = this_nightmare_cpuinfo->cur_policy->cpu;
 
 	nightmare_check_cpu(cpu);
 
@@ -559,7 +561,6 @@ static void do_nightmare_timer(struct work_struct *work)
 	}
 
 	mod_delayed_work_on(cpu, system_wq, &this_nightmare_cpuinfo->work, delay);
-
 	mutex_unlock(&this_nightmare_cpuinfo->timer_mutex);
 }
 
@@ -567,7 +568,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 				unsigned int event)
 {
 	struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, policy->cpu);
-	unsigned int cpu = policy->cpu;
+	unsigned int cpu;
 	int rc, delay;
 	int io_busy = nightmare_tuners_ins.io_is_busy;
 
@@ -577,9 +578,13 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			return -EINVAL;
 
 		mutex_lock(&nightmare_mutex);
+		cpu = policy->cpu;
 
-		if (!this_nightmare_cpuinfo->freq_table)
-			this_nightmare_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
+		this_nightmare_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
+		if (!this_nightmare_cpuinfo->freq_table) {
+			mutex_unlock(&nightmare_mutex);
+			return -EINVAL;
+		}
 
 		this_nightmare_cpuinfo->cur_policy = policy;
 
@@ -611,11 +616,9 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		}
 
 		INIT_DEFERRABLE_WORK(&this_nightmare_cpuinfo->work, do_nightmare_timer);
-
 		mod_delayed_work_on(cpu, system_wq, &this_nightmare_cpuinfo->work, delay);
 
 		break;
-
 	case CPUFREQ_GOV_STOP:
 		cancel_delayed_work_sync(&this_nightmare_cpuinfo->work);
 
@@ -634,12 +637,12 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		mutex_unlock(&nightmare_mutex);
 
 		break;
-
 	case CPUFREQ_GOV_LIMITS:
 		if (!this_nightmare_cpuinfo->cur_policy->cur) {
 			pr_debug("Unable to limit cpu freq due to cur_policy == NULL\n");
 			return -EPERM;
 		}
+
 		mutex_lock(&this_nightmare_cpuinfo->timer_mutex);
 		if (policy->max < this_nightmare_cpuinfo->cur_policy->cur)
 			__cpufreq_driver_target(this_nightmare_cpuinfo->cur_policy,
