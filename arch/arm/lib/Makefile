@@ -15,7 +15,7 @@ lib-y		:= backtrace.o changebit.o csumipv6.o csumpartial.o   \
 		   io-readsb.o io-writesb.o io-readsl.o io-writesl.o  \
 		   call_with_stack.o
 
-mmu-y	:= clear_user.o getuser.o putuser.o
+mmu-y	:= clear_user.o getuser.o putuser.o cmp_page.o
 
 # the code in uaccess.S is not preemption safe and
 # probably faster on ARMv3 only
