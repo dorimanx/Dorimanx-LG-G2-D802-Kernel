@@ -497,8 +497,10 @@ reschedule:
 	reschedule_hotplug_work();
 }
 
-static void msm_hotplug_suspend(struct work_struct *work)
+static void __ref msm_hotplug_suspend(struct work_struct *work)
 {
+	int cpu;
+
 	if (!hotplug.suspended) {
 		mutex_lock(&hotplug.msm_hotplug_mutex);
 		hotplug.suspended = 1;
@@ -511,6 +513,13 @@ static void msm_hotplug_suspend(struct work_struct *work)
 		/* Flush hotplug workqueue */
 		flush_workqueue(hotplug_wq);
 		cancel_delayed_work_sync(&hotplug_work);
+
+		/* Put all sibling cores to sleep */
+		for_each_online_cpu(cpu) {
+			if (cpu == 0)
+				continue;
+			cpu_down(cpu);
+		}
 
 		if (debug >= 2)
 			dprintk("%s: suspended.\n", MSM_HOTPLUG);

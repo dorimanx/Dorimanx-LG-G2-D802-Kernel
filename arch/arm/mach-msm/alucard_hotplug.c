@@ -346,15 +346,24 @@ static void hotplug_work_fn(struct work_struct *work)
 }
 
 #ifdef CONFIG_POWERSUSPEND
-static void __alucard_hotplug_suspend(struct power_suspend *handler)
+static void __ref __alucard_hotplug_suspend(struct power_suspend *handler)
 #else
-static void __alucard_hotplug_suspend(void)
+static void __ref __alucard_hotplug_suspend(void)
 #endif
 {
+	int cpu;
+
 	if (hotplug_tuners_ins.hotplug_enable > 0
 				&& hotplug_tuners_ins.hotplug_suspend == 1 &&
 				hotplug_tuners_ins.suspended == false) {
 			hotplug_tuners_ins.suspended = true;
+
+			/* Put all sibling cores to sleep */
+			for_each_online_cpu(cpu) {
+				if (cpu == 0)
+					continue;
+				cpu_down(cpu);
+			}
 			pr_info("Alucard HotPlug suspended.\n");
 	}
 }
