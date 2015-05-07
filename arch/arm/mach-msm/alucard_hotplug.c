@@ -22,7 +22,6 @@
 #include <linux/mutex.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-#include "acpuclock.h"
 
 #ifdef CONFIG_POWERSUSPEND
 #include <linux/powersuspend.h>
@@ -263,7 +262,6 @@ static void hotplug_work_fn(struct work_struct *work)
 		cur_load = 100 * (wall_time - idle_time) / wall_time;
 
 		/* get the cpu current frequency */
-		/* cur_freq = acpuclk_get_rate(cpu); */
 		if (!force_up)
 			cur_freq = cpufreq_quick_get(cpu);
 		else
