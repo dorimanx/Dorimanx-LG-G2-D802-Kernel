@@ -205,9 +205,8 @@ static void __ref cpu_down_work(struct work_struct *work)
 {
 	struct hotplug_cpuinfo *pcpu_info = 
 			container_of(work, struct hotplug_cpuinfo, down_work);
-	int ret;
 
-	ret = cpu_down(pcpu_info->cpu);
+	cpu_down(pcpu_info->cpu);
 }
 
 static void hotplug_work_fn(struct work_struct *work)
@@ -426,9 +425,8 @@ static int alucard_hotplug_callback(struct notifier_block *nb,
 	struct hotplug_cpuinfo *pcpu_info;
 	unsigned int cpu = (int)data;
 
-	switch (action) {
+	switch (action & (~CPU_TASKS_FROZEN)) {
 	case CPU_ONLINE:
-	case CPU_ONLINE_FROZEN:
 		pcpu_info = &per_cpu(od_hotplug_cpuinfo, cpu);
 		mutex_lock(&pcpu_info->timer_mutex);
 		pcpu_info->prev_cpu_idle = get_cpu_idle_time(cpu,
