@@ -293,8 +293,10 @@ static void intelli_plug_work_fn(struct work_struct *work)
 					msecs_to_jiffies(def_sampling_ms));
 }
 
-static void intelli_plug_suspend(struct work_struct *work)
+static void __ref intelli_plug_suspend(struct work_struct *work)
 {
+	int cpu;
+
 	if (hotplug_suspended == false) {
 		mutex_lock(&intelli_plug_mutex);
 		hotplug_suspended = true;
@@ -307,6 +309,13 @@ static void intelli_plug_suspend(struct work_struct *work)
 		/* Flush hotplug workqueue */
 		flush_workqueue(intelliplug_wq);
 		cancel_delayed_work_sync(&intelli_plug_work);
+
+		/* Put all sibling cores to sleep */
+		for_each_online_cpu(cpu) {
+			if (cpu == 0)
+				continue;
+			cpu_down(cpu);
+		}
 
 		dprintk("%s: suspended!\n", INTELLI_PLUG);
 	}
