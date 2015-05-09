@@ -69,7 +69,7 @@ int cpuidle_play_dead(void)
  * cpuidle_enter_state - enter the state and update stats
  * @dev: cpuidle device for this cpu
  * @drv: cpuidle driver for this cpu
- * @next_state: index into drv->states of the state to enter
+ * @index: index into the states table in @drv of the state to enter
  */
 int cpuidle_enter_state(struct cpuidle_device *dev, struct cpuidle_driver *drv,
 			int index)
