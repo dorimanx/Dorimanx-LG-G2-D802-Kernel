@@ -1149,7 +1149,8 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 			 __func__, prtd->codec_param.codec.format);
 		prtd->codec = FORMAT_LINEAR_PCM;
 		prtd->bits_per_sample = prtd->codec_param.codec.format;
-		frame_sz = AAC_OUTPUT_FRAME_SZ;
+		/* Fix delay in music track switch! Dorimanx */
+		/* frame_sz = AAC_OUTPUT_FRAME_SZ; */ 
 		break;
 	}
 #else
