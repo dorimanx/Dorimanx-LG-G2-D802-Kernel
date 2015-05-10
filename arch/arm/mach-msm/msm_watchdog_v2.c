@@ -314,8 +314,8 @@ static void pet_watchdog_work(struct work_struct *work)
 	if (enable)
 		schedule_delayed_work_on(0, &wdog_dd->dogwork_struct,
 							delay_time);
+
 #ifdef CONFIG_MACH_LGE
-	/*                                      */
 	xo_therm_logging();
 #endif
 }
@@ -505,8 +505,9 @@ static int __devinit msm_wdog_dt_to_pdata(struct platform_device *pdev,
 	wdog_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	pdata->size = resource_size(wdog_resource);
 	pdata->phys_base = wdog_resource->start;
-	if (unlikely(!(devm_request_region(&pdev->dev, pdata->phys_base,
-					pdata->size, "msm-watchdog")))) {
+	if (unlikely(!(devm_request_mem_region(&pdev->dev, pdata->phys_base,
+					       pdata->size, "msm-watchdog")))) {
+
 		dev_err(&pdev->dev, "%s cannot reserve watchdog region\n",
 								__func__);
 		return -ENXIO;
@@ -518,6 +519,7 @@ static int __devinit msm_wdog_dt_to_pdata(struct platform_device *pdev,
 				__func__);
 		return -ENXIO;
 	}
+
 #ifdef CONFIG_LGE_HANDLE_PANIC
 	wdt_timer_set_timer0_base(pdata->base);
 #endif
