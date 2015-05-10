@@ -59,9 +59,9 @@ static bool io_is_busy;
 static int update_average_load(unsigned int freq, unsigned int cpu)
 {
 	int ret;
+	u64 cur_wall_time, cur_idle_time;
 	unsigned int idle_time, wall_time;
 	unsigned int cur_load, load_at_max_freq;
-	u64 cur_wall_time, cur_idle_time;
 	struct cpu_load_data *pcpu = &per_cpu(cpuload, cpu);
 	struct cpufreq_policy policy;
 
@@ -495,11 +495,12 @@ static int __init msm_rq_stats_init(void)
 	int ret;
 	int i;
 	struct cpufreq_policy cpu_policy;
+
+#ifndef CONFIG_SMP
 	/* Bail out if this is not an SMP Target */
-	if (!is_smp()) {
-		rq_info.init = 0;
-		return -ENOSYS;
-	}
+	rq_info.init = 0;
+	return -ENOSYS;
+#endif
 
 	rq_wq = create_singlethread_workqueue("rq_stats");
 	BUG_ON(!rq_wq);
@@ -542,11 +543,11 @@ late_initcall(msm_rq_stats_init);
 
 static int __init msm_rq_stats_early_init(void)
 {
+#ifndef CONFIG_SMP
 	/* Bail out if this is not an SMP Target */
-	if (!is_smp()) {
-		rq_info.init = 0;
-		return -ENOSYS;
-	}
+	rq_info.init = 0;
+	return -ENOSYS;
+#endif
 
 	pm_notifier(system_suspend_handler, 0);
 	return 0;
