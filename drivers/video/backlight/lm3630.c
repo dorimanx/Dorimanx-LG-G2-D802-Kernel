@@ -27,6 +27,7 @@
 #include <mach/board.h>
 #include <linux/i2c.h>
 #include <linux/of_gpio.h>
+#include <linux/moduleparam.h>
 
 #include <mach/board_lge.h>
 #include <linux/earlysuspend.h>
@@ -56,6 +57,12 @@
 static struct i2c_client *lm3630_i2c_client;
 
 static int store_level_used = 0;
+
+static bool lm3630_min_backlight_reducer = true;
+module_param(lm3630_min_backlight_reducer, bool, 0664);
+
+static int lm3630_min_backlight_set = 90;
+module_param(lm3630_min_backlight_set, int, 0664);
 
 struct backlight_platform_data {
 	void (*platform_init)(void);
@@ -201,7 +208,23 @@ static void lm3630_set_main_current_level(struct i2c_client *client, int level)
 		bl_set_pwm_mode(PWM_ON);
 #endif
 
-	if (level != 0) {
+	if (unlikely(!level)) {
+		lm3630_write_reg(client, 0x00, 0x00);
+	} else {
+		if (lm3630_min_backlight_reducer) {
+			if (lm3630_min_backlight_set < 3)
+				lm3630_min_backlight_set = 3;
+
+			/*
+			 * default ROM min level is 50 when in dark
+			 * and cal_value is 3.
+			 */
+			if (lm3630_min_backlight_set > 3) {
+				if (level < lm3630_min_backlight_set)
+					level = lm3630_min_backlight_set;
+			}
+		}
+
 		if (level > 0 && level <= min_brightness)
 			level = min_brightness;
 		else if (level > max_brightness)
@@ -213,26 +236,22 @@ static void lm3630_set_main_current_level(struct i2c_client *client, int level)
 				lm3630_write_reg(client, 0x03,
 						cal_value);
 			} else
-				dev_warn(&client->dev, "invalid index %d:%d\n",
+				dev_warn(&client->dev,
+						"invalid index %d:%d\n",
 						dev->blmap_size,
 						level);
 		} else {
 			cal_value = level;
 			lm3630_write_reg(client, 0x03, cal_value);
 		}
-	} else
-		lm3630_write_reg(client, 0x00, 0x00);
+	}
 
 	mutex_unlock(&dev->bl_mutex);
 
-	#ifdef CONFIG_MACH_MSM8974_VU3_KR
-		pr_info("[LCD][DEBUG] %s : backlight level=%d, cal_value=%d\n",
+#if 0
+	pr_info("%s : backlight level=%d, cal_value=%d \n",
 				__func__, level, cal_value);
-	#else
-		pr_debug("[LCD][DEBUG] %s : backlight level=%d, cal_value=%d\n",
-				__func__, level, cal_value);
-	#endif
-
+#endif
 }
 
 static void lm3630_set_main_current_level_no_mapping(
