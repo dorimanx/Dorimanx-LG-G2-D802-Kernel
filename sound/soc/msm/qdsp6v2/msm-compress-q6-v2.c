@@ -3284,10 +3284,9 @@ static struct snd_soc_platform_driver msm_soc_platform = {
 #if defined(CONFIG_SND_LGE_EFFECT) || defined(CONFIG_SND_LGE_NORMALIZER) || defined(CONFIG_SND_LGE_MABL)
 	.controls = msm_compr_lge_effect_controls,
 	.num_controls = ARRAY_SIZE(msm_compr_lge_effect_controls),
-#else
+#endif
 	.controls       = msm_compr_gapless_controls,
 	.num_controls   = ARRAY_SIZE(msm_compr_gapless_controls),
-#endif
 };
 
 static __devinit int msm_compr_dev_probe(struct platform_device *pdev)
