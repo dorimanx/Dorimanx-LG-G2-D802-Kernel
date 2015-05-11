@@ -135,7 +135,7 @@ static void cpufreq_ondemandplus_timer(unsigned long data)
 	static unsigned int stay_counter;
 	unsigned long flags;
 	static unsigned int i = 0;
-	static unsigned int last_cpu_freqs[5];
+	static unsigned int last_cpu_freqs[5] = {0};
 	static unsigned int avg_cpu_freq = 0;
 	static unsigned int lo_avg_cpu_freq;
 	static unsigned int hi_avg_cpu_freq;
@@ -274,8 +274,6 @@ static void cpufreq_ondemandplus_timer(unsigned long data)
 					new_freq = pcpu->policy->max;
 				}
 			}
-		}
-
 		/* Check for frequency decrease */
 
 		/*
@@ -283,7 +281,7 @@ static void cpufreq_ondemandplus_timer(unsigned long data)
 		* can support the current CPU usage without triggering the up
 		* policy. To be safe, we focus 10 points under the threshold.
 		*/
-		if (load_freq < (up_threshold - down_differential) *
+		} else if (load_freq < (up_threshold - down_differential) *
 				pcpu->target_freq) {
 
 			if (pcpu->target_freq != screen_on_min_freq) {
@@ -372,7 +370,7 @@ rearm:
 		 * or is equal to the average for higher frequencies.
 		 * If yes, slow down the timer.
 		 */
-		if (i >= 4) {
+		if (i >= 4 && !pcpu->idling) {
 			unsigned int k;
 			avg_cpu_freq = 0;
 			for (k = 0; k <= 4; k++) {
@@ -382,24 +380,18 @@ rearm:
 			hi_avg_cpu_freq = (avg_cpu_freq * 115) / 100;
 			lo_avg_cpu_freq = (avg_cpu_freq * 100) / 115;
 
-			if (new_freq < inter_lofreq && hi_avg_cpu_freq > new_freq &&
-						lo_avg_cpu_freq < new_freq) {
-				if (max_capped != screen_off_max_freq)
-					low_timer_rate = timer_rate * 2;
-				else
-					low_timer_rate = timer_rate * 3;
-			} else if (new_freq >= inter_lofreq && avg_cpu_freq == new_freq) {
+			if ((new_freq < inter_lofreq && hi_avg_cpu_freq > new_freq &&
+						lo_avg_cpu_freq < new_freq) || (new_freq >=
+						inter_lofreq && avg_cpu_freq == new_freq)) {
 				low_timer_rate = timer_rate * 2;
 			} else {
 				low_timer_rate = 0;
 			}
 			i = 0;
-		} else {
-			if (new_freq < inter_lofreq && (hi_avg_cpu_freq < new_freq ||
-						lo_avg_cpu_freq > new_freq))
-				low_timer_rate = 0;
-			else if (new_freq >= inter_lofreq && avg_cpu_freq != new_freq)
-				low_timer_rate = 0;
+		} else if ((new_freq < inter_lofreq && (hi_avg_cpu_freq < new_freq ||
+					lo_avg_cpu_freq > new_freq)) || (new_freq >=
+					inter_lofreq && avg_cpu_freq != new_freq)) {
+			low_timer_rate = 0;
 		}
 
 		/*
@@ -407,7 +399,10 @@ rearm:
 		 */
 		pcpu->time_in_idle = get_cpu_idle_time(
 			data, &pcpu->idle_exit_time, io_is_busy);
-		if (!low_timer_rate) {
+		if (max_capped == screen_off_max_freq) {
+			mod_timer(&pcpu->cpu_timer,
+				jiffies + usecs_to_jiffies(timer_rate * 3));
+		} else if (!low_timer_rate) {
 			mod_timer(&pcpu->cpu_timer,
 				jiffies + usecs_to_jiffies(timer_rate));
 		} else {
@@ -421,10 +416,17 @@ exit:
 	 * Write CPU frequency of new timer cycle into the correct
 	 * last_cpu_freqs array-field
 	 */
-	if (new_freq) {
+	if (pcpu->idling) {
+		memset(last_cpu_freqs, 0, sizeof(last_cpu_freqs));
+		i = 0;
+	} else if (max_capped != screen_off_max_freq) {
 		static unsigned int last_cpu_freq_field;
 		last_cpu_freq_field = i % 5;
-		last_cpu_freqs[last_cpu_freq_field] = new_freq;
+		if (new_freq) {
+			last_cpu_freqs[last_cpu_freq_field] = new_freq;
+		} else {
+			last_cpu_freqs[last_cpu_freq_field] = last_cpu_freqs[last_cpu_freq_field - 1];
+		}
 		i++;
 	}
 	return;
