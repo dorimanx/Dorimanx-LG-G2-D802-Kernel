@@ -102,18 +102,26 @@
 #define smp_mb()	mb()
 #define smp_rmb()	dma_rmb()
 #define smp_wmb()	barrier()
+<<<<<<< HEAD
 >>>>>>> 1077fa3... arch: Add lightweight memory barriers dma_rmb() and dma_wmb()
 #define set_mb(var, value) do { (void)xchg(&var, value); } while (0)
+=======
+#define smp_store_mb(var, value) do { (void)xchg(&var, value); } while (0)
+>>>>>>> b92b8b3... locking/arch: Rename set_mb() to smp_store_mb()
 #else /* !SMP */
 #define smp_mb()	barrier()
 #define smp_rmb()	barrier()
 #define smp_wmb()	barrier()
+<<<<<<< HEAD
 <<<<<<< HEAD
 #define smp_read_barrier_depends()	do { } while (0)
 #define set_mb(var, value) do { var = value; barrier(); } while (0)
 =======
 #define set_mb(var, value) do { WRITE_ONCE(var, value); barrier(); } while (0)
 >>>>>>> ab3f02f... locking/arch: Add WRITE_ONCE() to set_mb()
+=======
+#define smp_store_mb(var, value) do { WRITE_ONCE(var, value); barrier(); } while (0)
+>>>>>>> b92b8b3... locking/arch: Rename set_mb() to smp_store_mb()
 #endif /* SMP */
 
 #if defined(CONFIG_X86_OOSTORE) || defined(CONFIG_X86_PPRO_FENCE)

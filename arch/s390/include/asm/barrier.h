@@ -57,11 +57,15 @@
 #define smp_mb__after_atomic()		smp_mb()
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 #define set_mb(var, value)		do { var = value; mb(); } while (0)
 >>>>>>> 1077fa3... arch: Add lightweight memory barriers dma_rmb() and dma_wmb()
 =======
 #define set_mb(var, value)		do { WRITE_ONCE(var, value); mb(); } while (0)
 >>>>>>> ab3f02f... locking/arch: Add WRITE_ONCE() to set_mb()
+=======
+#define smp_store_mb(var, value)		do { WRITE_ONCE(var, value); mb(); } while (0)
+>>>>>>> b92b8b3... locking/arch: Rename set_mb() to smp_store_mb()
 
 #define smp_store_release(p, v)						\
 do {									\
