@@ -67,11 +67,16 @@
 #define smp_rmb()	barrier()
 #define smp_wmb()	barrier()
 <<<<<<< HEAD
+<<<<<<< HEAD
 #define smp_read_barrier_depends()	do { } while (0)
 #define set_mb(var, value) do { var = value; barrier(); } while (0)
 =======
 #define set_mb(var, value) do { WRITE_ONCE(var, value); barrier(); } while (0)
 >>>>>>> ab3f02f... locking/arch: Add WRITE_ONCE() to set_mb()
+=======
+
+#define smp_store_mb(var, value) do { WRITE_ONCE(var, value); barrier(); } while (0)
+>>>>>>> b92b8b3... locking/arch: Rename set_mb() to smp_store_mb()
 
 #endif /* CONFIG_SMP */
 
