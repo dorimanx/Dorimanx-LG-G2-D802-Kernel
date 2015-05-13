@@ -129,7 +129,7 @@ struct netlink_table {
 	int			registered;
 };
 
-static struct netlink_table *nl_table;
+static struct netlink_table *nl_table __read_mostly;
 
 static DECLARE_WAIT_QUEUE_HEAD(nl_table_wait);
 
