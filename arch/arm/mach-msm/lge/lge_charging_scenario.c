@@ -363,6 +363,7 @@ void lge_monitor_batt_temp(struct charging_info req, struct charging_rsp *res)
 	pr_err("DLCS ==============================================\n");
 #endif
 
+#if 0 /* no need for this to spam dmesg */
 #ifdef CONFIG_LGE_THERMALE_CHG_CONTROL
 	pr_err("LGE charging scenario : state %d -> %d(%d-%d),"\
 		" temp=%d, volt=%d, BTM=%d, charger=%d, cur_set=%d/%d, chg_cur = %d\n",
@@ -375,6 +376,7 @@ void lge_monitor_batt_temp(struct charging_info req, struct charging_rsp *res)
 		pre_state, charging_state, res->change_lvl, res->force_update ? 1 : 0,
 		req.batt_temp, req.batt_volt / 1000, res->btm_state, req.is_charger,
 		req.current_now);
+#endif
 #endif
 }
 
