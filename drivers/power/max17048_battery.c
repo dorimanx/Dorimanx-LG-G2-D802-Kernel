@@ -171,7 +171,9 @@ static int max17048_get_config(struct i2c_client *client)
 		dev_err(&client->dev, "%s: err %d\n", __func__, config);
 		return config;
 	} else {
+#ifdef MAX17048_DEBUG
 		printk(KERN_ERR "%s : config = 0x%x\n", __func__, config);
+#endif
 		chip->config = config;
 		return 0;
 	}
@@ -798,8 +800,10 @@ int max17048_set_rcomp_by_temperature(struct i2c_client *client)
 	else if (new_rcomp < 0)
 		new_rcomp = 0;
 
+#ifdef MAX17048_DEBUG
 	pr_err("%s : temp = %d, pre_rcomp = 0x%02X -> new_rcomp = 0x%02X\n"
 		, __func__ , temp, pre_rcomp, new_rcomp);
+#endif
 
 	/* Write RCOMP */
 	if (new_rcomp != pre_rcomp) {
