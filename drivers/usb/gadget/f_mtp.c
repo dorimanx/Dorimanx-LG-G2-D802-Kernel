@@ -335,12 +335,6 @@ struct mtp_ext_config_desc_function {
 };
 
 #ifdef NOT_CONFIG_USB_G_LGE_ANDROID
-/*           
-                                                               
-                                                                            
-                                                                   
-                                   
- */
 
 /* MTP Extended Configuration Descriptor */
 struct {
@@ -594,6 +588,7 @@ retry_rx_alloc:
 		req->complete = mtp_complete_out;
 		dev->rx_req[i] = req;
 	}
+
 	for (i = 0; i < INTR_REQ_MAX; i++) {
 		req = mtp_request_new(dev->ep_intr, INTR_BUFFER_SIZE);
 		if (!req)
@@ -1147,7 +1142,7 @@ static int mtp_open(struct inode *ip, struct file *fp)
         printk(KERN_INFO "%s : Set Config number is %d\n", __func__, nSetConfig);
         return -EACCES;
     }
-#endif //                                       
+#endif
 	if (mtp_lock(&_mtp_dev->open_excl))
 		return -EBUSY;
 

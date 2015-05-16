@@ -902,12 +902,11 @@ int usb_wwan_resume(struct usb_serial *serial)
 			}
 		}
 	}
-
+	spin_unlock_irq(&intfdata->susp_lock);
 	if (err_count)
 		return -EIO;
 
 	return 0;
-
 }
 EXPORT_SYMBOL(usb_wwan_resume);
 #endif

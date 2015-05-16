@@ -1237,7 +1237,7 @@ config USB_DWC3_MSM_VZW_SUPPORT
 	bool "VZW specific DWC3_MSM support in LGE Android"
 	depends on USB_DWC3_MSM
 	help
-	  It supports VZW specific DWC3_MSM feature for USB BC 1.2 event. 
+	  It supports VZW specific DWC3_MSM feature for USB BC 1.2 event.
 	  note that this must be used in VZW devices.
 
 	  Say y if this must be needed.
