@@ -1449,10 +1449,6 @@ static int ncm_ctrlrequest(struct usb_composite_dev *cdev,
 
 	if (b_requestType == (USB_DIR_OUT | USB_TYPE_VENDOR)) {
 		if (ctrl->bRequest == 0xf0) {
-			/*
-			mode_version = w_value;
-			mode_vendor_id = w_index;
-			*/
 			printk(KERN_INFO "ncm_ctrlrequest "
 					"%02x.%02x v%04x i%04x l%u\n",
 					b_requestType, b_request,

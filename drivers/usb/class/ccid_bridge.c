@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,7 +36,7 @@
 #define CCID_BRIDGE_MSG_SZ 512
 #define CCID_BRIDGE_OPEN_TIMEOUT 500 /* msec */
 #define CCID_CONTROL_TIMEOUT 500 /* msec */
-#define CCID_BRIDGE_MSG_TIMEOUT 500 /* msec */
+#define CCID_BRIDGE_MSG_TIMEOUT 1000 /* msec */
 
 static unsigned ccid_bulk_msg_timeout = CCID_BRIDGE_MSG_TIMEOUT;
 module_param_named(bulk_msg_timeout, ccid_bulk_msg_timeout, uint, 0644);
@@ -752,6 +752,7 @@ ccid_bridge_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	}
 
 	usb_set_intfdata(intf, ccid);
+	usb_enable_autosuspend(ccid->udev);
 
 	mutex_lock(&ccid->open_mutex);
 	ccid->intf = intf;
@@ -806,6 +807,7 @@ static void ccid_bridge_disconnect(struct usb_interface *intf)
 	}
 
 	ccid->intf = NULL;
+	usb_put_dev(ccid->udev);
 
 	mutex_unlock(&ccid->event_mutex);
 	mutex_unlock(&ccid->read_mutex);

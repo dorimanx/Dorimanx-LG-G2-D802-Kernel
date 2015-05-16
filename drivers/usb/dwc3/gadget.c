@@ -1407,7 +1407,7 @@ int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value, int protocol)
 				(!list_empty(&dep->req_queued) ||
 				 !list_empty(&dep->request_list)))) {
 			dev_dbg(dwc->dev, "%s: pending request, cannot halt\n",
-				dep->name);
+					dep->name);
 			return -EAGAIN;
 		}
 
@@ -2131,7 +2131,6 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 			} else {
 				dep->flags &= ~DWC3_EP_MISSED_ISOC;
 			}
-
 		} else {
 			if (count && (event->status & DEPEVT_STATUS_SHORT))
 				s_pkt = 1;
@@ -3011,19 +3010,9 @@ int __devinit dwc3_gadget_init(struct dwc3 *dwc)
 			break;
 	}
 	dwc->gadget.ops			= &dwc3_gadget_ops;
-/* switch to DTS config as SPEED HIGH
-#if defined(CONFIG_MACH_MSM8974_G2_DCM)\
-	|| defined(CONFIG_MACH_MSM8974_G2_KDDI)\
-	|| defined(CONFIG_MACH_MSM8974_G2_OPEN_AME)\
-	|| defined(CONFIG_MACH_MSM8974_G2_OPEN_COM)\
-	|| defined(CONFIG_MACH_MSM8974_G2_OPT_AU) \
-	|| defined(CONFIG_MACH_MSM8974_G2_TEL_AU)\
-	|| defined(CONFIG_MACH_MSM8974_VU3_KR)
-	dwc->gadget.max_speed		= USB_SPEED_HIGH;
-#else
+	/* switch to DTS config as SPEED SUPER
 	dwc->gadget.max_speed		= USB_SPEED_SUPER;
-#endif
-*/
+	*/
 	dwc->gadget.speed		= USB_SPEED_UNKNOWN;
 	dwc->gadget.dev.parent		= dwc->dev;
 	dwc->gadget.sg_supported	= true;

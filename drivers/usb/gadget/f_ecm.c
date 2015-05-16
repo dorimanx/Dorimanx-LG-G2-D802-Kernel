@@ -93,7 +93,7 @@ static inline unsigned ecm_bitrate(struct usb_gadget *g)
 
 #define LOG2_STATUS_INTERVAL_MSEC	5	/* 1 << 5 == 32 msec */
 #ifdef CONFIG_USB_G_LGE_ANDROID
-#define ECM_STATUS_BYTECOUNT		64	/*                        */
+#define ECM_STATUS_BYTECOUNT		64	/* LGE United host driver */
 #define ECM_STATUS_NOTIFY_REQ_LEN	16
 #else
 #define ECM_STATUS_BYTECOUNT		16	/* 8 byte header + data */

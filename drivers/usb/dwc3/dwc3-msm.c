@@ -1530,9 +1530,9 @@ static void dwc3_msm_ss_phy_reg_init(struct dwc3_msm *mdwc)
 {
 	u32 data = 0;
 
-	#ifdef CONFIG_USB_LGE_USB3_REDRIVER
+#ifdef CONFIG_USB_LGE_USB3_REDRIVER
 	u32 val;
-	#endif
+#endif
 	/*
 	 * WORKAROUND: There is SSPHY suspend bug due to which USB enumerates
 	 * in HS mode instead of SS mode. Workaround it by asserting
@@ -1806,6 +1806,7 @@ static inline bool dwc3_chg_check_dcd(struct dwc3_msm *mdwc)
 	bool ret = false;
 
 	chg_state = dwc3_msm_read_reg(mdwc->base, CHARGING_DET_OUTPUT_REG);
+
 	ret = chg_state & 2;
 
 	return ret;
@@ -2051,7 +2052,6 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 			mdwc->chg_state = USB_CHG_STATE_DETECTED;
 			delay = 0;
 		}
-/*                                                             */
 #ifdef CONFIG_LGE_PM
 		lge_pm_read_cable_info();
 #ifdef CONFIG_BU52031NVX_CARKIT
@@ -2060,7 +2060,6 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 			carkit_set_deskdock(1);
 #endif /* CONFIG_BU52031NVX_CARKIT */
 #endif
-/*                                        */
 		break;
 	case USB_CHG_STATE_PRIMARY_DONE:
 		vout = dwc3_chg_det_check_output(mdwc);
@@ -3323,7 +3322,6 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, mdwc);
 
-/*                           */
 #ifdef CONFIG_LGE_PM
 	context = mdwc;
 #endif
@@ -3444,7 +3442,6 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	if(of_property_read_u32(node, "qcom,usb3_tx_deemph", &mdwc->usb3_tx_deemph) < 0) {
 			mdwc->usb3_tx_deemph = 22;
 		}
-	
 #endif
 
 	of_get_property(node, "qcom,vdd-voltage-level", &len);
@@ -3582,7 +3579,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 				if (mdwc->id_state == DWC3_ID_GROUND)
 #ifdef CONFIG_LGE_PM
 					queue_work(system_nrt_wq,
-						&mdwc->id_work.work);
+							&mdwc->id_work.work);
 #else
 					queue_work(system_nrt_wq,
 							&mdwc->id_work);
