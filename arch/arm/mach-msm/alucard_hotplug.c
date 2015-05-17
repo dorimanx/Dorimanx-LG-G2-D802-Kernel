@@ -19,7 +19,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/tick.h>
 #include <linux/sched.h>
-#include <linux/spinlock.h>
+#include <linux/mutex.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 
@@ -45,7 +45,7 @@ struct hotplug_cpuinfo {
 	unsigned int cpu;
 	struct work_struct up_work;
 	struct work_struct down_work;
-	spinlock_t lock;
+	struct mutex timer_mutex;
 };
 
 static DEFINE_PER_CPU(struct hotplug_cpuinfo, od_hotplug_cpuinfo);
@@ -237,9 +237,8 @@ static void hotplug_work_fn(struct work_struct *work)
 		unsigned int cur_load = 0;
 		unsigned int cur_freq = 0;
 		int online_cpus;
-		unsigned long flags;
 
-		spin_lock_irqsave(&pcpu_info->lock, flags);
+		mutex_lock(&pcpu_info->timer_mutex);
 		cur_idle_time = get_cpu_idle_time(
 				cpu, &cur_wall_time, io_busy);
 
@@ -255,7 +254,7 @@ static void hotplug_work_fn(struct work_struct *work)
 
 		/* if wall_time < idle_time or wall_time == 0, evaluate cpu load next time */
 		if (unlikely(!wall_time || wall_time < idle_time)) {
-			spin_unlock_irqrestore(&pcpu_info->lock, flags);
+			mutex_unlock(&pcpu_info->timer_mutex);
 			continue;
 		}
 
@@ -331,7 +330,7 @@ static void hotplug_work_fn(struct work_struct *work)
 			pcpu_info->cur_up_rate = 1;
 			pcpu_info->cur_down_rate = 1;
 		}
-		spin_unlock_irqrestore(&pcpu_info->lock, flags);
+		mutex_unlock(&pcpu_info->timer_mutex);
 	}
 
 	if (force_up == true)
@@ -425,18 +424,17 @@ static int alucard_hotplug_callback(struct notifier_block *nb,
 {
 	struct hotplug_cpuinfo *pcpu_info;
 	unsigned int cpu = (int)data;
-	unsigned long flags = 0;
 
 	switch (action & (~CPU_TASKS_FROZEN)) {
 	case CPU_ONLINE:
 		pcpu_info = &per_cpu(od_hotplug_cpuinfo, cpu);
-		spin_lock_irqsave(&pcpu_info->lock, flags);
+		mutex_lock(&pcpu_info->timer_mutex);
 		pcpu_info->prev_cpu_idle = get_cpu_idle_time(cpu,
 				&pcpu_info->prev_cpu_wall,
 				hotplug_tuners_ins.hp_io_is_busy);
 		pcpu_info->cur_up_rate = 1;
 		pcpu_info->cur_down_rate = 1;
-		spin_unlock_irqrestore(&pcpu_info->lock, flags);
+		mutex_unlock(&pcpu_info->timer_mutex);
 		break;
 	}
 
@@ -475,7 +473,7 @@ static int hotplug_start(void)
 		}
 		pcpu_info->cur_up_rate = 1;
 		pcpu_info->cur_down_rate = 1;
-		spin_lock_init(&pcpu_info->lock);
+		mutex_init(&pcpu_info->timer_mutex);
 		INIT_WORK(&pcpu_info->up_work, cpu_up_work);
 		INIT_WORK(&pcpu_info->down_work, cpu_down_work);
 	}
@@ -520,6 +518,7 @@ static void hotplug_stop(void)
 				&per_cpu(od_hotplug_cpuinfo, cpu);
 		cancel_work_sync(&pcpu_info->up_work);
 		cancel_work_sync(&pcpu_info->down_work);
+		mutex_destroy(&pcpu_info->timer_mutex);
 	}
 	stop_rq_work();
 
@@ -789,7 +788,6 @@ static ssize_t store_hp_io_is_busy(struct kobject *a, struct attribute *b,
 {
 	unsigned int input, j;
 	int ret;
-	unsigned long flags;
 
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
@@ -806,11 +804,11 @@ static ssize_t store_hp_io_is_busy(struct kobject *a, struct attribute *b,
 		for_each_online_cpu(j) {
 			struct hotplug_cpuinfo *pcpu_info =
 					&per_cpu(od_hotplug_cpuinfo, j);
-			spin_lock_irqsave(&pcpu_info->lock, flags);
+			mutex_lock(&pcpu_info->timer_mutex);
 			pcpu_info->prev_cpu_idle = get_cpu_idle_time(j,
 					&pcpu_info->prev_cpu_wall,
 					!!input);
-			spin_unlock_irqrestore(&pcpu_info->lock, flags);
+			mutex_unlock(&pcpu_info->timer_mutex);
 		}
 	}
 	hotplug_tuners_ins.hp_io_is_busy = !!input;
