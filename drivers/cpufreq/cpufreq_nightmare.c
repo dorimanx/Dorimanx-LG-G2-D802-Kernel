@@ -477,9 +477,8 @@ static unsigned int adjust_cpufreq_frequency_target(struct cpufreq_policy *polic
 	return target_freq;
 }
 
-static void nightmare_check_cpu(unsigned int cpu)
+static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo)
 {
-	struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, cpu);
 	struct cpufreq_policy *policy;
 	unsigned int freq_for_responsiveness = nightmare_tuners_ins.freq_for_responsiveness;
 	unsigned int freq_for_responsiveness_max = nightmare_tuners_ins.freq_for_responsiveness_max;
@@ -493,11 +492,14 @@ static void nightmare_check_cpu(unsigned int cpu)
 	unsigned int tmp_freq = 0;
 	unsigned int cur_load = 0;
 	int io_busy = nightmare_tuners_ins.io_is_busy;
+	unsigned int cpu;
 
 	policy = this_nightmare_cpuinfo->cur_policy;
-	if ((!policy->cur)
+	if ((policy == NULL)
 		 || (!this_nightmare_cpuinfo->freq_table))
 		return;
+
+	cpu = policy->cpu;
 
 	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, io_busy);
 
@@ -550,7 +552,7 @@ static void do_nightmare_timer(struct work_struct *work)
 	mutex_lock(&this_nightmare_cpuinfo->timer_mutex);
 	cpu = this_nightmare_cpuinfo->cur_policy->cpu;
 
-	nightmare_check_cpu(cpu);
+	nightmare_check_cpu(this_nightmare_cpuinfo);
 
 	delay = usecs_to_jiffies(nightmare_tuners_ins.sampling_rate);
 	/* We want all CPUs to do sampling nearly on
@@ -574,7 +576,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if (!policy->cur)
+		if (policy == NULL)
 			return -EINVAL;
 
 		mutex_lock(&nightmare_mutex);
@@ -638,7 +640,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		break;
 	case CPUFREQ_GOV_LIMITS:
-		if (!this_nightmare_cpuinfo->cur_policy->cur) {
+		if (this_nightmare_cpuinfo->cur_policy == NULL) {
 			pr_debug("Unable to limit cpu freq due to cur_policy == NULL\n");
 			return -EPERM;
 		}

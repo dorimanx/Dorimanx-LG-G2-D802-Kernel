@@ -197,20 +197,22 @@ static unsigned int adjust_cpufreq_frequency_target(struct cpufreq_policy *polic
 	return target_freq;
 }
 
-static void darkness_check_cpu(unsigned int cpu)
+static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo)
 {
-	struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, cpu);
 	struct cpufreq_policy *policy;
 	u64 cur_wall_time, cur_idle_time;
 	unsigned int wall_time, idle_time;
 	unsigned int next_freq = 0;
 	unsigned int cur_load = 0;
 	int io_busy = darkness_tuners_ins.io_is_busy;
+	unsigned int cpu;
 
 	policy = this_darkness_cpuinfo->cur_policy;
-	if ((!policy->cur)
+	if ((policy == NULL)
 		 || (!this_darkness_cpuinfo->freq_table))
 		return;
+
+	cpu = policy->cpu;
 
 	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, io_busy);
 
@@ -249,7 +251,7 @@ static void do_darkness_timer(struct work_struct *work)
 	mutex_lock(&this_darkness_cpuinfo->timer_mutex);
 	cpu = this_darkness_cpuinfo->cur_policy->cpu;
 
-	darkness_check_cpu(cpu);
+	darkness_check_cpu(this_darkness_cpuinfo);
 
 	delay = usecs_to_jiffies(darkness_tuners_ins.sampling_rate);
 	/* We want all CPUs to do sampling nearly on
@@ -273,7 +275,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if (!policy->cur)
+		if (policy == NULL)
 			return -EINVAL;
 
 		mutex_lock(&darkness_mutex);
@@ -337,7 +339,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		break;
 	case CPUFREQ_GOV_LIMITS:
-		if (!this_darkness_cpuinfo->cur_policy->cur) {
+		if (this_darkness_cpuinfo->cur_policy == NULL) {
 			pr_debug("Unable to limit cpu freq due to cur_policy == NULL\n");
 			return -EPERM;
 		}
