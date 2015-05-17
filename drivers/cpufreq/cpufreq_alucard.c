@@ -494,9 +494,8 @@ static void cpufreq_frequency_table_policy_limits(struct cpufreq_policy *policy,
 	}
 }
 
-static void alucard_check_cpu(unsigned int cpu)
+static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo)
 {
-	struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, cpu);
 	struct cpufreq_policy *policy;
 	unsigned int freq_responsiveness = alucard_tuners_ins.freq_responsiveness;
 	int dec_cpu_load = alucard_tuners_ins.dec_cpu_load;
@@ -510,12 +509,14 @@ static void alucard_check_cpu(unsigned int cpu)
 	unsigned int cpus_up_rate = alucard_tuners_ins.cpus_up_rate;
 	unsigned int cpus_down_rate = alucard_tuners_ins.cpus_down_rate;
 	unsigned int min_index = 0, max_index = 0, index = 0;
+	unsigned int cpu;
 
 	policy = this_alucard_cpuinfo->cur_policy;
-	if ((!policy->cur)
+	if ((policy == NULL)
 		 || (!this_alucard_cpuinfo->freq_table))
 		return;
 
+	cpu = policy->cpu;
 	/* Get min, current, max indexes from current cpu policy */
 	cpufreq_frequency_table_policy_limits(policy,
 			this_alucard_cpuinfo->freq_table,
@@ -595,7 +596,7 @@ static void do_alucard_timer(struct work_struct *work)
 	mutex_lock(&this_alucard_cpuinfo->timer_mutex);
 	cpu = this_alucard_cpuinfo->cur_policy->cpu;
 
-	alucard_check_cpu(cpu);
+	alucard_check_cpu(this_alucard_cpuinfo);
 
 	delay = usecs_to_jiffies(alucard_tuners_ins.sampling_rate);
 
@@ -618,7 +619,7 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if (!policy->cur)
+		if (policy == NULL)
 			return -EINVAL;
 
 		mutex_lock(&alucard_mutex);
@@ -685,7 +686,7 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 
 		break;
 	case CPUFREQ_GOV_LIMITS:
-		if (!this_alucard_cpuinfo->cur_policy->cur) {
+		if (this_alucard_cpuinfo->cur_policy == NULL) {
 			pr_debug("Unable to limit cpu freq due to cur_policy == NULL\n");
 			return -EPERM;
 		}
