@@ -1762,14 +1762,16 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 					break;
 			}
 #ifndef CONFIG_SMB349_VZW_FAST_CHG
-			if (usb_power_curr_now == 500) {
+			if (usb_power_curr_now == 500 ||
+					usb_power_curr_now == 900) {
 				if (new_thermal_mitigation > 900)
 					new_thermal_mitigation = 900;
 			}
 #endif
 		} else if (force_fast_charge == 1) {
 #ifndef CONFIG_SMB349_VZW_FAST_CHG
-			if (usb_power_curr_now == 500) {
+			if (usb_power_curr_now == 500 ||
+					usb_power_curr_now == 900) {
 				if (new_thermal_mitigation > 900)
 					new_thermal_mitigation = 900;
 			} else
@@ -1865,13 +1867,13 @@ int smb349_thermal_mitigation_update(int value)
 				default:
 					break;
 			}
-			if (value == 500) {
+			if (value == 500 || value == 900) {
 				if (new_thermal_mitigation > 900)
 					new_thermal_mitigation = 900;
 			} else if (value == 300)
 				new_thermal_mitigation = value;
 		} else if (force_fast_charge == 1) {
-			if (value == 500) {
+			if (value == 500 || value == 900) {
 				if (new_thermal_mitigation > 900)
 					new_thermal_mitigation = 900;
 			} else if (value == 300)

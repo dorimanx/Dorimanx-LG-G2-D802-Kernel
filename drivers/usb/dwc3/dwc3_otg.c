@@ -917,8 +917,17 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				case DWC3_DCP_CHARGER:
 				case DWC3_PROPRIETARY_CHARGER:
 					dev_dbg(phy->dev, "lpm, DCP charger\n");
+#ifdef CONFIG_FORCE_FAST_CHARGE
+					if (force_fast_charge > 1)
+						dwc3_otg_set_power(phy,
+							fast_charge_level);
+					else
+						dwc3_otg_set_power(phy,
+								DWC3_IDEV_CHG_MAX);
+#else
 					dwc3_otg_set_power(phy,
 							DWC3_IDEV_CHG_MAX);
+#endif
 					pm_runtime_put_sync(phy->dev);
 					break;
 				case DWC3_CDP_CHARGER:
@@ -930,8 +939,16 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					work = 1;
 					break;
 				case DWC3_SDP_CHARGER:
+#ifdef CONFIG_FORCE_FAST_CHARGE
+					if (force_fast_charge > 0)
+						dwc3_otg_set_power(phy, 900);
+					else
+						dwc3_otg_set_power(phy,
+								DWC3_IDEV_CHG_MIN);
+#else
 					dwc3_otg_set_power(phy,
 							DWC3_IDEV_CHG_MIN);
+#endif
 
 #ifdef CONFIG_LGE_PM
 					if (!slimport_is_connected()) {
