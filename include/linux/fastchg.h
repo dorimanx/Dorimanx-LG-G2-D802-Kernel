@@ -18,7 +18,7 @@
 #ifndef _LINUX_FASTCHG_H
 #define _LINUX_FASTCHG_H
 
-#define FAST_CHARGE_VERSION "Version 2.6"
+#define FAST_CHARGE_VERSION "Version 2.7"
 
 extern int force_fast_charge;
 extern int force_fast_charge_temp;
@@ -30,7 +30,6 @@ extern int force_fast_charge_on_off;
 #define FAST_CHARGE_FORCE_AC		1
 #define FAST_CHARGE_FORCE_CUSTOM_MA	2
 
-#define FAST_CHARGE_300		300
 #define FAST_CHARGE_500		500
 #define FAST_CHARGE_900		900
 #define FAST_CHARGE_1200	1200
@@ -38,6 +37,6 @@ extern int force_fast_charge_on_off;
 #define FAST_CHARGE_1800	1800
 #define FAST_CHARGE_2000	2000
 
-#define FAST_CHARGE_LEVELS	"300 500 900 1200 1600 1800 2000"
+#define FAST_CHARGE_LEVELS	"500 900 1200 1600 1800 2000"
 
 #endif

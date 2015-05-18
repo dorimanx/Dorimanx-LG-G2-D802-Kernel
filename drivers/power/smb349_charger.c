@@ -1736,13 +1736,10 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 		}
 
 		if (batt_temp >= 550)
-			batt_state_check = 2;
+			batt_state_check = 1;
 
 		if (force_fast_charge == 2) {
 			switch (fast_charge_level) {
-				case FAST_CHARGE_300:
-					new_thermal_mitigation = 300;
-					break;
 				case FAST_CHARGE_500:
 					new_thermal_mitigation = 500;
 					break;
@@ -1766,10 +1763,8 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 			}
 #ifndef CONFIG_SMB349_VZW_FAST_CHG
 			if (usb_power_curr_now == 500) {
-				if (new_thermal_mitigation != 300) {
-					if (new_thermal_mitigation > 900)
-						new_thermal_mitigation = 900;
-				}
+				if (new_thermal_mitigation > 900)
+					new_thermal_mitigation = 900;
 			}
 #endif
 		} else if (force_fast_charge == 1) {
@@ -1784,9 +1779,7 @@ smb349_set_thermal_chg_current_set(const char *val, struct kernel_param *kp)
 			new_thermal_mitigation = smb349_thermal_mitigation;
 
 		if (batt_state_check == 1)
-			new_thermal_mitigation = 400;
-		else if (batt_state_check == 2)
-			new_thermal_mitigation = 300;
+			new_thermal_mitigation = 500;
 
 		pr_info("thermal-engine: requested_thermal mitigation %d, new_thermal mitigation=%d, battery temp=%d, battery capacity=%d\n",
 				smb349_thermal_mitigation,
@@ -1846,17 +1839,11 @@ int smb349_thermal_mitigation_update(int value)
 		batt_temp = smb349_get_prop_batt_temp(the_smb349_chg);
 		batt_charge = smb349_get_prop_batt_capacity(the_smb349_chg);
 
-		if (batt_charge >= 95)
+		if ((batt_charge >= 95) || (batt_temp >= 550))
 			batt_state_check = 1;
-
-		if (batt_temp >= 550)
-			batt_state_check = 2;
 
 		if (force_fast_charge == 2) {
 			switch (fast_charge_level) {
-				case FAST_CHARGE_300:
-					new_thermal_mitigation = 300;
-					break;
 				case FAST_CHARGE_500:
 					new_thermal_mitigation = 500;
 					break;
@@ -1879,27 +1866,23 @@ int smb349_thermal_mitigation_update(int value)
 					break;
 			}
 			if (value == 500) {
-				if (new_thermal_mitigation != 300) {
-					if (new_thermal_mitigation > 900)
-						new_thermal_mitigation = 900;
-				}
+				if (new_thermal_mitigation > 900)
+					new_thermal_mitigation = 900;
 			} else if (value == 300)
-				new_thermal_mitigation = 1600;
+				new_thermal_mitigation = value;
 		} else if (force_fast_charge == 1) {
 			if (value == 500) {
 				if (new_thermal_mitigation > 900)
 					new_thermal_mitigation = 900;
 			} else if (value == 300)
-				new_thermal_mitigation = 1600;
+				new_thermal_mitigation = value;
 			else if (value > 500)
 				new_thermal_mitigation = 1200;
 		} else if (!force_fast_charge)
 			new_thermal_mitigation = value;
 
 		if (batt_state_check == 1)
-			new_thermal_mitigation = 400;
-		else if (batt_state_check == 2)
-			new_thermal_mitigation = 300;
+			new_thermal_mitigation = 500;
 
 		if (new_thermal_mitigation != the_smb349_chg->chg_current_te) {
 			the_smb349_chg->chg_current_te = new_thermal_mitigation;
@@ -3434,10 +3417,6 @@ static int smb349_input_current_limit_set(struct smb349_struct *smb349_chg, int 
 		icl_ma = custom_ma;
 	} else if (force_fast_charge == 2) {
 		switch (fast_charge_level) {
-			case FAST_CHARGE_300:
-				i = 0;
-				custom_ma = FAST_CHARGE_300;
-				break;
 			case FAST_CHARGE_500:
 				i = 0;
 				custom_ma = FAST_CHARGE_500;
@@ -3459,7 +3438,7 @@ static int smb349_input_current_limit_set(struct smb349_struct *smb349_chg, int 
 				custom_ma = FAST_CHARGE_1800;
 				break;
 			case FAST_CHARGE_2000:
-				i = 0xA;
+				i = 10;
 				custom_ma = FAST_CHARGE_2000;
 				break;
 			default:
@@ -3485,6 +3464,7 @@ static struct input_current_ma_limit_entry pchg_ma_table[] = {
 	{500, 0x60},
 	{600, 0x80},
 	{700, 0xA0},
+	{900, 0xB0},
 };
 
 #define SMB349_PRE_CHG_CURRENT_LIMIT_MIN_MA     100

@@ -930,20 +930,8 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					work = 1;
 					break;
 				case DWC3_SDP_CHARGER:
-#ifdef CONFIG_FORCE_FAST_CHARGE
-					if (force_fast_charge > 1)
-						dwc3_otg_set_power(phy,
-							fast_charge_level);
-					else if (force_fast_charge > 0)
-						dwc3_otg_set_power(phy,
-							DWC3_IDEV_CHG_MAX);
-					else
-						dwc3_otg_set_power(phy,
-								DWC3_IDEV_CHG_MIN);
-#else
 					dwc3_otg_set_power(phy,
-								DWC3_IDEV_CHG_MIN);
-#endif
+							DWC3_IDEV_CHG_MIN);
 
 #ifdef CONFIG_LGE_PM
 					if (!slimport_is_connected()) {

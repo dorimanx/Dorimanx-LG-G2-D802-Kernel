@@ -1441,10 +1441,6 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 		mA = custom_ma;
 	} else if (force_fast_charge == 2) {
 		switch (fast_charge_level) {
-			case FAST_CHARGE_300:
-				custom_ma = FAST_CHARGE_300;
-				pr_info("USB fast charging is ON - 300mA.\n");
-				break;
 			case FAST_CHARGE_500:
 				custom_ma = FAST_CHARGE_500;
 				pr_info("USB fast charging is ON - 500mA.\n");

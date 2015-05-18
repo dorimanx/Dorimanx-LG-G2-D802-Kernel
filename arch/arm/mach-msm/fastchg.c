@@ -52,6 +52,9 @@
  * version 2.4 allowed full 2000ma to be set in charger driver.
  * version 2.5 fixed broken mitigation set if USB is connected.
  * version 2.6 fixed activation of force fast charge when no power connected. and rom set thermal mitigation.
+ * version 2.7 fixed wrong ma set for 2000ma, fixed missing ma step (900) for charge prepare function,
+ * cleaned mitigation set functions. reset OTG charge max/min to defaults,
+ * cleaned not supported ma level 300. it's not in drivers or tables. best to clean it.
  */
 
 int force_fast_charge;
@@ -104,7 +107,6 @@ static ssize_t charge_level_store(struct kobject *kobj,
 	sscanf(buf, "%du", &new_charge_level);
 
 	switch (new_charge_level) {
-		case FAST_CHARGE_300:
 		case FAST_CHARGE_500:
 		case FAST_CHARGE_900:
 		case FAST_CHARGE_1200:
