@@ -270,7 +270,6 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 				unsigned int event)
 {
 	struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo;
-	unsigned int j;
 	int rc, delay;
 	int io_busy;
 
@@ -293,13 +292,11 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		}
 
 		darkness_enable++;
-		for_each_cpu(j, policy->cpus) {
-			this_darkness_cpuinfo->cur_policy = policy;
-			this_darkness_cpuinfo->prev_cpu_idle = get_cpu_idle_time(
-					this_darkness_cpuinfo->cpu,
-					&this_darkness_cpuinfo->prev_cpu_wall,
-					io_busy);
-		}
+		this_darkness_cpuinfo->cur_policy = policy;
+		this_darkness_cpuinfo->prev_cpu_idle = get_cpu_idle_time(
+				this_darkness_cpuinfo->cpu,
+				&this_darkness_cpuinfo->prev_cpu_wall,
+				io_busy);
 
 		/*
 		 * Start the timerschedule work, when this governor
