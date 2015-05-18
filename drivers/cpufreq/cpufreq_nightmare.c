@@ -571,7 +571,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 				unsigned int event)
 {
 	struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo;
-	unsigned int j;
 	int rc, delay;
 	int io_busy;
 
@@ -594,13 +593,11 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		}
 
 		nightmare_enable++;
-		for_each_cpu(j, policy->cpus) {
-			this_nightmare_cpuinfo->cur_policy = policy;
-			this_nightmare_cpuinfo->prev_cpu_idle = get_cpu_idle_time(
-					this_nightmare_cpuinfo->cpu,
-					&this_nightmare_cpuinfo->prev_cpu_wall,
-					io_busy);
-		}
+		this_nightmare_cpuinfo->cur_policy = policy;
+		this_nightmare_cpuinfo->prev_cpu_idle = get_cpu_idle_time(
+				this_nightmare_cpuinfo->cpu,
+				&this_nightmare_cpuinfo->prev_cpu_wall,
+				io_busy);
 
 		/*
 		 * Start the timerschedule work, when this governor

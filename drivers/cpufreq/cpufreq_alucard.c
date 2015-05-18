@@ -614,7 +614,6 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 				unsigned int event)
 {
 	struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo;
-	unsigned int j;
 	int rc, delay;
 	int io_busy;
 
@@ -637,13 +636,11 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 		}
 
 		alucard_enable++;
-		for_each_cpu(j, policy->cpus) {
-			this_alucard_cpuinfo->cur_policy = policy;
-			this_alucard_cpuinfo->prev_cpu_idle = get_cpu_idle_time(
-					this_alucard_cpuinfo->cpu,
-					&this_alucard_cpuinfo->prev_cpu_wall,
-					io_busy);
-		}
+		this_alucard_cpuinfo->cur_policy = policy;
+		this_alucard_cpuinfo->prev_cpu_idle = get_cpu_idle_time(
+				this_alucard_cpuinfo->cpu,
+				&this_alucard_cpuinfo->prev_cpu_wall,
+				io_busy);
 		this_alucard_cpuinfo->up_rate = 1;
 		this_alucard_cpuinfo->down_rate = 1;
 
