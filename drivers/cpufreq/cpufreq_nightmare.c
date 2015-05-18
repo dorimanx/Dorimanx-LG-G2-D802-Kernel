@@ -84,8 +84,13 @@ static struct nightmare_tuners {
 	.inc_cpu_load_at_min_freq = 40,
 	.inc_cpu_load = 60,
 	.dec_cpu_load = 60,
+#ifdef CONFIG_MACH_LGE
 	.freq_for_responsiveness = 1728000,
-	.freq_for_responsiveness_max = 2265600,
+	.freq_for_responsiveness_max = 1958400,
+#else
+	.freq_for_responsiveness = 1566000,
+	.freq_for_responsiveness_max = 1890000,
+#endif
 	.freq_step_at_min_freq = 40,
 	.freq_step = 50,
 	.freq_up_brake_at_min_freq = 40,
@@ -494,16 +499,14 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	unsigned int tmp_freq = 0;
 	unsigned int cur_load = 0;
 	int io_busy = nightmare_tuners_ins.io_is_busy;
-	unsigned int cpu;
 
 	policy = this_nightmare_cpuinfo->cur_policy;
 	if ((policy == NULL)
 		 || (!this_nightmare_cpuinfo->freq_table))
 		return;
 
-	cpu = this_nightmare_cpuinfo->cpu;
-
-	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, io_busy);
+	cur_idle_time = get_cpu_idle_time(this_nightmare_cpuinfo->cpu,
+			&cur_wall_time, io_busy);
 
 	wall_time = (unsigned int)
 			(cur_wall_time - this_nightmare_cpuinfo->prev_cpu_wall);
@@ -548,34 +551,29 @@ static void do_nightmare_timer(struct work_struct *work)
 {
 	struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo =
 		container_of(work, struct cpufreq_nightmare_cpuinfo, work.work);
-	unsigned int cpu;
 	int delay;
 
 	mutex_lock(&this_nightmare_cpuinfo->timer_mutex);
-	cpu = this_nightmare_cpuinfo->cpu;
 
 	nightmare_check_cpu(this_nightmare_cpuinfo);
 
 	delay = usecs_to_jiffies(nightmare_tuners_ins.sampling_rate);
-
 	/* We want all CPUs to do sampling nearly on same jiffy */
 	if (num_online_cpus() > 1) {
 		delay = max(delay - (jiffies % delay), usecs_to_jiffies(nightmare_tuners_ins.sampling_rate / 2));
 	}
 
-	mod_delayed_work_on(cpu, system_wq, &this_nightmare_cpuinfo->work, delay);
+	mod_delayed_work_on(this_nightmare_cpuinfo->cpu,
+		system_wq, &this_nightmare_cpuinfo->work, delay);
 	mutex_unlock(&this_nightmare_cpuinfo->timer_mutex);
 }
 
 static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 				unsigned int event)
 {
-	struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo;
+	struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, policy->cpu);
 	int rc, delay;
-	int io_busy;
-
-	io_busy = nightmare_tuners_ins.io_is_busy;
-	this_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, policy->cpu);
+	int io_busy = nightmare_tuners_ins.io_is_busy;
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
@@ -682,8 +680,8 @@ static int __init cpufreq_gov_nightmare_init(void)
 	unsigned int cpu;
 
 	for_each_possible_cpu(cpu) {
-		struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, cpu);
-
+		struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo =
+				&per_cpu(od_nightmare_cpuinfo, cpu);
 		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
 	}
 
@@ -696,8 +694,8 @@ static void __exit cpufreq_gov_nightmare_exit(void)
 
 	cpufreq_unregister_governor(&cpufreq_gov_nightmare);
 	for_each_possible_cpu(cpu) {
-		struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, cpu);
-
+		struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo =
+				&per_cpu(od_nightmare_cpuinfo, cpu);
 		mutex_destroy(&this_nightmare_cpuinfo->timer_mutex);
 	}
 }
