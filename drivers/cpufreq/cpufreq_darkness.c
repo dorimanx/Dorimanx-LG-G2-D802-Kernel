@@ -46,6 +46,7 @@ struct cpufreq_darkness_cpuinfo {
 	struct delayed_work work;
 	struct cpufreq_policy *cur_policy;
 	bool governor_enabled;
+	unsigned int cpu;
 	/*
 	 * percpu mutex that serializes governor limit change with
 	 * do_dbs_timer invocation. We do not want do_dbs_timer to run
@@ -98,7 +99,7 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(input,10000);
+	input = max(input, 10000);
 
 	if (input == darkness_tuners_ins.sampling_rate)
 		return count;
@@ -139,6 +140,7 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 		mutex_unlock(&this_darkness_cpuinfo->timer_mutex);
 	}
 	put_online_cpus();
+
 	return count;
 }
 
@@ -212,7 +214,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		 || (!this_darkness_cpuinfo->freq_table))
 		return;
 
-	cpu = policy->cpu;
+	cpu = this_darkness_cpuinfo->cpu;
 
 	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, io_busy);
 
@@ -249,14 +251,13 @@ static void do_darkness_timer(struct work_struct *work)
 	int delay;
 
 	mutex_lock(&this_darkness_cpuinfo->timer_mutex);
-	cpu = this_darkness_cpuinfo->cur_policy->cpu;
+	cpu = this_darkness_cpuinfo->cpu;
 
 	darkness_check_cpu(this_darkness_cpuinfo);
 
 	delay = usecs_to_jiffies(darkness_tuners_ins.sampling_rate);
-	/* We want all CPUs to do sampling nearly on
-	 * same jiffy
-	 */
+
+	/* We want all CPUs to do sampling nearly on same jiffy */
 	if (num_online_cpus() > 1) {
 		delay = max(delay - (jiffies % delay), usecs_to_jiffies(darkness_tuners_ins.sampling_rate / 2));
 	}
@@ -268,30 +269,38 @@ static void do_darkness_timer(struct work_struct *work)
 static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 				unsigned int event)
 {
-	struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, policy->cpu);
-	unsigned int cpu;
+	struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo;
+	unsigned int j;
 	int rc, delay;
-	int io_busy = darkness_tuners_ins.io_is_busy;
+	int io_busy;
+
+	io_busy = darkness_tuners_ins.io_is_busy;
+	this_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, policy->cpu);
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if (policy == NULL)
+		if (!policy->cur)
 			return -EINVAL;
 
 		mutex_lock(&darkness_mutex);
-		cpu = policy->cpu;
+		this_darkness_cpuinfo->cpu = policy->cpu;
 
-		this_darkness_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
+		this_darkness_cpuinfo->freq_table =
+				cpufreq_frequency_get_table(this_darkness_cpuinfo->cpu);
 		if (!this_darkness_cpuinfo->freq_table) {
 			mutex_unlock(&darkness_mutex);
 			return -EINVAL;
 		}
 
-		this_darkness_cpuinfo->cur_policy = policy;
-
-		this_darkness_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu, &this_darkness_cpuinfo->prev_cpu_wall, io_busy);
-
 		darkness_enable++;
+		for_each_cpu(j, policy->cpus) {
+			this_darkness_cpuinfo->cur_policy = policy;
+			this_darkness_cpuinfo->prev_cpu_idle = get_cpu_idle_time(
+					this_darkness_cpuinfo->cpu,
+					&this_darkness_cpuinfo->prev_cpu_wall,
+					io_busy);
+		}
+
 		/*
 		 * Start the timerschedule work, when this governor
 		 * is used for first time
@@ -317,7 +326,9 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		}
 
 		INIT_DEFERRABLE_WORK(&this_darkness_cpuinfo->work, do_darkness_timer);
-		mod_delayed_work_on(cpu, system_wq, &this_darkness_cpuinfo->work, delay);
+		mod_delayed_work_on(this_darkness_cpuinfo->cpu,
+				system_wq, &this_darkness_cpuinfo->work,
+				delay);
 
 		break;
 	case CPUFREQ_GOV_STOP:
@@ -328,22 +339,22 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		this_darkness_cpuinfo->governor_enabled = false;
 
-		this_darkness_cpuinfo->cur_policy = NULL;
-
 		darkness_enable--;
-		if (!darkness_enable) {
+
+		/* If device is being removed, policy is no longer
+		 * valid. */
+		this_darkness_cpuinfo->cur_policy = NULL;
+		if (!darkness_enable)
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &darkness_attr_group);
-		}
+
 		mutex_unlock(&darkness_mutex);
 
 		break;
 	case CPUFREQ_GOV_LIMITS:
-		if (this_darkness_cpuinfo->cur_policy == NULL) {
-			pr_debug("Unable to limit cpu freq due to cur_policy == NULL\n");
-			return -EPERM;
-		}
-
+		/* If device is being removed, skip set limits */
+		if (!this_darkness_cpuinfo->cur_policy)
+			break;
 		mutex_lock(&this_darkness_cpuinfo->timer_mutex);
 		if (policy->max < this_darkness_cpuinfo->cur_policy->cur)
 			__cpufreq_driver_target(this_darkness_cpuinfo->cur_policy,
@@ -351,6 +362,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		else if (policy->min > this_darkness_cpuinfo->cur_policy->cur)
 			__cpufreq_driver_target(this_darkness_cpuinfo->cur_policy,
 				policy->min, CPUFREQ_RELATION_L);
+		darkness_check_cpu(this_darkness_cpuinfo);
 		mutex_unlock(&this_darkness_cpuinfo->timer_mutex);
 
 		break;
@@ -369,12 +381,26 @@ struct cpufreq_governor cpufreq_gov_darkness = {
 
 static int __init cpufreq_gov_darkness_init(void)
 {
+	unsigned int cpu;
+
+	for_each_possible_cpu(cpu) {
+		struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, cpu);
+
+		mutex_init(&this_darkness_cpuinfo->timer_mutex);
+	}
+
 	return cpufreq_register_governor(&cpufreq_gov_darkness);
 }
 
 static void __exit cpufreq_gov_darkness_exit(void)
 {
+	unsigned int cpu;
 	cpufreq_unregister_governor(&cpufreq_gov_darkness);
+	for_each_possible_cpu(cpu) {
+		struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, cpu);
+
+		mutex_destroy(&this_darkness_cpuinfo->timer_mutex);
+	}
 }
 
 MODULE_AUTHOR("Alucard24@XDA");
