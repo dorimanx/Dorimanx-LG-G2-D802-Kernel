@@ -55,6 +55,8 @@
  * version 2.7 fixed wrong ma set for 2000ma, fixed missing ma step (900) for charge prepare function,
  * cleaned mitigation set functions. reset OTG charge max/min to defaults,
  * cleaned not supported ma level 300. it's not in drivers or tables. best to clean it.
+ * version 2.8 allowed higher ma set on misc chargers. was locked to 1000ma. + set max ma to 900 for USB
+ * charge connection.
  */
 
 int force_fast_charge;
