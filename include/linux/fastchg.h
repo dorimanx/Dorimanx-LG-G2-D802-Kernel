@@ -18,7 +18,7 @@
 #ifndef _LINUX_FASTCHG_H
 #define _LINUX_FASTCHG_H
 
-#define FAST_CHARGE_VERSION "Version 2.9"
+#define FAST_CHARGE_VERSION "Version 3.0"
 
 extern int force_fast_charge;
 extern int force_fast_charge_temp;

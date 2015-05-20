@@ -1466,6 +1466,8 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 				pr_info("USB fast charging is ON - 2000mA.\n");
 				break;
 			default:
+				custom_ma = FAST_CHARGE_500;
+				pr_info("USB fast charging is ON - 500mA.\n");
 				break;
 		}
 		mA = custom_ma;

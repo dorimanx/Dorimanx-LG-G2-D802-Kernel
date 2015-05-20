@@ -628,14 +628,22 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 	if (dotg->charger->chg_type == DWC3_CDP_CHARGER)
 		mA = DWC3_IDEV_CHG_MAX;
 
-	if (dotg->charger->max_power == mA)
+	if (dotg->charger->max_power == mA) {
+#ifdef CONFIG_FORCE_FAST_CHARGE
+		usb_power_curr_now = mA;
+#endif
 		return 0;
+	}
 
 	dev_info(phy->dev, "Avail curr from USB = %u\n", mA);
+
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	usb_power_curr_now = mA;
+#endif
+
 #if defined(CONFIG_FORCE_FAST_CHARGE) && !defined(CONFIG_SMB349_VZW_FAST_CHG)
 	mutex_lock(&fast_charge_lock);
-	usb_power_curr_now = mA;
-	if (mA > 300) {
+	if (mA >= 500) {
 		if (force_fast_charge != force_fast_charge_temp)
 			force_fast_charge = force_fast_charge_temp;
 		dev_info(phy->dev, "Power plugged, FFC is set to = %d\n",
