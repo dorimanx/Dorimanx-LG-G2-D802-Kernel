@@ -58,6 +58,7 @@
  * version 2.8 allowed higher ma set on misc chargers. was locked to 1000ma. + set max ma to 900 for USB
  * charge connection.
  * version 2.9 guard max charge for OTG driver. to protect hardware. max is 1500.
+ * version 3.0 fix bugs in mitigation functions and lge_charging_scenario. + optimizations.
  */
 
 int force_fast_charge;
