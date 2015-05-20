@@ -73,6 +73,7 @@ struct cpufreq_ondemandplus_cpuinfo {
 	struct cpufreq_frequency_table *freq_table;
 	unsigned int target_freq;
 	int governor_enabled;
+	unsigned int cpu;
 };
 
 static DEFINE_PER_CPU(struct cpufreq_ondemandplus_cpuinfo, cpuinfo);
@@ -776,20 +777,21 @@ static int cpufreq_governor_ondemandplus(struct cpufreq_policy *policy,
 		unsigned int event)
 {
 	int rc;
-	unsigned int cpu = policy->cpu;
+	unsigned int cpu;
 	unsigned int j;
 	struct cpufreq_ondemandplus_cpuinfo *pcpu;
 	struct cpufreq_frequency_table *freq_table;
 
-	pcpu = &per_cpu(cpuinfo, cpu);
+	pcpu = &per_cpu(cpuinfo, policy->cpu);
+	cpu = pcpu->cpu;
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if (!cpu_online(policy->cpu) || (!policy->cur))
+		if (!cpu_online(cpu) || (!policy->cur))
 			return -EINVAL;
 
 		freq_table =
-			cpufreq_frequency_get_table(policy->cpu);
+			cpufreq_frequency_get_table(cpu);
 
 		for_each_cpu(j, policy->cpus) {
 			pcpu = &per_cpu(cpuinfo, j);
@@ -862,7 +864,7 @@ static int cpufreq_governor_ondemandplus(struct cpufreq_policy *policy,
 			__cpufreq_driver_target(policy,
 					policy->min, CPUFREQ_RELATION_L);
 		/* update min freq static value */
-		if (policy->cpu == 0)
+		if (cpu == 0)
 			screen_on_min_freq = policy->min;
 		mutex_unlock(&pcpu->timer_mutex);
 		break;

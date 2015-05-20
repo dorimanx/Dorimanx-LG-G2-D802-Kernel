@@ -56,6 +56,7 @@ struct cpufreq_yankactive_cpuinfo {
 	int governor_enabled;
 	int prev_load;
 	bool limits_changed;
+	unsigned int cpu;
 };
 
 #define MIN_TIMER_JIFFIES 1UL
@@ -1393,19 +1394,23 @@ static int cpufreq_governor_yankactive(struct cpufreq_policy *policy,
 {
 	int rc;
 	unsigned int j;
+	unsigned int cpu;
 	struct cpufreq_yankactive_cpuinfo *pcpu;
 	struct cpufreq_frequency_table *freq_table;
 	unsigned long flags, expire_time;
 
+	pcpu = &per_cpu(cpuinfo, policy->cpu);
+	cpu = pcpu->cpu;
+
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if (!cpu_online(policy->cpu))
+		if (!cpu_online(cpu))
 			return -EINVAL;
 
 		mutex_lock(&gov_lock);
 
 		freq_table =
-			cpufreq_frequency_get_table(policy->cpu);
+			cpufreq_frequency_get_table(cpu);
 		if (!hispeed_freq)
 			hispeed_freq = DEFAULT_HISPEED_FREQ;
 		freq_calc_thresh = policy->cpuinfo.min_freq;
@@ -1478,6 +1483,9 @@ static int cpufreq_governor_yankactive(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
+		/* If device is being removed, skip set limits */
+		if (!policy->cur)
+			break;
 		if (policy->max < policy->cur)
 			__cpufreq_driver_target(policy,
 					policy->max, CPUFREQ_RELATION_H);

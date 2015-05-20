@@ -25,7 +25,6 @@
 #include <linux/ktime.h>
 #include <linux/kthread.h>
 #include <linux/sched.h>
-#include <linux/input.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 
@@ -58,7 +57,6 @@
 #define DEF_FREQ_DOWN_STEP_BARRIER		(702000)
 #endif
 
-#define DEF_INPUT_BOOST_DURATION		(6)
 #define CPU0					(0)
 
 #define MIN_SAMPLING_RATE_RATIO			(2)
@@ -73,18 +71,6 @@ static unsigned int min_sampling_rate;
 #define POWERSAVE_BIAS_MINLEVEL			(-1000)
 
 static void do_dbs_timer(struct work_struct *work);
-static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
-				unsigned int event);
-
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_INTELLIMM
-static
-#endif
-struct cpufreq_governor cpufreq_gov_intellimm = {
-       .name                   = "intellimm",
-       .governor               = cpufreq_governor_dbs,
-       .max_transition_latency = TRANSITION_LATENCY_LIMIT,
-       .owner                  = THIS_MODULE,
-};
 
 enum {DBS_NORMAL_SAMPLE, DBS_SUB_SAMPLE};
 
@@ -104,7 +90,7 @@ struct cpu_dbs_info_s {
 	unsigned int cur_load;
 	unsigned int max_load;
 	int input_event_freq;
-	int cpu;
+	unsigned int cpu;
 	unsigned int sample_type:1;
 	struct mutex timer_mutex;
 
@@ -130,7 +116,6 @@ static unsigned long input_event_boost_expired = 0;
 static struct cpufreq_frequency_table *tbl = NULL;
 static unsigned int *tblmap[TABLE_SIZE] __read_mostly;
 static unsigned int tbl_select[4] = {0};
-static int input_event_counter = 0;
 
 static unsigned int up_threshold_level[2] __read_mostly = {90, 80};
 static void reset_freq_map_table(struct cpufreq_policy *);
@@ -937,14 +922,6 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	this_dbs_info->freq_lo = 0;
 	policy = this_dbs_info->cur_policy;
 
-#ifdef CONFIG_ARCH_MSM_CORTEXMP
-	for (j = 1; j < NR_CPUS; j++) {
-		j_dbs_info = &per_cpu(imm_cpu_dbs_info, j);
-		if (j_dbs_info->prev_load && !cpu_online(j))
-			j_dbs_info->prev_load = 0;
-	}
-#endif
-
 	/* per cpu load calculation */
 	for_each_cpu(j, policy->cpus) {
 		cputime64_t cur_wall_time, cur_idle_time, cur_iowait_time;
@@ -1192,154 +1169,18 @@ static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
 	cancel_delayed_work_sync(&dbs_info->work);
 }
 
-static void dbs_input_event(struct input_handle *handle, unsigned int type,
-		unsigned int code, int value)
-{
-	int i;
-	struct cpu_dbs_info_s *dbs_info;
-	unsigned long flags;
-	int input_event_min_freq = 0;
-
-	if ((dbs_tuners_ins.powersave_bias == POWERSAVE_BIAS_MAXLEVEL) ||
-		(dbs_tuners_ins.powersave_bias == POWERSAVE_BIAS_MINLEVEL)) {
-
-		return;
-	}
-
-	if (type == EV_SYN && code == SYN_REPORT) {
-		dbs_tuners_ins.powersave_bias = 0;
-	}
-	else if (type == EV_ABS && code == ABS_MT_TRACKING_ID) {
-
-		if (value != -1) {
-			input_event_counter++;
-			input_event_min_freq =
-			  input_event_min_freq_array[num_online_cpus() - 1];
-
-		}
-		else {
-			if (likely(input_event_counter > 0))
-				input_event_counter--;
-			else
-				pr_warning("Touch isn't paired!\n");
-			input_event_min_freq = 0;
-		}
-	}
-	else if (type == EV_KEY && value == 1 &&
-			(code == KEY_POWER || code == KEY_VOLUMEUP ||
-			 code == KEY_VOLUMEDOWN))
-	{
-		input_event_min_freq =
-			input_event_min_freq_array[num_online_cpus() - 1];
-	}
-
-	if (input_event_min_freq > 0) {
-		spin_lock_irqsave(&input_boost_lock, flags);
-		input_event_boost = true;
-		input_event_boost_expired = jiffies +
-			usecs_to_jiffies(dbs_tuners_ins.sampling_rate *
-				DEF_INPUT_BOOST_DURATION);
-		spin_unlock_irqrestore(&input_boost_lock, flags);
-
-		for_each_online_cpu(i)
-		{
-#ifdef CONFIG_ARCH_MSM_CORTEXMP
-			if (i != CPU0)
-				break;
-#endif
-			dbs_info = &per_cpu(imm_cpu_dbs_info, i);
-			 if (dbs_info->cur_policy &&
-				dbs_info->cur_policy->cur <
-				input_event_min_freq) {
-				dbs_info->input_event_freq =
-					input_event_min_freq;
-				wake_up_process(per_cpu(up_task, i));
-			}
-		}
-	}
-}
-
-static int dbs_input_connect(struct input_handler *handler,
-		struct input_dev *dev, const struct input_device_id *id)
-{
-	struct input_handle *handle;
-	int error;
-
-	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
-	if (!handle)
-		return -ENOMEM;
-
-	handle->dev = dev;
-	handle->handler = handler;
-	handle->name = "cpufreq";
-
-	error = input_register_handle(handle);
-	if (error)
-		goto err2;
-
-	error = input_open_device(handle);
-	if (error)
-		goto err1;
-
-	return 0;
-err1:
-	input_unregister_handle(handle);
-err2:
-	kfree(handle);
-	return error;
-}
-
-static void dbs_input_disconnect(struct input_handle *handle)
-{
-	input_close_device(handle);
-	input_unregister_handle(handle);
-	kfree(handle);
-}
-
-static const struct input_device_id dbs_ids[] = {
-	{
-		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
-			INPUT_DEVICE_ID_MATCH_ABSBIT,
-		.evbit = { BIT_MASK(EV_ABS) },
-		.absbit = { [BIT_WORD(ABS_MT_POSITION_X)] =
-			BIT_MASK(ABS_MT_POSITION_X) |
-			BIT_MASK(ABS_MT_POSITION_Y) },
-	},
-
-	{
-		.flags = INPUT_DEVICE_ID_MATCH_KEYBIT |
-			INPUT_DEVICE_ID_MATCH_ABSBIT,
-		.keybit = { [BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH) },
-		.absbit = { [BIT_WORD(ABS_X)] =
-			BIT_MASK(ABS_X) | BIT_MASK(ABS_Y) },
-	},
-
-	{
-		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
-		.evbit = { BIT_MASK(EV_KEY) },
-	},
-	{ },
-};
-
-static struct input_handler dbs_input_handler = {
-	.event		= dbs_input_event,
-	.connect	= dbs_input_connect,
-	.disconnect	= dbs_input_disconnect,
-	.name		= "cpufreq_imm",
-	.id_table	= dbs_ids,
-};
-
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				   unsigned int event)
 {
-	unsigned int cpu = policy->cpu;
+	unsigned int cpu;
 	struct cpu_dbs_info_s *this_dbs_info;
 	unsigned int j;
 	int io_busy;
 	int rc;
 
 	io_busy = dbs_tuners_ins.io_is_busy;
-	this_dbs_info = &per_cpu(imm_cpu_dbs_info, cpu);
+	this_dbs_info = &per_cpu(imm_cpu_dbs_info, policy->cpu);
+	cpu = this_dbs_info->cpu;
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
@@ -1361,7 +1202,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				j_dbs_info->prev_cpu_nice =
 					kcpustat_cpu(j).cpustat[CPUTIME_NICE];
 		}
-		this_dbs_info->cpu = cpu;
 		this_dbs_info->rate_mult = 1;
 		intellimm_powersave_bias_init_cpu(cpu);
 		if (dbs_enable == 1) {
@@ -1396,8 +1236,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			dbs_init_freq_map_table(policy);
 
 		}
-		if (!cpu)
-			rc = input_register_handler(&dbs_input_handler);
 		mutex_unlock(&dbs_mutex);
 
 		if (!intellimm_powersave_bias_setspeed(
@@ -1415,8 +1253,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		dbs_enable--;
 
 		this_dbs_info->cur_policy = NULL;
-		if (!cpu)
-			input_unregister_handler(&dbs_input_handler);
 		if (!dbs_enable) {
 			dbs_deinit_freq_map_table();
 
@@ -1430,7 +1266,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 	case CPUFREQ_GOV_LIMITS:
 		mutex_lock(&this_dbs_info->timer_mutex);
-		if(this_dbs_info->cur_policy) {
+		if (this_dbs_info->cur_policy) {
 			if (policy->max < this_dbs_info->cur_policy->cur)
 				__cpufreq_driver_target(this_dbs_info->
 							cur_policy,
@@ -1499,6 +1335,16 @@ bail_acq_sema_failed:
 	return 0;
 }
 
+#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_INTELLIMM
+static
+#endif
+struct cpufreq_governor cpufreq_gov_intellimm = {
+	.name			= "intellimm",
+	.governor		= cpufreq_governor_dbs,
+	.max_transition_latency	= TRANSITION_LATENCY_LIMIT,
+	.owner			= THIS_MODULE,
+};
+
 static int __init cpufreq_gov_dbs_init(void)
 {
 	u64 idle_time;
@@ -1530,22 +1376,16 @@ static int __init cpufreq_gov_dbs_init(void)
 		struct cpu_dbs_info_s *this_dbs_info =
 			&per_cpu(imm_cpu_dbs_info, i);
 
-#ifdef CONFIG_ARCH_MSM_CORTEXMP
-		if (i == CPU0)
-#endif
-		{
-			pthread = kthread_create_on_node(
-					cpufreq_gov_dbs_up_task, NULL,
-					cpu_to_node(i), "kimm_up/%d", i);
-			if (likely(!IS_ERR(pthread))) {
-				kthread_bind(pthread, i);
-				sched_setscheduler_nocheck(pthread,
-							SCHED_FIFO, &param);
-				get_task_struct(pthread);
-				per_cpu(up_task, i) = pthread;
-			}
+		pthread = kthread_create_on_node(
+				cpufreq_gov_dbs_up_task, NULL,
+				cpu_to_node(i), "kimm_up/%d", i);
+		if (likely(!IS_ERR(pthread))) {
+			kthread_bind(pthread, i);
+			sched_setscheduler_nocheck(pthread,
+						SCHED_FIFO, &param);
+			get_task_struct(pthread);
+			per_cpu(up_task, i) = pthread;
 		}
-
 		mutex_init(&this_dbs_info->timer_mutex);
 	}
 
@@ -1560,9 +1400,6 @@ static void __exit cpufreq_gov_dbs_exit(void)
 	for_each_possible_cpu(i) {
 		struct cpu_dbs_info_s *this_dbs_info =
 			&per_cpu(imm_cpu_dbs_info, i);
-#ifdef CONFIG_ARCH_MSM_CORTEXMP
-		if (i == CPU0)
-#endif
 		if (per_cpu(up_task, i)) {
 			kthread_stop(per_cpu(up_task, i));
 			put_task_struct(per_cpu(up_task, i));
