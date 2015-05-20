@@ -1,5 +1,5 @@
 /* System-dependent timing definitions.  Linux version.
-   Copyright (C) 1996-2014 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
    The GNU C Library is free software; you can redistribute it and/or
@@ -39,13 +39,13 @@ struct timeval
 # ifndef _BITS_TIME_H
 #  define _BITS_TIME_H	1
 
-/* ISO/IEC 9899:1990 7.12.1: <time.h>
-   The macro `CLOCKS_PER_SEC' is the number per second of the value
-   returned by the `clock' function. */
+/* ISO/IEC 9899:1999 7.23.1: Components of time
+   The macro `CLOCKS_PER_SEC' is an expression with type `clock_t' that is
+   the number per second of the value returned by the `clock' function.  */
 /* CAE XSH, Issue 4, Version 2: <time.h>
    The value of CLOCKS_PER_SEC is required to be 1 million on all
    XSI-conformant systems. */
-#  define CLOCKS_PER_SEC  1000000l
+#  define CLOCKS_PER_SEC  ((clock_t) 1000000)
 
 #  if (!defined __STRICT_ANSI__ || defined __USE_POSIX) \
    && !defined __USE_XOPEN2K
@@ -77,6 +77,8 @@ extern long int __sysconf (int);
 #   define CLOCK_REALTIME_ALARM		8
 /* Like CLOCK_BOOTTIME but also wakes suspended system.  */
 #   define CLOCK_BOOTTIME_ALARM		9
+/* Like CLOCK_REALTIME but in International Atomic Time.  */
+#   define CLOCK_TAI			11
 
 /* Flag to indicate time is absolute.  */
 #   define TIMER_ABSTIME		1

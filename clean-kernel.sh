@@ -1,5 +1,18 @@
 #!/bin/bash
 
+# extract needed binary files for GCC 5.1 compiler.
+if [ ! -e android-toolchain/libexec/gcc/arm-LG-linux-gnueabi/5.1.0/cc1 ]; then
+	echo "Extracting GCC 5.1 needed binary for the first time! only once";
+	echo "Please wait!";
+	cd android-toolchain/zips/
+	unzip -p cc1.zip > ../libexec/gcc/arm-LG-linux-gnueabi/5.1.0/cc1
+	unzip -p cc1obj.zip > ../libexec/gcc/arm-LG-linux-gnueabi/5.1.0/cc1obj
+	unzip -p lto1.zip > ../libexec/gcc/arm-LG-linux-gnueabi/5.1.0/lto1
+	cd ../libexec/gcc/arm-LG-linux-gnueabi/5.1.0/
+	chmod 755 cc1 cc1obj lto1
+	cd ../../../../../
+fi;
+
 PYTHON_CHECK=$(ls -la /usr/bin/python | grep python3 | wc -l);
 PYTHON_WAS_3=0;
 
