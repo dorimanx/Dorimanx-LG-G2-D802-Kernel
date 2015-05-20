@@ -1,5 +1,5 @@
 /* Declarations of socket constants, types, and functions.
-   Copyright (C) 1991-2014 Free Software Foundation, Inc.
+   Copyright (C) 1991-2015 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
    The GNU C Library is free software; you can redistribute it and/or
@@ -209,7 +209,7 @@ extern ssize_t recvmsg (int __fd, struct msghdr *__message, int __flags);
    __THROW.  */
 extern int recvmmsg (int __fd, struct mmsghdr *__vmessages,
 		     unsigned int __vlen, int __flags,
-		     const struct timespec *__tmo);
+		     struct timespec *__tmo);
 #endif
 
 

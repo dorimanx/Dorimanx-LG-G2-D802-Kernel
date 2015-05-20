@@ -1,5 +1,5 @@
 /* Thread package specific definitions of stream lock type.  NPTL version.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
    The GNU C Library is free software; you can redistribute it and/or
@@ -31,7 +31,7 @@ typedef struct { int lock; int cnt; void *owner; } _IO_lock_t;
 #define _IO_lock_initializer { LLL_LOCK_INITIALIZER, 0, NULL }
 
 #define _IO_lock_init(_name) \
-  ((_name) = (_IO_lock_t) _IO_lock_initializer , 0)
+  ((void) ((_name) = (_IO_lock_t) _IO_lock_initializer))
 
 #define _IO_lock_fini(_name) \
   ((void) 0)
@@ -84,7 +84,7 @@ typedef struct { int lock; int cnt; void *owner; } _IO_lock_t;
 #define _IO_cleanup_region_end(_doit) \
   __libc_cleanup_region_end (_doit)
 
-#if defined _LIBC && !defined NOT_IN_libc
+#if defined _LIBC && IS_IN (libc)
 
 # ifdef __EXCEPTIONS
 #  define _IO_acquire_lock(_fp) \

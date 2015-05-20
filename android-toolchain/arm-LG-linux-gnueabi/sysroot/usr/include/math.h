@@ -1,5 +1,5 @@
 /* Declarations for math functions.
-   Copyright (C) 1991-2014 Free Software Foundation, Inc.
+   Copyright (C) 1991-2015 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
    The GNU C Library is free software; you can redistribute it and/or
@@ -92,7 +92,8 @@ __BEGIN_DECLS
 # undef	__MATH_PRECNAME
 
 # if !(defined __NO_LONG_DOUBLE_MATH && defined _LIBC) \
-     || defined __LDBL_COMPAT
+     || defined __LDBL_COMPAT \
+     || defined _LIBC_TEST
 #  ifdef __LDBL_COMPAT
 
 #   ifdef __USE_ISOC99
