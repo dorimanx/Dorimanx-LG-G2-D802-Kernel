@@ -78,18 +78,6 @@ static u64 hyper_sampling_rate_boosted_time;
 unsigned int hyper_current_sampling_rate;
 
 static void do_dbs_timer(struct work_struct *work);
-static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
-				unsigned int event);
-
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_HYPER
-static
-#endif
-struct cpufreq_governor cpufreq_gov_HYPER = {
-       .name                   = "HYPER",
-       .governor               = cpufreq_governor_dbs,
-       .max_transition_latency = TRANSITION_LATENCY_LIMIT,
-       .owner                  = THIS_MODULE,
-};
 
 /* Sampling types */
 enum {DBS_NORMAL_SAMPLE, DBS_SUB_SAMPLE};
@@ -108,7 +96,7 @@ struct cpu_dbs_info_s {
 	unsigned int freq_hi_jiffies;
 	unsigned int rate_mult;
 	unsigned int load_at_prev_sample;
-	int cpu;
+	unsigned int cpu;
 	unsigned int sample_type:1;
 	/*
 	 * percpu mutex that serializes governor limit change with
@@ -582,7 +570,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	j_dbs_info = &per_cpu(od_cpu_dbs_info, j);
 
 	/* Only core0 controls the boost */
-	if (dbs_tuners_ins.boosted && policy->cpu == 0) {
+	if (dbs_tuners_ins.boosted && this_dbs_info->cpu == 0) {
 		if (ktime_to_us(ktime_get()) - hyper_freq_boosted_time >=
 					dbs_tuners_ins.freq_boost_time) {
 			dbs_tuners_ins.boosted = 0;
@@ -590,7 +578,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	}
 
 	/* Only core0 controls the timer_rate */
-	if (hyper_sampling_rate_boosted && policy->cpu == 0) {
+	if (hyper_sampling_rate_boosted && this_dbs_info->cpu == 0) {
 		if (ktime_to_us(ktime_get()) - hyper_sampling_rate_boosted_time >=
 					TIMER_RATE_BOOST_TIME) {
 
@@ -882,12 +870,13 @@ static int should_io_be_busy(void)
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				unsigned int event)
 {
-	unsigned int cpu = policy->cpu;
+	unsigned int cpu;
 	struct cpu_dbs_info_s *this_dbs_info;
 	unsigned int j;
 	int rc;
 
-	this_dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
+	this_dbs_info = &per_cpu(od_cpu_dbs_info, policy->cpu);
+	cpu = this_dbs_info->cpu;
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
@@ -910,7 +899,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				j_dbs_info->prev_cpu_nice =
 						kcpustat_cpu(j).cpustat[CPUTIME_NICE];
 		}
-		this_dbs_info->cpu = cpu;
 		this_dbs_info->rate_mult = 1;
 		hyper_powersave_bias_init_cpu(cpu);
 		/*
@@ -982,6 +970,16 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	}
 	return 0;
 }
+
+#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_HYPER
+static
+#endif
+struct cpufreq_governor cpufreq_gov_HYPER = {
+	.name			= "HYPER",
+	.governor		= cpufreq_governor_dbs,
+	.max_transition_latency	= TRANSITION_LATENCY_LIMIT,
+	.owner			= THIS_MODULE,
+};
 
 static int __init cpufreq_gov_dbs_init(void)
 {

@@ -141,7 +141,7 @@ struct cpu_dbs_info_s {
 	unsigned int rate_mult;
 	unsigned int prev_load;
 	unsigned int max_load;
-	int cpu;
+	unsigned int cpu;
 	unsigned int sample_type:1;
 	unsigned int freq_stay_count;
 	/*
@@ -1593,12 +1593,13 @@ bail_acq_sema_failed:
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				   unsigned int event)
 {
-	unsigned int cpu = policy->cpu;
+	unsigned int cpu;
 	struct cpu_dbs_info_s *this_dbs_info;
 	unsigned int j;
 	int rc;
 
-	this_dbs_info = &per_cpu(id_cpu_dbs_info, cpu);
+	this_dbs_info = &per_cpu(id_cpu_dbs_info, policy->cpu);
+	cpu = this_dbs_info->cpu;
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
@@ -1625,7 +1626,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				j_dbs_info->prev_cpu_nice =
 						kcpustat_cpu(j).cpustat[CPUTIME_NICE];
 		}
-		this_dbs_info->cpu = cpu;
 		this_dbs_info->rate_mult = 1;
 		this_dbs_info->freq_stay_count = 1;
 		intellidemand_powersave_bias_init_cpu(cpu);
