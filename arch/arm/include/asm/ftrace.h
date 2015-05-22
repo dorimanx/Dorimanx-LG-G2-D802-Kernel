@@ -43,7 +43,10 @@ extern void ftrace_call_old(void);
 
 void *return_address(unsigned int);
 #else
-extern void *return_address(unsigned int level);
+static inline void *return_address(unsigned int level)
+{
+	return NULL;
+}
 #endif
 
 #define HAVE_ARCH_CALLER_ADDR
