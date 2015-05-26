@@ -134,10 +134,8 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 		struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo = 
 			&per_cpu(od_darkness_cpuinfo, cpu);
 
-		mutex_lock(&this_darkness_cpuinfo->timer_mutex);
 		this_darkness_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu,
 			&this_darkness_cpuinfo->prev_cpu_wall, darkness_tuners_ins.io_is_busy);
-		mutex_unlock(&this_darkness_cpuinfo->timer_mutex);
 	}
 	put_online_cpus();
 
@@ -209,8 +207,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	int io_busy = darkness_tuners_ins.io_is_busy;
 
 	policy = this_darkness_cpuinfo->cur_policy;
-	if ((policy == NULL)
-		 || (!this_darkness_cpuinfo->freq_table))
+	if (!policy->cur)
 		return;
 
 	cur_idle_time = get_cpu_idle_time(this_darkness_cpuinfo->cpu,
@@ -340,10 +337,13 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		break;
 	case CPUFREQ_GOV_LIMITS:
-		/* If device is being removed, skip set limits */
-		if (!this_darkness_cpuinfo->cur_policy)
-			break;
 		mutex_lock(&this_darkness_cpuinfo->timer_mutex);
+		/* If device is being removed, skip set limits */
+		if (!this_darkness_cpuinfo->cur_policy->cur) {
+			pr_debug("Unable to limit cpu freq due to cur_policy == NULL\n");
+			mutex_unlock(&this_darkness_cpuinfo->timer_mutex);
+			break;
+		}
 		if (policy->max < this_darkness_cpuinfo->cur_policy->cur)
 			__cpufreq_driver_target(this_darkness_cpuinfo->cur_policy,
 				policy->max, CPUFREQ_RELATION_H);
