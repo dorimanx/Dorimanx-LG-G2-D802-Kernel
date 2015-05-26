@@ -379,10 +379,9 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 	for_each_online_cpu(cpu) {
 		struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo = 
 			&per_cpu(od_alucard_cpuinfo, cpu);
-		mutex_lock(&this_alucard_cpuinfo->timer_mutex);
+
 		this_alucard_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu,
 			&this_alucard_cpuinfo->prev_cpu_wall, alucard_tuners_ins.io_is_busy);
-		mutex_unlock(&this_alucard_cpuinfo->timer_mutex);
 	}
 	put_online_cpus();
 
@@ -512,8 +511,7 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 	unsigned int min_index = 0, max_index = 0, index = 0;
 
 	policy = this_alucard_cpuinfo->cur_policy;
-	if ((policy == NULL)
-		 || (!this_alucard_cpuinfo->freq_table))
+	if (!policy->cur)
 		return;
 
 	/* Get min, current, max indexes from current cpu policy */
@@ -690,10 +688,13 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 
 		break;
 	case CPUFREQ_GOV_LIMITS:
-		/* If device is being removed, skip set limits */
-		if (!this_alucard_cpuinfo->cur_policy)
-			break;
 		mutex_lock(&this_alucard_cpuinfo->timer_mutex);
+		/* If device is being removed, skip set limits */
+		if (!this_alucard_cpuinfo->cur_policy->cur) {
+			pr_debug("Unable to limit cpu freq due to cur_policy == NULL\n");
+			mutex_unlock(&this_alucard_cpuinfo->timer_mutex);
+			break;
+		}
 		if (policy->max < this_alucard_cpuinfo->cur_policy->cur)
 			__cpufreq_driver_target(this_alucard_cpuinfo->cur_policy,
 				policy->max, CPUFREQ_RELATION_H);
