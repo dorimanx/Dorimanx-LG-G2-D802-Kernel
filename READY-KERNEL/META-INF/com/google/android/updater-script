@@ -19,7 +19,14 @@ set_metadata("/system/etc/audio_policy.conf", "uid", 0, "gid", 1000, "mode", 075
 set_metadata("/system/xbin/sqlite3", "uid", 0, "gid", 1000, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
 set_metadata("/system/xbin/zip", "uid", 0, "gid", 1000, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
 set_metadata("/system/wget/wget", "uid", 0, "gid", 1000, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
-set_metadata("/system/app/re.codefi.savoca.kcal-v1.1.apk", "uid", 0, "gid", 1000, "mode", 0644, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
+set_metadata("/system/priv-app/Color-Control-v1.1.apk", "uid", 0, "gid", 1000, "mode", 0644, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
+set_metadata("/system/priv-app/Dorimanx.apk", "uid", 0, "gid", 1000, "mode", 0644, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
+
+#F2FS Tools thanks to xdabbeb@xda
+set_metadata("/system/bin/parse.f2fs", "uid", 0, "gid", 2000, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
+set_metadata("/system/bin/fibmap.f2fs", "uid", 0, "gid", 2000, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
+set_metadata("/system/bin/f2fstat", "uid", 0, "gid", 2000, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
+set_metadata("/system/bin/mkfs.f2fs", "uid", 0, "gid", 2000, "mode", 0755, "capabilities", 0x0, "selabel", "u:object_r:system_file:s0");
 
 package_extract_file("boot.img", "/tmp/boot.img");
 package_extract_file("panelfix.sh", "/tmp/panelfix.sh");
