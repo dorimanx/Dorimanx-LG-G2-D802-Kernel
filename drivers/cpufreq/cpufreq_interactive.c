@@ -90,7 +90,7 @@ static unsigned long freq_calc_thresh;
 /*
  * The minimum amount of time to spend at a frequency before we can ramp down.
  */
-#define DEFAULT_MIN_SAMPLE_TIME (20 * USEC_PER_MSEC)
+#define DEFAULT_MIN_SAMPLE_TIME (50 * USEC_PER_MSEC)
 static unsigned int default_min_sample_time[] = {DEFAULT_MIN_SAMPLE_TIME};
 static spinlock_t min_sample_time_lock;
 static unsigned int *min_sample_times = default_min_sample_time;
