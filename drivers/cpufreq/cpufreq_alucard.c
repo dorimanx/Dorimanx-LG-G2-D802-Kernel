@@ -74,6 +74,8 @@ struct cpufreq_alucard_cpuinfo {
 	unsigned int up_rate;
 	unsigned int down_rate;
 	unsigned int cpu;
+	unsigned int min_index;
+	unsigned int max_index;
 	/*
 	 * mutex that serializes governor limit change with
 	 * do_alucard_timer invocation. We do not want do_alucard_timer to run
@@ -472,12 +474,10 @@ static struct attribute_group alucard_attr_group = {
 
 /************************** sysfs end ************************/
 
-static void cpufreq_frequency_table_policy_limits(struct cpufreq_policy *policy,
-					struct cpufreq_frequency_table *table,
-					unsigned int *min_index,
-					unsigned int *index,
-					unsigned int *max_index)
+static void cpufreq_frequency_table_policy_minmax_limits(struct cpufreq_policy *policy,
+					struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo)
 {
+	struct cpufreq_frequency_table *table = this_alucard_cpuinfo->freq_table;
 	unsigned int i = 0;
 
 	for (i = 0; (table[i].frequency != CPUFREQ_TABLE_END); i++) {
@@ -486,15 +486,31 @@ static void cpufreq_frequency_table_policy_limits(struct cpufreq_policy *policy,
 			continue;
 		}
 		if (freq == policy->min)
-			*min_index = i;
-		if (freq == policy->cur)
-			*index = i;
+			this_alucard_cpuinfo->min_index = i;
 		if (freq == policy->max)
-			*max_index = i;
+			this_alucard_cpuinfo->max_index = i;
 
 		if (freq >= policy->min &&
 			freq >= policy->max)
 			break;
+	}
+}
+
+static void cpufreq_frequency_table_policy_cur_limit(struct cpufreq_policy *policy,
+					struct cpufreq_frequency_table *table,
+					unsigned int *index)
+{
+	unsigned int i = 0;
+
+	for (i = 0; (table[i].frequency != CPUFREQ_TABLE_END); i++) {
+		unsigned int freq = table[i].frequency;
+		if (freq == CPUFREQ_ENTRY_INVALID) {
+			continue;
+		}
+		if (freq == policy->cur) {
+			*index = i;
+			break;
+		}
 	}
 }
 
@@ -512,18 +528,16 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 	int io_busy = alucard_tuners_ins.io_is_busy;
 	unsigned int cpus_up_rate = alucard_tuners_ins.cpus_up_rate;
 	unsigned int cpus_down_rate = alucard_tuners_ins.cpus_down_rate;
-	unsigned int min_index = 0, max_index = 0, index = 0;
+	unsigned int index = 0;
 
 	policy = this_alucard_cpuinfo->cur_policy;
 	if (!policy->cur)
 		return;
 
 	/* Get min, current, max indexes from current cpu policy */
-	cpufreq_frequency_table_policy_limits(policy,
-			this_alucard_cpuinfo->freq_table,
-			&min_index,
-			&index,
-			&max_index);
+	cpufreq_frequency_table_policy_cur_limit(policy,
+				this_alucard_cpuinfo->freq_table,
+				&index);
 
 	cur_idle_time = get_cpu_idle_time(this_alucard_cpuinfo->cpu,
 			&cur_wall_time, io_busy);
@@ -551,12 +565,12 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 		pump_inc_step = this_alucard_cpuinfo->pump_inc_step_at_min_freq;
 	}
 	/* Check for frequency increase or for frequency decrease */
-	if (cur_load >= inc_cpu_load && index < max_index) {
+	if (cur_load >= inc_cpu_load && index < this_alucard_cpuinfo->max_index) {
 		if (this_alucard_cpuinfo->up_rate % cpus_up_rate == 0) {
-			if ((index + pump_inc_step) <= max_index)
+			if ((index + pump_inc_step) <= this_alucard_cpuinfo->max_index)
 				index += pump_inc_step;
 			else
-				index = max_index;
+				index = this_alucard_cpuinfo->max_index;
 
 			this_alucard_cpuinfo->up_rate = 1;
 			this_alucard_cpuinfo->down_rate = 1;
@@ -566,12 +580,12 @@ static void alucard_check_cpu(struct cpufreq_alucard_cpuinfo *this_alucard_cpuin
 			else
 				this_alucard_cpuinfo->up_rate = 1;
 		}
-	} else if (cur_load < dec_cpu_load && index > min_index) {
+	} else if (cur_load < dec_cpu_load && index > this_alucard_cpuinfo->min_index) {
 		if (this_alucard_cpuinfo->down_rate % cpus_down_rate == 0) {
-			if ((index - min_index) >= pump_dec_step)
+			if ((index - this_alucard_cpuinfo->min_index) >= pump_dec_step)
 				index -= pump_dec_step;
 			else
-				index = min_index;
+				index = this_alucard_cpuinfo->min_index;
 
 			this_alucard_cpuinfo->up_rate = 1;
 			this_alucard_cpuinfo->down_rate = 1;
@@ -631,6 +645,8 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 			mutex_unlock(&alucard_mutex);
 			return -EINVAL;
 		}
+		cpufreq_frequency_table_policy_minmax_limits(policy,
+				this_alucard_cpuinfo);	
 
 		alucard_enable++;
 		this_alucard_cpuinfo->cur_policy = policy;
@@ -705,6 +721,9 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 		else if (policy->min > this_alucard_cpuinfo->cur_policy->cur)
 			__cpufreq_driver_target(this_alucard_cpuinfo->cur_policy,
 				policy->min, CPUFREQ_RELATION_L);
+
+		cpufreq_frequency_table_policy_minmax_limits(policy,
+				this_alucard_cpuinfo);
 		alucard_check_cpu(this_alucard_cpuinfo);
 		mutex_unlock(&this_alucard_cpuinfo->timer_mutex);
 
