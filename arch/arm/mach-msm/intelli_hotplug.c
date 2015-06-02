@@ -303,16 +303,16 @@ static void __ref intelli_plug_suspend(struct work_struct *work)
 		min_cpus_online_res = min_cpus_online;
 		min_cpus_online = 1;
 		max_cpus_online_res = max_cpus_online;
-		max_cpus_online = 1;
+		max_cpus_online = 2;
 		mutex_unlock(&intelli_plug_mutex);
 
 		/* Flush hotplug workqueue */
 		flush_workqueue(intelliplug_wq);
 		cancel_delayed_work_sync(&intelli_plug_work);
 
-		/* Put all sibling cores to sleep */
+		/* Put 2,3 sibling cores to sleep */
 		for_each_online_cpu(cpu) {
-			if (cpu == 0)
+			if (cpu == 1)
 				continue;
 			cpu_down(cpu);
 		}
