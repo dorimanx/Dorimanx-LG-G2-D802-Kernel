@@ -1181,14 +1181,17 @@ static ssize_t show_sync_freq(struct kobject *kobj,
 static ssize_t store_sync_freq(struct kobject *kobj,
 			struct attribute *attr, const char *buf, size_t count)
 {
-	int ret;
+	int ret = 0;
 	unsigned long val;
+	int mpd = strcmp(current->comm, "mpdecision");
+
+	if (mpd == 0)
+		return ret;
 
 	ret = kstrtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
-	if (val <= 960000)
-		return count;
+
 	sync_freq = val;
 	return count;
 }
