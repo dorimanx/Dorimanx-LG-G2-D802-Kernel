@@ -136,7 +136,6 @@ static int ion_secure_cma_add_to_pool(
 	}
 
 	dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &attrs);
-	dma_set_attr(DMA_ATTR_SKIP_ZEROING, &attrs);
 
 	cpu_addr = dma_alloc_attrs(sheap->dev, len, &handle, GFP_KERNEL,
 								&attrs);
@@ -356,13 +355,6 @@ static int ion_secure_cma_shrinker(struct shrinker *shrinker,
 	struct list_head *entry, *_n;
 
 	if (nr_to_scan == 0)
-		return atomic_read(&sheap->total_pool_size);
-
-	/*
-	 * CMA pages can only be used for movable allocation so don't free if
-	 * the allocation isn't movable
-	 */
-	if (!(sc->gfp_mask & __GFP_MOVABLE))
 		return atomic_read(&sheap->total_pool_size);
 
 	/*
