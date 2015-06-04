@@ -710,8 +710,8 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 
 	default:
-		pr_err("[%s] error: rmnet_ioct called for unsupported cmd[%d]",
-			dev->name, cmd);
+		/* pr_err("[%s] error: rmnet_ioct called for unsupported cmd[%d]",
+			dev->name, cmd); */
 		return -EINVAL;
 	}
 
