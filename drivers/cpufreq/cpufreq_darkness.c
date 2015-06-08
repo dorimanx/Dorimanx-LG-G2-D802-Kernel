@@ -204,38 +204,53 @@ static unsigned int adjust_cpufreq_frequency_target(struct cpufreq_policy *polic
 static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo)
 {
 	struct cpufreq_policy *policy;
-	u64 cur_wall_time, cur_idle_time;
-	unsigned int wall_time, idle_time;
+	unsigned int max_load = 0;
 	unsigned int next_freq = 0;
-	unsigned int cur_load = 0;
 	int io_busy = darkness_tuners_ins.io_is_busy;
+	unsigned int cpu = this_darkness_cpuinfo->cpu;
+	unsigned int j;
 
 	policy = this_darkness_cpuinfo->cur_policy;
 	if (!policy->cur)
 		return;
 
-	cur_idle_time = get_cpu_idle_time(this_darkness_cpuinfo->cpu,
-		&cur_wall_time, io_busy);
+	for_each_cpu(j, policy->cpus) {
+		struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
+		u64 cur_wall_time, cur_idle_time;
+		unsigned int idle_time, wall_time;
+		unsigned int load;
+		
+		j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
 
-	wall_time = (unsigned int)
-			(cur_wall_time - this_darkness_cpuinfo->prev_cpu_wall);
-	this_darkness_cpuinfo->prev_cpu_wall = cur_wall_time;
+		if (!j_darkness_cpuinfo->governor_enabled)
+			continue;
 
-	idle_time = (unsigned int)
-			(cur_idle_time - this_darkness_cpuinfo->prev_cpu_idle);
-	this_darkness_cpuinfo->prev_cpu_idle = cur_idle_time;
+		cur_idle_time = get_cpu_idle_time(j, &cur_wall_time, io_busy);
 
-	/*if wall_time < idle_time or wall_time == 0, evaluate cpu load next time*/
-	if (unlikely(!wall_time || wall_time < idle_time))
-		return;
+		wall_time = (unsigned int)
+			(cur_wall_time - j_darkness_cpuinfo->prev_cpu_wall);
+		idle_time = (unsigned int)
+			(cur_idle_time - j_darkness_cpuinfo->prev_cpu_idle);
 
-	cur_load = 100 * (wall_time - idle_time) / wall_time;
+		if (j == cpu) {
+			j_darkness_cpuinfo->prev_cpu_wall = cur_wall_time;
+			j_darkness_cpuinfo->prev_cpu_idle = cur_idle_time;
+		}
 
-	cpufreq_notify_utilization(policy, cur_load);
+		if (unlikely(!wall_time || wall_time < idle_time))
+			continue;
+
+		load = 100 * (wall_time - idle_time) / wall_time;
+
+		if (load > max_load)
+			max_load = load;
+	}
+
+	cpufreq_notify_utilization(policy, max_load);
 
 	/* CPUs Online Scale Frequency*/
 	next_freq = adjust_cpufreq_frequency_target(policy, this_darkness_cpuinfo->freq_table, 
-												cur_load * (policy->max / 100));
+												max_load * (policy->max / 100));
 	if (next_freq != policy->cur && next_freq > 0)
 		__cpufreq_driver_target(policy, next_freq, CPUFREQ_RELATION_L);
 }
@@ -265,8 +280,9 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 				unsigned int event)
 {
 	struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, policy->cpu);
-	int rc, delay;
+	unsigned int cpu = policy->cpu;
 	int io_busy = darkness_tuners_ins.io_is_busy;
+	int rc, delay;
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
@@ -274,22 +290,23 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 			return -EINVAL;
 
 		mutex_lock(&darkness_mutex);
-		this_darkness_cpuinfo->cpu = policy->cpu;
-
-		this_darkness_cpuinfo->freq_table =
-				cpufreq_frequency_get_table(this_darkness_cpuinfo->cpu);
+		this_darkness_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
 		if (!this_darkness_cpuinfo->freq_table) {
 			mutex_unlock(&darkness_mutex);
 			return -EINVAL;
 		}
 
-		darkness_enable++;
+		this_darkness_cpuinfo->cpu = cpu;
 		this_darkness_cpuinfo->cur_policy = policy;
 		this_darkness_cpuinfo->prev_cpu_idle = get_cpu_idle_time(
 				this_darkness_cpuinfo->cpu,
 				&this_darkness_cpuinfo->prev_cpu_wall,
 				io_busy);
 
+		this_darkness_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu,
+			&this_darkness_cpuinfo->prev_cpu_wall, io_busy);
+
+		darkness_enable++;
 		/*
 		 * Start the timerschedule work, when this governor
 		 * is used for first time
@@ -315,9 +332,8 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		}
 
 		INIT_DEFERRABLE_WORK(&this_darkness_cpuinfo->work, do_darkness_timer);
-		mod_delayed_work_on(this_darkness_cpuinfo->cpu,
-				system_wq, &this_darkness_cpuinfo->work,
-				delay);
+		mod_delayed_work_on(cpu,
+			system_wq, &this_darkness_cpuinfo->work, delay);
 
 		break;
 	case CPUFREQ_GOV_STOP:
