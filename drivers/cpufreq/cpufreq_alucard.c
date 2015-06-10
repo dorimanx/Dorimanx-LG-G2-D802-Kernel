@@ -36,7 +36,7 @@
 
 /* Tuning Interface */
 #ifdef CONFIG_MACH_LGE
-#define FREQ_RESPONSIVENESS		1958400
+#define FREQ_RESPONSIVENESS		2265600
 #else
 #define FREQ_RESPONSIVENESS		1134000
 #endif
@@ -390,7 +390,6 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 			&this_alucard_cpuinfo->prev_cpu_wall, alucard_tuners_ins.io_is_busy);
 	}
 	put_online_cpus();
-
 	return count;
 }
 
@@ -667,6 +666,7 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 		this_alucard_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu,
 			&this_alucard_cpuinfo->prev_cpu_wall, io_busy);
 
+		alucard_enable++;
 		/*
 		 * Start the timerschedule work, when this governor
 		 * is used for first time
@@ -680,6 +680,8 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 				return rc;
 			}
 		}
+		this_alucard_cpuinfo->up_rate = 2;
+		this_alucard_cpuinfo->down_rate = 2;
 		this_alucard_cpuinfo->governor_enabled = true;
 		mutex_unlock(&alucard_mutex);
 
@@ -704,25 +706,23 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 
 		this_alucard_cpuinfo->governor_enabled = false;
 
-		alucard_enable--;
-
-		/* If device is being removed, policy is no longer
-		 * valid. */
 		this_alucard_cpuinfo->cur_policy = NULL;
-		if (!alucard_enable)
+
+		alucard_enable--;
+		if (!alucard_enable) {
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &alucard_attr_group);
+		}
 
 		mutex_unlock(&alucard_mutex);
 
 		break;
 	case CPUFREQ_GOV_LIMITS:
 		mutex_lock(&this_alucard_cpuinfo->timer_mutex);
-		/* If device is being removed, skip set limits */
 		if (!this_alucard_cpuinfo->cur_policy->cur) {
 			pr_debug("Unable to limit cpu freq due to cur_policy == NULL\n");
 			mutex_unlock(&this_alucard_cpuinfo->timer_mutex);
-			break;
+			return -EPERM;
 		}
 		if (policy->max < this_alucard_cpuinfo->cur_policy->cur)
 			__cpufreq_driver_target(this_alucard_cpuinfo->cur_policy,
@@ -733,7 +733,6 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 
 		cpufreq_frequency_table_policy_minmax_limits(policy,
 				this_alucard_cpuinfo);
-		alucard_check_cpu(this_alucard_cpuinfo);
 		mutex_unlock(&this_alucard_cpuinfo->timer_mutex);
 
 		break;
@@ -758,7 +757,6 @@ static int __init cpufreq_gov_alucard_init(void)
 	for_each_possible_cpu(cpu) {
 		struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo = &per_cpu(od_alucard_cpuinfo, cpu);
 
-		mutex_init(&this_alucard_cpuinfo->timer_mutex);
 		this_alucard_cpuinfo->pump_inc_step_at_min_freq = PUMP_INC_STEP_AT_MIN_FREQ;
 		this_alucard_cpuinfo->pump_inc_step = PUMP_INC_STEP;
 		this_alucard_cpuinfo->pump_dec_step = PUMP_DEC_STEP;
@@ -769,14 +767,7 @@ static int __init cpufreq_gov_alucard_init(void)
 
 static void __exit cpufreq_gov_alucard_exit(void)
 {
-	unsigned int cpu;
-
 	cpufreq_unregister_governor(&cpufreq_gov_alucard);
-	for_each_possible_cpu(cpu) {
-		struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo =
-				&per_cpu(od_alucard_cpuinfo, cpu);
-		mutex_destroy(&this_alucard_cpuinfo->timer_mutex);
-	}
 }
 
 MODULE_AUTHOR("Alucard24@XDA");
