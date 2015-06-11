@@ -1608,7 +1608,7 @@ static ssize_t at_pmic_reset_show(struct device *dev,
 }
 DEVICE_ATTR(at_charge, 0644, at_chg_status_show, at_chg_status_store);
 DEVICE_ATTR(at_chcomp, 0644, at_chg_complete_show, at_chg_complete_store);
-DEVICE_ATTR(at_pmrst, 0640, at_pmic_reset_show, NULL);
+DEVICE_ATTR(at_pmrst, 0440, at_pmic_reset_show, NULL);
 
 /* for dynamically smb349 irq debugging */
 static int smb349_irq_debug;

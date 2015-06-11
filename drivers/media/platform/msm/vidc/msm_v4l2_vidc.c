@@ -345,7 +345,7 @@ static ssize_t msm_vidc_link_name_show(struct device *dev,
 		return 0;
 }
 
-static DEVICE_ATTR(link_name, 0644, msm_vidc_link_name_show, NULL);
+static DEVICE_ATTR(link_name, 0444, msm_vidc_link_name_show, NULL);
 
 static ssize_t store_pwr_collapse_delay(struct device *dev,
 		struct device_attribute *attr,

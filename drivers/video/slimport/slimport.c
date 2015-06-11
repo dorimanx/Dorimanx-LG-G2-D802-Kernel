@@ -651,11 +651,11 @@ static ssize_t ctrl_reg18_store(struct device *dev, struct device_attribute *att
 #endif
 /* for debugging */
 static struct device_attribute slimport_device_attrs[] = {
-	__ATTR(rev_check, S_IRUGO | S_IWUSR, NULL, slimport_rev_check_store),
+	__ATTR(rev_check, S_IWUSR, NULL, slimport_rev_check_store),
 	__ATTR(hdcp, S_IRUGO | S_IWUSR, sp_hdcp_feature_show, sp_hdcp_feature_store),
 	__ATTR(hdcp_switch, S_IRUGO | S_IWUSR, sp_external_block_show, sp_external_block_store),
-	__ATTR(anx7730, S_IRUGO | S_IWUSR, NULL, anx7730_write_reg_store),
-	__ATTR(anx7808, S_IRUGO | S_IWUSR, NULL, anx7808_write_reg_store),
+	__ATTR(anx7730, S_IWUSR, NULL, anx7730_write_reg_store),
+	__ATTR(anx7808, S_IWUSR, NULL, anx7808_write_reg_store),
 #ifdef SP_REGISTER_SET_TEST /* slimport test */
 	__ATTR(ctrl_reg0, S_IRUGO | S_IWUSR, ctrl_reg0_show, ctrl_reg0_store),
 	__ATTR(ctrl_reg10, S_IRUGO | S_IWUSR, ctrl_reg10_show, ctrl_reg10_store),

@@ -973,7 +973,7 @@ ssize_t max17048_store_status(struct device *dev,
 	}
 	return count;
 }
-DEVICE_ATTR(fuelrst, 0664, NULL, max17048_store_status);
+DEVICE_ATTR(fuelrst, 0220, NULL, max17048_store_status);
 
 int max17048_get_voltage(void)
 {
