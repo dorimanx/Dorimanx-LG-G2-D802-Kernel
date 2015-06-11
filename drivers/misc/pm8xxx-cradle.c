@@ -352,12 +352,12 @@ cradle_camera_show(struct device *dev, struct device_attribute *attr, char *buf)
 }
 #endif
 #if defined CONFIG_MACH_MSM8974_VU3_KR
-static struct device_attribute cradle_pen_attr   = __ATTR(pen, S_IRUGO | S_IWUSR, cradle_pen_show, NULL);
+static struct device_attribute cradle_pen_attr   = __ATTR(pen, S_IRUGO, cradle_pen_show, NULL);
 #else
-static struct device_attribute cradle_camera_attr  = __ATTR(camera, S_IRUGO | S_IWUSR, cradle_camera_show, NULL);
+static struct device_attribute cradle_camera_attr  = __ATTR(camera, S_IRUGO, cradle_camera_show, NULL);
 #endif
-static struct device_attribute cradle_sensing_attr = __ATTR(sensing, S_IRUGO | S_IWUSR, cradle_sensing_show, NULL);
-static struct device_attribute cradle_pouch_attr   = __ATTR(pouch, S_IRUGO | S_IWUSR, cradle_pouch_show, NULL);
+static struct device_attribute cradle_sensing_attr = __ATTR(sensing, S_IRUGO, cradle_sensing_show, NULL);
+static struct device_attribute cradle_pouch_attr   = __ATTR(pouch, S_IRUGO, cradle_pouch_show, NULL);
 
 static ssize_t cradle_print_name(struct switch_dev *sdev, char *buf)
 {

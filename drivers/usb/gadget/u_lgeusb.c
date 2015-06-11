@@ -142,7 +142,7 @@ lgeusb_ ## field ## _show(struct device *dev, struct device_attribute *attr,   \
 	struct lgeusb_dev *usbdev = _lgeusb_dev;		\
 	return sprintf(buf, "%s", usbdev->string);              \
 }                                   \
-static DEVICE_ATTR(field, S_IRUGO | S_IWUSR, lgeusb_ ## field ## _show, NULL);
+static DEVICE_ATTR(field, S_IRUGO, lgeusb_ ## field ## _show, NULL);
 
 #define LGE_STRING_ATTR(field, buffer)               \
 static ssize_t                              \
@@ -209,7 +209,7 @@ static ssize_t lgeusb_mode_show(struct device *dev,
 
 	return ret;
 }
-static DEVICE_ATTR(lge_usb_mode, S_IRUGO | S_IWUSR, lgeusb_mode_show, NULL);
+static DEVICE_ATTR(lge_usb_mode, S_IRUGO, lgeusb_mode_show, NULL);
 
 #ifdef CONFIG_USB_G_LGE_ANDROID_AUTORUN
 /* To set/get USB user mode to/from user space for autorun */
