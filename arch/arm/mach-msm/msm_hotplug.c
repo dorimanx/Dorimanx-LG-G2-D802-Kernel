@@ -516,9 +516,12 @@ static void __ref msm_hotplug_suspend(struct work_struct *work)
 
 		/* Put 2,3 sibling cores to sleep */
 		for_each_online_cpu(cpu) {
-			if (cpu == 1)
+			if (cpu == 0)
 				continue;
-			cpu_down(cpu);
+			if (cpu == 3)
+				cpu_down(cpu);
+			if (cpu == 2)
+				cpu_down(cpu);
 		}
 
 		if (debug >= 2)
