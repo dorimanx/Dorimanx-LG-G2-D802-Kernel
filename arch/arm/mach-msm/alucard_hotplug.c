@@ -187,16 +187,12 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 	unsigned int min_cpus_online = hotplug_tuners_ins.min_cpus_online;
 	unsigned int cpu = 0;
 	unsigned int rq_avg;
-	int online_cpus;
 	cpumask_var_t cpus;
 
 	if (hotplug_tuners_ins.suspended)
 		upmaxcoreslimit = hotplug_tuners_ins.maxcoreslimit_sleep;
 	else
 		upmaxcoreslimit = hotplug_tuners_ins.maxcoreslimit;
-
-	/* get nr online cpus */
-	online_cpus = num_online_cpus();
 
 	cpumask_copy(cpus, cpu_online_mask);
 
@@ -211,6 +207,7 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 			unsigned int wall_time, idle_time;
 			unsigned int cur_load = 0;
 			unsigned int cur_freq = 0;
+			int online_cpus;
 			int ret;
 
 			cur_idle_time = get_cpu_idle_time(
@@ -235,6 +232,9 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 
 			/* get the cpu current frequency */
 			cur_freq = cpufreq_quick_get(cpu);
+
+			/* get nr online cpus */
+			online_cpus = num_online_cpus();
 
 			if (cpu > 0	&& 
 				 online_cpus > upmaxcoreslimit) {
@@ -307,8 +307,7 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 		}
 	} else {
 		for_each_cpu_not(cpu, cpus) {
-			if (online_cpus < min_cpus_online
-				 && cpu < (upmaxcoreslimit - 1)) {
+			if (cpu < (upmaxcoreslimit - 1)) {
 				cpu_up(cpu);
 			}
 		}
