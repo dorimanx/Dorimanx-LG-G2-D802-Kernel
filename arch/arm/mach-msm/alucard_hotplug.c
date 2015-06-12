@@ -187,12 +187,16 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 	unsigned int min_cpus_online = hotplug_tuners_ins.min_cpus_online;
 	unsigned int cpu = 0;
 	unsigned int rq_avg;
+	int online_cpus;
 	cpumask_var_t cpus;
 
 	if (hotplug_tuners_ins.suspended)
 		upmaxcoreslimit = hotplug_tuners_ins.maxcoreslimit_sleep;
 	else
 		upmaxcoreslimit = hotplug_tuners_ins.maxcoreslimit;
+
+	/* get nr online cpus */
+	online_cpus = num_online_cpus();
 
 	cpumask_copy(cpus, cpu_online_mask);
 
@@ -207,7 +211,6 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 			unsigned int wall_time, idle_time;
 			unsigned int cur_load = 0;
 			unsigned int cur_freq = 0;
-			int online_cpus;
 			int ret;
 
 			cur_idle_time = get_cpu_idle_time(
@@ -238,7 +241,10 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 
 			if (cpu > 0	&& 
 				 online_cpus > upmaxcoreslimit) {
-					cpu_down(cpu);
+					ret = cpu_down(cpu);
+					if (!ret) {
+						online_cpus--;
+					}
 			} else if (online_cpus < min_cpus_online
 						&& upcpu < upmaxcoreslimit) {
 					if (cpu_is_offline(upcpu)) {
@@ -246,6 +252,7 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 						if (!ret) {
 							pcpu_info->cur_up_rate = 1;
 							pcpu_info->cur_down_rate = 1;
+							online_cpus++;
 						}
 					}
 			} else if (upcpu > 0
@@ -269,6 +276,7 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 						if (!ret) {
 							pcpu_info->cur_up_rate = 1;
 							pcpu_info->cur_down_rate = 1;
+							online_cpus++;
 						}
 					} else {
 						if (pcpu_info->cur_up_rate < pcpu_info->up_rate)
@@ -293,7 +301,10 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 								pcpu_info->
 								cur_down_rate);
 	#endif
-							cpu_down(cpu);
+							ret = cpu_down(cpu);
+							if (!ret) {
+								online_cpus--;
+							}
 						} else {
 							if (pcpu_info->cur_down_rate < pcpu_info->down_rate)
 								++pcpu_info->cur_down_rate;
