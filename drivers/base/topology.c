@@ -156,7 +156,7 @@ static void __cpuinit topology_remove_dev(unsigned int cpu)
 	sysfs_remove_group(&dev->kobj, &topology_attr_group);
 }
 
-static int __cpuinit topology_cpu_callback(struct notifier_block *nfb,
+static int __ref topology_cpu_callback(struct notifier_block *nfb,
 					   unsigned long action, void *hcpu)
 {
 	unsigned int cpu = (unsigned long)hcpu;
