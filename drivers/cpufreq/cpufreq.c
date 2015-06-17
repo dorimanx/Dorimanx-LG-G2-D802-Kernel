@@ -524,7 +524,7 @@ static int apply_max_freq_cpus_limit(unsigned int src_freq)
 {
 	unsigned int cpu, tgt_freq = 0, ret = 0;
 
-	get_online_cpus();
+	cpu_maps_update_begin();
 	for_each_cpu_not(cpu, cpu_online_mask) {
 		tgt_freq = get_max_lock(cpu);
 
@@ -537,7 +537,7 @@ static int apply_max_freq_cpus_limit(unsigned int src_freq)
 		per_cpu(cpufreq_policy_save, cpu).max = tgt_freq;
 			continue;
 	}
-	put_online_cpus();
+	cpu_maps_update_done();
 
 	return ret;
 }
@@ -647,19 +647,19 @@ static ssize_t show_##file_name##num_core				\
 	struct cpufreq_policy *cpu_policy;				\
 	unsigned int freq = 0;						\
 									\
-	get_online_cpus();						\
+	cpu_maps_update_begin();						\
 	if (!cpu_online(num_core)) {					\
 		freq = per_cpu(cpufreq_policy_save, num_core).object;	\
 	} else {							\
 		cpu_policy = __cpufreq_cpu_get(num_core, 1);		\
 		if (!cpu_policy) {					\
-			put_online_cpus();				\
+			cpu_maps_update_done();				\
 			return -EINVAL;					\
 		}							\
 									\
 		if (lock_policy_rwsem_read(num_core) < 0) {		\
 			__cpufreq_cpu_put(cpu_policy, true);		\
-			put_online_cpus();				\
+			cpu_maps_update_done();				\
 			return -EINVAL;					\
 		}							\
 									\
@@ -669,7 +669,7 @@ static ssize_t show_##file_name##num_core				\
 									\
 		__cpufreq_cpu_put(cpu_policy, true);			\
 	}								\
-	put_online_cpus();						\
+	cpu_maps_update_done();						\
 									\
 	return sprintf(buf, "%u\n", freq);				\
 }
@@ -692,7 +692,7 @@ static ssize_t store_##file_name						\
 	if (ret != 1)								\
 		return -EINVAL;							\
 										\
-	get_online_cpus();							\
+	cpu_maps_update_begin();							\
 	for_each_possible_cpu(cpu) {						\
 		struct cpufreq_policy *cpu_policy;				\
 										\
@@ -715,7 +715,7 @@ static ssize_t store_##file_name						\
 										\
 		__cpufreq_cpu_put(cpu_policy, true);				\
 	}									\
-	put_online_cpus();							\
+	cpu_maps_update_done();							\
 										\
 	return count;								\
 }
@@ -734,19 +734,19 @@ static ssize_t store_##file_name##num_core					\
 	if (ret != 1)								\
 		return -EINVAL;							\
 										\
-	get_online_cpus();							\
+	cpu_maps_update_begin();							\
 	if (!cpu_online(num_core)) {						\
 		per_cpu(cpufreq_policy_save, num_core).object = freq;		\
 	} else {								\
 		cpu_policy = __cpufreq_cpu_get(num_core, 1);			\
 		if (!cpu_policy) {						\
-			put_online_cpus();					\
+			cpu_maps_update_done();					\
 			return -EINVAL;						\
 		}								\
 										\
 		if (lock_policy_rwsem_write(num_core) < 0) {			\
 			__cpufreq_cpu_put(cpu_policy, true);			\
-			put_online_cpus();					\
+			cpu_maps_update_done();					\
 			return -EINVAL;						\
 		}								\
 										\
@@ -756,7 +756,7 @@ static ssize_t store_##file_name##num_core					\
 										\
 		__cpufreq_cpu_put(cpu_policy, true);				\
 	}									\
-	put_online_cpus();							\
+	cpu_maps_update_done();							\
 	return count;								\
 }
 store_pcpu_scaling_freq(scaling_min_freq_cpu, scaling_min_freq, min, 1);
@@ -886,20 +886,20 @@ static ssize_t show_scaling_governor_cpu##num_core					\
 	struct cpufreq_policy *cpu_policy;						\
 	char str_governor[16];								\
 											\
-	get_online_cpus();								\
+	cpu_maps_update_begin();								\
 	if (!cpu_online(num_core)) {							\
 		strncpy(str_governor, per_cpu(cpufreq_policy_save, num_core).gov,	\
 				CPUFREQ_NAME_LEN);					\
 	} else {									\
 		cpu_policy = __cpufreq_cpu_get(num_core, 1);				\
 		if (!cpu_policy) {							\
-			put_online_cpus();						\
+			cpu_maps_update_done();						\
 			return -EINVAL;							\
 		}									\
 											\
 		if (lock_policy_rwsem_read(num_core) < 0) {				\
 			__cpufreq_cpu_put(cpu_policy, true);				\
-			put_online_cpus();						\
+			cpu_maps_update_done();						\
 			return -EINVAL;							\
 		}									\
 											\
@@ -915,7 +915,7 @@ static ssize_t show_scaling_governor_cpu##num_core					\
 											\
 		__cpufreq_cpu_put(cpu_policy, true);					\
 	}										\
-	put_online_cpus();								\
+	cpu_maps_update_done();								\
 											\
 	return scnprintf(buf, CPUFREQ_NAME_PLEN, "%s\n",					\
 				str_governor);						\
@@ -937,7 +937,7 @@ static ssize_t store_scaling_governor_all_cpus(struct kobject *a, struct attribu
 	if (ret != 1)
 		return -EINVAL;
 
-	get_online_cpus();
+	cpu_maps_update_begin();
 	for_each_possible_cpu(cpu) {
 		struct cpufreq_policy *cpu_policy;
 
@@ -963,7 +963,7 @@ static ssize_t store_scaling_governor_all_cpus(struct kobject *a, struct attribu
 
 		__cpufreq_cpu_put(cpu_policy, true);
 	}
-	put_online_cpus();
+	cpu_maps_update_done();
 
 	return count;
 }
@@ -980,20 +980,20 @@ static ssize_t store_scaling_governor_cpu##num_core					\
 	if (ret != 1)									\
 		return -EINVAL;								\
 											\
-	get_online_cpus();								\
+	cpu_maps_update_begin();								\
 	if (!cpu_online(num_core)) {							\
 		strncpy(per_cpu(cpufreq_policy_save, num_core).gov, str_governor,	\
 			CPUFREQ_NAME_LEN);						\
 	} else {									\
 		cpu_policy = __cpufreq_cpu_get(num_core, 1);				\
 		if (!cpu_policy) {							\
-			put_online_cpus();						\
+			cpu_maps_update_done();						\
 			return -EINVAL;							\
 		}									\
 											\
 		if (lock_policy_rwsem_write(num_core) < 0) {				\
 			__cpufreq_cpu_put(cpu_policy, true);				\
-			put_online_cpus();						\
+			cpu_maps_update_done();						\
 			return -EINVAL;							\
 		}									\
 											\
@@ -1003,7 +1003,7 @@ static ssize_t store_scaling_governor_cpu##num_core					\
 											\
 		__cpufreq_cpu_put(cpu_policy, true);					\
 	}										\
-	put_online_cpus();								\
+	cpu_maps_update_done();								\
 											\
 	return count;									\
 }

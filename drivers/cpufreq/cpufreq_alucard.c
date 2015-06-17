@@ -381,7 +381,7 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 	alucard_tuners_ins.io_is_busy = !!input;
 
 	/* we need to re-evaluate prev_cpu_idle */
-	get_online_cpus();
+	cpu_maps_update_begin();
 	for_each_online_cpu(cpu) {
 		struct cpufreq_alucard_cpuinfo *this_alucard_cpuinfo = 
 			&per_cpu(od_alucard_cpuinfo, cpu);
@@ -389,7 +389,7 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 		this_alucard_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu,
 			&this_alucard_cpuinfo->prev_cpu_wall, alucard_tuners_ins.io_is_busy);
 	}
-	put_online_cpus();
+	cpu_maps_update_done();
 	return count;
 }
 
