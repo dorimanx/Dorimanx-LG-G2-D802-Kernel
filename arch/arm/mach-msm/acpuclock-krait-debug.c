@@ -112,7 +112,7 @@ static int acg_set(void *data, u64 val)
 	int sc_id = (int)data;
 
 	mutex_lock(&debug_lock);
-	get_online_cpus();
+	cpu_maps_update_begin();
 	if (!sc_dir[sc_id]) {
 		ret = -ENODEV;
 		goto out;
@@ -123,7 +123,7 @@ static int acg_set(void *data, u64 val)
 	else if (val == 1)
 		enable_acg(sc_id);
 out:
-	put_online_cpus();
+	cpu_maps_update_done();
 	mutex_unlock(&debug_lock);
 
 	return ret;
@@ -136,7 +136,7 @@ static int acg_get(void *data, u64 *val)
 	int sc_id = (int)data;
 
 	mutex_lock(&debug_lock);
-	get_online_cpus();
+	cpu_maps_update_begin();
 	if (!sc_dir[sc_id]) {
 		ret = -ENODEV;
 		goto out;
@@ -144,7 +144,7 @@ static int acg_get(void *data, u64 *val)
 
 	*val = acg_is_enabled(sc_id);
 out:
-	put_online_cpus();
+	cpu_maps_update_done();
 	mutex_unlock(&debug_lock);
 
 	return ret;

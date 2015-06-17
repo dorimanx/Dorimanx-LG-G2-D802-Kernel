@@ -437,8 +437,7 @@ static int hotplug_start(void)
 	hotplug_tuners_ins.suspended = false;
 	hotplug_tuners_ins.force_cpu_up = false;
 
-	get_online_cpus();
-	register_hotcpu_notifier(&alucard_hotplug_nb);
+	cpu_notifier_register_begin();
 	for_each_online_cpu(cpu) {
 		struct hotplug_cpuinfo *pcpu_info =
 				&per_cpu(od_hotplug_cpuinfo, cpu);
@@ -449,7 +448,8 @@ static int hotplug_start(void)
 		pcpu_info->cur_up_rate = 1;
 		pcpu_info->cur_down_rate = 1;
 	}
-	put_online_cpus();
+	__register_hotcpu_notifier(&alucard_hotplug_nb);
+	cpu_notifier_register_done();
 
 	start_rq_work();
 
@@ -479,9 +479,9 @@ static void hotplug_stop(void)
 	notif.notifier_call = NULL;
 #endif
 	cancel_delayed_work_sync(&alucard_hotplug_work);
-	get_online_cpus();
-	unregister_hotcpu_notifier(&alucard_hotplug_nb);
-	put_online_cpus();
+	cpu_notifier_register_begin();
+	__unregister_hotcpu_notifier(&alucard_hotplug_nb);
+	cpu_notifier_register_done();
 
 	stop_rq_work();
 

@@ -289,13 +289,13 @@ static int update_cpu_min_freq_all(uint32_t min)
 	/* If min is larger than allowed max */
 	min = min(min, table[limit_idx_high].frequency);
 
-	get_online_cpus();
+	cpu_maps_update_begin();
 	for_each_possible_cpu(cpu) {
 		cpus[cpu].limited_min_freq = min;
 		if (cpufreq_update_policy(cpu))
 			pr_info("Unable to update policy for cpu:%d\n", cpu);
 	}
-	put_online_cpus();
+	cpu_maps_update_done();
 
 	return ret;
 }
@@ -1024,7 +1024,7 @@ static void __ref disable_msm_thermal(void)
 	/* make sure check_temp is no longer running */
 	cancel_delayed_work_sync(&check_temp_work);
 
-	get_online_cpus();
+	cpu_maps_update_begin();
 	for_each_possible_cpu(cpu) {
 		if (cpus[cpu].limited_max_freq == UINT_MAX &&
 				cpus[cpu].limited_min_freq == 0)
@@ -1034,7 +1034,7 @@ static void __ref disable_msm_thermal(void)
 		if (cpufreq_update_policy(cpu))
 			pr_info("Unable to update policy for cpu:%d\n", cpu);
 	}
-	put_online_cpus();
+	cpu_maps_update_done();
 }
 
 static int __ref set_enabled(const char *val, const struct kernel_param *kp)
