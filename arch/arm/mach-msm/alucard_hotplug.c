@@ -405,7 +405,7 @@ static int alucard_hotplug_callback(struct notifier_block *nb,
 	struct hotplug_cpuinfo *pcpu_info;
 	unsigned int cpu = (int)data;
 
-	switch (action & (~CPU_TASKS_FROZEN)) {
+	switch (action) {
 	case CPU_ONLINE:
 		pcpu_info = &per_cpu(od_hotplug_cpuinfo, cpu);
 		pcpu_info->prev_cpu_idle = get_cpu_idle_time(cpu,
