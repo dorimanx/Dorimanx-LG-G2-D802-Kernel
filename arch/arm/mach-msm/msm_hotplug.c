@@ -507,22 +507,26 @@ static void __ref msm_hotplug_suspend(struct work_struct *work)
 		hotplug.min_cpus_online_res = hotplug.min_cpus_online;
 		hotplug.min_cpus_online = 1;
 		hotplug.max_cpus_online_res = hotplug.max_cpus_online;
-		hotplug.max_cpus_online = 2;
+		hotplug.max_cpus_online = 3;
 		mutex_unlock(&hotplug.msm_hotplug_mutex);
 
 		/* Flush hotplug workqueue */
 		flush_workqueue(hotplug_wq);
 		cancel_delayed_work_sync(&hotplug_work);
 
-		/* Put 2,3 sibling cores to sleep */
+		/* Put sibling cores to sleep */
 		for_each_online_cpu(cpu) {
 			if (cpu == 0)
 				continue;
-			if (cpu == 3)
-				cpu_down(cpu);
-			if (cpu == 2)
-				cpu_down(cpu);
+			cpu_down(cpu);
 		}
+
+		/*
+		 * Enabled core 1,2 so we will have 0-2 online
+		 * when screen is OFF to reduce system lags and reboots.
+		 */
+		cpu_up(1);
+		cpu_up(2);
 
 		if (debug >= 2)
 			dprintk("%s: suspended.\n", MSM_HOTPLUG);
