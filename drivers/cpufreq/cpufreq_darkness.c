@@ -133,7 +133,7 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 	darkness_tuners_ins.io_is_busy = !!input;
 
 	/* we need to re-evaluate prev_cpu_idle */
-	cpu_maps_update_begin();
+	get_online_cpus();
 	for_each_online_cpu(cpu) {
 		struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo = 
 			&per_cpu(od_darkness_cpuinfo, cpu);
@@ -141,7 +141,7 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 		this_darkness_cpuinfo->prev_cpu_idle = get_cpu_idle_time(cpu,
 			&this_darkness_cpuinfo->prev_cpu_wall, darkness_tuners_ins.io_is_busy);
 	}
-	cpu_maps_update_done();
+	put_online_cpus();
 	return count;
 }
 
