@@ -519,7 +519,7 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 
 	dbs_tuners_ins.powersave_bias = input;
 
-	cpu_maps_update_begin();
+	get_online_cpus();
 	mutex_lock(&dbs_mutex);
 
 	if (!bypass) {
@@ -592,7 +592,7 @@ skip_this_cpu_bypass:
 	}
 
 	mutex_unlock(&dbs_mutex);
-	cpu_maps_update_done();
+	put_online_cpus();
 
 	return count;
 }
@@ -1307,7 +1307,7 @@ static int cpufreq_gov_dbs_up_task(void *data)
 
 		set_current_state(TASK_RUNNING);
 
-		cpu_maps_update_begin();
+		get_online_cpus();
 
 		if (lock_policy_rwsem_write(cpu) < 0)
 			goto bail_acq_sema_failed;
@@ -1334,7 +1334,7 @@ bail_incorrect_governor:
 		unlock_policy_rwsem_write(cpu);
 
 bail_acq_sema_failed:
-		cpu_maps_update_done();
+		put_online_cpus();
 	}
 
 	return 0;

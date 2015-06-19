@@ -580,11 +580,11 @@ static int msm_cache_erp_probe(struct platform_device *pdev)
 	if (ret)
 		goto fail_l2;
 
-	cpu_notifier_register_begin();
-	__register_hotcpu_notifier(&cache_erp_cpu_notifier);
+	get_online_cpus();
+	register_hotcpu_notifier(&cache_erp_cpu_notifier);
 	for_each_cpu(cpu, cpu_online_mask)
 		smp_call_function_single(cpu, enable_erp_irq_callback, NULL, 1);
-	cpu_notifier_register_done();
+	put_online_cpus();
 
 	ret = procfs_event_log_init();
 	if (ret)
@@ -606,12 +606,12 @@ static int msm_cache_erp_remove(struct platform_device *pdev)
 	if (procfs_entry)
 		remove_proc_entry("cpu/msm_cache_erp", NULL);
 
-	cpu_notifier_register_begin();
-	__unregister_hotcpu_notifier(&cache_erp_cpu_notifier);
+	get_online_cpus();
+	unregister_hotcpu_notifier(&cache_erp_cpu_notifier);
 	for_each_cpu(cpu, cpu_online_mask)
 		smp_call_function_single(cpu, disable_erp_irq_callback, NULL,
 					 1);
-	cpu_notifier_register_done();
+	put_online_cpus();
 
 	free_percpu_irq(l1_erp_irq, NULL);
 
