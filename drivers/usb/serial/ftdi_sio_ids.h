@@ -788,6 +788,14 @@
 #define LARSENBRUSGAARD_VID		0x0FD8
 #define LB_ALTITRACK_PID		0x0001
 
+
+/*
+ * Physik Instrumente
+ * http://www.physikinstrumente.com/en/products/
+ */
+#define PI_VID              0x1a72  /* Vendor ID */
+#define PI_E861_PID         0x1008  /* E-861 piezo controller USB connection */
+
 /*
  * TTi (Thurlby Thandar Instruments)
  */
