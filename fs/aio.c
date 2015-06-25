@@ -988,26 +988,6 @@ static ssize_t aio_setup_single_vector(int rw, struct kiocb *kiocb)
 	return 0;
 }
 
-static ssize_t aio_read_iter(struct kiocb *iocb)
-{
-	struct file *file = iocb->ki_filp;
-	ssize_t ret = -EINVAL;
-
-	if (file->f_op->read_iter)
-		ret = file->f_op->read_iter(iocb, iocb->ki_iter, iocb->ki_pos);
-	return ret;
-}
-
-static ssize_t aio_write_iter(struct kiocb *iocb)
-{
-	struct file *file = iocb->ki_filp;
-	ssize_t ret = -EINVAL;
-
-	if (file->f_op->write_iter)
-		ret = file->f_op->write_iter(iocb, iocb->ki_iter, iocb->ki_pos);
-	return ret;
-}
-
 /*
  * aio_setup_iocb:
  *	Performs the initial checks and aio retry method
@@ -1059,24 +1039,6 @@ rw_common:
 		ret = aio_rw_vect_retry(req, rw, rw_op);
  		break;
 
-	case IOCB_CMD_READ_ITER:
-		ret = -EBADF;
-		if (unlikely(!(file->f_mode & FMODE_READ)))
-			break;
-		ret = -EINVAL;
-		if (file->f_op->read_iter)
-			kiocb->ki_retry = aio_read_iter;
-		break;
-
-	case IOCB_CMD_WRITE_ITER:
-		ret = -EBADF;
-		if (unlikely(!(file->f_mode & FMODE_WRITE)))
-			break;
-		ret = -EINVAL;
-		if (file->f_op->write_iter)
-			kiocb->ki_retry = aio_write_iter;
-		break;
-
 	case IOCB_CMD_FDSYNC:
 		if (!file->f_op->aio_fsync)
 			return -EINVAL;
@@ -1110,22 +1072,6 @@ rw_common:
 
 	return 0;
 }
-
-/*
- * The iter count must be set before calling here.  Some filesystems uses
- * iocb->ki_left as an indicator of the size of an IO.
- */
-void aio_kernel_init_iter(struct kiocb *iocb, struct file *filp,
-			  unsigned short op, struct iov_iter *iter, loff_t off)
-{
-	iocb->ki_filp = filp;
-	iocb->ki_iter = iter;
-	iocb->ki_opcode = op;
-	iocb->ki_pos = off;
-	iocb->ki_nbytes = iov_iter_count(iter);
-	iocb->ki_left = iocb->ki_nbytes;
-}
-EXPORT_SYMBOL_GPL(aio_kernel_init_iter);
 
 static int io_submit_one(struct kioctx *ctx, struct iocb __user *user_iocb,
 			 struct iocb *iocb, bool compat)
