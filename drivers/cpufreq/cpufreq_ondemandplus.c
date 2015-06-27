@@ -857,12 +857,8 @@ static int cpufreq_governor_ondemandplus(struct cpufreq_policy *policy,
 		if (!pcpu->policy->cur)
 			break;
 		mutex_lock(&pcpu->timer_mutex);
-		if (policy->max < policy->cur)
-			__cpufreq_driver_target(policy,
-					policy->max, CPUFREQ_RELATION_H);
-		else if (policy->min > policy->cur)
-			__cpufreq_driver_target(policy,
-					policy->min, CPUFREQ_RELATION_L);
+		__cpufreq_driver_target(policy,
+				policy->cur, CPUFREQ_RELATION_L);
 		/* update min freq static value */
 		if (cpu == 0)
 			screen_on_min_freq = policy->min;

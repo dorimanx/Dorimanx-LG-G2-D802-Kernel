@@ -1272,15 +1272,9 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	case CPUFREQ_GOV_LIMITS:
 		mutex_lock(&this_dbs_info->timer_mutex);
 		if (this_dbs_info->cur_policy) {
-			if (policy->max < this_dbs_info->cur_policy->cur)
-				__cpufreq_driver_target(this_dbs_info->
-							cur_policy,
-					policy->max, CPUFREQ_RELATION_H);
-			else if (policy->min > this_dbs_info->cur_policy->cur)
-				__cpufreq_driver_target(this_dbs_info->
-							cur_policy,
-					policy->min, CPUFREQ_RELATION_L);
-			else if (dbs_tuners_ins.powersave_bias != 0)
+			__cpufreq_driver_target(this_dbs_info->cur_policy,
+					policy->cur, CPUFREQ_RELATION_L);
+			if (dbs_tuners_ins.powersave_bias != 0)
 				intellimm_powersave_bias_setspeed(
 					this_dbs_info->cur_policy,
 					policy,
