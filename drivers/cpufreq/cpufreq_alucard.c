@@ -724,12 +724,8 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 			mutex_unlock(&this_alucard_cpuinfo->timer_mutex);
 			return -EPERM;
 		}
-		if (policy->max < this_alucard_cpuinfo->cur_policy->cur)
-			__cpufreq_driver_target(this_alucard_cpuinfo->cur_policy,
-				policy->max, CPUFREQ_RELATION_H);
-		else if (policy->min > this_alucard_cpuinfo->cur_policy->cur)
-			__cpufreq_driver_target(this_alucard_cpuinfo->cur_policy,
-				policy->min, CPUFREQ_RELATION_L);
+		__cpufreq_driver_target(this_alucard_cpuinfo->cur_policy,
+				policy->cur, CPUFREQ_RELATION_L);
 
 		cpufreq_frequency_table_policy_minmax_limits(policy,
 				this_alucard_cpuinfo);

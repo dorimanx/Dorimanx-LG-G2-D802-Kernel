@@ -358,12 +358,8 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 			mutex_unlock(&this_darkness_cpuinfo->timer_mutex);
 			return -EPERM;
 		}
-		if (policy->max < this_darkness_cpuinfo->cur_policy->cur)
-			__cpufreq_driver_target(this_darkness_cpuinfo->cur_policy,
-				policy->max, CPUFREQ_RELATION_H);
-		else if (policy->min > this_darkness_cpuinfo->cur_policy->cur)
-			__cpufreq_driver_target(this_darkness_cpuinfo->cur_policy,
-				policy->min, CPUFREQ_RELATION_L);
+		__cpufreq_driver_target(this_darkness_cpuinfo->cur_policy,
+				policy->cur, CPUFREQ_RELATION_L);
 		mutex_unlock(&this_darkness_cpuinfo->timer_mutex);
 
 		break;
