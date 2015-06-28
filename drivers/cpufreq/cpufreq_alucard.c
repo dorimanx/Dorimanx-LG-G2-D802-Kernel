@@ -719,7 +719,8 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 		break;
 	case CPUFREQ_GOV_LIMITS:
 		mutex_lock(&this_alucard_cpuinfo->timer_mutex);
-		if (!this_alucard_cpuinfo->cur_policy->cur) {
+		if (!this_alucard_cpuinfo->cur_policy->cur
+			 || !policy->cur) {
 			pr_debug("Unable to limit cpu freq due to cur_policy == NULL\n");
 			mutex_unlock(&this_alucard_cpuinfo->timer_mutex);
 			return -EPERM;

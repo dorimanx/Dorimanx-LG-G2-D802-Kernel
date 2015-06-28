@@ -1148,7 +1148,8 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 	case CPUFREQ_GOV_LIMITS:
 		/* If device is being removed, skip set limits */
-		if (!this_dbs_info->cur_policy)
+		if (!this_dbs_info->cur_policy
+			 || !policy->cur)
 			break;
 		mutex_lock(&this_dbs_info->timer_mutex);
 		__cpufreq_driver_target(this_dbs_info->cur_policy,
