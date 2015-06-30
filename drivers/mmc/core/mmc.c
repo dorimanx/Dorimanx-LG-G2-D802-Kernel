@@ -368,8 +368,6 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	card->ext_csd.raw_card_type = ext_csd[EXT_CSD_CARD_TYPE];
 	mmc_select_card_type(card);
 
-	card->ext_csd.raw_drive_strength = ext_csd[EXT_CSD_DRIVE_STRENGTH];
-
 	card->ext_csd.raw_s_a_timeout = ext_csd[EXT_CSD_S_A_TIMEOUT];
 	card->ext_csd.raw_erase_timeout_mult =
 		ext_csd[EXT_CSD_ERASE_TIMEOUT_MULT];
@@ -1716,8 +1714,8 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			goto free_card;
 		}
 		if (err) {
-			pr_warning("%s: Enabling packed event failed\n",
-					mmc_hostname(card->host));
+			pr_warn("%s: Enabling packed event failed\n",
+				mmc_hostname(card->host));
 			card->ext_csd.packed_event_en = 0;
 			err = 0;
 		} else {
@@ -1898,14 +1896,14 @@ static int mmc_suspend(struct mmc_host *host)
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
+	if (!mmc_try_claim_host(host))
+		return -EBUSY;
+
 	/*
 	 * Disable clock scaling before suspend and enable it after resume so
 	 * as to avoid clock scaling decisions kicking in during this window.
 	 */
 	mmc_disable_clk_scaling(host);
-
-	if (!mmc_try_claim_host(host))
-		return -EBUSY;
 
 	err = mmc_cache_ctrl(host, 0);
 	if (err)
