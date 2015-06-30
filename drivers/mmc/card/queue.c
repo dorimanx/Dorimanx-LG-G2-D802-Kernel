@@ -27,7 +27,6 @@
 
 #define MMC_QUEUE_BOUNCESZ	65536
 
-
 /*
  * Based on benchmark tests the default num of requests to trigger the write
  * packing was determined, to keep the read latency as low as possible and
@@ -68,8 +67,9 @@ static int mmc_queue_thread(void *d)
 
 	down(&mq->thread_sem);
 	do {
-		struct mmc_queue_req *tmp;
 		struct request *req = NULL;
+		struct mmc_queue_req *tmp;
+		unsigned int cmd_flags = 0;
 
 		spin_lock_irq(q->queue_lock);
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -79,6 +79,7 @@ static int mmc_queue_thread(void *d)
 
 		if (req || mq->mqrq_prev->req) {
 			set_current_state(TASK_RUNNING);
+			cmd_flags = req ? req->cmd_flags : 0;
 			mq->issue_fn(mq, req);
 			if (test_bit(MMC_QUEUE_NEW_REQUEST, &mq->flags)) {
 				continue; /* fetch again */
@@ -177,7 +178,7 @@ static void mmc_urgent_request(struct request_queue *q)
 	struct mmc_context_info *cntx;
 
 	if (!mq) {
-		mmc_request(q);
+		mmc_request_fn(q);
 		return;
 	}
 	cntx = &mq->card->host->context_info;
@@ -197,7 +198,7 @@ static void mmc_urgent_request(struct request_queue *q)
 		wake_up_interruptible(&cntx->wait);
 	} else {
 		spin_unlock_irqrestore(&cntx->lock, flags);
-		mmc_request(q);
+		mmc_request_fn(q);
 	}
 }
 
