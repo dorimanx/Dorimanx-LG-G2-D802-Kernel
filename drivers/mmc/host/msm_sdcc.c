@@ -1827,9 +1827,11 @@ static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
 		cmd->error = -ETIMEDOUT;
 	} else if ((status & MCI_CMDCRCFAIL && cmd->flags & MMC_RSP_CRC) &&
 			!host->tuning_in_progress) {
-		pr_err("%s: CMD%d: Command CRC error\n",
-			mmc_hostname(host->mmc), cmd->opcode);
-		msmsdcc_dump_sdcc_state(host);
+		if (cmd->opcode != 52) {
+			pr_err("%s: CMD%d: Command CRC error\n",
+				mmc_hostname(host->mmc), cmd->opcode);
+			msmsdcc_dump_sdcc_state(host);
+		}
 		/* Execute full tuning in case of CRC errors */
 		host->saved_tuning_phase = INVALID_TUNING_PHASE;
 		if (host->tuning_needed)
