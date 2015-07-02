@@ -513,8 +513,10 @@ extern int mmc_cache_ctrl(struct mmc_host *, u8);
 static inline void mmc_signal_sdio_irq(struct mmc_host *host)
 {
 	if (!host->sdio_irqs) {
+#if 0 /* when mmc resume from suspend it's take time to get irq, no need to spam dmesg */
 		pr_err("%s: SDIO interrupt recieved without function driver claiming an irq\n",
 				mmc_hostname(host));
+#endif
 		return;
 	}
 
