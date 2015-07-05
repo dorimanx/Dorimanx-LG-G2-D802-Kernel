@@ -1714,6 +1714,13 @@ msmsdcc_pio_irq(int irq, void *dev_id)
 			break;
 
 #ifdef CONFIG_MACH_LGE
+		/*LGE_CHANGE
+		* Exception handling : Kernel Panic issue by Null Pointer
+		* for some reasons, host->pio.sg_miter gets wrong data when it gets into the msmsdcc_pio_irq func()
+		* and it gets kernel crash when wifi is on.
+		* to prevent this, we inserted LG W/A code.
+		* 2013-04-22, G2-FS@lge.com
+		*/
 		if (!host->curr.data)
 			break;
 #endif
@@ -3266,7 +3273,8 @@ static void msmsdcc_msm_bus_queue_work(struct msmsdcc_host *host)
 
 	spin_lock_irqsave(&host->lock, flags);
 	if (host->msm_bus_vote.min_bw_vote != host->msm_bus_vote.curr_vote)
-		schedule_delayed_work(&host->msm_bus_vote.vote_work,
+		queue_delayed_work(system_nrt_wq,
+				   &host->msm_bus_vote.vote_work,
 				   msecs_to_jiffies(MSM_MMC_BUS_VOTING_DELAY));
 	spin_unlock_irqrestore(&host->lock, flags);
 }
@@ -4329,9 +4337,9 @@ retry:
 
 #if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
 		{
-			int bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC2; /* sdcc 2 */
+			int bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC2;
 #if defined (CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_G2_KDDI) \
-			|| defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_TIGERS_KR)
+		|| defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_TIGERS_KR)
 			bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC3; /* sdcc 3 */
 #elif defined(CONFIG_MACH_MSM8974_B1_KR) || defined(CONFIG_MACH_MSM8974_B1W)
 				if (HW_REV_B <= lge_get_board_revno() && HW_REV_D >= lge_get_board_revno()) {
@@ -4340,8 +4348,10 @@ retry:
 					bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC3;  /* sdcc 3 */
 				}
 #endif
+
 			if (host->pdev->id == bcmdhd_id) {
 				rc = 0;
+				/* panic("Failed to tune.\n"); please contact hayun.kim@lge.com */
 			}
 		}
 #endif
@@ -5825,15 +5835,9 @@ static struct mmc_platform_data *msmsdcc_populate_pdata(struct device *dev)
 		goto err;
 	}
 
-	/*
-	 * Some devices might not use vdd. if qcom,not-use-vdd exists
-	 * skip the parse the vdd
-	 */
-	if (of_property_read_bool(np, "qcom,not-use-vdd") != true) {
-		if (msmsdcc_dt_parse_vreg_info(dev,
-				&pdata->vreg_data->vdd_data, "vdd"))
-			goto err;
-	}
+	if (msmsdcc_dt_parse_vreg_info(dev,
+			&pdata->vreg_data->vdd_data, "vdd"))
+		goto err;
 
 	if (msmsdcc_dt_parse_vreg_info(dev,
 			&pdata->vreg_data->vdd_io_data, "vdd-io"))
@@ -6284,11 +6288,16 @@ msmsdcc_probe(struct platform_device *pdev)
 	 * Setup card detect change
 	 */
 
-#if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE) /* joon For device tree. */
+#if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
+	/* LGE_CHANGE
+	 * Wifi Bring Up
+	 * 2013-01-22, WiFi hayun.kim@lge.com
+	 */
 	{
 		int bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC2;
+	
 #if defined (CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_G2_KDDI) \
-		|| defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_TIGERS_KR)
+	|| defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_TIGERS_KR)
 		bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC3; /* sdcc 3 */
 #elif defined(CONFIG_MACH_MSM8974_B1_KR) || defined(CONFIG_MACH_MSM8974_B1W)
 			if (HW_REV_B <= lge_get_board_revno() && HW_REV_D >= lge_get_board_revno()) {
@@ -6297,6 +6306,7 @@ msmsdcc_probe(struct platform_device *pdev)
 				bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC3;  /* sdcc 3 */
 			}
 #endif
+
 		printk("jaewoo :%s-%d> plat->nonremovable = %d\n", __FUNCTION__, host->pdev->id, plat->nonremovable );
 		if( host->pdev->id == bcmdhd_id ) {
 			plat->register_status_notify = sdc2_status_register;

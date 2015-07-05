@@ -427,7 +427,7 @@ void mmc_start_delayed_bkops(struct mmc_card *card)
 	 * it was removed from the queue work but not started yet
 	 */
 	card->bkops_info.cancel_delayed_work = false;
-	schedule_delayed_work(&card->bkops_info.dw,
+	queue_delayed_work(system_nrt_wq, &card->bkops_info.dw,
 			   msecs_to_jiffies(
 				   card->bkops_info.delay_ms));
 }
@@ -2100,6 +2100,7 @@ int mmc_resume_bus(struct mmc_host *host)
 
 	mmc_bus_put(host);
 	pr_debug("%s: Deferred resume completed\n", mmc_hostname(host));
+
 	return 0;
 }
 
@@ -2691,7 +2692,7 @@ int mmc_can_reset(struct mmc_card *card)
 		    EXT_CSD_RST_N_ENABLED)
 #ifdef CONFIG_MACH_LGE
 		{
-            pr_info("%s: mmc, MMC_CAP_HW_RESET, rst_n_function=0x%02x\n", __func__, rst_n_function);
+			pr_info("%s: mmc, MMC_CAP_HW_RESET, rst_n_function=0x%02x\n", __func__, rst_n_function);
 			return 0;
 		}
 #else
@@ -2895,7 +2896,7 @@ static void mmc_clk_scale_work(struct work_struct *work)
 	mmc_rpm_hold(host, &host->card->dev);
 	if (!mmc_try_claim_host(host)) {
 		/* retry after a timer tick */
-		schedule_delayed_work(&host->clk_scaling.work, 1);
+		queue_delayed_work(system_nrt_wq, &host->clk_scaling.work, 1);
 		goto out;
 	}
 
@@ -3063,7 +3064,8 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq)
 			 * work, so delay atleast one timer tick to release
 			 * host and re-claim while scaling down the clocks.
 			 */
-			schedule_delayed_work(&host->clk_scaling.work, 1);
+			queue_delayed_work(system_nrt_wq,
+					&host->clk_scaling.work, 1);
 			goto no_reset_stats;
 		}
 	}
@@ -3209,9 +3211,9 @@ int _mmc_detect_card_removed(struct mmc_host *host)
 		pr_debug("%s: card remove detected\n", mmc_hostname(host));
 	}
 
-	#ifdef CONFIG_MACH_LGE
-    pr_info("[LGE][MMC][%-18s( )] end, mmc%d, return %d\n", __func__, host->index, ret);
-	#endif
+#ifdef CONFIG_MACH_LGE
+	pr_info("[LGE][MMC][%-18s( )] end, mmc%d, return %d\n", __func__, host->index, ret);
+#endif
 
 	return ret;
 }
@@ -3259,7 +3261,11 @@ void mmc_rescan(struct work_struct *work)
 	bool extend_wakelock = false;
 
 #ifdef CONFIG_MACH_LGE
-    pr_info("[LGE][MMC][%-18s( ) START!] mmc%d\n", __func__, host->index);
+	/* LGE_CHANGE
+	* Adding Print
+	* 2014-01-16, B2-BSP-FS@lge.com
+	*/
+	pr_info("[LGE][MMC][%-18s( ) START!] mmc%d\n", __func__, host->index);
 #endif
 
 	if (host->rescan_disable)
