@@ -263,14 +263,17 @@ static int mmc_read_ssr(struct mmc_card *card)
 
 			speed_class_ssr = UNSTUFF_BITS(ssr, 440 - 384, 8);
 			if (speed_class_ssr < 5) {
-                pr_info("[LGE][MMC][%-18s( )] mmc_hostname:%s, %u ==> SPEED_CLASS %s%s%s%s%s\n", __func__, mmc_hostname(card->host), speed_class_ssr,
+				pr_info("[LGE][MMC][%-18s( )] mmc_hostname:%s, %u ==> SPEED_CLASS %s%s%s%s%s\n",
+				__func__, mmc_hostname(card->host),
+				speed_class_ssr,
 				((speed_class_ssr == 4) ? "10" : ""),
 				((speed_class_ssr == 3) ? "6" : ""),
 				((speed_class_ssr == 2) ? "4" : ""),
 				((speed_class_ssr == 1) ? "2" : ""),
 				((speed_class_ssr == 0) ? "0" : ""));
 			} else
-                pr_info("[LGE][MMC][%-18s( )] mmc_hostname:%s, Unknown SPEED_CLASS\n", __func__, mmc_hostname(card->host));
+				pr_info("[LGE][MMC][%-18s( )] mmc_hostname:%s, Unknown SPEED_CLASS\n",
+					__func__, mmc_hostname(card->host));
 		}
 #endif
 
@@ -1034,7 +1037,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 
 #ifdef CONFIG_MACH_LGE
 	if (!mmc_cd_get_status(host)) {
-        pr_info("[LGE][MMC][%-18s( )] sd-no-exist. skip next\n", __func__);
+		pr_info("[LGE][MMC][%-18s( )] sd-no-exist. skip next\n", __func__);
 		err = -ENOMEDIUM;
 		return err;
 	}
@@ -1071,7 +1074,6 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_send_relative_addr(host, &card->rca);
 		if (err)
 			return err;
-		host->card = card;
 	}
 
 	if (!oldcard) {
@@ -1141,13 +1143,12 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		}
 	}
 
+	host->card = card;
 	return 0;
 
 free_card:
-	if (!oldcard) {
-		host->card = NULL;
+	if (!oldcard)
 		mmc_remove_card(card);
-	}
 
 	return err;
 }
@@ -1184,7 +1185,7 @@ static void mmc_sd_detect(struct mmc_host *host)
 	int err = 0;
 #ifdef CONFIG_MACH_LGE
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
-        int retries = 5;
+	int retries = 5;
 #endif
 #endif
 
@@ -1282,8 +1283,13 @@ static int mmc_sd_resume(struct mmc_host *host)
 		err = mmc_sd_init_card(host, host->ocr, host->card);
 
 #ifdef CONFIG_MACH_LGE
-			if (err == -ENOMEDIUM) {
-                pr_info("[LGE][MMC][%-18s( )] error:ENOMEDIUM\n", __func__);
+		/* LGE_CHANGE
+ 		 * Skip below When ENOMEDIUM
+		 * 2014-01-16, B2-BSP-FS@lge.com
+		 */
+		if (err == -ENOMEDIUM) {
+			pr_info("[LGE][MMC][%-18s( )] error:ENOMEDIUM\n",
+					__func__);
 				break;
 			}
 #endif
@@ -1447,7 +1453,8 @@ int mmc_attach_sd(struct mmc_host *host)
 
 #ifdef CONFIG_MACH_LGE
 		if (err == -ENOMEDIUM) {
-            pr_info("[LGE][MMC][%-18s( )] error:ENOMEDIUM\n", __func__);
+			pr_info("[LGE][MMC][%-18s( )] error:ENOMEDIUM\n",
+					__func__);
 			retries = 0;
 			break;
 		}

@@ -1493,7 +1493,7 @@ static int mmc_blk_issue_flush(struct mmc_queue *mq, struct request *req)
 
 	ret = mmc_flush_cache(card);
 	if (ret == -ETIMEDOUT) {
-        pr_info("%s: %s: requeue flush request after timeout.\n",
+		pr_info("%s: %s: requeue flush request after timeout.\n",
                 req->rq_disk->disk_name, __func__);
 
 		spin_lock_irq(q->queue_lock);
