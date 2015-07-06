@@ -115,6 +115,8 @@ static unsigned int dbs_enable;	/* number of CPUs using this policy */
  */
 static DEFINE_MUTEX(dbs_mutex);
 
+static struct workqueue_struct *dbs_wq;
+
 static struct dbs_tuners {
 	unsigned int sampling_rate;
 	unsigned int up_threshold;
@@ -833,7 +835,7 @@ static void do_dbs_timer(struct work_struct *work)
 			dbs_info->freq_lo, CPUFREQ_RELATION_H);
 		delay = dbs_info->freq_lo_jiffies;
 	}
-	schedule_delayed_work_on(cpu, &dbs_info->work, delay);
+	mod_delayed_work_on(cpu, dbs_wq, &dbs_info->work, delay);
 	mutex_unlock(&dbs_info->timer_mutex);
 }
 
@@ -847,7 +849,7 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 
 	dbs_info->sample_type = DBS_NORMAL_SAMPLE;
 	INIT_DEFERRABLE_WORK(&dbs_info->work, do_dbs_timer);
-	schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work, 10 * delay);
+	mod_delayed_work_on(dbs_info->cpu, dbs_wq, &dbs_info->work, 10 * delay);
 	dbs_info->activated = true;
 }
 
@@ -1007,6 +1009,12 @@ static int __init cpufreq_gov_dbs_init(void)
 			MIN_SAMPLING_RATE_RATIO * jiffies_to_usecs(10);
 	}
 
+	dbs_wq = alloc_workqueue("HYPER_dbs_wq", WQ_HIGHPRI, 0);
+	if (!dbs_wq) {
+		printk(KERN_ERR "Failed to create HYPER_dbs_wq workqueue\n");
+		return -EFAULT;
+	}
+
 	err = cpufreq_register_governor(&cpufreq_gov_HYPER);
 	if (err)
 		goto error_reg;
@@ -1023,6 +1031,7 @@ static void __exit cpufreq_gov_dbs_exit(void)
 			       &hyper_qos_dvfs_lat_nb);*/
 
 	cpufreq_unregister_governor(&cpufreq_gov_HYPER);
+	destroy_workqueue(dbs_wq);
 	kfree(&dbs_tuners_ins);
 }
 
