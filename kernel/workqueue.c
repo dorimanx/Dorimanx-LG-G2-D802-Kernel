@@ -3669,12 +3669,13 @@ static struct worker_pool *get_unbound_pool(const struct workqueue_attrs *attrs)
 	u32 hash = wqattrs_hash(attrs);
 	struct worker_pool *pool;
 	struct worker *worker;
+	struct hlist_node *tmp;
 
 	mutex_lock(&create_mutex);
 
 	/* do we already have a matching pool? */
 	spin_lock_irq(&workqueue_lock);
-	hash_for_each_possible(unbound_pool_hash, pool, hash_node, hash) {
+	hash_for_each_possible(unbound_pool_hash, pool, tmp, hash_node, hash) {
 		if (wqattrs_equal(pool->attrs, attrs)) {
 			pool->refcnt++;
 			goto out_unlock;
