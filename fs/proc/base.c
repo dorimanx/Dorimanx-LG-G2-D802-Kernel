@@ -1088,7 +1088,10 @@ static ssize_t oom_score_adj_write(struct file *file, const char __user *buf,
 
 #ifdef CONFIG_ANDROID_LMK_ADJ_RBTREE
 	delete_from_adj_tree(task);
+#endif
+
 	task->signal->oom_score_adj = oom_score_adj;
+#ifdef CONFIG_ANDROID_LMK_ADJ_RBTREE
 	add_2_adj_tree(task);
 #endif
 	if (has_capability_noaudit(current, CAP_SYS_RESOURCE))
