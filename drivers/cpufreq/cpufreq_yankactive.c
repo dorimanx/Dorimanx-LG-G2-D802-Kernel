@@ -56,7 +56,6 @@ struct cpufreq_yankactive_cpuinfo {
 	int governor_enabled;
 	int prev_load;
 	bool limits_changed;
-	unsigned int cpu;
 };
 
 #define MIN_TIMER_JIFFIES 1UL
@@ -1397,13 +1396,10 @@ static int cpufreq_governor_yankactive(struct cpufreq_policy *policy,
 {
 	int rc;
 	unsigned int j;
-	unsigned int cpu;
+	unsigned int cpu = policy->cpu;
 	struct cpufreq_yankactive_cpuinfo *pcpu;
 	struct cpufreq_frequency_table *freq_table;
 	unsigned long flags, expire_time;
-
-	pcpu = &per_cpu(cpuinfo, policy->cpu);
-	cpu = pcpu->cpu;
 
 	switch (event) {
 	case CPUFREQ_GOV_START:

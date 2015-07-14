@@ -52,7 +52,6 @@ struct cpufreq_interactive_cpuinfo {
 	int governor_enabled;
 	int prev_load;
 	unsigned int two_phase_freq;
-	unsigned int cpu;
 };
 
 static DEFINE_PER_CPU(struct cpufreq_interactive_cpuinfo, cpuinfo);
@@ -1301,14 +1300,11 @@ static int cpufreq_governor_intelliactive(struct cpufreq_policy *policy,
 	struct cpufreq_interactive_cpuinfo *pcpu;
 	struct cpufreq_frequency_table *freq_table;
 	unsigned long flags;
-	unsigned int cpu;
-
-	pcpu = &per_cpu(cpuinfo, policy->cpu);
-	cpu = pcpu->cpu;
+	unsigned int cpu = policy->cpu;
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if (!cpu_online(cpu))
+		if ((!cpu_online(cpu)) || (!policy->cur))
 			return -EINVAL;
 
 		mutex_lock(&gov_lock);

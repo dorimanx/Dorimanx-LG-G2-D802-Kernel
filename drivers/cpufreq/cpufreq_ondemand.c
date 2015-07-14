@@ -113,8 +113,6 @@ struct cpu_dbs_info_s {
 	struct mutex timer_mutex;
 
 	wait_queue_head_t sync_wq;
-
-	bool activated; /* dbs_timer_init is in effect */
 };
 static DEFINE_PER_CPU(struct cpu_dbs_info_s, od_cpu_dbs_info);
 
@@ -1025,34 +1023,33 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 {
 	/* We want all CPUs to do sampling nearly on same jiffy */
 	int delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate);
+	unsigned int cpu = dbs_info->cpu;
 
 	if (num_online_cpus() > 1)
 		delay -= jiffies % delay;
 
 	dbs_info->sample_type = DBS_NORMAL_SAMPLE;
 	INIT_DEFERRABLE_WORK(&dbs_info->work, do_dbs_timer);
-	mod_delayed_work_on(dbs_info->cpu, dbs_wq, &dbs_info->work, delay);
-	dbs_info->activated = true;
+	mod_delayed_work_on(cpu, dbs_wq, &dbs_info->work, delay);
 }
 
 static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
 {
-	dbs_info->activated = false;
 	cancel_delayed_work_sync(&dbs_info->work);
 }
 
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				   unsigned int event)
 {
-	unsigned int cpu;
+	unsigned int cpu = policy->cpu;
 	struct cpu_dbs_info_s *this_dbs_info;
 	unsigned int j;
 	int io_busy;
 	int rc;
 
 	io_busy = dbs_tuners_ins.io_is_busy;
-	this_dbs_info = &per_cpu(od_cpu_dbs_info, policy->cpu);
-	cpu = this_dbs_info->cpu;
+	this_dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
+	this_dbs_info->cpu = cpu;
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
@@ -1081,6 +1078,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				j_dbs_info->prev_cpu_nice =
 						kcpustat_cpu(j).cpustat[CPUTIME_NICE];
 		}
+
 		this_dbs_info->rate_mult = 1;
 		ondemand_powersave_bias_init_cpu(cpu);
 		/*
@@ -1118,8 +1116,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		}
 		mutex_unlock(&dbs_mutex);
 
-		mutex_init(&this_dbs_info->timer_mutex);
-
 		if (!ondemand_powersave_bias_setspeed(
 					this_dbs_info->cur_policy,
 					NULL,
@@ -1131,7 +1127,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		dbs_timer_exit(this_dbs_info);
 
 		mutex_lock(&dbs_mutex);
-		mutex_destroy(&this_dbs_info->timer_mutex);
 
 		dbs_enable--;
 

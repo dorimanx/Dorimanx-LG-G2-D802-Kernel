@@ -467,7 +467,8 @@ static void do_dbs_timer(struct work_struct *work)
 	/* We want all CPUs to do sampling nearly on same jiffy */
 	int delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate);
 
-	delay -= jiffies % delay;
+	if (num_online_cpus() > 1)
+		delay -= jiffies % delay;
 
 	mutex_lock(&dbs_info->timer_mutex);
 
@@ -481,11 +482,14 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 {
 	/* We want all CPUs to do sampling nearly on same jiffy */
 	int delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate);
-	delay -= jiffies % delay;
+	unsigned int cpu = dbs_info->cpu;
+
+	if (num_online_cpus() > 1)
+		delay -= jiffies % delay;
 
 	dbs_info->enable = 1;
 	INIT_DEFERRABLE_WORK(&dbs_info->work, do_dbs_timer);
-	mod_delayed_work_on(dbs_info->cpu, dbs_wq, &dbs_info->work, delay);
+	mod_delayed_work_on(cpu, dbs_wq, &dbs_info->work, delay);
 }
 
 static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
@@ -497,13 +501,13 @@ static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				   unsigned int event)
 {
-	unsigned int cpu;
+	unsigned int cpu = policy->cpu;
 	unsigned int j;
 	int rc;
 	struct cpu_dbs_info_s *this_dbs_info;
 
-	this_dbs_info = &per_cpu(cs_cpu_dbs_info, policy->cpu);
-	cpu = this_dbs_info->cpu;
+	this_dbs_info = &per_cpu(cs_cpu_dbs_info, cpu);
+	this_dbs_info->cpu = cpu;
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
@@ -524,7 +528,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				j_dbs_info->prev_cpu_nice =
 						kcpustat_cpu(j).cpustat[CPUTIME_NICE];
 		}
-		this_dbs_info->cpu = cpu;
+
 		this_dbs_info->requested_freq = policy->cur;
 
 		dbs_enable++;
