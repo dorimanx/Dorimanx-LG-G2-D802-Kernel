@@ -165,13 +165,6 @@ static DEFINE_MUTEX(dbs_mutex);
 
 static struct workqueue_struct *dbs_wq;
 
-struct dbs_work_struct {
-	struct work_struct work;
-	unsigned int cpu;
-};
-
-static DEFINE_PER_CPU(struct dbs_work_struct, dbs_refresh_work);
-
 static struct dbs_tuners {
 	unsigned int sampling_rate;
 	unsigned int up_threshold;
@@ -229,16 +222,6 @@ static struct dbs_tuners {
 	.io_is_busy = 0,
 	.sampling_rate = DEF_SAMPLING_RATE,
 };
-
-static inline u64 get_cpu_iowait_time(unsigned int cpu, u64 *wall)
-{
-	u64 iowait_time = get_cpu_iowait_time_us(cpu, wall);
-
-	if (iowait_time == -1ULL)
-		return 0;
-
-	return iowait_time;
-}
 
 /*
  * Find right freq to be set now with powersave_bias on.
@@ -1106,8 +1089,8 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 	for_each_cpu(j, policy->cpus) {
 		struct cpu_dbs_info_s *j_dbs_info;
-		u64 cur_wall_time, cur_idle_time, cur_iowait_time;
-		unsigned int idle_time, wall_time, iowait_time;
+		u64 cur_wall_time, cur_idle_time;
+		unsigned int idle_time, wall_time;
 		unsigned int load_freq;
 		int freq_avg;
 
@@ -1115,8 +1098,6 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 		cur_idle_time = get_cpu_idle_time(j, &cur_wall_time,
 				dbs_tuners_ins.io_is_busy);
-		cur_iowait_time = get_cpu_iowait_time(j, &cur_wall_time);
-
 		wall_time = (unsigned int)
 			(cur_wall_time - j_dbs_info->prev_cpu_wall);
 		j_dbs_info->prev_cpu_wall = cur_wall_time;
@@ -1124,10 +1105,6 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		idle_time = (unsigned int)
 			(cur_idle_time - j_dbs_info->prev_cpu_idle);
 		j_dbs_info->prev_cpu_idle = cur_idle_time;
-
-		iowait_time = (unsigned int)
-			(cur_iowait_time - j_dbs_info->prev_cpu_iowait);
-		j_dbs_info->prev_cpu_iowait = cur_iowait_time;
 
 		if (dbs_tuners_ins.ignore_nice) {
 			u64 cur_nice;
@@ -1152,9 +1129,6 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		 * the system is actually idle. So subtract the iowait time
 		 * from the cpu idle time.
 		 */
-
-		if (dbs_tuners_ins.io_is_busy && idle_time >= iowait_time)
-			idle_time -= iowait_time;
 
 		if (unlikely(!wall_time || wall_time < idle_time))
 			continue;
@@ -1543,13 +1517,14 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 {
 	/* We want all CPUs to do sampling nearly on same jiffy */
 	int delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate);
+	unsigned int cpu = dbs_info->cpu;
 
 	if (num_online_cpus() > 1)
 		delay -= jiffies % delay;
 
 	dbs_info->sample_type = DBS_NORMAL_SAMPLE;
 	INIT_DEFERRABLE_WORK(&dbs_info->work, do_dbs_timer);
-	mod_delayed_work_on(dbs_info->cpu, dbs_wq, &dbs_info->work, delay);
+	mod_delayed_work_on(cpu, dbs_wq, &dbs_info->work, delay);
 }
 
 static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
@@ -1557,59 +1532,16 @@ static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
 	cancel_delayed_work_sync(&dbs_info->work);
 }
 
-static void dbs_refresh_callback(struct work_struct *work)
-{
-	struct cpufreq_policy *policy;
-	struct cpu_dbs_info_s *this_dbs_info;
-	struct dbs_work_struct *dbs_work;
-	unsigned int cpu;
-
-	dbs_work = container_of(work, struct dbs_work_struct, work);
-	cpu = dbs_work->cpu;
-
-	get_online_cpus();
-
-	if (lock_policy_rwsem_write(cpu) < 0)
-		goto bail_acq_sema_failed;
-
-	this_dbs_info = &per_cpu(id_cpu_dbs_info, cpu);
-	policy = this_dbs_info->cur_policy;
-	if (!policy) {
-		/* CPU not using ondemand governor */
-		goto bail_incorrect_governor;
-	}
-
-	if (policy->cur < policy->max) {
-		/*
-		 * Arch specific cpufreq driver may fail.
-		 * Don't update governor frequency upon failure.
-		 */
-		if (__cpufreq_driver_target(policy, policy->max,
-					CPUFREQ_RELATION_L) >= 0)
-				policy->cur = policy->max;
-
-		this_dbs_info->prev_cpu_idle = get_cpu_idle_time(cpu,
-				&this_dbs_info->prev_cpu_wall, dbs_tuners_ins.io_is_busy);
-	}
-
-bail_incorrect_governor:
-	unlock_policy_rwsem_write(cpu);
-
-bail_acq_sema_failed:
-	put_online_cpus();
-	return;
-}
-
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				   unsigned int event)
 {
-	unsigned int cpu;
+	unsigned int cpu = policy->cpu;
 	struct cpu_dbs_info_s *this_dbs_info;
 	unsigned int j;
 	int rc;
 
-	this_dbs_info = &per_cpu(id_cpu_dbs_info, policy->cpu);
-	cpu = this_dbs_info->cpu;
+	this_dbs_info = &per_cpu(id_cpu_dbs_info, cpu);
+	this_dbs_info->cpu = cpu;
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
@@ -1636,6 +1568,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				j_dbs_info->prev_cpu_nice =
 						kcpustat_cpu(j).cpustat[CPUTIME_NICE];
 		}
+
 		this_dbs_info->rate_mult = 1;
 		this_dbs_info->freq_stay_count = 1;
 		intellidemand_powersave_bias_init_cpu(cpu);
@@ -1675,8 +1608,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		}
 		mutex_unlock(&dbs_mutex);
 
-		mutex_init(&this_dbs_info->timer_mutex);
-
 		if (!intellidemand_powersave_bias_setspeed(
 					this_dbs_info->cur_policy,
 					NULL,
@@ -1688,7 +1619,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		dbs_timer_exit(this_dbs_info);
 
 		mutex_lock(&dbs_mutex);
-		mutex_destroy(&this_dbs_info->timer_mutex);
 
 		dbs_enable--;
 
@@ -1765,12 +1695,8 @@ static int __init cpufreq_gov_dbs_init(void)
 	for_each_possible_cpu(i) {
 		struct cpu_dbs_info_s *this_dbs_info =
 			&per_cpu(id_cpu_dbs_info, i);
-		struct dbs_work_struct *dbs_work =
-			&per_cpu(dbs_refresh_work, i);
 
 		mutex_init(&this_dbs_info->timer_mutex);
-		INIT_WORK(&dbs_work->work, dbs_refresh_callback);
-		dbs_work->cpu = i;
 	}
 
 	return cpufreq_register_governor(&cpufreq_gov_intellidemand);

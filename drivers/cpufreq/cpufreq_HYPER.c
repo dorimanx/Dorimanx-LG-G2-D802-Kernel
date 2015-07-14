@@ -104,7 +104,6 @@ struct cpu_dbs_info_s {
 	 * when user is changing the governor or limits.
 	 */
 	struct mutex timer_mutex;
-	bool activated; /* dbs_timer_init is in effect */
 };
 static DEFINE_PER_CPU(struct cpu_dbs_info_s, od_cpu_dbs_info);
 
@@ -576,7 +575,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	j_dbs_info = &per_cpu(od_cpu_dbs_info, j);
 
 	/* Only core0 controls the boost */
-	if (dbs_tuners_ins.boosted && this_dbs_info->cpu == 0) {
+	if (dbs_tuners_ins.boosted && policy->cpu == 0) {
 		if (ktime_to_us(ktime_get()) - hyper_freq_boosted_time >=
 					dbs_tuners_ins.freq_boost_time) {
 			dbs_tuners_ins.boosted = 0;
@@ -584,7 +583,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	}
 
 	/* Only core0 controls the timer_rate */
-	if (hyper_sampling_rate_boosted && this_dbs_info->cpu == 0) {
+	if (hyper_sampling_rate_boosted && policy->cpu == 0) {
 		if (ktime_to_us(ktime_get()) - hyper_sampling_rate_boosted_time >=
 					TIMER_RATE_BOOST_TIME) {
 
@@ -843,19 +842,18 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 {
 	/* We want all CPUs to do sampling nearly on same jiffy */
 	int delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate);
+	unsigned int cpu = dbs_info->cpu;
 
 	if (num_online_cpus() > 1)
 		delay -= jiffies % delay;
 
 	dbs_info->sample_type = DBS_NORMAL_SAMPLE;
 	INIT_DEFERRABLE_WORK(&dbs_info->work, do_dbs_timer);
-	mod_delayed_work_on(dbs_info->cpu, dbs_wq, &dbs_info->work, 10 * delay);
-	dbs_info->activated = true;
+	mod_delayed_work_on(cpu, dbs_wq, &dbs_info->work, 10 * delay);
 }
 
 static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
 {
-	dbs_info->activated = false;
 	cancel_delayed_work_sync(&dbs_info->work);
 }
 
@@ -876,13 +874,13 @@ static int should_io_be_busy(void)
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				unsigned int event)
 {
-	unsigned int cpu;
+	unsigned int cpu = policy->cpu;
 	struct cpu_dbs_info_s *this_dbs_info;
 	unsigned int j;
 	int rc;
 
-	this_dbs_info = &per_cpu(od_cpu_dbs_info, policy->cpu);
-	cpu = this_dbs_info->cpu;
+	this_dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
+	this_dbs_info->cpu = cpu;
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
@@ -905,6 +903,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				j_dbs_info->prev_cpu_nice =
 						kcpustat_cpu(j).cpustat[CPUTIME_NICE];
 		}
+
 		this_dbs_info->rate_mult = 1;
 		hyper_powersave_bias_init_cpu(cpu);
 		/*

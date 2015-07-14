@@ -73,7 +73,6 @@ struct cpufreq_ondemandplus_cpuinfo {
 	struct cpufreq_frequency_table *freq_table;
 	unsigned int target_freq;
 	int governor_enabled;
-	unsigned int cpu;
 };
 
 static DEFINE_PER_CPU(struct cpufreq_ondemandplus_cpuinfo, cpuinfo);
@@ -777,17 +776,16 @@ static int cpufreq_governor_ondemandplus(struct cpufreq_policy *policy,
 		unsigned int event)
 {
 	int rc;
-	unsigned int cpu;
+	unsigned int cpu = policy->cpu;
 	unsigned int j;
 	struct cpufreq_ondemandplus_cpuinfo *pcpu;
 	struct cpufreq_frequency_table *freq_table;
 
-	pcpu = &per_cpu(cpuinfo, policy->cpu);
-	cpu = pcpu->cpu;
+	pcpu = &per_cpu(cpuinfo, cpu);
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if (!cpu_online(cpu) || (!policy->cur))
+		if ((!cpu_online(cpu)) || (!policy->cur))
 			return -EINVAL;
 
 		freq_table =
