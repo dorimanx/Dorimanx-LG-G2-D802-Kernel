@@ -663,13 +663,12 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		break;
 	case CPUFREQ_GOV_LIMITS:
-		mutex_lock(&this_nightmare_cpuinfo->timer_mutex);
 		if (!this_nightmare_cpuinfo->cur_policy->cur
 			 || !policy->cur) {
 			pr_debug("Unable to limit cpu freq due to cur_policy == NULL\n");
-			mutex_unlock(&this_nightmare_cpuinfo->timer_mutex);
 			return -EPERM;
 		}
+		mutex_lock(&this_nightmare_cpuinfo->timer_mutex);
 		__cpufreq_driver_target(this_nightmare_cpuinfo->cur_policy,
 				policy->cur, CPUFREQ_RELATION_L);
 		mutex_unlock(&this_nightmare_cpuinfo->timer_mutex);
