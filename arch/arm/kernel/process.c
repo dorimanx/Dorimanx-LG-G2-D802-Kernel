@@ -72,12 +72,6 @@ void arch_trigger_all_cpu_backtrace(void)
 }
 #endif
 
-int get_hlt(void)
-{
-	return hlt_counter;
-}
-EXPORT_SYMBOL(get_hlt);
-
 extern void call_with_stack(void (*fn)(void *), void *arg, void *sp);
 typedef void (*phys_reset_t)(unsigned long);
 
@@ -246,6 +240,13 @@ __setup("reboot=", reboot_setup);
 void machine_shutdown(void)
 {
 #ifdef CONFIG_SMP
+	/*
+	 * Disable preemption so we're guaranteed to
+	 * run to power off or reboot and prevent
+	 * the possibility of switching to another
+	 * thread that might wind up blocking on
+	 * one of the stopped CPUs.
+	 */
 	preempt_disable();
 #endif
 	disable_nonboot_cpus();
