@@ -18,19 +18,15 @@
 #include <linux/debugfs.h>
 #include <linux/fs.h>
 #include <asm/system.h>
+#include <linux/cpu.h>
 
 static int set_nohalt(void *data, u64 val)
 {
 	if (val)
-		disable_hlt();
+		cpu_idle_poll_ctrl(true);
 	else
-		enable_hlt();
+		cpu_idle_poll_ctrl(false);
 	return 0;
-}
-
-static int get_nohalt(void *data, u64 *val)
-{
-	*val = (unsigned int)get_hlt();
 }
 
 extern int cpu_idle_force_poll;
