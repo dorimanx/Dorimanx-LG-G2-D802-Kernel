@@ -298,14 +298,14 @@ static int __init check_for_compat(unsigned long node)
 int __init dt_scan_for_memory_reserve(unsigned long node, const char *uname,
 		int depth, void *data)
 {
-	char *memory_name_prop;
-	unsigned int *memory_remove_prop;
-	unsigned long memory_name_prop_length;
-	unsigned long memory_remove_prop_length;
-	unsigned long memory_size_prop_length;
-	unsigned int *memory_size_prop;
-	unsigned int *memory_reserve_prop;
-	unsigned long memory_reserve_prop_length;
+	const char *memory_name_prop;
+	const unsigned int *memory_remove_prop;
+	int memory_name_prop_length;
+	int memory_remove_prop_length;
+	int memory_size_prop_length;
+	const unsigned int *memory_size_prop;
+	const unsigned int *memory_reserve_prop;
+	int memory_reserve_prop_length;
 	unsigned int memory_size;
 	unsigned int memory_start;
 	unsigned int num_holes = 0;
@@ -432,8 +432,8 @@ static void merge_meminfo(void)
 int __init dt_scan_for_memory_hole(unsigned long node, const char *uname,
 		int depth, void *data)
 {
-	unsigned int *memory_remove_prop;
-	unsigned long memory_remove_prop_length;
+	const unsigned int *memory_remove_prop;
+	int memory_remove_prop_length;
 	unsigned long hole_start;
 	unsigned long hole_size;
 	unsigned int num_holes = 0;

@@ -94,12 +94,12 @@ static struct cn_prop cn_array[] = {
 int __init lge_init_dt_scan_chosen(unsigned long node, const char *uname,
 								int depth, void *data)
 {
-	unsigned long len;
+	int len;
 	int i;
 	enum cn_prop_type type;
-	char *p;
-	uint32_t *u32;
-	void *temp;
+	const char *p;
+	const uint32_t *u32;
+	const void *temp;
 
 	if (depth != 1 || (strcmp(uname, "chosen") != 0
 					   && strcmp(uname, "chosen@0") != 0))
