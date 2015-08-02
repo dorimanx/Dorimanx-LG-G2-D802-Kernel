@@ -82,8 +82,8 @@ void __init msm_dt_init_irq_l2x0(void)
 int __init msm_scan_dt_map_imem(unsigned long node, const char *uname,
 			int depth, void *data)
 {
-	unsigned int *imem_prop;
-	unsigned long imem_prop_len;
+	const unsigned int *imem_prop;
+	int imem_prop_len;
 	struct map_desc map;
 	int ret;
 	const char *compat = "qcom,msm-imem";
