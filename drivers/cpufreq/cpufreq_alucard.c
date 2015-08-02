@@ -631,7 +631,9 @@ static void do_alucard_timer(struct work_struct *work)
 
 	/* We want all CPUs to do sampling nearly on same jiffy */
 	if (num_online_cpus() > 1) {
-		delay = max(delay - (jiffies % delay), usecs_to_jiffies(alucard_tuners_ins.sampling_rate / 2));
+		delay -= jiffies % delay;
+		if (delay < 0)
+			delay = 0;
 	}
 
 	mod_delayed_work_on(cpu, system_wq,
@@ -693,7 +695,9 @@ static int cpufreq_governor_alucard(struct cpufreq_policy *policy,
 		delay = usecs_to_jiffies(alucard_tuners_ins.sampling_rate);
 		/* We want all CPUs to do sampling nearly on same jiffy */
 		if (num_online_cpus() > 1) {
-			delay = max(delay - (jiffies % delay), usecs_to_jiffies(alucard_tuners_ins.sampling_rate / 2));
+			delay -= jiffies % delay;
+			if (delay < 0)
+				delay = 0;
 		}
 
 		INIT_DEFERRABLE_WORK(&this_alucard_cpuinfo->work, do_alucard_timer);
