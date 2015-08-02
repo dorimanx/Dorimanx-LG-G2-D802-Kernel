@@ -578,7 +578,9 @@ static void do_nightmare_timer(struct work_struct *work)
 	 * same jiffy
 	 */
 	if (num_online_cpus() > 1) {
-		delay = max(delay - (jiffies % delay), usecs_to_jiffies(nightmare_tuners_ins.sampling_rate / 2));
+		delay -= jiffies % delay;
+		if (delay < 0)
+			delay = 0;
 	}
 
 	mod_delayed_work_on(cpu, system_wq,
@@ -636,7 +638,9 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		delay=usecs_to_jiffies(nightmare_tuners_ins.sampling_rate);
 		/* We want all CPUs to do sampling nearly on same jiffy */
 		if (num_online_cpus() > 1) {
-			delay = max(delay - (jiffies % delay), usecs_to_jiffies(nightmare_tuners_ins.sampling_rate / 2));
+			delay -= jiffies % delay;
+			if (delay < 0)
+				delay = 0;
 		}
 
 		INIT_DEFERRABLE_WORK(&this_nightmare_cpuinfo->work, do_nightmare_timer);
