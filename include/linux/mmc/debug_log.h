@@ -2,11 +2,11 @@
 #define _LINUX_DEBUG_LOG_H
 
 /*
-               
-                     
-                                
-                             
-                                                                                                       
+ * LGE_CHANGE_S
+ * Date 	: 2014.03.19
+ * Author 	: bohyun.jung@lge.com
+ * Comment 	: Dynamic MMC log
+ * 			  set mmc log level by accessing '/sys/module/mmc_core/parameters/debug_level' through adb shell.
  */
 #if defined(CONFIG_LGE_MMC_DYNAMIC_LOG)
 
@@ -50,6 +50,6 @@ extern uint32_t mmc_debug_level;
 
 #else
 #define mmc_print(level, x...)			// map to empty
-#endif	/*                     */
+#endif	/* end of LGE_CHANGE_E */
 
 #endif 	/* _LINUX_DEBUG_LOG_H */
