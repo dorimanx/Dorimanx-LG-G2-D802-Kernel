@@ -254,7 +254,7 @@ config APM_EMULATION
 	  APM in your BIOS).
 
 config ARCH_HAS_OPP
-	bool
+	bool "Arch has OPP"
 
 config PM_OPP
 	bool "Operating Performance Point (OPP) Layer library"

@@ -693,15 +693,6 @@ int pm_qos_update_target(struct pm_qos_constraints *c,
 	int prev_value, curr_value, new_value, ret;
 	struct plist_node *node = &req->node;
 
-	/*
-	 * do not update qos value and generate kernel panic when the requested
-	 * value is smaller than PM_QOS_DEFAULT_VALUE.
-	 */
-	if (unlikely(value < PM_QOS_DEFAULT_VALUE)) {
-		panic("%s (value: %d, pid: %d, comm: %s)", __func__, value,
-				current->pid, current->comm);
-	}
-
 	mutex_lock(&pm_qos_lock);
 	prev_value = pm_qos_get_value(c);
 	if (value == PM_QOS_DEFAULT_VALUE)

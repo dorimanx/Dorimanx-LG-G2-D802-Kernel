@@ -728,6 +728,10 @@ static void timekeeping_resume(void)
 
 	/* Resume hrtimers */
 	hrtimers_resume();
+#ifdef CONFIG_MACH_LGE
+	pr_debug("TIME suspended for %lu.%03lu seconds\n", ts_delta.tv_sec,
+		ts_delta.tv_nsec / NSEC_PER_MSEC);
+#endif
 }
 
 static int timekeeping_suspend(void)
@@ -1221,7 +1225,7 @@ void get_monotonic_boottime(struct timespec *ts)
 	} while (read_seqretry(&timekeeper.lock, seq));
 
 	set_normalized_timespec(ts, ts->tv_sec + tomono.tv_sec + sleep.tv_sec,
-		(s64)ts->tv_nsec + tomono.tv_nsec + sleep.tv_nsec + nsecs);
+			(s64)ts->tv_nsec + tomono.tv_nsec + sleep.tv_nsec + nsecs);
 }
 EXPORT_SYMBOL_GPL(get_monotonic_boottime);
 
