@@ -1549,6 +1549,11 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	/* If polling, assume that the card is always present. */
 	if (host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION)
 #ifdef CONFIG_MACH_LGE
+	/* LGE_CHANGE
+	 * When sd doesn't exist physically, do finish tasklet-schedule.
+	 * Below checking is hard-coding, we have to consider 'mmc->index'.
+	 * 2014-03-17, B2-BSP-FS@lge.com
+	*/
 	{
 		if (mmc->index == MMC_HOST_DRIVER_INDEX_MMC1)
 			present = mmc_cd_get_status(mmc);
@@ -3239,6 +3244,12 @@ int sdhci_add_host(struct sdhci_host *host)
 		sdhci_readl(host, SDHCI_CAPABILITIES_1) : 0;
 
 #ifdef CONFIG_LGE_MMC_SD_USE_SDCC3
+	/* LGE_CHANGE
+	 * Custom: An external level shifter on SDC3
+	 * External level shifter is supported both 3.0V and 1.8V
+	 * So, we modify some code
+	 * 2014-01-02, B2-BSP-FS@lge.com
+	 */
 	if (strcmp(host->hw_name, "msm_sdcc.3") == 0) {
 		caps[0] |= (SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_300 | SDHCI_CAN_VDD_180);
 	}

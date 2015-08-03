@@ -28,6 +28,10 @@ struct mmc_cd_gpio {
 };
 
 #ifdef CONFIG_MACH_LGE
+/* LGE_CHANGE
+ * Change it global-function for usage from others.
+ * 2014-01-16, B2-BSP-FS@lge.com
+ */
 int mmc_cd_get_status(struct mmc_host *host)
 #else
 static int mmc_cd_get_status(struct mmc_host *host)
@@ -64,9 +68,10 @@ static irqreturn_t mmc_cd_gpio_irqt(int irq, void *dev_id)
 
 		/* Schedule a card detection after a debounce timeout */
 		#ifdef CONFIG_MACH_LGE
-		/*                                      
-                                                   
-   */
+		/* LGE_CHANGE
+		 * Reduce debounce time to make it more sensitive
+		 * 2014-01-16, B2-BSP-FS@lge.com
+		 */
 		mmc_detect_change(host, 0);
 		#else
 		mmc_detect_change(host, msecs_to_jiffies(100));

@@ -43,6 +43,11 @@
 #include <linux/iopoll.h>
 
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
+/* LGE_CHANGE
+ * For adjustable drive strength value on user level
+ * but, it doesn't operate in user build image
+ * 2014-03-19, B2-BSP-FS@lge.com
+ */
 #include <linux/debugfs.h>
 #endif
 #include "sdhci-pltfm.h"
@@ -362,6 +367,11 @@ enum vdd_io_level {
 	VDD_IO_SET_LEVEL,
 };
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
+/* LGE_CHANGE
+ * For adjustable drive strength value on user level
+ * but, it doesn't operate in user build image
+ * 2014-03-19, B2-BSP-FS@lge.com
+ */
 static void msmsdhci_dbg_createhost(struct sdhci_msm_host *);
 #endif
 
@@ -1104,6 +1114,8 @@ static int sdhci_msm_dt_parse_vreg_info(struct device *dev,
 	if (of_get_property(np, prop_name, NULL))
 		vreg->lpm_sup = true;
 
+    /* Bohyun, Jung (D3-5T-FS@lge.com)
+       Because lpm_sup is defined on common dtsi, add attribute 'disable' for g3 global for minimum change. */
 	prop = of_get_property(np, prop_name, &len);
     if (prop != NULL && len >0 && of_compat_cmp((const char*)prop, "disable", strlen("disable")) == 0)
         vreg->lpm_sup = false;
@@ -2217,6 +2229,10 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 	bool done = false;
 
 #ifdef CONFIG_LGE_MMC_SD_USE_SDCC3
+/* LGE_CHANGE
+ * Handle I/O voltage switch here if this request is for SDC3.
+ * 2014-01-23, B2-BSP-FS@lge.com
+ */
 	if (strcmp(host->hw_name, "msm_sdcc.3") == 0) {
 		if (req_type == REQ_IO_HIGH) {
 			/* Switch voltage High */
@@ -3091,6 +3107,11 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc->caps2 |= MMC_CAP2_CORE_PM;
 #ifdef CONFIG_MACH_LGE
 #if defined (CONFIG_LGE_MMC_BKOPS_ENABLE) && defined(CONFIG_MMC_SDHCI_MSM)
+	/* LGE_CHANGE
+	 * Enable BKOPS feature since it has been disabled by default.
+	 * If you want to use bkops, you have to set Y in kernel/arch/arm/configs/XXXX_defconfig file.
+	 * 2014-01-16, B2-BSP-FS@lge.com
+	 */
 	msm_host->mmc->caps2 |= MMC_CAP2_INIT_BKOPS;
 #endif
 #endif
@@ -3194,6 +3215,11 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	device_enable_async_suspend(&pdev->dev);
 	/* Successful initialization */
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
+/* LGE_CHANGE
+ * For adjustable drive strength value on user level
+ * but, it doesn't operate in user image
+ * 2014-03-19, B2-BSP-FS@lge.com
+ */
     msmsdhci_dbg_createhost(msm_host);
 #endif
 	goto out;
@@ -3484,6 +3510,11 @@ module_platform_driver(sdhci_msm_driver);
 MODULE_DESCRIPTION("Qualcomm Secure Digital Host Controller Interface driver");
 MODULE_LICENSE("GPL v2");
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
+/* LGE_CHANGE
+ * For adjustable drive strength value on user level
+ * but, it doesn't operate in user image
+ * 2014-03-19, B2-BSP-FS@lge.com
+ */
 static int gpio_to_value(int cfg)
 {
 	switch (cfg) {
