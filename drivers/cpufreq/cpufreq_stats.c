@@ -185,7 +185,7 @@ static void cpufreq_stats_free_sysfs(unsigned int cpu)
 	if (!cpufreq_frequency_get_table(cpu))
 		goto put_ref;
 
-	if (policy && policy->cpu == cpu)
+	if (policy->cpu == cpu)
 		sysfs_remove_group(&policy->kobj, &stats_attr_group);
 
 put_ref:
