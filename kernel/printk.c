@@ -1021,18 +1021,6 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 
 				time = __current_kernel_time();
 				time_to_tm(time.tv_sec,sys_tz.tz_minuteswest * 60* (-1),&tmresult);
-#ifdef CONFIG_MACH_MSM8974_VU3_KR
-				tlen = sprintf(tbuf, "[%5lu.%06lu / %02d-%02d %02d:%02d:%02d.%03lu]/CPU:%d ",
-						(unsigned long) t,
-						nanosec_rem / 1000,
-						tmresult.tm_mon+1,
-						tmresult.tm_mday,
-						tmresult.tm_hour,
-						tmresult.tm_min,
-						tmresult.tm_sec,
-						(unsigned long) time.tv_nsec/1000000,
-						printk_cpu);
-#else
 				tlen = sprintf(tbuf, "[%5lu.%06lu / %02d-%02d %02d:%02d:%02d.%03lu] ",
 						(unsigned long) t,
 						nanosec_rem / 1000,
@@ -1042,7 +1030,6 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 						tmresult.tm_min,
 						tmresult.tm_sec,
 						(unsigned long) time.tv_nsec/1000000);
-#endif
 #endif
 				for (tp = tbuf; tp < tbuf + tlen; tp++)
 					emit_log_char(*tp);
