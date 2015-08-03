@@ -132,7 +132,7 @@ static irqreturn_t modem_err_fatal_intr_handler(int irq, void *dev_id)
 {
 	struct modem_data *drv = subsys_to_drv(dev_id);
 
-	if(check_modem_reset() == 0)
+	if (check_modem_reset() == 0)
 		return IRQ_HANDLED;
 
 	/* Ignore if we're the one that set the force stop GPIO */

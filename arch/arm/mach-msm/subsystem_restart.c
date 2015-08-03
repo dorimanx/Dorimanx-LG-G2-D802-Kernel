@@ -175,6 +175,7 @@ struct subsys_device {
 
 #ifdef CONFIG_MACH_LGE
 static int modem_reboot_cnt;
+module_param(modem_reboot_cnt, int, S_IRUGO | S_IWUSR);
 #endif
 
 static struct subsys_device *to_subsys(struct device *d)
@@ -272,10 +273,6 @@ static DEFINE_IDA(subsys_ida);
 
 static int enable_ramdumps;
 module_param(enable_ramdumps, int, S_IRUGO | S_IWUSR);
-
-#ifdef CONFIG_MACH_LGE
-module_param(modem_reboot_cnt, int, S_IRUGO | S_IWUSR);
-#endif
 
 struct workqueue_struct *ssr_wq;
 
@@ -489,6 +486,7 @@ static void subsystem_powerup(struct subsys_device *dev, void *data)
 
 	pr_info("[%p]: Powering up %s\n", current, name);
 	init_completion(&dev->err_ready);
+
 	if (dev->desc->powerup(dev->desc) < 0) {
 #ifdef CONFIG_LGE_HANDLE_PANIC
 		lge_set_magic_subsystem(name, LGE_ERR_SUB_PWR);
@@ -623,8 +621,6 @@ void *subsystem_get(const char *name)
 			retval = ERR_PTR(ret);
 			goto err_start;
 		}
-		/*                                      
-                                    */
 		pr_info("[LGE Debug] subsys: %s get start %d by %d[%s]\n",
 			name, subsys->count,
 			current->pid, current->comm);
@@ -664,9 +660,6 @@ void subsystem_put(void *subsystem)
 			subsys->desc->name, __func__))
 		goto err_out;
 	if (!--subsys->count) {
-/*                                             
-                                  
- */
 		pr_info("[LGE DEBUG]subsys: %s put stop %d by %d[%s]\n",
 			 subsys->desc->name, subsys->count,
 			 current->pid, current->comm);
@@ -684,9 +677,6 @@ void subsystem_put(void *subsystem)
 			subsys->count++;
 		}
 #endif
-/*                                             
-                                  
- */
 	}
 	mutex_unlock(&track->lock);
 
@@ -890,7 +880,6 @@ int subsys_modem_restart(void)
 	int ret;
 	int rsl;
 	struct subsys_tracking *track;
-
 	struct subsys_device *dev = find_subsys("modem");
 
 	if (!dev)
@@ -904,11 +893,12 @@ int subsys_modem_restart(void)
 
 	rsl = dev->restart_level;
 	dev->restart_level = RESET_SUBSYS_COUPLED;
-	ignore_errors_by_subsys_modem_restart = true; //                         
+	ignore_errors_by_subsys_modem_restart = true;
 	ret = subsystem_restart_dev(dev);
 	dev->restart_level = rsl;
+#ifdef CONFIG_MACH_LGE
 	modem_reboot_cnt--;
-
+#endif
 	put_device(&dev->dev);
 	return ret;
 }
