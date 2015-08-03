@@ -588,11 +588,19 @@ static int __ref intelli_plug_start(void)
 	INIT_DELAYED_WORK(&suspend_work, intelli_plug_suspend);
 	INIT_WORK(&resume_work, intelli_plug_resume);
 
-	/* Put all sibling cores to sleep */
+	/* Put all sibling cores to sleep to release all locks */
 	for_each_online_cpu(cpu) {
 		if (cpu == 0)
 			continue;
 		cpu_down(cpu);
+	}
+
+	/* Fire up all CPUs to boost performance */
+	for_each_cpu_not(cpu, cpu_online_mask) {
+		if (cpu == 0)
+			continue;
+		cpu_up(cpu);
+		apply_down_lock(cpu);
 	}
 
 	mod_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
@@ -633,6 +641,13 @@ static void intelli_plug_stop(void)
 	input_unregister_handler(&intelli_plug_input_handler);
 	destroy_workqueue(susp_wq);
 	destroy_workqueue(intelliplug_wq);
+
+	/* Put all sibling cores to sleep */
+	for_each_online_cpu(cpu) {
+		if (cpu == 0)
+			continue;
+		cpu_down(cpu);
+	}
 }
 
 static void intelli_plug_active_eval_fn(unsigned int status)
