@@ -2678,11 +2678,11 @@ loop_again:
 		 * OK, kswapd is getting into trouble.  Take a nap, then take
 		 * another pass across the zones.
 		 */
-		if (total_scanned && (sc.priority < DEF_PRIORITY - 8)) {
+		if (total_scanned && (sc.priority < DEF_PRIORITY - 2)) {
 			if (has_under_min_watermark_zone)
 				count_vm_event(KSWAPD_SKIP_CONGESTION_WAIT);
 			else
-				congestion_wait(BLK_RW_ASYNC, HZ/60);
+				congestion_wait(BLK_RW_ASYNC, HZ/10);
 		}
 
 		/*
