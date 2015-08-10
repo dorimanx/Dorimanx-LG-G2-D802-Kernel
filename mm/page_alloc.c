@@ -536,7 +536,7 @@ static inline int page_is_buddy(struct page *page, struct page *buddy,
  * If a block is freed, and its buddy is also free, then this
  * triggers coalescing into a block of larger size.
  *
- * -- wli
+ * -- nyc
  */
 
 static inline void __free_one_page(struct page *page,
@@ -696,8 +696,6 @@ static void free_pcppages_bulk(struct zone *zone, int count,
 			/* MIGRATE_MOVABLE list may include MIGRATE_RESERVEs */
 			__free_one_page(page, zone, 0, mt);
 			trace_mm_page_pcpu_drain(page, 0, mt);
-			if (is_migrate_cma(mt))
-				__mod_zone_page_state(zone, NR_FREE_CMA_PAGES, 1);
 		} while (--to_free && --batch_free && !list_empty(list));
 	}
 	spin_unlock(&zone->lock);
@@ -841,7 +839,7 @@ void __init init_cma_reserved_pageblock(struct page *page)
  * large block of memory acted on by a series of small allocations.
  * This behavior is a critical factor in sglist merging's success.
  *
- * -- wli
+ * -- nyc
  */
 static inline void expand(struct zone *zone, struct page *page,
 	int low, int high, struct free_area *area,
@@ -6175,8 +6173,8 @@ static int __alloc_contig_migrate_range(struct compact_control *cc,
 			break;
 		}
 
-		nr_reclaimed = reclaim_clean_pages_from_list(cc->zone, &cc->migratepages);
-
+		nr_reclaimed = reclaim_clean_pages_from_list(cc->zone,
+							&cc->migratepages);
 		cc->nr_migratepages -= nr_reclaimed;
 
 		ret = migrate_pages(&cc->migratepages,
@@ -6431,8 +6429,6 @@ __offline_isolated_pages(unsigned long start_pfn, unsigned long end_pfn)
 		list_del(&page->lru);
 		rmv_page_order(page);
 		zone->free_area[order].nr_free--;
-		__mod_zone_page_state(zone, NR_FREE_PAGES,
-				      - (1UL << order));
 #ifdef CONFIG_HIGHMEM
 		if (PageHighMem(page))
 			totalhigh_pages -= 1 << order;
