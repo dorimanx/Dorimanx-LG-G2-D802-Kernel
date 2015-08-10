@@ -787,7 +787,7 @@ void __init mem_init(void)
 
 #ifdef CONFIG_SA1111
 	/* now that our DMA memory is actually so designated, we can free it */
-	free_reserved_area(__va(PHYS_PFN_OFFSET), swapper_pg_dir, 0, NULL);
+	free_reserved_area(__va(PHYS_OFFSET), swapper_pg_dir, 0, NULL);
 #endif
 
 	free_highpages();
@@ -880,6 +880,8 @@ void __init mem_init(void)
 #undef MLK_ROUNDUP
 void free_initmem(void)
 {
+	unsigned long reclaimed_initmem;
+
 #ifdef CONFIG_HAVE_TCM
 	extern char __tcm_start, __tcm_end;
 
@@ -890,11 +892,17 @@ void free_initmem(void)
 #ifdef CONFIG_STRICT_MEMORY_RWX
 	poison_init_mem((char *)__arch_info_begin,
 		__init_end - (char *)__arch_info_begin);
-	free_initmem_default(0);
+	reclaimed_initmem = free_reserved_area(
+				PAGE_ALIGN((unsigned long)&__arch_info_begin),
+				((unsigned long)&__init_end)&PAGE_MASK, 0,
+				"unused kernel");
+	totalram_pages += reclaimed_initmem;
 #else
 	poison_init_mem(__init_begin, __init_end - __init_begin);
-	if (!machine_is_integrator() && !machine_is_cintegrator())
-		free_initmem_default(0);
+	if (!machine_is_integrator() && !machine_is_cintegrator()) {
+		reclaimed_initmem = free_initmem_default(0);
+		totalram_pages += reclaimed_initmem;
+	}
 #endif
 }
 
@@ -904,9 +912,13 @@ static int keep_initrd;
 
 void free_initrd_mem(unsigned long start, unsigned long end)
 {
+	unsigned long reclaimed_initrd_mem;
+
 	if (!keep_initrd) {
 		poison_init_mem((void *)start, PAGE_ALIGN(end) - start);
-		free_reserved_area(start, end, 0, "initrd");
+		reclaimed_initrd_mem = free_reserved_area(start, end, 0,
+				"initrd");
+		totalram_pages += reclaimed_initrd_mem;
 	}
 }
 
