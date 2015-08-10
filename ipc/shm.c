@@ -1038,6 +1038,10 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg, ulong *raddr)
 	sfd->file = shp->shm_file;
 	sfd->vm_ops = NULL;
 
+	err = security_mmap_file(file, prot, flags);
+	if (err)
+		goto out_fput;
+
 	down_write(&current->mm->mmap_sem);
 	if (addr && !(shmflg & SHM_REMAP)) {
 		err = -EINVAL;
@@ -1060,6 +1064,7 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg, ulong *raddr)
 invalid:
 	up_write(&current->mm->mmap_sem);
 
+out_fput:
 	fput(file);
 
 out_nattch:
