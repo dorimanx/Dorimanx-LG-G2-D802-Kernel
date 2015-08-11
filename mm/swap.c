@@ -30,6 +30,7 @@
 #include <linux/backing-dev.h>
 #include <linux/memcontrol.h>
 #include <linux/gfp.h>
+#include <linux/uio.h>
 #include <linux/hugetlb.h>
 
 #include "internal.h"
@@ -71,8 +72,7 @@ static void __put_compound_page(struct page *page)
 {
 	compound_page_dtor *dtor;
 
-	if (!PageHuge(page))
-		__page_cache_release(page);
+	__page_cache_release(page);
 	dtor = get_compound_page_dtor(page);
 	(*dtor)(page);
 }
@@ -87,7 +87,15 @@ static void put_compound_page(struct page *page)
 			   get_page_unless_zero(page_head))) {
 			unsigned long flags;
 
-			 if (PageHeadHuge(page_head)) {
+			/*
+			 * THP can not break up slab pages so avoid taking
+			 * compound_lock().  Slab performs non-atomic bit ops
+			 * on page->flags for better performance.  In particular
+			 * slab_unlock() in slub used to be a hot path.  It is
+			 * still hot on arches that do not support
+			 * this_cpu_cmpxchg_double().
+			 */
+			if (PageSlab(page_head) || PageHeadHuge(page_head)) {
 				if (likely(PageTail(page))) {
 					/*
 					 * __split_huge_page_refcount
@@ -100,7 +108,7 @@ static void put_compound_page(struct page *page)
 					if (put_page_testzero(page_head))
 						__put_compound_page(page_head);
 					return;
-				} else {
+				} else
 					/*
 					 * __split_huge_page_refcount
 					 * run before us, "page" was a
@@ -113,7 +121,6 @@ static void put_compound_page(struct page *page)
 					 * x86).
 					 */
 					goto skip_lock;
-				}
 			}
 			/*
 			 * page_head wasn't a dangling pointer but it
@@ -125,7 +132,6 @@ static void put_compound_page(struct page *page)
 			if (unlikely(!PageTail(page))) {
 				/* __split_huge_page_refcount run before us */
 				compound_unlock_irqrestore(page_head, flags);
-				VM_BUG_ON(PageHead(page_head));
 skip_lock:
 				if (put_page_testzero(page_head)) {
 					/*
@@ -168,6 +174,7 @@ out_put_single:
 			VM_BUG_ON(atomic_read(&page_head->_count) <= 0);
 			VM_BUG_ON(atomic_read(&page->_count) != 0);
 			compound_unlock_irqrestore(page_head, flags);
+
 			if (put_page_testzero(page_head)) {
 				if (PageHead(page_head))
 					__put_compound_page(page_head);
@@ -216,10 +223,10 @@ bool __get_page_tail(struct page *page)
 
 	if (likely(page != page_head && get_page_unless_zero(page_head))) {
 		/* Ref to put_compound_page() comment. */
-		if (PageHeadHuge(page_head)) {
+		if (PageSlab(page_head) || PageHeadHuge(page_head)) {
 			if (likely(PageTail(page))) {
 				/*
-				 * This is a hugetlbfs
+				 * This is a hugetlbfs page or a slab
 				 * page. __split_huge_page_refcount
 				 * cannot race here.
 				 */
@@ -240,6 +247,7 @@ bool __get_page_tail(struct page *page)
 				return false;
 			}
 		}
+
 		/*
 		 * page_head wasn't a dangling pointer but it
 		 * may not be a head page anymore by the time
