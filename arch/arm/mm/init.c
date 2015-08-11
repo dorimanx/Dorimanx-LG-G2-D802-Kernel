@@ -673,8 +673,10 @@ static void __init free_unused_memmap(struct meminfo *mi)
 #ifdef CONFIG_HIGHMEM
 static inline void free_area_high(unsigned long pfn, unsigned long end)
 {
-	for (; pfn < end; pfn++)
-		free_highmem_page(pfn_to_page(pfn));
+	for (; pfn < end; pfn++) {
+		__free_reserved_page(pfn_to_page(pfn));
+		totalhigh_pages++;
+	}
 }
 #endif
 
@@ -723,6 +725,7 @@ static void __init free_highpages(void)
 		if (start < end)
 			free_area_high(start, end);
 	}
+	totalram_pages += totalhigh_pages;
 #endif
 }
 
