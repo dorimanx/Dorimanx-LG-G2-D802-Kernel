@@ -198,7 +198,7 @@ static int __init free_pages_init(void)
 	int reservedpages, pfn;
 
 	/* this will put all low memory onto the freelists */
-	free_all_bootmem();
+	totalram_pages = free_all_bootmem();
 
 	reservedpages = 0;
 	for (pfn = 0; pfn < max_low_pfn; pfn++) {

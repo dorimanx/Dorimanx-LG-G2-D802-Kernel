@@ -311,12 +311,13 @@ void __init mem_init(void)
         for_each_online_node(nid) {
 		if (NODE_DATA(nid)->node_spanned_pages != 0) {
 			printk("freeing bootmem node %d\n", nid);
-			free_all_bootmem_node(NODE_DATA(nid));
+			totalram_pages +=
+				free_all_bootmem_node(NODE_DATA(nid));
 		}
 	}
 #else
 	max_mapnr = max_pfn;
-	free_all_bootmem();
+	totalram_pages += free_all_bootmem();
 #endif
 	for_each_online_pgdat(pgdat) {
 		for (i = 0; i < pgdat->node_spanned_pages; i++) {
