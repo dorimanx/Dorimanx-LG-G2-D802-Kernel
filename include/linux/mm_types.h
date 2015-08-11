@@ -182,9 +182,6 @@ struct page {
 	struct stack_trace trace;
 	unsigned long trace_entries[8];
 #endif
-#ifdef CONFIG_NUMA_BALANCING
-	int _last_nid;
-#endif
 }
 /*
  * The struct page can be forced to be double word aligned so that atomic ops
@@ -258,14 +255,6 @@ struct vm_area_struct {
 	struct mm_struct *vm_mm;	/* The address space we belong to. */
 	pgprot_t vm_page_prot;		/* Access permissions of this VMA. */
 	unsigned long vm_flags;		/* Flags, see mm.h. */
-
-	/*
-	 * Largest free memory gap in bytes to the left of this VMA.
-	 * Either between this VMA and vma->vm_prev, or between one of the
-	 * VMAs below us in the VMA rbtree and its ->vm_prev. This helps
-	 * get_unmapped_area find a free area of the right size.
-	 */
-	unsigned long rb_subtree_gap;
 
 	/*
 	 * For areas with an address space and backing store,
@@ -432,14 +421,26 @@ struct mm_struct {
 #endif
 #ifdef CONFIG_NUMA_BALANCING
 	/*
-	 * numa_next_scan is the next time when the PTEs will me marked
-	 * pte_numa to gather statistics and migrate pages to new nodes
-	 * if necessary
+	 * numa_next_scan is the next time that the PTEs will be marked
+	 * pte_numa. NUMA hinting faults will gather statistics and migrate
+	 * pages to new nodes if necessary.
 	 */
 	unsigned long numa_next_scan;
 
+	/* numa_next_reset is when the PTE scanner period will be reset */
+	unsigned long numa_next_reset;
+
+	/* Restart point for scanning and setting pte_numa */
+	unsigned long numa_scan_offset;
+
 	/* numa_scan_seq prevents two threads setting pte_numa */
 	int numa_scan_seq;
+
+	/*
+	 * The first node a task was scheduled on. If a task runs on
+	 * a different node than Make PTE Scan Go Now.
+	 */
+	int first_nid;
 #endif
 #if defined(CONFIG_NUMA_BALANCING) || defined(CONFIG_COMPACTION)
 	/*
@@ -450,6 +451,10 @@ struct mm_struct {
 	bool tlb_flush_pending;
 #endif
 };
+
+/* first nid will either be a valid NID or one of these values */
+#define NUMA_PTE_SCAN_INIT	-1
+#define NUMA_PTE_SCAN_ACTIVE	-2
 
 static inline void mm_init_cpumask(struct mm_struct *mm)
 {
