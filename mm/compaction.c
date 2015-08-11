@@ -252,7 +252,7 @@ static unsigned long isolate_freepages_block(struct compact_control *cc,
 {
 	int nr_scanned = 0, total_isolated = 0;
 	struct page *cursor, *valid_page = NULL;
-	unsigned long flags = 0;
+	unsigned long flags;
 	bool locked = false;
 
 	cursor = pfn_to_page(blockpfn);
@@ -310,6 +310,8 @@ static unsigned long isolate_freepages_block(struct compact_control *cc,
 isolate_fail:
 		if (strict)
 			break;
+		else
+			continue;
 
 	}
 
@@ -461,7 +463,7 @@ isolate_migratepages_range(struct zone *zone, struct compact_control *cc,
 	struct list_head *migratelist = &cc->migratepages;
 	isolate_mode_t mode = 0;
 	struct lruvec *lruvec;
-	unsigned long flags = 0;
+	unsigned long flags;
 	bool locked = false;
 	struct page *page = NULL, *valid_page = NULL;
 
