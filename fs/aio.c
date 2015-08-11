@@ -181,8 +181,7 @@ static int aio_setup_ring(struct kioctx *ctx)
 	down_write(&mm->mmap_sem);
 	ctx->mmap_base = do_mmap_pgoff(NULL, 0, ctx->mmap_size,
 				       PROT_READ|PROT_WRITE,
-				       MAP_ANONYMOUS|MAP_PRIVATE, 0
-				       &populate);
+				       MAP_ANONYMOUS|MAP_PRIVATE, 0, &populate);
 	if (IS_ERR((void *)ctx->mmap_base)) {
 		up_write(&mm->mmap_sem);
 		ctx->mmap_size = 0;
@@ -200,7 +199,7 @@ static int aio_setup_ring(struct kioctx *ctx)
 		return -EAGAIN;
 	}
 	if (populate)
-		mm_populate(info->mmap_base, populate);
+		mm_populate(ctx->mmap_base, populate);
 
 	ctx->user_id = ctx->mmap_base;
 	ctx->nr_events = nr_events; /* trusted copy */
