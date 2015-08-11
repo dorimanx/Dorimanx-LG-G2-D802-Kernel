@@ -43,7 +43,7 @@ struct address_space swapper_spaces[MAX_SWAPFILES] = {
 		.backing_dev_info = &swap_backing_dev_info,
 	}
 };
-EXPORT_SYMBOL_GPL(swapper_space);
+EXPORT_SYMBOL_GPL(swapper_spaces);
 #define INC_CACHE_INFO(x)	do { swap_cache_info.x++; } while (0)
 
 static struct {
