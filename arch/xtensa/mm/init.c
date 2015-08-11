@@ -188,7 +188,7 @@ void __init mem_init(void)
 #error HIGHGMEM not implemented in init.c
 #endif
 
-	free_all_bootmem();
+	totalram_pages += free_all_bootmem();
 
 	reservedpages = ram = 0;
 	for (tmp = 0; tmp < max_mapnr; tmp++) {
