@@ -22,6 +22,11 @@ struct hugepage_subpool {
 	long max_hpages, used_hpages;
 };
 
+extern spinlock_t hugetlb_lock;
+extern int hugetlb_max_hstate __read_mostly;
+#define for_each_hstate(h) \
+	for ((h) = hstates; (h) < &hstates[hugetlb_max_hstate]; (h)++)
+
 struct hugepage_subpool *hugepage_new_subpool(long nr_blocks);
 void hugepage_put_subpool(struct hugepage_subpool *spool);
 
@@ -239,6 +244,7 @@ struct hstate {
 	unsigned long resv_huge_pages;
 	unsigned long surplus_huge_pages;
 	unsigned long nr_overcommit_huge_pages;
+	struct list_head hugepage_activelist;
 	struct list_head hugepage_freelists[MAX_NUMNODES];
 	unsigned int nr_huge_pages_node[MAX_NUMNODES];
 	unsigned int free_huge_pages_node[MAX_NUMNODES];
@@ -335,6 +341,14 @@ static inline unsigned int blocks_per_huge_page(struct hstate *h)
 
 #include <asm/hugetlb.h>
 
+#ifndef arch_make_huge_pte
+static inline pte_t arch_make_huge_pte(pte_t entry, struct vm_area_struct *vma,
+				       struct page *page, int writable)
+{
+	return entry;
+}
+#endif
+
 static inline struct hstate *page_hstate(struct page *page)
 {
 	return size_to_hstate(PAGE_SIZE << compound_order(page));
@@ -343,6 +357,11 @@ static inline struct hstate *page_hstate(struct page *page)
 static inline unsigned hstate_index_to_shift(unsigned index)
 {
 	return hstates[index].order + PAGE_SHIFT;
+}
+
+static inline int hstate_index(struct hstate *h)
+{
+	return h - hstates;
 }
 
 pgoff_t __basepage_index(struct page *page);
@@ -354,6 +373,17 @@ static inline pgoff_t basepage_index(struct page *page)
 		return page->index;
 
 	return __basepage_index(page);
+}
+
+int pmd_huge_support(void);
+/*
+ * Currently hugepage migration is enabled only for pmd-based hugepage.
+ * This function will be updated when hugepage migration is more widely
+ * supported.
+ */
+static inline int hugepage_migration_support(struct hstate *h)
+{
+	return pmd_huge_support() && (huge_page_shift(h) == PMD_SHIFT);
 }
 
 #else	/* CONFIG_HUGETLB_PAGE */
@@ -381,6 +411,8 @@ static inline pgoff_t basepage_index(struct page *page)
 {
 	return page->index;
 }
+#define pmd_huge_support()	0
+#define hugepage_migration_support(h)	0
 #endif	/* CONFIG_HUGETLB_PAGE */
 
 #endif /* _LINUX_HUGETLB_H */
