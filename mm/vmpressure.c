@@ -25,6 +25,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/vmpressure.h>
+#include <linux/slab.h>
 
 /*
  * The window size (vmpressure_win) is the number of scanned pages before
