@@ -43,7 +43,6 @@ struct kmem_cache {
 	unsigned int colour_off;	/* colour offset */
 	struct kmem_cache *slabp_cache;
 	unsigned int slab_size;
-	unsigned int dflags;		/* dynamic flags */
 
 	/* constructor func */
 	void (*ctor)(void *obj);
@@ -151,16 +150,16 @@ extern void *__kmalloc_node(size_t size, gfp_t flags, int node);
 extern void *kmem_cache_alloc_node(struct kmem_cache *, gfp_t flags, int node);
 
 #ifdef CONFIG_TRACING
-extern void *kmem_cache_alloc_node_trace(size_t size,
-					 struct kmem_cache *cachep,
+extern void *kmem_cache_alloc_node_trace(struct kmem_cache *cachep,
 					 gfp_t flags,
-					 int nodeid);
+					 int nodeid,
+					 size_t size);
 #else
 static __always_inline void *
-kmem_cache_alloc_node_trace(size_t size,
-			    struct kmem_cache *cachep,
+kmem_cache_alloc_node_trace(struct kmem_cache *cachep,
 			    gfp_t flags,
-			    int nodeid)
+			    int nodeid,
+			    size_t size)
 {
 	return kmem_cache_alloc_node(cachep, flags, nodeid);
 }
@@ -188,7 +187,7 @@ static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node)
 #endif
 			cachep = kmalloc_caches[i];
 
-		return kmem_cache_alloc_node_trace(size, cachep, flags, node);
+		return kmem_cache_alloc_node_trace(cachep, flags, node, size);
 	}
 	return __kmalloc_node(size, flags, node);
 }
