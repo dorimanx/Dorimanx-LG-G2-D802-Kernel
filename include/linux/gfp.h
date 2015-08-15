@@ -23,14 +23,13 @@ struct vm_area_struct;
 #define ___GFP_REPEAT		0x400u
 #define ___GFP_NOFAIL		0x800u
 #define ___GFP_NORETRY		0x1000u
-#define ___GFP_CMA		0x2000u
+#define ___GFP_MEMALLOC		0x2000u
 #define ___GFP_COMP		0x4000u
 #define ___GFP_ZERO		0x8000u
 #define ___GFP_NOMEMALLOC	0x10000u
 #define ___GFP_HARDWALL		0x20000u
 #define ___GFP_THISNODE		0x40000u
 #define ___GFP_RECLAIMABLE	0x80000u
-#define ___GFP_MEMALLOC		0x100000u
 #ifdef CONFIG_KMEMCHECK
 #define ___GFP_NOTRACK		0x200000u
 #else
@@ -39,6 +38,8 @@ struct vm_area_struct;
 #define ___GFP_NO_KSWAPD	0x400000u
 #define ___GFP_OTHER_NODE	0x800000u
 #define ___GFP_WRITE		0x1000000u
+#define ___GFP_CMA		0x2000000u
+/* If the above are modified, __GFP_BITS_SHIFT may need updating */
 
 /*
  * GFP bitmasks..
