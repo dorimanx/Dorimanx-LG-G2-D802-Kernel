@@ -117,6 +117,8 @@
 #include	<linux/memory.h>
 #include	<linux/prefetch.h>
 
+#include	<net/sock.h>
+
 #include	<asm/cacheflush.h>
 #include	<asm/tlbflush.h>
 #include	<asm/page.h>
@@ -284,23 +286,6 @@ struct arraycache_init {
 };
 
 /*
- * The slab lists for all objects.
- */
-struct kmem_cache_node {
-	struct list_head slabs_partial;	/* partial list first, better asm code */
-	struct list_head slabs_full;
-	struct list_head slabs_free;
-	unsigned long free_objects;
-	unsigned int free_limit;
-	unsigned int colour_next;	/* Per-node cache coloring */
-	spinlock_t list_lock;
-	struct array_cache *shared;	/* shared per node */
-	struct array_cache **alien;	/* on other nodes */
-	unsigned long next_reap;	/* updated without locking */
-	int free_touched;		/* updated without locking */
-};
-
-/*
  * Need this for bootstrapping a per node allocator.
  */
 #define NUM_INIT_LISTS (3 * MAX_NUMNODES)
@@ -315,14 +300,6 @@ static void free_block(struct kmem_cache *cachep, void **objpp, int len,
 			int node);
 static int enable_cpucache(struct kmem_cache *cachep, gfp_t gfp);
 static void cache_reap(struct work_struct *unused);
-
-struct kmem_cache *kmalloc_caches[KMALLOC_SHIFT_HIGH + 1];
-EXPORT_SYMBOL(kmalloc_caches);
-
-#ifdef CONFIG_ZONE_DMA
-struct kmem_cache *kmalloc_dma_caches[KMALLOC_SHIFT_HIGH + 1];
-EXPORT_SYMBOL(kmalloc_dma_caches);
-#endif
 
 static int slab_early_init = 1;
 
@@ -588,7 +565,7 @@ static void init_node_lock_keys(int q)
 	if (slab_state < UP)
 		return;
 
-	for (i = 1; i < PAGE_SHIFT + MAX_ORDER; i++) {
+	for (i = 1; i <= KMALLOC_SHIFT_HIGH; i++) {
 		struct kmem_cache_node *n;
 		struct kmem_cache *cache = kmalloc_caches[i];
 
@@ -660,40 +637,6 @@ static DEFINE_PER_CPU(struct delayed_work, slab_reap_work);
 static inline struct array_cache *cpu_cache_get(struct kmem_cache *cachep)
 {
 	return cachep->array[smp_processor_id()];
-}
-
-static inline struct kmem_cache *__find_general_cachep(size_t size,
-							gfp_t gfpflags)
-{
-	int i;
-
-#if DEBUG
-	/* This happens if someone tries to call
-	 * kmem_cache_create(), or __kmalloc(), before
-	 * the generic caches are initialized.
-	 */
-	BUG_ON(kmalloc_caches[INDEX_AC] == NULL);
-#endif
-	if (!size)
-		return ZERO_SIZE_PTR;
-
-	i = kmalloc_index(size);
-
-	/*
-	 * Really subtle: The last entry with cs->cs_size==ULONG_MAX
-	 * has cs_{dma,}cachep==NULL. Thus no special case
-	 * for large kmalloc calls required.
-	 */
-#ifdef CONFIG_ZONE_DMA
-	if (unlikely(gfpflags & GFP_DMA))
-		return kmalloc_dma_caches[i];
-#endif
-	return kmalloc_caches[i];
-}
-
-static struct kmem_cache *kmem_find_general_cachep(size_t size, gfp_t gfpflags)
-{
-	return __find_general_cachep(size, gfpflags);
 }
 
 static size_t slab_mgmt_size(size_t nr_objs, size_t align)
@@ -771,7 +714,7 @@ static void __slab_error(const char *function, struct kmem_cache *cachep,
 	printk(KERN_ERR "slab error in %s(): cache `%s': %s\n",
 	       function, cachep->name, msg);
 	dump_stack();
-	add_taint(TAINT_BAD_PAGE);
+	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
 }
 #endif
 
@@ -922,7 +865,7 @@ out:
 	spin_unlock_irqrestore(&n->list_lock, flags);
 }
 
-static void *ac_get_obj(struct kmem_cache *cachep, struct array_cache *ac,
+static void *__ac_get_obj(struct kmem_cache *cachep, struct array_cache *ac,
 						gfp_t flags, bool force_refill)
 {
 	int i;
@@ -969,7 +912,20 @@ static void *ac_get_obj(struct kmem_cache *cachep, struct array_cache *ac,
 	return objp;
 }
 
-static void ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
+static inline void *ac_get_obj(struct kmem_cache *cachep,
+			struct array_cache *ac, gfp_t flags, bool force_refill)
+{
+	void *objp;
+
+	if (unlikely(sk_memalloc_socks()))
+		objp = __ac_get_obj(cachep, ac, flags, force_refill);
+	else
+		objp = ac->entry[--ac->avail];
+
+	return objp;
+}
+
+static void *__ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
 								void *objp)
 {
 	if (unlikely(pfmemalloc_active)) {
@@ -978,6 +934,15 @@ static void ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
 		if (PageSlabPfmemalloc(page))
 			set_obj_pfmemalloc(&objp);
 	}
+
+	return objp;
+}
+
+static inline void ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
+								void *objp)
+{
+	if (unlikely(sk_memalloc_socks()))
+		objp = __ac_put_obj(cachep, ac, objp);
 
 	ac->entry[ac->avail++] = objp;
 }
@@ -1609,30 +1574,6 @@ void __init kmem_cache_init(void)
 
 	slab_early_init = 0;
 
-	for (i = 1; i < PAGE_SHIFT + MAX_ORDER; i++) {
-		size_t cs_size = kmalloc_size(i);
-
-		if (cs_size < KMALLOC_MIN_SIZE)
-			continue;
-
-		if (!kmalloc_caches[i]) {
-			/*
-			 * For performance, all the general caches are L1 aligned.
-			 * This should be particularly beneficial on SMP boxes, as it
-			 * eliminates "false sharing".
-			 * Note for systems short on memory removing the alignment will
-			 * allow tighter packing of the smaller caches.
-			 */
-			kmalloc_caches[i] = create_kmalloc_cache("kmalloc",
-					cs_size, ARCH_KMALLOC_FLAGS);
-		}
-
-#ifdef CONFIG_ZONE_DMA
-		kmalloc_dma_caches[i] = create_kmalloc_cache(
-			"kmalloc-dma", cs_size,
-			SLAB_CACHE_DMA|ARCH_KMALLOC_FLAGS);
-#endif
-	}
 	/* 4) Replace the bootstrap head arrays */
 	{
 		struct array_cache *ptr;
@@ -1678,29 +1619,7 @@ void __init kmem_cache_init(void)
 		}
 	}
 
-	slab_state = UP;
-
-	/* Create the proper names */
-	for (i = 1; i < PAGE_SHIFT + MAX_ORDER; i++) {
-		char *s;
-		struct kmem_cache *c = kmalloc_caches[i];
-
-		if (!c)
-			continue;
-
-		s = kasprintf(GFP_NOWAIT, "kmalloc-%d", kmalloc_size(i));
-
-		BUG_ON(!s);
-		c->name = s;
-
-#ifdef CONFIG_ZONE_DMA
-		c = kmalloc_dma_caches[i];
-		BUG_ON(!c);
-		s = kasprintf(GFP_NOWAIT, "dma-kmalloc-%d", kmalloc_size(i));
-		BUG_ON(!s);
-		c->name = s;
-#endif
-	}
+	create_kmalloc_caches(ARCH_KMALLOC_FLAGS);
 }
 
 void __init kmem_cache_init_late(void)
@@ -1761,6 +1680,7 @@ __initcall(cpucache_init);
 static noinline void
 slab_out_of_memory(struct kmem_cache *cachep, gfp_t gfpflags, int nodeid)
 {
+#if DEBUG
 	struct kmem_cache_node *n;
 	struct slab *slabp;
 	unsigned long flags;
@@ -2003,11 +1923,9 @@ static void print_objinfo(struct kmem_cache *cachep, void *objp, int lines)
 	}
 
 	if (cachep->flags & SLAB_STORE_USER) {
-		printk(KERN_ERR "Last user: [<%p>]",
-			*dbg_userword(cachep, objp));
-		print_symbol("(%s)",
-				(unsigned long)*dbg_userword(cachep, objp));
-		printk("\n");
+		printk(KERN_ERR "Last user: [<%p>](%pSR)\n",
+		       *dbg_userword(cachep, objp),
+		       *dbg_userword(cachep, objp));
 	}
 	realobj = (char *)objp + obj_offset(cachep);
 	size = cachep->object_size;
@@ -2392,8 +2310,9 @@ __kmem_cache_create (struct kmem_cache *cachep, unsigned long flags)
 	}
 #if FORCED_DEBUG && defined(CONFIG_DEBUG_PAGEALLOC)
 	if (size >= kmalloc_size(INDEX_NODE + 1)
-	    && cachep->object_size > cache_line_size() && ALIGN(size, align) < PAGE_SIZE) {
-		cachep->obj_offset += PAGE_SIZE - ALIGN(size, align);
+	    && cachep->object_size > cache_line_size()
+	    && ALIGN(size, cachep->align) < PAGE_SIZE) {
+		cachep->obj_offset += PAGE_SIZE - ALIGN(size, cachep->align);
 		size = PAGE_SIZE;
 	}
 #endif
@@ -3255,7 +3174,7 @@ out:
 
 #ifdef CONFIG_NUMA
 /*
- * Try allocating on another node if PFA_SPREAD_SLAB|PF_MEMPOLICY.
+ * Try allocating on another node if PF_SPREAD_SLAB|PF_MEMPOLICY.
  *
  * If we are in_interrupt, then process context, including cpusets and
  * mempolicy, may not apply and should not be used for allocation policy.
@@ -3374,6 +3293,7 @@ static void *____cache_alloc_node(struct kmem_cache *cachep, gfp_t flags,
 	void *obj;
 	int x;
 
+	VM_BUG_ON(nodeid > num_online_nodes());
 	n = cachep->node[nodeid];
 	BUG_ON(!n);
 
@@ -3498,7 +3418,7 @@ __do_cache_alloc(struct kmem_cache *cache, gfp_t flags)
 {
 	void *objp;
 
-	if (unlikely((current->flags & PF_MEMPOLICY) || cpuset_do_slab_mem_spread())) {
+	if (unlikely(current->flags & (PF_SPREAD_SLAB | PF_MEMPOLICY))) {
 		objp = alternate_node_alloc(cache, flags);
 		if (objp)
 			goto out;
@@ -4463,7 +4383,7 @@ static int leaks_show(struct seq_file *m, void *p)
 	struct slab *slabp;
 	struct kmem_cache_node *n;
 	const char *name;
-	unsigned long *n = m->private;
+	unsigned long *x = m->private;
 	int node;
 	int i;
 
@@ -4474,7 +4394,7 @@ static int leaks_show(struct seq_file *m, void *p)
 
 	/* OK, we can do it */
 
-	n[1] = 0;
+	x[1] = 0;
 
 	for_each_online_node(node) {
 		n = cachep->node[node];
@@ -4485,32 +4405,32 @@ static int leaks_show(struct seq_file *m, void *p)
 		spin_lock_irq(&n->list_lock);
 
 		list_for_each_entry(slabp, &n->slabs_full, list)
-			handle_slab(n, cachep, slabp);
+			handle_slab(x, cachep, slabp);
 		list_for_each_entry(slabp, &n->slabs_partial, list)
-			handle_slab(n, cachep, slabp);
+			handle_slab(x, cachep, slabp);
 		spin_unlock_irq(&n->list_lock);
 	}
 	name = cachep->name;
-	if (n[0] == n[1]) {
+	if (x[0] == x[1]) {
 		/* Increase the buffer size */
 		mutex_unlock(&slab_mutex);
-		m->private = kzalloc(n[0] * 4 * sizeof(unsigned long), GFP_KERNEL);
+		m->private = kzalloc(x[0] * 4 * sizeof(unsigned long), GFP_KERNEL);
 		if (!m->private) {
 			/* Too bad, we are really out */
-			m->private = n;
+			m->private = x;
 			mutex_lock(&slab_mutex);
 			return -ENOMEM;
 		}
-		*(unsigned long *)m->private = n[0] * 2;
-		kfree(n);
+		*(unsigned long *)m->private = x[0] * 2;
+		kfree(x);
 		mutex_lock(&slab_mutex);
 		/* Now make sure this entry will be retried */
 		m->count = m->size;
 		return 0;
 	}
-	for (i = 0; i < n[1]; i++) {
-		seq_printf(m, "%s: %lu ", name, n[2*i+3]);
-		show_symbol(m, n[2*i+2]);
+	for (i = 0; i < x[1]; i++) {
+		seq_printf(m, "%s: %lu ", name, x[2*i+3]);
+		show_symbol(m, x[2*i+2]);
 		seq_putc(m, '\n');
 	}
 
