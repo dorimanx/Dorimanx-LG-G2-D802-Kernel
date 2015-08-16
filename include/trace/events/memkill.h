@@ -39,7 +39,7 @@ TRACE_EVENT(oom_kill,
 			si_swapinfo(&i);
 
 			__entry->cached = (global_page_state(NR_FILE_PAGES) -
-					total_swapcache_pages - i.bufferram)
+					total_swapcache_pages() - i.bufferram)
 						<< (PAGE_SHIFT - 10);
 			if (__entry->cached < 0)
 				__entry->cached = 0;
@@ -117,7 +117,7 @@ TRACE_EVENT(lmk_kill,
 			si_swapinfo(&i);
 
 			__entry->cached = (global_page_state(NR_FILE_PAGES) -
-					total_swapcache_pages - i.bufferram)
+					total_swapcache_pages() - i.bufferram)
 						<< (PAGE_SHIFT - 10);
 			if (__entry->cached < 0)
 				__entry->cached = 0;

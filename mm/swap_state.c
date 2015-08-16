@@ -62,6 +62,7 @@ unsigned long total_swapcache_pages(void)
 		ret += swapper_spaces[i].nrpages;
 	return ret;
 }
+EXPORT_SYMBOL_GPL(total_swapcache_pages);
 
 void show_swap_cache_info(void)
 {
