@@ -1,5 +1,7 @@
 #!/bin/bash
 
+LANG=C
+
 PYTHON_CHECK=$(ls -la /usr/bin/python | grep python3 | wc -l);
 PYTHON_WAS_3=0;
 
