@@ -275,11 +275,11 @@ other_file_show(struct kobject *kobj,
         * other_free and other_file are modified depending on zone index or/and
         * memory offlining.
         */
-       if (global_page_state(NR_SHMEM) + total_swapcache_pages <
+       if (global_page_state(NR_SHMEM) + total_swapcache_pages() <
            global_page_state(NR_FILE_PAGES))
                other_file = global_page_state(NR_FILE_PAGES) -
                             global_page_state(NR_SHMEM) -
-                            total_swapcache_pages;
+                            total_swapcache_pages();
        else
                other_file = 0;
 #elif defined(NONANDROID)
