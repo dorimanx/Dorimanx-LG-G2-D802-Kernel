@@ -1,6 +1,8 @@
 #!/bin/bash
 clear
 
+LANG=C
+
 # Initia script by @glewarne big thanks!
 
 # What you need installed to compile
