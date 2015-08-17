@@ -58,9 +58,9 @@
 #include <linux/swapops.h>
 #include <linux/elf.h>
 #include <linux/gfp.h>
-#include <linux/bug.h>
 #include <linux/migrate.h>
 #include <linux/string.h>
+#include <linux/bug.h>
 
 #include <asm/io.h>
 #include <asm/pgalloc.h>
@@ -70,6 +70,10 @@
 #include <asm/pgtable.h>
 
 #include "internal.h"
+
+#ifdef LAST_NID_NOT_IN_PAGE_FLAGS
+#warning Unfortunate NUMA and NUMA Balancing config, growing page-frame for last_nid.
+#endif
 
 #ifndef CONFIG_NEED_MULTIPLE_NODES
 /* use the per-pgdat data instead for discontigmem - mbligh */
@@ -1862,7 +1866,8 @@ long __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 						else
 							return -EFAULT;
 					}
-					if (ret & (VM_FAULT_SIGBUS | VM_FAULT_SIGSEGV))
+					if (ret & (VM_FAULT_SIGBUS |
+						   VM_FAULT_SIGSEGV))
 						return i ? i : -EFAULT;
 					BUG();
 				}
