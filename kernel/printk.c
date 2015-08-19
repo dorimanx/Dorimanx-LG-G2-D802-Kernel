@@ -32,6 +32,7 @@
 #include <linux/security.h>
 #include <linux/bootmem.h>
 #include <linux/memblock.h>
+#include <linux/aio.h>
 #include <linux/syscalls.h>
 #include <linux/kexec.h>
 #include <linux/kdb.h>
@@ -41,9 +42,9 @@
 #include <linux/cpu.h>
 #include <linux/notifier.h>
 #include <linux/rculist.h>
+#include <linux/poll.h>
 #include <linux/irq_work.h>
 #include <linux/utsname.h>
-#include <linux/poll.h>
 
 #include <asm/uaccess.h>
 
