@@ -99,8 +99,8 @@ unsigned long vm_dirty_bytes;
 /*
  * The interval between `kupdate'-style writebacks
  */
-#define DEFAULT_DIRTY_WRITEBACK_INTERVAL 600 /* centiseconds */
-#define DEFAULT_SUSPEND_DIRTY_WRITEBACK_INTERVAL 6000 /* centiseconds */
+#define DEFAULT_DIRTY_WRITEBACK_INTERVAL 500 /* centiseconds */
+#define DEFAULT_SUSPEND_DIRTY_WRITEBACK_INTERVAL 1000 /* centiseconds */
 unsigned int dirty_writeback_interval,
 	resume_dirty_writeback_interval;
 unsigned int sleep_dirty_writeback_interval,
@@ -112,7 +112,7 @@ EXPORT_SYMBOL_GPL(dirty_writeback_interval);
  * The longest time for which data is allowed to remain dirty
  */
 #define DEFAULT_DIRTY_EXPIRE_INTERVAL 3000 /* centiseconds */
-#define DEFAULT_SUSPEND_DIRTY_EXPIRE_INTERVAL 12000 /* centiseconds */
+#define DEFAULT_SUSPEND_DIRTY_EXPIRE_INTERVAL 6000 /* centiseconds */
 unsigned int dirty_expire_interval,
 	resume_dirty_expire_interval;
 unsigned int sleep_dirty_expire_interval,
