@@ -41,6 +41,7 @@
 #include <linux/slab.h>
 #include <linux/syscore_ops.h>
 
+#include <asm/cputype.h>
 #include <asm/irq.h>
 #include <asm/exception.h>
 #include <asm/smp_plat.h>
@@ -147,7 +148,7 @@ static inline void gic_set_base_accessor(struct gic_chip_data *data,
 #else
 #define gic_data_dist_base(d)	((d)->dist_base.common_base)
 #define gic_data_cpu_base(d)	((d)->cpu_base.common_base)
-#define gic_set_base_accessor(d,f)
+#define gic_set_base_accessor(d, f)
 #endif
 
 static inline void __iomem *gic_dist_base(struct irq_data *d)
@@ -214,6 +215,9 @@ static void gic_unmask_irq(struct irq_data *d)
 
 static void gic_disable_irq(struct irq_data *d)
 {
+	/* don't lazy-disable PPIs */
+	if (gic_irq(d) < 32)
+		gic_mask_irq(d);
 	if (gic_arch_extn.irq_disable)
 		gic_arch_extn.irq_disable(d);
 }
@@ -285,7 +289,6 @@ static void gic_resume_one(struct gic_chip_data *gic)
 {
 	unsigned int i;
 	void __iomem *base = gic_data_dist_base(gic);
-
 	gic_show_resume_irq(gic);
 	for (i = 0; i * 32 < gic->gic_irqs; i++) {
 		/* disable all of them */
@@ -382,7 +385,7 @@ static int gic_retrigger(struct irq_data *d)
 	if (gic_arch_extn.irq_retrigger)
 		return gic_arch_extn.irq_retrigger(d);
 
-	/* the genirq layer expects 0 for a failure */
+	/* the genirq layer expects 0 if we can't retrigger in hardware */
 	return 0;
 }
 
@@ -443,7 +446,7 @@ static int gic_set_wake(struct irq_data *d, unsigned int on)
 #define gic_set_wake	NULL
 #endif
 
-asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
+static asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 {
 	u32 irqstat, irqnr;
 	struct gic_chip_data *gic = &gic_data[0];
@@ -463,8 +466,8 @@ asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 			writel_relaxed_no_log(irqstat, cpu_base + GIC_CPU_EOI);
 #ifdef CONFIG_SMP
 			handle_IPI(irqnr, regs);
-			uncached_logk(LOGK_IRQ, (void *)(uintptr_t)irqnr);
 #endif
+			uncached_logk(LOGK_IRQ, (void *)(uintptr_t)irqnr);
 			continue;
 		}
 		break;
@@ -494,6 +497,7 @@ static bool gic_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
 		do_bad_IRQ(cascade_irq, desc);
 	else
 		handled = generic_handle_irq(cascade_irq);
+
 
  out:
 	chained_irq_exit(chip, desc);
@@ -591,7 +595,6 @@ static void __init gic_dist_init(struct gic_chip_data *gic)
 		writel_relaxed(3, base + GIC_DIST_CTRL);
 	else
 		writel_relaxed(1, base + GIC_DIST_CTRL);
-
 	mb();
 }
 
@@ -640,7 +643,7 @@ static void __cpuinit gic_cpu_init(struct gic_chip_data *gic)
 		writel_relaxed(0xF, base + GIC_CPU_CTRL);
 	else
 		writel_relaxed(1, base + GIC_CPU_CTRL);
-    mb();
+	mb();
 }
 
 #ifdef CONFIG_CPU_PM
@@ -778,6 +781,11 @@ static void gic_cpu_restore(unsigned int gic_nr)
 	if (!dist_base || !cpu_base)
 		return;
 
+	ptr = __this_cpu_ptr(gic_data[gic_nr].saved_ppi_enable);
+	for (i = 0; i < DIV_ROUND_UP(32, 32); i++)
+		writel_relaxed_no_log(ptr[i], dist_base +
+			GIC_DIST_ENABLE_SET + i * 4);
+
 	ptr = __this_cpu_ptr(gic_data[gic_nr].saved_ppi_conf);
 	for (i = 0; i < DIV_ROUND_UP(32, 16); i++)
 		writel_relaxed_no_log(ptr[i], dist_base +
@@ -786,10 +794,6 @@ static void gic_cpu_restore(unsigned int gic_nr)
 	for (i = 0; i < DIV_ROUND_UP(32, 4); i++)
 		writel_relaxed_no_log(gic_data[gic_nr].saved_dist_pri[i],
 			dist_base + GIC_DIST_PRI + i * 4);
-
-	ptr = __this_cpu_ptr(gic_data[gic_nr].saved_ppi_enable);
-	for (i = 0; i < DIV_ROUND_UP(32, 32); i++)
-		writel_relaxed_no_log(ptr[i], dist_base + GIC_DIST_ENABLE_SET + i * 4);
 
 	writel_relaxed_no_log(0xf0, cpu_base + GIC_CPU_PRIMASK);
 	writel_relaxed_no_log(saved_cpu_ctrl, cpu_base + GIC_CPU_CTRL);
@@ -865,6 +869,63 @@ static void gic_dist_save(unsigned int gic_nr)
 }
 #endif
 
+#ifdef CONFIG_SMP
+void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
+{
+	int cpu;
+	unsigned long sgir;
+	unsigned long map = 0;
+	struct gic_chip_data *gic = &gic_data[0];
+
+	/* Convert our logical CPU mask into a physical one. */
+	for_each_cpu(cpu, mask)
+		map |= gic_cpu_map[cpu];
+
+	sgir = (map << 16) | irq;
+	if (is_cpu_secure())
+		sgir |= (1 << 15);
+	/*
+	 * Ensure that stores to Normal memory are visible to the
+	 * other CPUs before issuing the IPI.
+	 */
+	dsb();
+
+	/* this always happens on GIC0 */
+	writel_relaxed_no_log(sgir,
+			gic_data_dist_base(gic) + GIC_DIST_SOFTINT);
+	mb();
+}
+#endif
+
+void gic_set_irq_secure(unsigned int irq)
+{
+	unsigned int gicd_isr_reg, gicd_pri_reg;
+	unsigned int mask = 0xFFFFFF00;
+	struct gic_chip_data *gic_data = &gic_data[0];
+	struct irq_data *d = irq_get_irq_data(irq);
+
+	if (is_cpu_secure()) {
+		raw_spin_lock(&irq_controller_lock);
+		gicd_isr_reg = readl_relaxed(gic_dist_base(d) +
+				GIC_DIST_ISR + gic_irq(d) / 32 * 4);
+		gicd_isr_reg &= ~BIT(gic_irq(d) % 32);
+		writel_relaxed(gicd_isr_reg, gic_dist_base(d) +
+				GIC_DIST_ISR + gic_irq(d) / 32 * 4);
+		/* Also increase the priority of that irq */
+		gicd_pri_reg = readl_relaxed(gic_dist_base(d) +
+					GIC_DIST_PRI + (gic_irq(d) * 4 / 4));
+		gicd_pri_reg &= mask;
+		gicd_pri_reg |= 0x80; /* Priority of 0x80 > 0xA0 */
+		writel_relaxed(gicd_pri_reg, gic_dist_base(d) + GIC_DIST_PRI +
+				gic_irq(d) * 4 / 4);
+		mb();
+		raw_spin_unlock(&irq_controller_lock);
+	} else {
+		WARN(1, "Trying to run secure operation from Non-secure mode");
+	}
+}
+
+
 static int gic_irq_domain_map(struct irq_domain *d, unsigned int irq,
 				irq_hw_number_t hw)
 {
@@ -938,7 +999,6 @@ void __init gic_init_bases(unsigned int gic_nr, int irq_start,
 	BUG_ON(gic_nr >= MAX_GIC_NR);
 
 	gic = &gic_data[gic_nr];
-
 #ifdef CONFIG_GIC_NON_BANKED
 	if (percpu_offset) { /* Frankein-GIC without banked registers... */
 		unsigned int cpu;
@@ -946,14 +1006,16 @@ void __init gic_init_bases(unsigned int gic_nr, int irq_start,
 		gic->dist_base.percpu_base = alloc_percpu(void __iomem *);
 		gic->cpu_base.percpu_base = alloc_percpu(void __iomem *);
 		if (WARN_ON(!gic->dist_base.percpu_base ||
-			     !gic->cpu_base.percpu_base)) {
+			    !gic->cpu_base.percpu_base)) {
 			free_percpu(gic->dist_base.percpu_base);
 			free_percpu(gic->cpu_base.percpu_base);
 			return;
 		}
 
 		for_each_possible_cpu(cpu) {
-			unsigned long offset = percpu_offset * cpu_logical_map(cpu);
+			u32 mpidr = cpu_logical_map(cpu);
+			u32 core_id = MPIDR_AFFINITY_LEVEL(mpidr, 0);
+			unsigned long offset = percpu_offset * core_id;
 			*per_cpu_ptr(gic->dist_base.percpu_base, cpu) = dist_base + offset;
 			*per_cpu_ptr(gic->cpu_base.percpu_base, cpu) = cpu_base + offset;
 		}
@@ -1012,8 +1074,11 @@ void __init gic_init_bases(unsigned int gic_nr, int irq_start,
 		return;
 
 #ifdef CONFIG_SMP
+	set_smp_cross_call(gic_raise_softirq);
 	register_cpu_notifier(&gic_cpu_notifier);
 #endif
+
+	set_handle_irq(gic_handle_irq);
 
 	gic_chip.flags |= gic_arch_extn.flags;
 	gic_dist_init(gic);
@@ -1021,64 +1086,8 @@ void __init gic_init_bases(unsigned int gic_nr, int irq_start,
 	gic_pm_init(gic);
 }
 
-#ifdef CONFIG_SMP
-void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
-{
-	int cpu;
-	unsigned long sgir;
-	unsigned long map = 0;
-	struct gic_chip_data *gic = &gic_data[0];
-
-	/* Convert our logical CPU mask into a physical one. */
-	for_each_cpu(cpu, mask)
-		map |= gic_cpu_map[cpu];
-
-	sgir = (map << 16) | irq;
-	if (is_cpu_secure())
-		sgir |= (1 << 15);
-
-	/*
-	 * Ensure that stores to Normal memory are visible to the
-	 * other CPUs before issuing the IPI.
-	 */
-	dsb();
-
-	/* this always happens on GIC0 */
-	writel_relaxed_no_log(sgir, gic_data_dist_base(gic) + GIC_DIST_SOFTINT);
-	mb();
-}
-#endif
-
-void gic_set_irq_secure(unsigned int irq)
-{
-	unsigned int gicd_isr_reg, gicd_pri_reg;
-	unsigned int mask = 0xFFFFFF00;
-	struct gic_chip_data *gic_data = &gic_data[0];
-	struct irq_data *d = irq_get_irq_data(irq);
-
-	if (is_cpu_secure()) {
-		raw_spin_lock(&irq_controller_lock);
-		gicd_isr_reg = readl_relaxed(gic_dist_base(d) +
-				GIC_DIST_ISR + gic_irq(d) / 32 * 4);
-		gicd_isr_reg &= ~BIT(gic_irq(d) % 32);
-		writel_relaxed(gicd_isr_reg, gic_dist_base(d) +
-				GIC_DIST_ISR + gic_irq(d) / 32 * 4);
-		/* Also increase the priority of that irq */
-		gicd_pri_reg = readl_relaxed(gic_dist_base(d) +
-					GIC_DIST_PRI + (gic_irq(d) * 4 / 4));
-		gicd_pri_reg &= mask;
-		gicd_pri_reg |= 0x80; /* Priority of 0x80 > 0xA0 */
-		writel_relaxed(gicd_pri_reg, gic_dist_base(d) + GIC_DIST_PRI +
-				gic_irq(d) * 4 / 4);
-		mb();
-		raw_spin_unlock(&irq_controller_lock);
-	} else {
-		WARN(1, "Trying to run secure operation from Non-secure mode");
-	}
-}
-
 #ifdef CONFIG_OF
-static int gic_cnt __initdata = 0;
+static int gic_cnt __initdata;
 
 int __init gic_of_init(struct device_node *node, struct device_node *parent)
 {
