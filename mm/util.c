@@ -4,10 +4,10 @@
 #include <linux/export.h>
 #include <linux/err.h>
 #include <linux/sched.h>
-#include <linux/vmalloc.h>
 #include <linux/security.h>
 #include <linux/swap.h>
 #include <linux/swapops.h>
+#include <linux/vmalloc.h>
 #include <asm/uaccess.h>
 
 #include "internal.h"
