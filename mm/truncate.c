@@ -569,8 +569,8 @@ EXPORT_SYMBOL(truncate_pagecache);
 void truncate_setsize(struct inode *inode, loff_t newsize)
 {
 	loff_t oldsize = inode->i_size;
-	i_size_write(inode, newsize);
 
+	i_size_write(inode, newsize);
 	if (newsize > oldsize)
 		pagecache_isize_extended(inode, oldsize, newsize);
 	truncate_pagecache(inode, oldsize, newsize);
