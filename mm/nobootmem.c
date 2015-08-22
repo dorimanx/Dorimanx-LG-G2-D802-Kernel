@@ -45,9 +45,9 @@ static void * __init __alloc_memory_core_early(int nid, u64 size, u64 align,
 	if (!addr)
 		return NULL;
 
+	memblock_reserve(addr, size);
 	ptr = phys_to_virt(addr);
 	memset(ptr, 0, size);
-	memblock_reserve(addr, size);
 	/*
 	 * The min_count is set to 0 so that bootmem allocated blocks
 	 * are never reported as leaks.
@@ -65,7 +65,7 @@ static void * __init __alloc_memory_core_early(int nid, u64 size, u64 align,
  * down, but we are still initializing the system.  Pages are given directly
  * to the page allocator, no bootmem metadata is updated because it is gone.
  */
-void __init free_bootmem_late(unsigned long addr, unsigned long size)
+void free_bootmem_late(unsigned long addr, unsigned long size)
 {
 	unsigned long cursor, end;
 
@@ -82,27 +82,18 @@ void __init free_bootmem_late(unsigned long addr, unsigned long size)
 
 static void __init __free_pages_memory(unsigned long start, unsigned long end)
 {
-	unsigned long i, start_aligned, end_aligned;
-	int order = ilog2(BITS_PER_LONG);
+	int order;
 
-	start_aligned = (start + (BITS_PER_LONG - 1)) & ~(BITS_PER_LONG - 1);
-	end_aligned = end & ~(BITS_PER_LONG - 1);
+	while (start < end) {
+		order = min(MAX_ORDER - 1UL, __ffs(start));
 
-	if (end_aligned <= start_aligned) {
-		for (i = start; i < end; i++)
-			__free_pages_bootmem(pfn_to_page(i), 0);
+		while (start + (1UL << order) > end)
+			order--;
 
-		return;
+		__free_pages_bootmem(pfn_to_page(start), order);
+
+		start += (1UL << order);
 	}
-
-	for (i = start; i < start_aligned; i++)
-		__free_pages_bootmem(pfn_to_page(i), 0);
-
-	for (i = start_aligned; i < end_aligned; i += BITS_PER_LONG)
-		__free_pages_bootmem(pfn_to_page(i), order);
-
-	for (i = end_aligned; i < end; i++)
-		__free_pages_bootmem(pfn_to_page(i), 0);
 }
 
 static unsigned long __init __free_memory_core(phys_addr_t start,
@@ -120,7 +111,7 @@ static unsigned long __init __free_memory_core(phys_addr_t start,
 	return end_pfn - start_pfn;
 }
 
-unsigned long __init free_low_memory_core_early(int nodeid)
+static unsigned long __init free_low_memory_core_early(void)
 {
 	unsigned long count = 0;
 	phys_addr_t start, end, size;
@@ -137,35 +128,25 @@ unsigned long __init free_low_memory_core_early(int nodeid)
 	return count;
 }
 
-static void reset_node_lowmem_managed_pages(pg_data_t *pgdat)
+static int reset_managed_pages_done __initdata;
+
+static inline void __init reset_node_managed_pages(pg_data_t *pgdat)
 {
 	struct zone *z;
 
-	/*
-	 * In free_area_init_core(), highmem zone's managed_pages is set to
-	 * present_pages, and bootmem allocator doesn't allocate from highmem
-	 * zones. So there's no need to recalculate managed_pages because all
-	 * highmem pages will be managed by the buddy system. Here highmem
-	 * zone also includes highmem movable zone.
-	 */
+	if (reset_managed_pages_done)
+		return;
 	for (z = pgdat->node_zones; z < pgdat->node_zones + MAX_NR_ZONES; z++)
-		if (!is_highmem(z))
-			z->managed_pages = 0;
+		z->managed_pages = 0;
 }
 
-/**
- * free_all_bootmem_node - release a node's free pages to the buddy allocator
- * @pgdat: node to be released
- *
- * Returns the number of pages actually released.
- */
-unsigned long __init free_all_bootmem_node(pg_data_t *pgdat)
+void __init reset_all_zones_managed_pages(void)
 {
-	register_page_bootmem_info_node(pgdat);
-	reset_node_lowmem_managed_pages(pgdat);
+	struct pglist_data *pgdat;
 
-	/* free_low_memory_core_early(MAX_NUMNODES) will be called later */
-	return 0;
+	for_each_online_pgdat(pgdat)
+		reset_node_managed_pages(pgdat);
+	reset_managed_pages_done = 1;
 }
 
 /**
@@ -175,19 +156,19 @@ unsigned long __init free_all_bootmem_node(pg_data_t *pgdat)
  */
 unsigned long __init free_all_bootmem(void)
 {
-	struct pglist_data *pgdat;
+	unsigned long pages;
 
-	for_each_online_pgdat(pgdat)
-		reset_node_lowmem_managed_pages(pgdat);
+	reset_all_zones_managed_pages();
 
 	/*
 	 * We need to use MAX_NUMNODES instead of NODE_DATA(0)->node_id
 	 *  because in some case like Node0 doesn't have RAM installed
 	 *  low ram will be on Node1
-	 * Use MAX_NUMNODES will make sure all ranges in early_node_map[]
-	 *  will be used instead of only Node0 related
 	 */
-	return free_low_memory_core_early(MAX_NUMNODES);
+	pages = free_low_memory_core_early();
+	totalram_pages += pages;
+
+	return pages;
 }
 
 /**
@@ -373,24 +354,10 @@ void * __init ___alloc_bootmem_node(pg_data_t *pgdat, unsigned long size,
 void * __init __alloc_bootmem_node(pg_data_t *pgdat, unsigned long size,
 				   unsigned long align, unsigned long goal)
 {
-	void *ptr;
-
 	if (WARN_ON_ONCE(slab_is_available()))
 		return kzalloc_node(size, GFP_NOWAIT, pgdat->node_id);
 
-again:
-	ptr = __alloc_memory_core_early(pgdat->node_id, size, align,
-					 goal, -1ULL);
-	if (ptr)
-		return ptr;
-
-	ptr = __alloc_memory_core_early(MAX_NUMNODES, size, align,
-					goal, -1ULL);
-	if (!ptr && goal) {
-		goal = 0;
-		goto again;
-	}
-	return ptr;
+	return ___alloc_bootmem_node(pgdat, size, align, goal, 0);
 }
 
 void * __init __alloc_bootmem_node_high(pg_data_t *pgdat, unsigned long size,
@@ -448,16 +415,9 @@ void * __init __alloc_bootmem_low_nopanic(unsigned long size,
 void * __init __alloc_bootmem_low_node(pg_data_t *pgdat, unsigned long size,
 				       unsigned long align, unsigned long goal)
 {
-	void *ptr;
-
 	if (WARN_ON_ONCE(slab_is_available()))
 		return kzalloc_node(size, GFP_NOWAIT, pgdat->node_id);
 
-	ptr = __alloc_memory_core_early(pgdat->node_id, size, align,
-				goal, ARCH_LOW_ADDRESS_LIMIT);
-	if (ptr)
-		return ptr;
-
-	return  __alloc_memory_core_early(MAX_NUMNODES, size, align,
-				goal, ARCH_LOW_ADDRESS_LIMIT);
+	return ___alloc_bootmem_node(pgdat, size, align, goal,
+				     ARCH_LOW_ADDRESS_LIMIT);
 }

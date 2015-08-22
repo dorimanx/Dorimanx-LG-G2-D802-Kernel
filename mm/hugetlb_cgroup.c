@@ -77,7 +77,7 @@ static inline bool hugetlb_cgroup_have_usage(struct cgroup *cg)
 	return false;
 }
 
-static struct cgroup_subsys_state *hugetlb_cgroup_create(struct cgroup *cgroup)
+static struct cgroup_subsys_state *hugetlb_cgroup_css_alloc(struct cgroup *cgroup)
 {
 	int idx;
 	struct cgroup *parent_cgroup;
@@ -101,7 +101,7 @@ static struct cgroup_subsys_state *hugetlb_cgroup_create(struct cgroup *cgroup)
 	return &h_cgroup->css;
 }
 
-static void hugetlb_cgroup_destroy(struct cgroup *cgroup)
+static void hugetlb_cgroup_css_free(struct cgroup *cgroup)
 {
 	struct hugetlb_cgroup *h_cgroup;
 
@@ -109,10 +109,69 @@ static void hugetlb_cgroup_destroy(struct cgroup *cgroup)
 	kfree(h_cgroup);
 }
 
-static int hugetlb_cgroup_pre_destroy(struct cgroup *cgroup)
+
+/*
+ * Should be called with hugetlb_lock held.
+ * Since we are holding hugetlb_lock, pages cannot get moved from
+ * active list or uncharged from the cgroup, So no need to get
+ * page reference and test for page active here. This function
+ * cannot fail.
+ */
+static void hugetlb_cgroup_move_parent(int idx, struct cgroup *cgroup,
+				       struct page *page)
 {
-	/* We will add the cgroup removal support in later patches */
-	   return -EBUSY;
+	int csize;
+	struct res_counter *counter;
+	struct res_counter *fail_res;
+	struct hugetlb_cgroup *page_hcg;
+	struct hugetlb_cgroup *h_cg   = hugetlb_cgroup_from_cgroup(cgroup);
+	struct hugetlb_cgroup *parent = parent_hugetlb_cgroup(cgroup);
+
+	page_hcg = hugetlb_cgroup_from_page(page);
+	/*
+	 * We can have pages in active list without any cgroup
+	 * ie, hugepage with less than 3 pages. We can safely
+	 * ignore those pages.
+	 */
+	if (!page_hcg || page_hcg != h_cg)
+		goto out;
+
+	csize = PAGE_SIZE << compound_order(page);
+	if (!parent) {
+		parent = root_h_cgroup;
+		/* root has no limit */
+		res_counter_charge_nofail(&parent->hugepage[idx],
+					  csize, &fail_res);
+	}
+	counter = &h_cg->hugepage[idx];
+	res_counter_uncharge_until(counter, counter->parent, csize);
+
+	set_hugetlb_cgroup(page, parent);
+out:
+	return;
+}
+
+/*
+ * Force the hugetlb cgroup to empty the hugetlb resources by moving them to
+ * the parent cgroup.
+ */
+static void hugetlb_cgroup_css_offline(struct cgroup *cgroup)
+{
+	struct hstate *h;
+	struct page *page;
+	int idx = 0;
+
+	do {
+		for_each_hstate(h) {
+			spin_lock(&hugetlb_lock);
+			list_for_each_entry(page, &h->hugepage_activelist, lru)
+				hugetlb_cgroup_move_parent(idx, cgroup, page);
+
+			spin_unlock(&hugetlb_lock);
+			idx++;
+		}
+		cond_resched();
+	} while (hugetlb_cgroup_have_usage(cgroup));
 }
 
 int hugetlb_cgroup_charge_cgroup(int idx, unsigned long nr_pages,
@@ -147,6 +206,7 @@ done:
 	return ret;
 }
 
+/* Should be called with hugetlb_lock held */
 void hugetlb_cgroup_commit_charge(int idx, unsigned long nr_pages,
 				  struct hugetlb_cgroup *h_cg,
 				  struct page *page)
@@ -154,9 +214,7 @@ void hugetlb_cgroup_commit_charge(int idx, unsigned long nr_pages,
 	if (hugetlb_cgroup_disabled() || !h_cg)
 		return;
 
-	spin_lock(&hugetlb_lock);
 	set_hugetlb_cgroup(page, h_cg);
-	spin_unlock(&hugetlb_lock);
 	return;
 }
 
@@ -275,7 +333,7 @@ static char *mem_fmt(char *buf, int size, unsigned long hsize)
 	return buf;
 }
 
-int __init hugetlb_cgroup_file_init(int idx)
+static void __init __hugetlb_cgroup_file_init(int idx)
 {
 	char buf[32];
 	struct cftype *cft;
@@ -317,12 +375,32 @@ int __init hugetlb_cgroup_file_init(int idx)
 
 	WARN_ON(cgroup_add_cftypes(&hugetlb_subsys, h->cgroup_files));
 
-	return 0;
+	return;
 }
 
+void __init hugetlb_cgroup_file_init(void)
+{
+	struct hstate *h;
+
+	for_each_hstate(h) {
+		/*
+		 * Add cgroup control files only if the huge page consists
+		 * of more than two normal pages. This is because we use
+		 * page[2].lru.next for storing cgroup details.
+		 */
+		if (huge_page_order(h) >= HUGETLB_CGROUP_MIN_ORDER)
+			__hugetlb_cgroup_file_init(hstate_index(h));
+	}
+}
+
+/*
+ * hugetlb_lock will make sure a parallel cgroup rmdir won't happen
+ * when we migrate hugepages
+ */
 void hugetlb_cgroup_migrate(struct page *oldhpage, struct page *newhpage)
 {
 	struct hugetlb_cgroup *h_cg;
+	struct hstate *h = page_hstate(oldhpage);
 
 	if (hugetlb_cgroup_disabled())
 		return;
@@ -331,19 +409,18 @@ void hugetlb_cgroup_migrate(struct page *oldhpage, struct page *newhpage)
 	spin_lock(&hugetlb_lock);
 	h_cg = hugetlb_cgroup_from_page(oldhpage);
 	set_hugetlb_cgroup(oldhpage, NULL);
-	cgroup_exclude_rmdir(&h_cg->css);
 
 	/* move the h_cg details to new cgroup */
 	set_hugetlb_cgroup(newhpage, h_cg);
+	list_move(&newhpage->lru, &h->hugepage_activelist);
 	spin_unlock(&hugetlb_lock);
-	cgroup_release_and_wakeup_rmdir(&h_cg->css);
 	return;
 }
 
 struct cgroup_subsys hugetlb_subsys = {
 	.name = "hugetlb",
-	.create     = hugetlb_cgroup_create,
-	.pre_destroy = hugetlb_cgroup_pre_destroy,
-	.destroy    = hugetlb_cgroup_destroy,
-	.subsys_id  = hugetlb_subsys_id,
+	.css_alloc	= hugetlb_cgroup_css_alloc,
+	.css_offline	= hugetlb_cgroup_css_offline,
+	.css_free	= hugetlb_cgroup_css_free,
+	.subsys_id	= hugetlb_subsys_id,
 };
