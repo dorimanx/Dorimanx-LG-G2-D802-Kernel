@@ -533,8 +533,8 @@ static int z180_ringbuffer_init(struct kgsl_device *device)
 	memset(&z180_dev->ringbuffer, 0, sizeof(struct z180_ringbuffer));
 	z180_dev->ringbuffer.prevctx = Z180_INVALID_CONTEXT;
 	z180_dev->ringbuffer.cmdbufdesc.flags = KGSL_MEMFLAGS_GPUREADONLY;
-	return kgsl_allocate_contiguous(&z180_dev->ringbuffer.cmdbufdesc,
-		Z180_RB_SIZE);
+	return kgsl_allocate_contiguous(device,
+			&z180_dev->ringbuffer.cmdbufdesc, Z180_RB_SIZE);
 }
 
 static void z180_ringbuffer_close(struct kgsl_device *device)
