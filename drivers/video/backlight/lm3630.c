@@ -212,14 +212,15 @@ static void lm3630_set_main_current_level(struct i2c_client *client, int level)
 		lm3630_write_reg(client, 0x00, 0x00);
 	} else {
 		if (lm3630_min_backlight_reducer) {
-			if (lm3630_min_backlight_set < 3)
-				lm3630_min_backlight_set = 3;
+			if (lm3630_min_backlight_set < 2)
+				lm3630_min_backlight_set = 2;
 
 			/*
 			 * default ROM min level is 50 when in dark
 			 * and cal_value is 3.
+			 * CHANGED 3 TO 2 AND 0x03 TO 0x02 2018-12-28 JT
 			 */
-			if (lm3630_min_backlight_set > 3) {
+			if (lm3630_min_backlight_set > 2) {
 				if (level < lm3630_min_backlight_set)
 					level = lm3630_min_backlight_set;
 			}
@@ -233,7 +234,7 @@ static void lm3630_set_main_current_level(struct i2c_client *client, int level)
 		if (dev->blmap) {
 			if (level < dev->blmap_size) {
 				cal_value = dev->blmap[level];
-				lm3630_write_reg(client, 0x03,
+				lm3630_write_reg(client, 0x02,
 						cal_value);
 			} else
 				dev_warn(&client->dev,
@@ -242,7 +243,7 @@ static void lm3630_set_main_current_level(struct i2c_client *client, int level)
 						level);
 		} else {
 			cal_value = level;
-			lm3630_write_reg(client, 0x03, cal_value);
+			lm3630_write_reg(client, 0x02, cal_value);
 		}
 	}
 
@@ -272,7 +273,7 @@ static void lm3630_set_main_current_level_no_mapping(
 
 	mutex_lock(&main_lm3630_dev->bl_mutex);
 	if (level != 0) {
-		lm3630_write_reg(client, 0x03, level);
+		lm3630_write_reg(client, 0x02, level);
 	} else {
 		lm3630_write_reg(client, 0x00, 0x00);
 	}
